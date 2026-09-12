@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronLeft, Clock3, Coffee, CreditCard, Lock, Mail, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShieldCheck, ShoppingBag, Star, Trash2, X, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronLeft, Clock3, Coffee, CreditCard, Info, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Trash2, X, XCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -19,8 +19,8 @@ import { normalizeOrderTemperature } from '../../utils/temperature'
 import { buildVatExemptOrderBreakdown, formatVatRate, vatBreakdownFromInclusiveAmount } from '../../utils/pricing'
 import { IMAGE_UPLOAD_ACCEPT, validateImageFile } from '../../utils/imageUpload'
 import { clearCheckoutDraft, readCheckoutDraft, writeCheckoutDraft } from '../../utils/checkoutDraft'
-import { EMAIL_MAX_LENGTH, isValidEmail, isValidPassword, isValidPhone, sanitizePersonName, sanitizePhone } from '../../utils/inputValidation'
-export function MenuPage(){const [query,setQuery]=useState('');const [category,setCategory]=useState('All');const [chipMotion,setChipMotion]=useState('All');const {products,categories,loading,error}=useMenuCatalog();const {addToCart,openProduct,modal}=useProductCustomization({modalVariant:'menu-detail'});useEffect(()=>{const timeout=window.setTimeout(()=>setChipMotion(''),460);return()=>window.clearTimeout(timeout)},[category]);const filtered=products.filter(p=>(category==='All'||p.category===category)&&`${p.name} ${p.description}`.toLowerCase().includes(query.toLowerCase()));return <main className="customer-main"><section className="page-hero"><span>Made fresh in North Fairview</span><h1>Find your next favorite.</h1></section><div className="menu-tools"><label><Search/><span className="sr-only">Search menu</span><input value={query} onChange={e=>setQuery(e.target.value.slice(0,100))} maxLength={100} placeholder="Search drinks, cakes, and meals"/></label><div className="menu-chip-row">{categories.map(c=><button className={`category-chip ${c===category?'active':''} ${c===chipMotion?'is-switching':''}`.trim()} onClick={()=>{setChipMotion(c);setCategory(c)}} key={c} type="button">{c}</button>)}</div></div>{loading?<section className="customer-state">Loading today’s menu…</section>:error?<section className="customer-state error-state"><h2>We couldn’t load the menu.</h2><p>{error}</p></section>:<section className="customer-products menu-results-grid" key={`${category}-${query}`}>{filtered.map(p=><ProductCard key={p.id} product={p} onAddToCart={addToCart} onPreview={openProduct}/>)}</section>}
+import { EMAIL_MAX_LENGTH, isValidEmail, isValidPassword, isValidPhone, sanitizePersonName, sanitizePhone, sanitizeUsername } from '../../utils/inputValidation'
+export function MenuPage(){const [query,setQuery]=useState('');const [category,setCategory]=useState('All');const [chipMotion,setChipMotion]=useState('All');const {products,categories,loading,error}=useMenuCatalog();const {addToCart,openProduct,modal}=useProductCustomization({modalVariant:'menu-detail'});useEffect(()=>{const timeout=window.setTimeout(()=>setChipMotion(''),460);return()=>window.clearTimeout(timeout)},[category]);const filtered=products.filter(p=>(category==='All'||p.category===category)&&`${p.name} ${p.description}`.toLowerCase().includes(query.toLowerCase()));return <main className="customer-main"><section className="page-hero"><span>Made fresh in North Fairview</span><h1>Find your next favorite.</h1></section><div className="menu-tools"><label><Search/><span className="sr-only">Search menu</span><input value={query} onChange={e=>setQuery(e.target.value.slice(0,100))} maxLength={100} placeholder="Search drinks, cakes, and meals"/></label><div className="menu-chip-row">{categories.map(c=><button className={`category-chip ${c===category?'active':''} ${c===chipMotion?'is-switching':''}`.trim()} onClick={()=>{setChipMotion(c);setCategory(c)}} key={c} type="button"><span>{c}</span></button>)}</div></div>{loading?<section className="customer-state">Loading today’s menu…</section>:error?<section className="customer-state error-state"><h2>We couldn’t load the menu.</h2><p>{error}</p></section>:<section className="customer-products menu-results-grid" key={`${category}-${query}`}>{filtered.map(p=><ProductCard key={p.id} product={p} onAddToCart={addToCart} onPreview={openProduct}/>)}</section>}
     {modal}
   </main>
 }
@@ -89,6 +89,7 @@ export function CheckoutPage(){
   const [addresses,setAddresses]=useState([]);const [selectedAddress,setSelectedAddress]=useState('');const [addressMode,setAddressMode]=useState('loading');const [draftReady,setDraftReady]=useState(false);const [requestKey,setRequestKey]=useState(()=>crypto.randomUUID());
   const [form,setForm]=useState(emptyCheckoutForm);const [benefitApplication,setBenefitApplication]=useState(null);
   useEffect(()=>{if(!user?.id)return;const draft=readCheckoutDraft(user.id);if(draft){setForm({...emptyCheckoutForm(),...draft.form});setAddressMode(['saved','new'].includes(draft.addressMode)?draft.addressMode:'new');setSelectedAddress(String(draft.selectedAddress||''));setRequestKey(draft.requestKey||crypto.randomUUID())}else{setAddressMode('loading')}setDraftReady(true)},[user?.id]);
+  useEffect(()=>{if(!draftReady)return;setForm(current=>current.scheduleDate&&current.scheduleDate!==manilaDate()?{...current,scheduleDate:'',scheduleTime:''}:current)},[draftReady,form.fulfillment]);
   useEffect(()=>{if(!draftReady||!user?.id||addressMode==='loading')return undefined;const timeout=window.setTimeout(()=>writeCheckoutDraft(user.id,{form,addressMode,selectedAddress,requestKey}),120);return()=>window.clearTimeout(timeout)},[addressMode,draftReady,form,requestKey,selectedAddress,user?.id]);
   useEffect(()=>{setForm(current=>({...current,fullName:current.fullName||profile?.full_name||profile?.name||'',email:current.email||profile?.email||user?.email||'',contact:current.contact||normalizePhone(profile?.contact_number||profile?.phone||'')}))},[profile,user]);
   useEffect(()=>{let active=true;fetchPublicPortalData().then(data=>{if(!active)return;setSystemSettings(data.system);setForm(current=>{const delivery=data.system.ordering.deliveryEnabled;const pickup=data.system.ordering.pickupEnabled;const fulfillment=current.fulfillment==='delivery'&&!delivery&&pickup?'pickup':current.fulfillment==='pickup'&&!pickup&&delivery?'delivery':current.fulfillment;const methods=data.system.payments.enabledMethods||[];const allowed=fulfillment==='delivery'?methods:methods.filter(method=>method!=='cod');return {...current,fulfillment,payment:allowed.includes(current.payment)?current.payment:(allowed[0]||'')}})}).catch(()=>{});return()=>{active=false}},[]);
@@ -135,7 +136,7 @@ export function CheckoutPage(){
   };
   return <main className="customer-main checkout-page"><section className="page-title"><span>Secure checkout</span><h1>How should we prepare your order?</h1></section><div className="checkout-layout"><form className="checkout-form" onSubmit={submit}>
     <CheckoutSection n="1" title="Customer information"><div className="form-grid"><Field label="Full name" value={form.fullName} onChange={value=>set('fullName',sanitizePersonName(value,60))} maxLength={60}/><Field label="Contact number" type="tel" value={form.contact} onChange={value=>set('contact',normalizePhone(value))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Contact number must contain 11 digits and start with 09."/></div>{submitError&&<p className="field-hint error">{submitError}</p>}</CheckoutSection>
-    <CheckoutSection n="2" title="Fulfillment"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/><div className="schedule-fields"><Choice title={`${form.fulfillment==='delivery'?'Delivery':'Pickup'} day`} options={scheduleDates} value={form.scheduleDate} onChange={value=>setForm(current=>({...current,scheduleDate:value,scheduleTime:''}))}/><SelectField label="Time" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={slots} placeholder={form.scheduleDate?(slots.length?'Select time':'No slots available — choose Tomorrow'):'Select a day first'} disabled={!form.scheduleDate||!slots.length}/></div>
+    <CheckoutSection n="2" title="Fulfillment"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/><div className="schedule-fields"><Choice title={`${form.fulfillment==='delivery'?'Delivery':'Pickup'} day`} options={scheduleDates.slice(0,1)} value={form.scheduleDate} onChange={value=>setForm(current=>({...current,scheduleDate:value,scheduleTime:''}))}/><SelectField label="Time" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={slots} placeholder={form.scheduleDate?(slots.length?'Select time':'No slots available today'):'Select a day first'} disabled={!form.scheduleDate||!slots.length}/></div>
     {form.fulfillment==='delivery'?<><fieldset className="address-source-picker"><legend>Delivery address</legend><div><button type="button" className={addressMode==='saved'?'active':''} onClick={()=>chooseAddressMode('saved')} disabled={!defaultAddress} aria-pressed={addressMode==='saved'}><span><MapPin size={19}/></span><b>Use default address</b><small>{defaultAddress?(defaultAddress.label||'Saved address'):'No default address saved'}</small></button><button type="button" className={addressMode==='new'?'active':''} onClick={()=>chooseAddressMode('new')} aria-pressed={addressMode==='new'}><span><Pencil size={19}/></span><b>Enter a new address</b><small>Use a different delivery location</small></button></div></fieldset>{addressMode==='saved'&&defaultAddress?<div className="saved-address-summary"><span>Default address</span><strong>{defaultAddress.label||'Saved address'}</strong><p>{[defaultAddress.address_line,defaultAddress.barangay&&`Brgy. ${defaultAddress.barangay}`,defaultAddress.city,defaultAddress.province,defaultAddress.postal_code].filter(Boolean).join(', ')}</p></div>:<div className="form-grid"><Field label="House no. / Bldg. / Street / Village" value={form.address} onChange={value=>set('address',value)} maxLength={200}/><BarangayField areas={availableAreas} value={form.barangay} onChange={value=>set('barangay',value)} selectedArea={selectedArea}/><Field label="City" value={form.city} readOnly maxLength={60}/><Field label="Province" value={form.province} readOnly maxLength={60}/><Field label="Postal code" type="tel" value={form.postal} onChange={value=>set('postal',normalizePostal(value))} inputMode="numeric" maxLength={6} pattern="[0-9]{4,6}" title="Postal code must contain 4 to 6 digits only."/></div>}{form.barangay&&!selectedArea&&<p className="field-hint error">Please select a Barangay from the delivery list.</p>}</>:<div className="pickup-note"><MapPin/>Lot 1 Block 210 Mark Street corner Dollar Street, North Fairview</div>}<Field label={form.fulfillment==='delivery'?'Delivery instructions':'Pickup note (optional)'} value={form.instructions} onChange={value=>set('instructions',value)} maxLength={300} required={false}/></CheckoutSection>
     <CheckoutSection n="3" title="Payment"><Choice title="Payment method" options={(systemSettings.payments.enabledMethods||[]).filter(method=>form.fulfillment==='delivery'||method!=='cod').map(method=>({id:method,name:method==='cod'?'Cash on delivery':method==='bank_transfer'?'Bank':'GCash'}))} value={form.payment} onChange={value=>set('payment',value)}/></CheckoutSection>
     {systemSettings.ordering.storeStatus!=='open'&&<p className="field-hint error">{systemSettings.ordering.closureMessage}</p>}
@@ -143,7 +144,7 @@ export function CheckoutPage(){
   </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} discount={benefitDiscount} benefitEligible={benefitEligible} eligibleItemDiscount={eligibleItemDiscount} applyBenefitDiscount={Boolean(form.applyBenefitDiscount)} onBenefitChange={value=>set('applyBenefitDiscount',value)} fulfillment={form.fulfillment} selectedArea={selectedArea} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div></main>
 }
 function CheckoutSection({n,title,children}){return <section className="checkout-section"><header><b>{n}</b><h2>{title}</h2></header>{children}</section>}
-function Field({label,type='text',value,onChange=()=>{},readOnly=false,required=true,inputMode,pattern,maxLength,title}){const labelText=String(label||'').toLowerCase();const resolvedMaxLength=maxLength??(labelText.includes('email')?EMAIL_MAX_LENGTH:labelText.includes('address')?200:labelText.includes('instruction')||labelText.includes('note')||labelText.includes('comment')||labelText.includes('explain')?300:labelText.includes('name')||labelText.includes('label')||labelText.includes('city')||labelText.includes('province')?60:80);return <label className={`field ${readOnly?'locked-field':''}`}><span>{label}</span><input required={required} readOnly={readOnly} aria-readonly={readOnly} value={value} type={type} inputMode={inputMode} pattern={pattern} maxLength={resolvedMaxLength} title={title} onChange={event=>onChange(event.target.value)}/></label>}
+function Field({label,type='text',value,onChange=()=>{},readOnly=false,required=true,inputMode,pattern,minLength,maxLength,title,autoComplete,autoCapitalize,spellCheck}){const labelText=String(label||'').toLowerCase();const resolvedMaxLength=maxLength??(labelText.includes('email')?EMAIL_MAX_LENGTH:labelText.includes('address')?200:labelText.includes('instruction')||labelText.includes('note')||labelText.includes('comment')||labelText.includes('explain')?300:labelText.includes('name')||labelText.includes('label')||labelText.includes('city')||labelText.includes('province')?60:80);return <label className={`field ${readOnly?'locked-field':''}`}><span>{label}</span><input required={required} readOnly={readOnly} aria-readonly={readOnly} value={value} type={type} inputMode={inputMode} pattern={pattern} minLength={minLength} maxLength={resolvedMaxLength} title={title} autoComplete={autoComplete} autoCapitalize={autoCapitalize} spellCheck={spellCheck} onChange={event=>onChange(event.target.value)}/></label>}
 function SelectField({label,value,onChange,options,placeholder,disabled=false}){return <label className="field"><span>{label}</span><select required value={value} onChange={event=>onChange(event.target.value)} disabled={disabled}><option value="">{placeholder}</option>{options.map(option=><option key={option.id} value={option.id}>{option.name}</option>)}</select></label>}
 function BarangayField({areas=deliveryAreas,value,onChange,selectedArea}){return <label className="field barangay-field"><span>Barangay</span><input required list="delivery-barangays" autoComplete="off" maxLength={60} value={value} onChange={event=>onChange(event.target.value)} placeholder="Type or search Barangay"/><datalist id="delivery-barangays">{areas.map(area=><option key={area.barangay} value={area.barangay}/>)}</datalist>{selectedArea&&<small>Delivery is available in this Barangay.</small>}</label>}
 function mostExpensiveEligibleItemDiscount(items=[]){const target=items.filter(item=>item.onlineBenefitEligible).sort((a,b)=>(b.unitPrice+(b.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0))-(a.unitPrice+(a.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0)))[0];if(!target)return 0;const menuPrice=Number(target.unitPrice)+(target.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0);const basePrice=menuPrice/1.12;const discount=basePrice*0.2;return Math.round((menuPrice-(basePrice-discount))*100)/100}
@@ -152,12 +153,50 @@ function PaymentConfirmationModal({payment,total,paymentConfig=SYSTEM_DEFAULTS.p
   const isCod=payment==='cod';const isBank=payment==='bank_transfer';const title=isCod?'Confirm Cash on Delivery':isBank?'Bank transfer instructions':'GCash payment instructions';const qr=isBank?(paymentConfig.bankQrUrl||'/assets/img/qr1.jpg'):(paymentConfig.gcashQrUrl||'/assets/img/qr.jpg');const codMaximum=Number(paymentConfig.codMaximum||1000);const instructions=isBank?paymentConfig.bankInstructions:paymentConfig.gcashInstructions
   return <div className="payment-modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)onClose()}}><section className="payment-modal order-flow-modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title"><button className="payment-modal-close" type="button" onClick={onClose} disabled={busy} aria-label="Close payment dialog">×</button><span className="payment-modal-kicker">{isCod?'Before placing your order':'Complete your payment'}</span><h2 id="payment-modal-title">{title}</h2><div className="payment-modal-total"><span>Amount due</span><strong>{money(total)}</strong></div>{isCod?<><p>Your order will be paid when it arrives. Please confirm that you understand these rules:</p><ul><li>Cash on Delivery is available for delivery orders only.</li><li>COD is available for orders up to {money(codMaximum)}.</li><li>Please prepare the exact amount whenever possible.</li><li>The order is still subject to store confirmation and availability.</li></ul>{total>codMaximum&&<p className="payment-modal-warning">This order exceeds the COD limit. Go back and select GCash or Bank.</p>}</>:<div className="digital-payment-guide"><img src={qr} alt={`${isBank?'Bank':'GCash'} payment QR code`}/><div><p>{instructions}</p>{isBank&&paymentConfig.bankName&&<p><b>{paymentConfig.bankName}</b>{paymentConfig.bankAccountName?` · ${paymentConfig.bankAccountName}`:''}{paymentConfig.bankAccountNumber?` · ${paymentConfig.bankAccountNumber}`:''}</p>}<ol><li>Send the exact total shown above.</li><li>Use your full name as the payment reference.</li><li>Save a clear screenshot or receipt after payment succeeds.</li><li>Continue to upload your proof of payment.</li></ol></div></div>}<div className="payment-modal-actions"><button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Go back</button><button className="primary-button" type="button" onClick={onConfirm} disabled={busy||(isCod&&total>codMaximum)}>{busy?'Placing order…':isCod?'Confirm COD order':'Continue to upload'}</button></div></section></div>
 }
-function ProofUploadModal({payment,busy,error,onBack,onSubmit}){const [file,setFile]=useState(null);const [fileError,setFileError]=useState('');const choose=async event=>{const next=event.target.files?.[0]||null;if(!next)return;try{await validateImageFile(next,{label:'Payment proof'});setFile(next);setFileError('')}catch(cause){setFile(null);setFileError(cause.message||'Could not use this image.')}event.target.value=''};return <div className="payment-modal-backdrop"><section className="payment-modal proof-modal" role="dialog" aria-modal="true" aria-labelledby="proof-modal-title"><span className="payment-modal-kicker">{payment==='bank_transfer'?'Bank transfer':'GCash'} payment</span><h2 id="proof-modal-title">Upload proof of payment</h2><p>Upload a clear image showing the successful transaction. The system will securely rename it using the order ID and payment date.</p><label className="proof-dropzone"><input type="file" accept={IMAGE_UPLOAD_ACCEPT} onChange={choose}/><ShoppingBag/><strong>{file?file.name:'Choose payment screenshot'}</strong><small>JPG, PNG, or WEBP only · Maximum 5 MB</small></label>{file&&<div className="proof-file"><span>{file.name}</span><b>{(file.size/1024/1024).toFixed(2)} MB</b></div>}{(fileError||error)&&<p className="payment-modal-warning" role="alert">{fileError||error}</p>}<div className="payment-modal-actions"><button className="secondary-button" type="button" onClick={onBack} disabled={busy}>Back to instructions</button><button className="primary-button" type="button" onClick={()=>file&&onSubmit(file)} disabled={!file||busy}>{busy?'Uploading and placing order…':'Submit proof and order'}</button></div></section></div>}
+function ProofUploadModal({payment,busy,error,onBack,onSubmit}){
+  const isGcash=payment==='gcash'
+  const [file,setFile]=useState(null)
+  const [previewUrl,setPreviewUrl]=useState('')
+  const [referenceNumber,setReferenceNumber]=useState('')
+  const [fileError,setFileError]=useState('')
+  const referenceValid=isGcash?/^[0-9]{13}$/.test(referenceNumber):/^[A-Za-z0-9-]{6,30}$/.test(referenceNumber)
+  useEffect(()=>()=>{if(previewUrl)URL.revokeObjectURL(previewUrl)},[previewUrl])
+  const changeReference=value=>setReferenceNumber(isGcash?value.replace(/\D/g,'').slice(0,13):value.replace(/[^A-Za-z0-9-]/g,'').slice(0,30))
+  const choose=async event=>{
+    const next=event.target.files?.[0]||null
+    if(!next)return
+    try{
+      await validateImageFile(next,{label:'Payment proof'})
+      setFile(next)
+      setPreviewUrl(URL.createObjectURL(next))
+      setFileError('')
+    }catch(cause){
+      setFile(null)
+      setPreviewUrl('')
+      setFileError(cause.message||'Could not use this image.')
+    }
+    event.target.value=''
+  }
+  return <div className="payment-modal-backdrop"><section className="payment-modal proof-modal" role="dialog" aria-modal="true" aria-labelledby="proof-modal-title">
+    <span className="payment-modal-kicker">{payment==='bank_transfer'?'Bank transfer':'GCash'} payment</span>
+    <h2 id="proof-modal-title">Upload proof of payment</h2>
+    <p>Enter the transaction reference and upload a clear image showing the successful payment.</p>
+    <label className="field proof-reference-field"><span>Reference number</span><input type="text" value={referenceNumber} onChange={event=>changeReference(event.target.value)} inputMode={isGcash?'numeric':'text'} autoComplete="off" maxLength={isGcash?13:30} pattern={isGcash?'[0-9]{13}':'[A-Za-z0-9-]{6,30}'} placeholder={isGcash?'Enter the 13-digit GCash reference':'Enter the bank transaction reference'} required/><small>{isGcash?'Enter exactly 13 digits.':'Use 6-30 letters, numbers, or hyphens.'}</small></label>
+    <label className={`proof-dropzone${previewUrl?' has-preview':''}`}>
+      <input type="file" accept={IMAGE_UPLOAD_ACCEPT} onChange={choose}/>
+      {previewUrl?<><img className="proof-preview-image" src={previewUrl} alt="Selected payment proof preview"/><span className="proof-preview-action"><Camera size={17}/>Choose a different screenshot</span></>:<><ShoppingBag/><strong>Choose payment screenshot</strong><small>JPG, PNG, or WEBP only · Maximum 5 MB</small></>}
+    </label>
+    {file&&<div className="proof-file" aria-live="polite"><span>{file.name}</span><b>{(file.size/1024/1024).toFixed(2)} MB</b></div>}
+    {(fileError||error)&&<p className="payment-modal-warning" role="alert">{fileError||error}</p>}
+    <div className="payment-modal-actions"><button className="secondary-button" type="button" onClick={onBack} disabled={busy}>Back to instructions</button><button className="primary-button" type="button" onClick={()=>file&&referenceValid&&onSubmit(file,referenceNumber)} disabled={!file||!referenceValid||busy}>{busy?'Uploading and placing order…':'Submit proof and order'}</button></div>
+  </section></div>
+}
 function OrderCompleteModal({order,freshOrder=false,fallbackEstimatedTime='',onTrack,onContinue}){
   const [copied,setCopied]=useState(false)
   const orderNumber=order?.order_number||order?.reference_code||order?.order_id||order?.id
   const displayOrderNumber=customerOrderNumber(orderNumber)
   const displayReferenceNumber=String(order?.receipt_number||order?.receiptNumber||order?.reference_code||'').trim()
+  const paymentReference=String(order?.payments?.[0]?.reference_number||'').trim()
   const fulfillment=order?.order_type||order?.fulfillment||'delivery'
   const status=orderStatusLabel(order,{fresh:freshOrder})
   const paymentMethod=paymentMethodLabel(orderPaymentMethod(order))
@@ -172,34 +211,36 @@ function OrderCompleteModal({order,freshOrder=false,fallbackEstimatedTime='',onT
     setCopied(true)
     window.setTimeout(()=>setCopied(false),1400)
   }
-  return <div className="payment-modal-backdrop">
-    <section className="payment-modal order-complete-modal" role="dialog" aria-modal="true" aria-labelledby="complete-modal-title">
-      <div className="completion-hero">
-        <span className="complete-check"><Check/></span>
-        <span className="payment-modal-kicker completion-kicker">Order completed</span>
+  return <div className="payment-modal-backdrop placed-order-backdrop">
+    <section className="payment-modal placed-order-modal" role="dialog" aria-modal="true" aria-labelledby="complete-modal-title">
+      <div className="placed-order-hero">
+        <span className="placed-order-check"><Check/></span>
+        <span className="placed-order-kicker">Order completed</span>
         <h2 id="complete-modal-title">Your order has been placed.</h2>
-        <p className="completion-message">{completionMessage(order)}</p>
+        <p>{completionMessage(order)}</p>
       </div>
-      <div className="completion-summary">
-        <div className="completion-summary-row completion-summary-order-row">
+      <section className="placed-order-details">
+        <h3>Order details</h3>
+        <div className="placed-order-row placed-order-number-row">
           <span>Order number</span>
-          <div className="completion-summary-value completion-summary-inline">
+          <div className="placed-order-value placed-order-copy-value">
             <b>{displayOrderNumber}</b>
-            <button className="completion-copy" type="button" onClick={copyOrderNumber}>{copied?'Copied':'Copy'}</button>
+            <button className="placed-order-copy" type="button" onClick={copyOrderNumber}>{copied?'Copied':'Copy'}</button>
           </div>
         </div>
-        {displayReferenceNumber&&<div className="completion-summary-row"><span>Reference number</span><div className="completion-summary-value"><b>{displayReferenceNumber}</b></div></div>}
-        <div className="completion-summary-row"><span>Order status</span><div className="completion-summary-value"><b>{status}</b></div></div>
-        <div className="completion-summary-row"><span>Payment method</span><div className="completion-summary-value"><b>{paymentMethod}</b></div></div>
-        <div className="completion-summary-row"><span>Payment status</span><div className="completion-summary-value"><b>{paymentStatus}</b></div></div>
-        <div className="completion-summary-row"><span>Fulfillment</span><div className="completion-summary-value"><b>{fulfillmentLabel(fulfillment)}</b></div></div>
-        <div className="completion-summary-row"><span>Items</span><div className="completion-summary-value"><b>{itemCount} item{itemCount===1?'':'s'}</b></div></div>
-        <div className="completion-summary-row"><span>Total amount</span><div className="completion-summary-value"><b>{money(totalAmount)}</b></div></div>
-        <div className="completion-summary-row"><span>{estimatedTimeLabel(order)}</span><div className="completion-summary-value"><b>{etaValue}</b></div></div>
-        {shortAddress&&<div className="completion-summary-row"><span>Delivery address</span><div className="completion-summary-value"><b>{shortAddress}</b></div></div>}
-      </div>
-      <p className="completion-note">{completionNote(order)}</p>
-      <div className="payment-modal-actions completion-actions">
+        {displayReferenceNumber&&<div className="placed-order-row"><span>Reference number</span><div className="placed-order-value"><b>{displayReferenceNumber}</b></div></div>}
+        {paymentReference&&<div className="placed-order-row"><span>Payment reference</span><div className="placed-order-value"><b>{paymentReference}</b></div></div>}
+        <div className="placed-order-row"><span>Order status</span><div className="placed-order-value"><b>{status}</b></div></div>
+        <div className="placed-order-row"><span>Payment method</span><div className="placed-order-value"><b>{paymentMethod}</b></div></div>
+        <div className="placed-order-row"><span>Payment status</span><div className="placed-order-value"><b>{paymentStatus}</b></div></div>
+        <div className="placed-order-row"><span>Fulfillment</span><div className="placed-order-value"><b>{fulfillmentLabel(fulfillment)}</b></div></div>
+        <div className="placed-order-row"><span>Items</span><div className="placed-order-value"><b>{itemCount} item{itemCount===1?'':'s'}</b></div></div>
+        <div className="placed-order-row"><span>Total amount</span><div className="placed-order-value"><b>{money(totalAmount)}</b></div></div>
+        <div className="placed-order-row"><span>{estimatedTimeLabel(order)}</span><div className="placed-order-value"><b>{etaValue}</b></div></div>
+        {shortAddress&&<div className="placed-order-row placed-order-address-row"><span>Delivery address</span><div className="placed-order-value"><b title={order?.delivery_address}>{shortAddress}</b></div></div>}
+      </section>
+      <div className="placed-order-note"><Info/><p>{completionNote(order)}</p></div>
+      <div className="placed-order-actions">
         <button className="secondary-button" type="button" onClick={onContinue}>Continue shopping</button>
         <button className="primary-button" type="button" onClick={onTrack}>Track order</button>
       </div>
@@ -213,7 +254,7 @@ export function OrderReviewPage(){
   if(cart.hasUnavailableItems)return <main className="customer-main"><section className="empty-state"><AlertTriangle/><h1>Update your cart</h1><p>One or more items became unavailable. Remove them before placing the order.</p><button className="primary-button" type="button" onClick={()=>{cart.openCart();navigate('/menu',{replace:true})}}>Review cart</button></section></main>;
   if(!form||!items.length)return <NotFoundPage/>;
   const fee=form.fulfillment==='delivery'?Number(form.deliveryFee||0):0;const discount=form.applyBenefitDiscount?mostExpensiveEligibleItemDiscount(items):0;const total=subtotal+fee-discount;const {baseAmount,vatAmount}=vatBreakdownFromInclusiveAmount(subtotal,pricing.vatRate,pricing.pricesIncludeVat);
-  const place=async proof=>{
+  const place=async(proof,referenceNumber='')=>{
     if(busy)return
     setBusy(true);setError('')
     try{
@@ -236,7 +277,7 @@ export function OrderReviewPage(){
         setCreatedOrder(order)
       }
       const orderId=order.order_id||order.id
-      if(proof)await uploadPaymentProof({orderId,userId:sessionCheck.user.id,file:proof})
+      if(proof)await uploadPaymentProof({orderId,userId:sessionCheck.user.id,file:proof,referenceNumber})
       try{const refreshed=await fetchCustomerOrder(orderId);if(refreshed)order=mergePlacedOrderData({order:refreshed,form,items,total})}catch{/* fall back to the freshly created order snapshot */}
       setCreatedOrder(order)
       setFreshOrder(true)
@@ -250,7 +291,50 @@ export function OrderReviewPage(){
   };
   const finish=destination=>{const orderId=createdOrder?.order_id||createdOrder?.id;if(!orderId)return;clearCart();if(destination==='menu'){navigate('/menu',{replace:true});return}navigate(`/orders/${orderId}/track`,{replace:true,state:{order:createdOrder,freshOrder}})};
   const confirmPayment=()=>form.payment==='cod'?place():setModal('proof');
-  return <main className="customer-main narrow"><button className="back-link review-back" type="button" onClick={()=>navigate(-1)}><ChevronLeft/>Back to checkout</button><section className="page-title"><span>Final check</span><h1>Review your order</h1></section><section className="review-card">{items.map(item=><div key={item.lineId}><span>{item.quantity}× {item.name}<small>{item.variation?.name} {item.addons.map(addon=>` · ${addon.name}`)}</small></span><b>{money((item.unitPrice+item.addons.reduce((sum,addon)=>sum+addon.price,0))*item.quantity)}</b></div>)}<hr/><div><span>Subtotal</span><b>{money(baseAmount)}</b></div>{discount>0&&<div className="checkout-discount-row"><span>Senior Citizen / PWD discount</span><b>-{money(discount)}</b></div>}<div><span>{pricing.pricesIncludeVat?`VAT included (${formatVatRate(pricing.vatRate)})`:'VAT calculated at checkout'}</span><b>{money(vatAmount)}</b></div>{form.fulfillment==='delivery'&&<div><span>Delivery · {form.deliveryZone}</span><b>{money(fee)}</b></div>}<div className="grand"><span>Total</span><b>{money(total)}</b></div></section><section className="review-card"><h2>{form.fulfillment==='delivery'?'Delivery details':'Pickup details'}</h2><p>{form.fullName} · {form.contact}</p><p>{form.fulfillment==='delivery'?`${form.address}, Brgy. ${form.barangay}, ${form.city}, ${form.province} ${form.postal}`:'North Fairview store'}</p><p>Scheduled for: {form.scheduleDate===manilaDate()?'Today':'Tomorrow'} · {timeLabel(Number(form.scheduleTime?.slice(0,2))*60+Number(form.scheduleTime?.slice(3,5)))}</p>{form.estimatedDeliveryTime&&<p>Estimated travel time: {form.estimatedDeliveryTime}</p>}{discount>0&&<p className="checkout-benefit-reminder">Present your original Senior Citizen/PWD ID upon {form.fulfillment==='delivery'?'delivery':'pickup'}.</p>}<p>Payment: {form.payment==='cod'?'Cash on delivery':form.payment==='bank_transfer'?'Bank':'GCash'}</p></section>{error&&!modal&&<p className="form-error">{error}</p>}<button className="primary-button full" disabled={busy} onClick={()=>{setError('');setModal('payment')}}>Place order</button>{modal==='payment'&&<PaymentConfirmationModal payment={form.payment} paymentConfig={paymentConfig} total={total} busy={busy} onClose={()=>setModal(null)} onConfirm={confirmPayment}/>} {modal==='proof'&&<ProofUploadModal payment={form.payment} busy={busy} error={error} onBack={()=>{setError('');setModal('payment')}} onSubmit={place}/>} {modal==='complete'&&<OrderCompleteModal order={createdOrder||mergePlacedOrderData({order:{},form,items,total})} freshOrder={freshOrder} fallbackEstimatedTime={form.estimatedDeliveryTime} onTrack={()=>finish('track')} onContinue={()=>finish('menu')}/>}</main>
+  const itemCount=items.reduce((sum,item)=>sum+Number(item.quantity||0),0)
+  const scheduledDay=scheduleDates.find(option=>option.id===form.scheduleDate)?.name||form.scheduleDate
+  const scheduledTime=timeLabel(Number(form.scheduleTime?.slice(0,2))*60+Number(form.scheduleTime?.slice(3,5)))
+  const editCheckout=()=>navigate('/checkout')
+  const deliveryAddress=form.fulfillment==='delivery'?[form.address,form.barangay&&`Brgy. ${form.barangay}`,form.city,form.province,form.postal].filter(Boolean).join(', '):'The Coffee Realm, North Fairview'
+  return <main className="customer-main review-order-page">
+    <button className="back-link review-back" type="button" onClick={editCheckout}><ChevronLeft/>Back to checkout</button>
+    <section className="page-title review-order-hero"><span>Final check</span><h1>Review your order</h1><p>Please double-check your items and {form.fulfillment==='delivery'?'delivery':'pickup'} details before placing your order.</p></section>
+    <div className="review-order-grid">
+      <section className="review-order-card review-order-summary">
+        <header><span className="review-order-header-icon"><ShoppingBag/></span><div><h2>Order summary</h2><p>{itemCount} item{itemCount===1?'':'s'} in your order</p></div></header>
+        <div className="review-order-items">{items.map(item=>{
+          const addons=(item.addons||[]).map(addon=>addon.name).filter(Boolean).join(', ')
+          const options=[item.variation?.name,item.temperature,item.ice,item.sugar,addons].filter(Boolean).join(' · ')
+          const lineTotal=(Number(item.unitPrice||0)+(item.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0))*Number(item.quantity||0)
+          return <article key={item.lineId}><img src={item.image} alt=""/><div><h3>{item.name}</h3>{options&&<p>{options}</p>}<small>Quantity: {item.quantity}</small></div><b>{money(lineTotal)}</b></article>
+        })}</div>
+        <div className="review-order-totals">
+          <p><span>Subtotal</span><b>{money(baseAmount)}</b></p>
+          {discount>0&&<p className="checkout-discount-row"><span>Senior Citizen / PWD discount</span><b>-{money(discount)}</b></p>}
+          <p><span>{pricing.pricesIncludeVat?`VAT included (${formatVatRate(pricing.vatRate)})`:'VAT calculated at checkout'}</span><b>{money(vatAmount)}</b></p>
+          {form.fulfillment==='delivery'&&<p><span>Delivery{form.deliveryZone?` · ${form.deliveryZone}`:''}</span><b>{money(fee)}</b></p>}
+          <p className="review-order-total"><span>Total</span><b>{money(total)}</b></p>
+        </div>
+      </section>
+      <section className="review-order-card review-order-details">
+        <header><div><h2>{form.fulfillment==='delivery'?'Delivery details':'Pickup details'}</h2><p>{form.fulfillment==='delivery'?'Where should we deliver your order?':'When should we prepare your pickup?'}</p></div></header>
+        <div className="review-detail-list">
+          <article><div><span>Recipient</span><b>{form.fullName}</b><small>{form.contact}</small></div><button type="button" onClick={editCheckout}>Edit</button></article>
+          <article><div><span>{form.fulfillment==='delivery'?'Delivery address':'Pickup location'}</span><b>{deliveryAddress}</b>{form.instructions&&<small>{form.instructions}</small>}</div><button type="button" onClick={editCheckout}>Edit</button></article>
+          <article><div><span>Schedule</span><b>{scheduledDay} · {scheduledTime}</b></div><button type="button" onClick={editCheckout}>Edit</button></article>
+          {form.estimatedDeliveryTime&&<article><div><span>Estimated travel time</span><b>{form.estimatedDeliveryTime}</b></div></article>}
+          <article><div><span>Payment method</span><b>{paymentMethodLabel(form.payment)}</b></div><button type="button" onClick={editCheckout}>Edit</button></article>
+        </div>
+        {discount>0&&<p className="review-benefit-note">Present your original Senior Citizen/PWD ID upon {form.fulfillment==='delivery'?'delivery':'pickup'}.</p>}
+      </section>
+    </div>
+    {error&&!modal&&<p className="form-error review-order-error">{error}</p>}
+    <button className="primary-button review-place-order" disabled={busy} onClick={()=>{setError('');setModal('payment')}}>{busy?'Preparing order…':'Place order'} <ArrowRight/></button>
+    <p className="review-order-assurance">By placing your order, you confirm that the information above is correct.</p>
+    {modal==='payment'&&<PaymentConfirmationModal payment={form.payment} paymentConfig={paymentConfig} total={total} busy={busy} onClose={()=>setModal(null)} onConfirm={confirmPayment}/>}
+    {modal==='proof'&&<ProofUploadModal payment={form.payment} busy={busy} error={error} onBack={()=>{setError('');setModal('payment')}} onSubmit={place}/>}
+    {modal==='complete'&&<OrderCompleteModal order={createdOrder||mergePlacedOrderData({order:{},form,items,total})} freshOrder={freshOrder} fallbackEstimatedTime={form.estimatedDeliveryTime} onTrack={()=>finish('track')} onContinue={()=>finish('menu')}/>}
+  </main>
 }export function OrderConfirmationPage(){const {state}=useLocation();const {id}=useParams();const order=state?.order||{order_number:id,status:'Pending',fulfillment:'delivery',payment:'pending',total:0};return <main className="customer-main narrow"><section className="success-card"><span><Check/></span><small>Order received</small><h1>Thank you. Weâ€™re on it!</h1><p>Your order <b>{customerOrderNumber(order.order_number)}</b> has been placed and is waiting for store confirmation.</p><div><p><span>Status</span><b>{order.status}</b></p><p><span>Fulfillment</span><b>{order.fulfillment||order.fulfillment_method}</b></p><p><span>Total</span><b>{money(order.total||order.total_amount||0)}</b></p></div><Link className="primary-button" to={`/orders/${id}/track`}>Track order</Link><Link className="secondary-button" to="/orders">View my orders</Link><Link className="text-button" to="/menu">Continue shopping</Link></section></main>}
 const CANCELLABLE_RAW_STATUSES=['Order Received','Awaiting Payment Verification','Pending Confirmation']
 const isCancellationReview=order=>order?.cancellation_status==='requested'||Boolean(order?.fulfillment_hold)
@@ -703,9 +787,7 @@ export function OrderTrackingPage(){
 }
 export function ProfilePage(){
   const {profile,user,updateProfile}=useAuth()
-  const navigate=useNavigate()
-  const otpDigits=6
-  const [values,setValues]=useState({full_name:'',email:'',phone:''})
+  const [values,setValues]=useState({full_name:'',username:'',email:'',phone:''})
   const [status,setStatus]=useState('')
   const [statusTone,setStatusTone]=useState('')
   const [savingProfile,setSavingProfile]=useState(false)
@@ -713,7 +795,7 @@ export function ProfilePage(){
   const [avatarPreview,setAvatarPreview]=useState('')
   const [avatarError,setAvatarError]=useState('')
   const avatarInputRef=useRef(null)
-  useEffect(()=>{setValues({full_name:profile?.full_name||'',email:profile?.email||user?.email||'',phone:normalizePhone(profile?.phone||'')})},[profile,user])
+  useEffect(()=>{setValues({full_name:profile?.full_name||'',username:profile?.username||user?.user_metadata?.username||'',email:profile?.email||user?.email||'',phone:normalizePhone(profile?.phone||'')})},[profile,user])
   useEffect(()=>()=>{if(avatarPreview)URL.revokeObjectURL(avatarPreview)},[avatarPreview])
   const set=(key,value)=>setValues(current=>({...current,[key]:value}))
   const avatarUrl=avatarPreview||profile?.avatar_url||''
@@ -743,6 +825,7 @@ export function ProfilePage(){
     event.preventDefault()
     if(savingProfile)return
     if(sanitizePersonName(values.full_name,60).trim().length<2){setStatusTone('error');setStatus('Enter a valid name using letters only.');return}
+    if(values.username.length<3||sanitizeUsername(values.username,24)!==values.username){setStatusTone('error');setStatus('Username must contain 3-24 letters, numbers, periods, underscores, or hyphens.');return}
     if(!isValidEmail(values.email)){setStatusTone('error');setStatus('Enter a valid email address.');return}
     if(values.phone&&!isValidPhone(values.phone)){setStatusTone('error');setStatus('Contact number must contain 11 digits and start with 09.');return}
     setSavingProfile(true)
@@ -760,103 +843,54 @@ export function ProfilePage(){
     }finally{setSavingProfile(false)}
   }
 
-  const [resetOpen,setResetOpen]=useState(false)
-  const [resetStep,setResetStep]=useState('email')
-  const [resetOtp,setResetOtp]=useState(Array(otpDigits).fill(''))
-  const [resetEmail,setResetEmail]=useState('')
-  const [resetPassword,setResetPassword]=useState('')
-  const [resetConfirmPassword,setResetConfirmPassword]=useState('')
-  const [resetBusy,setResetBusy]=useState(false)
-  const [resetError,setResetError]=useState('')
-  const [resetMessage,setResetMessage]=useState('')
-  const resetLogoutTimerRef=useRef(null)
-  const openPasswordReset=()=>{
-    setResetEmail((values.email||user?.email||'').trim())
-    setResetStep('email')
-    setResetOtp(Array(otpDigits).fill(''))
-    setResetPassword('')
-    setResetConfirmPassword('')
-    setResetError('')
-    setResetMessage('')
-    setResetOpen(true)
+  const [changePasswordOpen,setChangePasswordOpen]=useState(false)
+  const [currentPassword,setCurrentPassword]=useState('')
+  const [newPassword,setNewPassword]=useState('')
+  const [confirmNewPassword,setConfirmNewPassword]=useState('')
+  const [changePasswordBusy,setChangePasswordBusy]=useState(false)
+  const [changePasswordError,setChangePasswordError]=useState('')
+  const [changePasswordMessage,setChangePasswordMessage]=useState('')
+  const openChangePassword=()=>{
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmNewPassword('')
+    setChangePasswordError('')
+    setChangePasswordMessage('')
+    setChangePasswordOpen(true)
   }
-  const closePasswordReset=()=>{
-    if(resetBusy||resetStep==='success')return
-    if(resetLogoutTimerRef.current)window.clearTimeout(resetLogoutTimerRef.current)
-    setResetOpen(false)
-    setResetStep('email')
-    setResetOtp(Array(otpDigits).fill(''))
-    setResetPassword('')
-    setResetConfirmPassword('')
-    setResetError('')
-    setResetMessage('')
+  const closeChangePassword=()=>{
+    if(changePasswordBusy)return
+    setChangePasswordOpen(false)
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmNewPassword('')
+    setChangePasswordError('')
+    setChangePasswordMessage('')
   }
-  const changeResetOtpDigit=(index,value)=>{
-    const clean=value.replace(/\D/g,'').slice(-1)
-    setResetOtp(current=>current.map((digit,digitIndex)=>digitIndex===index?clean:digit))
-  }
-  const sendPasswordResetCode=async event=>{
+  const submitChangePassword=async event=>{
     event.preventDefault()
-    setResetError('')
-    setResetMessage('')
-    if(!isSupabaseConfigured)return setResetError('Supabase is not configured yet.')
-    const trimmedEmail=resetEmail.trim()
-    if(!trimmedEmail)return setResetError('Enter your email address first.')
-     if(!isValidEmail(trimmedEmail))return setResetError('Enter a valid email address.')
-    setResetBusy(true)
-    const {error}=await supabase.auth.resetPasswordForEmail(trimmedEmail)
-    setResetBusy(false)
-    if(error)return setResetError(error.message||'Could not send the reset code. Please try again.')
-    setResetOtp(Array(otpDigits).fill(''))
-    setResetStep('otp')
-    setResetMessage('A 6-digit password reset code was sent to your email.')
-  }
-  const verifyPasswordResetCode=async()=>{
-    setResetError('')
-    const token=resetOtp.join('')
-    if(token.length!==otpDigits)return setResetError('Enter the 6-digit OTP code.')
-    setResetBusy(true)
-    const {error}=await supabase.auth.verifyOtp({email:resetEmail.trim(),token,type:'recovery'})
-    setResetBusy(false)
-    if(error)return setResetError(error.message||'Unable to verify the reset code.')
-    setResetStep('password')
-    setResetMessage('')
-  }
-  const resendPasswordResetCode=async()=>{
-    setResetError('')
-    setResetMessage('')
-    const trimmedEmail=resetEmail.trim()
-    if(!trimmedEmail)return setResetError('Enter your email address first.')
-    setResetBusy(true)
-    const {error}=await supabase.auth.resetPasswordForEmail(trimmedEmail)
-    setResetBusy(false)
-    if(error)return setResetError(error.message||'Unable to resend the reset code.')
-    setResetOtp(Array(otpDigits).fill(''))
-    setResetMessage('A new 6-digit password reset code was sent.')
-  }
-  useEffect(()=>{
-    if(resetStep!=='success')return undefined
-    resetLogoutTimerRef.current=window.setTimeout(async()=>{
-      navigate('/login',{replace:true,state:{authMessage:'Password changed successfully. Please log in with your new password.'}})
-      await supabase.auth.signOut()
-    },1800)
-    return ()=>{
-      if(resetLogoutTimerRef.current)window.clearTimeout(resetLogoutTimerRef.current)
-      resetLogoutTimerRef.current=null
+    setChangePasswordError('')
+    setChangePasswordMessage('')
+    if(!isSupabaseConfigured)return setChangePasswordError('Supabase is not configured yet.')
+    if(!currentPassword)return setChangePasswordError('Enter your current password.')
+    if(!isValidPassword(newPassword))return setChangePasswordError('Password must be 8-32 characters and include at least 1 number.')
+    if(newPassword!==confirmNewPassword)return setChangePasswordError('The new passwords do not match.')
+    if(currentPassword===newPassword)return setChangePasswordError('Choose a new password that is different from your current password.')
+    const email=(user?.email||values.email||'').trim()
+    if(!email)return setChangePasswordError('Your account email could not be verified. Please sign in again.')
+    setChangePasswordBusy(true)
+    const {error:verifyError}=await supabase.auth.signInWithPassword({email,password:currentPassword})
+    if(verifyError){
+      setChangePasswordBusy(false)
+      return setChangePasswordError('Your current password is incorrect.')
     }
-  },[navigate,resetStep])
-  const submitResetPassword=async event=>{
-    event.preventDefault()
-    setResetError('')
-    if(!isValidPassword(resetPassword))return setResetError('Password must be 8–32 characters and include at least 1 number.')
-    if(resetPassword!==resetConfirmPassword)return setResetError('The passwords do not match.')
-    setResetBusy(true)
-    const {error}=await supabase.auth.updateUser({password:resetPassword})
-    setResetBusy(false)
-    if(error)return setResetError(error.message||'Unable to update your password.')
-    setResetError('')
-    setResetMessage('Password updated successfully. Signing you out securely…')
-    setResetStep('success')
+    const {error:updateError}=await supabase.auth.updateUser({password:newPassword})
+    setChangePasswordBusy(false)
+    if(updateError)return setChangePasswordError(updateError.message||'Unable to change your password.')
+    setCurrentPassword('')
+    setNewPassword('')
+    setConfirmNewPassword('')
+    setChangePasswordMessage('Password changed successfully.')
   }
   const [addresses,setAddresses]=useState([])
   const [addressesLoading,setAddressesLoading]=useState(true)
@@ -927,14 +961,15 @@ export function ProfilePage(){
         </div>
         <div className="form-grid">
           <Field label="Full name" value={values.full_name} onChange={value=>set('full_name',sanitizePersonName(value,60))} maxLength={60}/>
+          <Field label="Username" value={values.username} onChange={value=>set('username',sanitizeUsername(value,24))} minLength={3} maxLength={24} pattern="[A-Za-z0-9._-]{3,24}" autoComplete="username" autoCapitalize="none" spellCheck={false} title="Use 3-24 letters, numbers, periods, underscores, or hyphens."/>
           <Field label="Email address" type="email" value={values.email} onChange={value=>set('email',value.slice(0,EMAIL_MAX_LENGTH))} maxLength={EMAIL_MAX_LENGTH}/>
-          <Field label="Contact number" type="tel" value={values.phone} onChange={value=>set('phone',normalizePhone(value))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Contact number must contain 11 digits and start with 09."/>
+          <Field label="Phone number" type="tel" value={values.phone} onChange={value=>set('phone',normalizePhone(value))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Phone number must contain 11 digits and start with 09."/>
         </div>
         <div className="profile-benefit-actions"><button className="primary-button" type="submit" disabled={savingProfile}>{savingProfile?'Saving…':'Save profile'}</button><BenefitProfileLink/></div>
         {status&&<p className={`settings-status${statusTone?` is-${statusTone}`:''}`} role={statusTone==='error'?'alert':'status'}>{status}</p>}
         <div className="security-row">
-          <div><h3>Password and security</h3><p>We'll send a secure password-reset code to your account email.</p></div>
-          <button className="secondary-button" type="button" onClick={openPasswordReset}>Reset password</button>
+          <div><h3>Password and security</h3><p>Update your password by confirming your current password.</p></div>
+          <button className="secondary-button" type="button" onClick={openChangePassword}>Change password</button>
         </div>
       </form>
 
@@ -964,116 +999,38 @@ export function ProfilePage(){
       </section>
     </section>
 
-    {resetOpen&&<InlinePasswordResetModal
-      step={resetStep}
-      email={resetEmail}
-      otp={resetOtp}
-      password={resetPassword}
-      confirmPassword={resetConfirmPassword}
-      busy={resetBusy}
-      error={resetError}
-      message={resetMessage}
-      onClose={closePasswordReset}
-      onEmailChange={setResetEmail}
-      onOtpChange={changeResetOtpDigit}
-      onPasswordChange={setResetPassword}
-      onConfirmPasswordChange={setResetConfirmPassword}
-      onSendCode={sendPasswordResetCode}
-      onVerifyCode={verifyPasswordResetCode}
-      onResendCode={resendPasswordResetCode}
-      onSubmitPassword={submitResetPassword}
+    {changePasswordOpen&&<ChangePasswordModal
+      currentPassword={currentPassword}
+      newPassword={newPassword}
+      confirmNewPassword={confirmNewPassword}
+      busy={changePasswordBusy}
+      error={changePasswordError}
+      message={changePasswordMessage}
+      onClose={closeChangePassword}
+      onCurrentPasswordChange={setCurrentPassword}
+      onNewPasswordChange={setNewPassword}
+      onConfirmNewPasswordChange={setConfirmNewPassword}
+      onSubmit={submitChangePassword}
     />}
     {formOpen&&<AddressFormModal address={editingAddress} onClose={closeForm} onSave={saveAddress}/>}
     {deletingId&&<ConfirmDeleteAddressModal onCancel={()=>setDeletingId('')} onConfirm={()=>removeAddress(deletingId)} busy={busyId===deletingId}/>}
   </main>
 }
 
-function InlinePasswordResetModal({step,email,otp,password,confirmPassword,busy,error,message,onClose,onEmailChange,onOtpChange,onPasswordChange,onConfirmPasswordChange,onSendCode,onVerifyCode,onResendCode,onSubmitPassword}){
-  const otpRefs=useRef([])
-  useEffect(()=>{
-    if(step!=='otp')return
-    const targetIndex=Math.min(otp.findIndex(digit=>!digit),otp.length-1)
-    const safeIndex=targetIndex===-1?otp.length-1:targetIndex
-    otpRefs.current[safeIndex]?.focus()
-    otpRefs.current[safeIndex]?.select?.()
-  },[otp,step])
-  const handleOtpInput=(index,value)=>{
-    const digits=value.replace(/\D/g,'')
-    if(!digits){
-      onOtpChange(index,'')
-      return
-    }
-    digits.slice(0,otp.length-index).split('').forEach((digit,offset)=>onOtpChange(index+offset,digit))
-    const nextIndex=Math.min(index+digits.length,otp.length-1)
-    otpRefs.current[nextIndex]?.focus()
-    otpRefs.current[nextIndex]?.select?.()
-  }
-  const handleOtpKeyDown=(index,event)=>{
-    if(event.key==='Backspace'){
-      if(otp[index]){
-        event.preventDefault()
-        onOtpChange(index,'')
-        return
-      }
-      if(index>0){
-        event.preventDefault()
-        otpRefs.current[index-1]?.focus()
-        otpRefs.current[index-1]?.select?.()
-      }
-    }
-    if(event.key==='ArrowLeft'&&index>0){
-      event.preventDefault()
-      otpRefs.current[index-1]?.focus()
-      otpRefs.current[index-1]?.select?.()
-    }
-    if(event.key==='ArrowRight'&&index<otp.length-1){
-      event.preventDefault()
-      otpRefs.current[index+1]?.focus()
-      otpRefs.current[index+1]?.select?.()
-    }
-  }
-  const handleOtpPaste=event=>{
-    const digits=event.clipboardData.getData('text').replace(/\D/g,'').slice(0,otp.length)
-    if(!digits)return
-    event.preventDefault()
-    digits.split('').forEach((digit,index)=>onOtpChange(index,digit))
-    const focusIndex=Math.min(digits.length,otp.length)-1
-    otpRefs.current[Math.max(focusIndex,0)]?.focus()
-    otpRefs.current[Math.max(focusIndex,0)]?.select?.()
-  }
-  return <div className="legacy-auth-modal-backdrop" role="dialog" aria-modal="true" aria-label="Reset password">
+function ChangePasswordModal({currentPassword,newPassword,confirmNewPassword,busy,error,message,onClose,onCurrentPasswordChange,onNewPasswordChange,onConfirmNewPasswordChange,onSubmit}){
+  return <div className="legacy-auth-modal-backdrop" role="dialog" aria-modal="true" aria-label="Change password">
     <section className="legacy-auth-modal reset-password-modal">
-      <header><h2>Reset Password</h2><button type="button" onClick={onClose} disabled={busy||step==='success'} aria-label="Close">&times;</button></header>
-      {step==='email'?<form className="reset-password-step" onSubmit={onSendCode}>
-        <p>Enter your account email and we will send a 6-digit password reset code.</p>
+      <header><h2>Change Password</h2><button type="button" onClick={onClose} disabled={busy} aria-label="Close">&times;</button></header>
+      <form className="reset-password-step" onSubmit={onSubmit}>
+        <p>Confirm your current password, then create a new password for your account.</p>
         {error?<ResetNotice variant="error" message={error}/>:null}
         {message?<ResetNotice variant="success" message={message}/>:null}
-        <label className="legacy-auth-input"><span>Email address</span><div><Mail size={19}/><input type="email" value={email} maxLength={EMAIL_MAX_LENGTH} onChange={event=>onEmailChange(event.target.value.slice(0,EMAIL_MAX_LENGTH))} placeholder="Enter your email"/></div></label>
-        <button type="submit" className="legacy-auth-submit" disabled={busy}>{busy?'SENDING...':'SEND OTP CODE'}</button>
-      </form>:null}
-      {step==='otp'?<div className="reset-password-step">
-        <div className="legacy-otp-icon"><ShieldCheck size={30}/></div>
-        <p>Enter the 6-digit password reset code sent to <b>{email}</b>.</p>
-        {error?<ResetNotice variant="error" message={error}/>:null}
-        {message?<ResetNotice variant="success" message={message}/>:null}
-        <div className="legacy-otp-inputs reset-otp-inputs" aria-label="Password reset OTP inputs" onPaste={handleOtpPaste}>{otp.map((digit,index)=><input key={index} ref={element=>{otpRefs.current[index]=element}} value={digit} onChange={event=>handleOtpInput(index,event.target.value)} onKeyDown={event=>handleOtpKeyDown(index,event)} onFocus={event=>event.target.select()} inputMode="numeric" maxLength="6" aria-label={`Reset OTP digit ${index+1}`}/>)}</div>
-        <button type="button" className="legacy-auth-submit" onClick={onVerifyCode} disabled={busy}>{busy?'VERIFYING...':'VERIFY OTP'}</button>
-        <button type="button" className="legacy-auth-link-button" onClick={onResendCode} disabled={busy}>Resend code</button>
-      </div>:null}
-      {step==='password'?<form className="reset-password-step" onSubmit={onSubmitPassword}>
-        <p>Your code is verified. Create a new password for your account.</p>
-        {error?<ResetNotice variant="error" message={error}/>:null}
-        <label className="legacy-auth-input"><span>New password</span><div><Lock size={19}/><input type="password" value={password} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" onChange={event=>onPasswordChange(event.target.value.slice(0,32))} placeholder="Enter new password"/></div></label>
-        <label className="legacy-auth-input"><span>Confirm new password</span><div><Lock size={19}/><input type="password" value={confirmPassword} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" onChange={event=>onConfirmPasswordChange(event.target.value.slice(0,32))} placeholder="Repeat new password"/></div></label>
-        <p className="legacy-auth-hint">Use 8–32 characters with at least 1 number.</p>
-        <button type="submit" className="legacy-auth-submit" disabled={busy}>{busy?'UPDATING...':'UPDATE PASSWORD'}</button>
-      </form>:null}
-      {step==='success'?<div className="reset-password-step reset-success-state">
-        <div className="reset-success-badge"><Check size={38}/></div>
-        <h3>Password updated</h3>
-        <p>{message||'Your password has been changed. We’re signing you out securely now.'}</p>
-        <div className="reset-success-progress" aria-hidden="true"><span/></div>
-      </div>:null}
+        <label className="legacy-auth-input"><span>Current password</span><div><Lock size={19}/><input type="password" value={currentPassword} minLength="8" maxLength="32" autoComplete="current-password" onChange={event=>onCurrentPasswordChange(event.target.value.slice(0,32))} placeholder="Enter current password" required/></div></label>
+        <label className="legacy-auth-input"><span>New password</span><div><Lock size={19}/><input type="password" value={newPassword} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" autoComplete="new-password" onChange={event=>onNewPasswordChange(event.target.value.slice(0,32))} placeholder="Enter new password" required/></div></label>
+        <label className="legacy-auth-input"><span>Confirm new password</span><div><Lock size={19}/><input type="password" value={confirmNewPassword} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" autoComplete="new-password" onChange={event=>onConfirmNewPasswordChange(event.target.value.slice(0,32))} placeholder="Repeat new password" required/></div></label>
+        <p className="legacy-auth-hint">Use 8-32 characters with at least 1 number.</p>
+        <button type="submit" className="legacy-auth-submit" disabled={busy||Boolean(message)}>{busy?'CHANGING...':message?'PASSWORD CHANGED':'CHANGE PASSWORD'}</button>
+      </form>
     </section>
   </div>
 }

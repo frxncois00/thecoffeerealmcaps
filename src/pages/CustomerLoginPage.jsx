@@ -58,14 +58,38 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
     setAuthMessage('')
     if (!isSupabaseConfigured) return setAuthError('Supabase is not configured yet.')
     const data = new FormData(event.currentTarget)
-    const email = String(data.get('email') || '').trim()
+    const identifier = String(data.get('identifier') || '').trim()
     const password = String(data.get('password') || '')
-    if (!email || !password) return setAuthError('Please enter your email and password.')
+    if (!identifier || !password) return setAuthError('Please enter your username or email and password.')
+    if (identifier.includes('@') && !isValidEmail(identifier)) return setAuthError('Enter a valid email address or username.')
+    if (!identifier.includes('@') && sanitizeUsername(identifier, 24) !== identifier) return setAuthError('Enter a valid email address or username.')
     setLoading(true)
-    const { data: authData, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setLoading(false)
-      return setAuthError(error.message)
+    let authData
+    if (identifier.includes('@')) {
+      const { data: emailAuthData, error } = await supabase.auth.signInWithPassword({ email: identifier, password })
+      if (error) {
+        setLoading(false)
+        return setAuthError(error.message)
+      }
+      authData = emailAuthData
+    } else {
+      const { data: loginResult, error: loginError } = await supabase.functions.invoke('customer-username-login', {
+        body: { username: identifier, password },
+      })
+      if (loginError) {
+        setLoading(false)
+        return setAuthError('Unable to complete username sign-in. Please try again.')
+      }
+      if (!loginResult?.success || !loginResult.session) {
+        setLoading(false)
+        return setAuthError(loginResult?.error || 'Invalid username, email, or password.')
+      }
+      const { data: usernameAuthData, error: sessionError } = await supabase.auth.setSession(loginResult.session)
+      if (sessionError) {
+        setLoading(false)
+        return setAuthError('Unable to complete username sign-in. Please try again.')
+      }
+      authData = usernameAuthData
     }
 
     const { data: profile, error: profileError } = await supabase
@@ -241,8 +265,8 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
             {authError && mode === 'login' ? <AuthNotice variant="error" message={authError} /> : null}
             {authMessage && mode === 'login' ? <AuthNotice variant="success" message={authMessage} /> : null}
             <label className="legacy-auth-input">
-              <span>Email address</span>
-              <div><Mail size={19} /><input name="email" type="email" maxLength={EMAIL_MAX_LENGTH} autoComplete="email" placeholder="Enter your email" /></div>
+              <span>Username or email</span>
+              <div><User size={19} /><input name="identifier" type="text" maxLength={EMAIL_MAX_LENGTH} autoComplete="username" placeholder="Enter your username or email" /></div>
             </label>
             <label className="legacy-auth-input">
               <span>Password <button type="button" onClick={openForgotPassword}>Forgot Password?</button></span>

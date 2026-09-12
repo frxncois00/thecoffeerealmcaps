@@ -1,7 +1,7 @@
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { dispatchOrderEmails } from './orderEmailService'
 import { IMAGE_UPLOAD_ACCEPT, validateImageFile } from '../utils/imageUpload'
-import { isValidEmail, isValidPhone, sanitizePersonName, sanitizePhone } from '../utils/inputValidation'
+import { isValidEmail, isValidPhone, sanitizePersonName, sanitizePhone, sanitizeUsername } from '../utils/inputValidation'
 export async function fetchProducts(){if(!isSupabaseConfigured)return null;const {data,error}=await supabase.from('products').select('*, product_variations(*), product_addons(addons(*))').eq('is_active',true).order('display_order');if(error)throw error;return data}
 export async function fetchProfile(userId){const {data,error}=await supabase.from('profiles').select('*').eq('id',userId).single();if(error)throw error;return data}
 const PROFILE_PICTURE_BUCKET='profile-pictures'
@@ -9,12 +9,14 @@ export const PROFILE_PICTURE_ACCEPT=IMAGE_UPLOAD_ACCEPT
 export const validateProfilePicture=(file)=>validateImageFile(file,{label:'Profile picture'})
 export async function saveProfile(userId,values,{avatarFile=null,previousAvatarPath=''}={}){
   const cleanName=sanitizePersonName(values.full_name||'',60).trim()
+  const cleanUsername=sanitizeUsername(String(values.username||'').trim(),24)
   const cleanPhone=sanitizePhone(values.phone||'')
   if(cleanName.length<2||cleanName!==String(values.full_name||'').trim())throw new Error('Enter a valid name using letters only.')
+  if(cleanUsername.length<3||cleanUsername!==String(values.username||'').trim())throw new Error('Username must contain 3-24 letters, numbers, periods, underscores, or hyphens.')
   if(values.email&&!isValidEmail(values.email))throw new Error('Enter a valid email address.')
   if(cleanPhone&&!isValidPhone(cleanPhone))throw new Error('Contact number must contain 11 digits and start with 09.')
   let uploadedPath=''
-  let nextValues={...values,full_name:cleanName,phone:cleanPhone}
+  let nextValues={...values,full_name:cleanName,username:cleanUsername,phone:cleanPhone}
   if(avatarFile){
     const {extension}=await validateProfilePicture(avatarFile)
     const uniqueId=globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -41,6 +43,7 @@ export async function saveProfile(userId,values,{avatarFile=null,previousAvatarP
   const {data,error}=await supabase.from('profiles').update({...nextValues,updated_at:new Date().toISOString()}).eq('id',userId).select().maybeSingle()
   if(error){
     if(uploadedPath)await supabase.storage.from(PROFILE_PICTURE_BUCKET).remove([uploadedPath])
+    if(error.code==='23505'&&/username/i.test(`${error.message||''} ${error.details||''}`))throw new Error('That username is already taken. Please choose another one.')
     throw error
   }
   if(uploadedPath&&previousAvatarPath&&previousAvatarPath!==uploadedPath){
@@ -57,15 +60,16 @@ export async function createCustomerOrder(payload){if(!isSupabaseConfigured)thro
 export async function createCustomerOrderWithBenefitDiscount(payload){if(!isSupabaseConfigured)throw new Error('Supabase is not configured.');const {data,error}=await supabase.rpc('create_customer_order_with_benefit_discount',{request_payload:payload});if(error)throw error;return data}
 export async function fetchCustomerBenefitApplication(customerId){if(!customerId)return null;const {data,error}=await supabase.from('benefit_applications').select('status,kind').eq('customer_id',customerId).maybeSingle();if(error)throw error;return data}
 
-export async function uploadPaymentProof({orderId,userId,file}){
+export async function uploadPaymentProof({orderId,userId,file,referenceNumber}){
   const {extension}=await validateImageFile(file,{label:'Payment proof'})
-  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date())
-  const date=Object.fromEntries(parts.map(part=>[part.type,part.value]))
-  const filename=`${orderId}_${date.year}${date.month}${date.day}.${extension}`
+  // The existing database policy accepts an eight-digit suffix. A timestamp
+  // suffix makes retries unique without overwriting an earlier proof upload.
+  const uploadToken=String(Date.now()).slice(-8)
+  const filename=`${orderId}_${uploadToken}.${extension}`
   const path=`${userId}/${filename}`
   const {error:uploadError}=await supabase.storage.from('payment-proofs').upload(path,file,{contentType:file.type,upsert:false})
   if(uploadError)throw uploadError
-  const {error:attachError}=await supabase.rpc('attach_customer_payment_proof',{p_order_id:orderId,p_path:path})
+  const {error:attachError}=await supabase.rpc('attach_customer_payment_proof',{p_order_id:orderId,p_path:path,p_reference_number:referenceNumber})
   if(attachError){
     const {error:cleanupError}=await supabase.storage.from('payment-proofs').remove([path])
     if(cleanupError)throw new Error(attachError.message+' The uploaded file could not be cleaned up: '+cleanupError.message)
