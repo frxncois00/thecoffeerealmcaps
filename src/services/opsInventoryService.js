@@ -180,6 +180,11 @@ export async function upsertIngredient(payload) {
   if (error) throw error
   return data
 }
+export async function fetchIngredientMenuLinks(ingredientId) {
+  const { data, error } = await supabase.from('menu_item_ingredients').select('menu_item_id,quantity_per_serving').eq('ingredient_id', ingredientId)
+  if (error) throw error
+  return (data || []).map((row) => ({ menuItemId: row.menu_item_id, quantityPerServing: Number(row.quantity_per_serving) }))
+}
 export async function archiveIngredient(id) {
   const { error } = await supabase.rpc('staff_archive_ingredient', { p_id: id })
   if (error) throw error
@@ -196,15 +201,15 @@ export async function upsertFinishedProduct(payload) {
   if (payload.saleMappings) {
     const { error: mappingError } = await supabase.rpc('staff_set_finished_product_sale_mappings', {
       p_finished_product_id: data,
-      p_mappings: payload.saleMappings.map((mapping) => ({
-        menu_item_id: mapping.menuItemId,
-        variant_key: mapping.variantKey || null,
-        units_per_sale: Number(mapping.unitsPerSale),
-      })),
+      p_mappings: payload.saleMappings.map((mapping) => ({ menu_item_id: mapping.menuItemId, variant_key: mapping.variantKey || null, units_per_sale: Number(mapping.unitsPerSale) })),
     })
     if (mappingError) throw mappingError
   }
   return data
+}
+export async function setIngredientMenuLinks(ingredientId, links) {
+  const { error } = await supabase.rpc('staff_set_ingredient_menu_links', { p_ingredient_id: ingredientId, p_links: links.map((link) => ({ menu_item_id: link.menuItemId, quantity_per_serving: Number(link.quantityPerServing) })) })
+  if (error) throw error
 }
 export async function archiveFinishedProduct(id) {
   const { error } = await supabase.rpc('staff_archive_finished_product', { p_id: id })

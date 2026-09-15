@@ -29,6 +29,7 @@ export function getMenuChangeTypes(item, payload) {
   if (changed(before, after, ['imageUrl', 'image_url'])) changes.push('Image')
   if (changed(before, after, ['mainCategoryId', 'main_category_id']) || changed(before, after, ['subcategoryId', 'subcategory_id'])) changes.push('Category')
   if (changed(before, after, ['temperatureType', 'temperature_type'])) changes.push('Temperature')
+  if (changed(before, after, ['prepTimeMinutes', 'prep_time_minutes'])) changes.push('Preparation time')
 
   const choiceKeys = ['allowIce', 'allow_ice', 'allowSugar', 'allow_sugar', 'variantOptions', 'variant_options', 'choices', 'choiceOptions', 'choice_options']
   if (changed(before, after, choiceKeys)) changes.push('Choices')
@@ -38,6 +39,7 @@ export function getMenuChangeTypes(item, payload) {
 
   const ingredientKeys = ['ingredients', 'ingredientIds', 'ingredient_ids', 'recipe', 'recipeItems', 'recipe_items', 'menu_item_ingredients']
   if (changed(before, after, ingredientKeys)) changes.push('Ingredients')
+  if (changed(before, after, ['inventorySource', 'inventory_source', 'products', 'productBom', 'sellingOptions'])) changes.push('BOM and selling options')
 
   const readyMadeKeys = ['readyMade', 'ready_made', 'isReadyMade', 'is_ready_made']
   if (changed(before, after, readyMadeKeys)) changes.push('Ready-made')
@@ -46,7 +48,6 @@ export function getMenuChangeTypes(item, payload) {
   const displayKeys = ['isFeatured', 'is_featured', 'isBestseller', 'is_bestseller', 'sortOrder', 'sort_order']
   if (changed(before, after, displayKeys)) changes.push('Display settings')
   if (changed(before, after, ['manualAvailable', 'manual_available'])) changes.push('Status')
-  if (changed(before, after, ['prepTimeMinutes', 'prep_time_minutes', 'availableFrom', 'available_from', 'availableUntil', 'available_until'])) changes.push('Schedule')
   return changes
 }
 
@@ -69,6 +70,7 @@ function operationChangeTypes(request) {
   if (request.action === 'add' || request.operation === 'duplicate_menu_item') return ['New item']
   if (request.action === 'remove' || request.operation?.startsWith('archive_')) return ['Item removal']
   if (request.operation === 'upsert_main_category' || request.operation === 'upsert_subcategory') return ['Category']
+  if (request.operation === 'upsert_addon') return ['Add-ons']
   return null
 }
 

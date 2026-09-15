@@ -48,15 +48,6 @@ const localIdentifier = (prefix) => {
   }
   return `${prefix}-${values.month}${values.day}-${String(sequence).padStart(4, '0')}`
 }
-const defaultAddonOptions = [
-  { name: 'Espresso Shot', price: 30 },
-  { name: 'Oat Milk', price: 35 },
-  { name: 'Almond Milk', price: 35 },
-  { name: 'Soy Milk', price: 30 },
-  { name: 'Coffee Jelly', price: 20 },
-  { name: 'Whipped Cream', price: 25 },
-]
-
 const addonLabel = (addon) => `${addon.name} +${peso(addon.price)}`
 const addonTotal = (addons = []) => addons.reduce((sum, addon) => sum + Number(addon.price || 0), 0)
 const baseUnitPrice = (item) => Number(item.customizations?.variantPrice ?? item.price ?? 0)
@@ -151,6 +142,7 @@ function normalizeTemperatureType(value) {
 }
 
 function variantOptionsFromConfig(config, product) {
+  if (config?.enabled && Array.isArray(config.options)) return config.options.map((option) => ({ key: option.key, label: option.name, price: Number(option.price ?? 0), quantity: Number(option.quantity ?? 1), unit: option.unit || '' })).filter((option) => option.label && option.price >= 0)
   const labels = config?.labels || {}
   const prices = config?.prices || {}
   return Object.entries(labels).map(([key, label]) => ({
@@ -181,7 +173,23 @@ function productOptionDefaults(product) {
     variantOptions,
   }
 }
-function normalizeProduct(row) {
+function normalizeAddon(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    price: Number(row.price || 0),
+    appliesTo: row.applies_to || 'both',
+    // Kept as a normalized compatibility value for older customization
+    // rendering paths. Add-ons no longer have temperature-specific rules.
+    targetTemperature: 'both',
+    subcategoryIds: Array.isArray(row.addon_subcategories) ? row.addon_subcategories.map((link) => link.subcategory_id).filter(Boolean) : null,
+  }
+}
+function addonMatchesMenuRow(addon, row) {
+  if (Array.isArray(addon.subcategoryIds)) return addon.subcategoryIds.includes(row.subcategory_id)
+  return addon.appliesTo === 'both' || addon.appliesTo === (row.item_type || 'food')
+}
+function normalizeProduct(row, addonRows = []) {
   const product = {
     id: row.id,
     name: row.name || row.product_name || 'Menu item',
@@ -196,6 +204,7 @@ function normalizeProduct(row) {
     allowAddons: row.allow_addons ?? row.allowAddons,
     temperatureType: row.temperature_type || row.temperatureType || '',
     variantConfig: parseVariantConfig(row.variant_options || row.variantOptions),
+    addons: addonRows.filter((addon) => addonMatchesMenuRow(normalizeAddon(addon), row)).map(normalizeAddon),
   }
   return { ...product, ...productOptionDefaults(product) }
 }
@@ -340,13 +349,14 @@ export default function CashierPage() {
           setLastSyncedAt(new Date())
           return
         }
-        const [productResult, orderResult] = await Promise.all([
+        const [productResult, addonResult, orderResult] = await Promise.all([
           loadMenuItems(),
+          supabase.from('addons').select('id,name,price,applies_to,is_available,sort_order,addon_subcategories(subcategory_id)').eq('is_available', true).order('sort_order', { ascending: true }),
           supabase.from('orders').select('id,order_number,receipt_number,customer_name,subtotal,discount_subtotal,discount_amount,final_total,vat_rate,prices_include_vat,payment_status,payment_confirmed,discount_type,discount_customer_name,discount_id_number,created_at,order_items(*),payments(*)').eq('order_type', 'walk-in').order('created_at', { ascending: false }).limit(30),
         ])
         if (ignore) return
         if (!productResult.error) {
-          const liveProducts = (productResult.data || []).map(normalizeProduct)
+          const liveProducts = (productResult.data || []).map((row) => normalizeProduct(row, addonResult.error ? [] : (addonResult.data || [])))
           setProducts(liveProducts)
           setNotice(liveProducts.length ? '' : 'No active menu items are currently available in the POS.')
         } else {
@@ -354,7 +364,7 @@ export default function CashierPage() {
           setNotice(`The current menu could not load: ${productResult.error.message}`)
         }
         if (!orderResult.error && orderResult.data) setTransactions(orderResult.data.map(normalizeOrder))
-        const syncError = productResult.error || orderResult.error
+        const syncError = productResult.error || addonResult.error || orderResult.error
         if (syncError) setDataSyncError(syncError.message || 'Live data could not be refreshed.')
         else {
           setDataSyncError('')
@@ -376,6 +386,8 @@ export default function CashierPage() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, refreshLiveData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'main_categories' }, refreshLiveData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategories' }, refreshLiveData)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'addons' }, refreshLiveData)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'addon_subcategories' }, refreshLiveData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, refreshLiveData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, refreshLiveData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, refreshLiveData)
@@ -935,7 +947,7 @@ function ItemCustomizationModal({ product, onClose, onAdd }) {
   const isCold = temperature === 'Cold'
   const [sugarLevel, setSugarLevel] = useState(product.customizations?.sugarLevel || (product.allowSugar ? '100% Sugar' : ''))
   const [iceLevel, setIceLevel] = useState(product.customizations?.iceLevel || (product.allowIce && isCold ? 'Default Ice' : ''))
-  const [addons, setAddons] = useState(product.addons || [])
+  const [addons, setAddons] = useState(product.customizations?.addons || [])
   const [quantity, setQuantity] = useState(Number(product.qty || 1))
   const unitTotal = Number(selectedVariant?.price ?? product.price ?? 0) + addonTotal(addons)
   const modalTotal = unitTotal * quantity
@@ -986,9 +998,9 @@ function ItemCustomizationModal({ product, onClose, onAdd }) {
           {product.allowSugar ? <OptionGroup title="Sugar level" options={['0% Sugar', '25% Sugar', '50% Sugar', '75% Sugar', '100% Sugar']} value={sugarLevel} onChange={setSugarLevel} /> : null}
           {product.allowIce && isCold ? <OptionGroup title="Ice level" options={['Less Ice', 'Default Ice', 'More Ice']} value={iceLevel} onChange={setIceLevel} /> : null}
         </div> : <p className="customize-standard-note">This item uses its standard preparation.</p>}
-        {product.allowAddons ? <section className="customize-addons-section" aria-labelledby="customize-addons-title">
+        {product.allowAddons && (product.addons || []).length > 0 ? <section className="customize-addons-section" aria-labelledby="customize-addons-title">
           <div className="customize-section-head"><h3 id="customize-addons-title">Add-ons</h3><span>Optional</span></div>
-          <div className="customize-addons-grid">{defaultAddonOptions.map((option) => {
+          <div className="customize-addons-grid">{(product.addons || []).map((option) => {
             const selected = addons.some((item) => item.name === option.name)
             return <button type="button" className={`customize-addon-button ${selected ? 'active' : ''}`} aria-pressed={selected} key={option.name} onClick={() => toggleAddon(option)}>
               <span>{selected ? <i>&#10003;</i> : null}{option.name}</span>

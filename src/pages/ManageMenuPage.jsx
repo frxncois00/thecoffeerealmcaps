@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle, Archive, Bell, Box, CalendarDays, Check, ClipboardCheck, Copy, Eye, ExternalLink, Folder,
-  Grid, ImagePlus, List, MoreVertical, Pencil, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, Star, Tags, TrendingUp, X,
+  AlertTriangle, Archive, Bell, Box, Check, ClipboardCheck, Copy, Eye, ExternalLink, Folder,
+  Grid, ImagePlus, List, MoreVertical, Pencil, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, Sparkles, Star, Tags, TrendingUp, X,
 } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import '../menu-discount.css'
@@ -10,9 +10,9 @@ import { describeError } from '../utils/describeError'
 import { sanitizeCatalogText } from '../utils/inputValidation'
 import { supabase } from '../lib/supabase'
 import {
-  fetchMainCategories, fetchSubcategories, fetchManageMenuItems, fetchIngredientOptions, fetchMenuItemRecipe,
+  fetchMainCategories, fetchSubcategories, fetchManageMenuItems, fetchIngredientOptions, fetchFinishedProductOptions, fetchAddonOptions, fetchMenuItemRecipe, fetchMenuItemProductLinks,
   upsertMainCategory, archiveMainCategory, upsertSubcategory, archiveSubcategory,
-  upsertMenuItem, setMenuItemAvailability, archiveMenuItem, duplicateMenuItem, setMenuItemRecipe, uploadMenuItemImage,
+  upsertMenuItem, setMenuItemAvailability, archiveMenuItem, duplicateMenuItem, setMenuItemRecipe, setMenuItemConfiguration, uploadMenuItemImage,
   requestMenuDiscountEligibility,
 } from '../services/manageMenuService'
 import { shouldShowSystemNotification } from '../services/staffSettingsService'
@@ -66,6 +66,7 @@ export default function ManageMenuPage() {
   const [availabilityTarget, setAvailabilityTarget] = useManagementSessionState('staff:menu:availability-confirmation', null)
   const [archiveTarget, setArchiveTarget] = useManagementSessionState('staff:menu:archive-confirmation', null)
   const [categoryManagerOpen, setCategoryManagerOpen] = useManagementSessionState('staff:menu:category-manager', false)
+  const [addonManagerOpen, setAddonManagerOpen] = useManagementSessionState('staff:menu:addon-manager', false)
   const [approvalTarget, setApprovalTarget] = useState(null)
 
   useEffect(() => { const t = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(t) }, [])
@@ -89,6 +90,8 @@ export default function ManageMenuPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'main_categories' }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'subcategories' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'addons' }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'addon_subcategories' }, () => load())
       .subscribe()
     const onVisible = () => { if (document.visibilityState === 'visible') load() }
     const onApprovalChanged = () => load()
@@ -263,23 +266,23 @@ export default function ManageMenuPage() {
 
       <section className="inv-summary-row menu-summary-grid" aria-label="Menu overview">
         <article className="inv-summary-card menu-summary-card accent-green">
-          <span className="menu-summary-copy"><span>Active Items</span><small>Catalog total</small></span>
+          <span className="menu-summary-copy"><span>Active Items</span></span>
           <strong>{activeItems.length}</strong>
         </article>
         <article className="inv-summary-card menu-summary-card accent-green">
-          <span className="menu-summary-copy"><span>Drinks</span><small>Drink collection</small></span>
+          <span className="menu-summary-copy"><span>Drinks</span></span>
           <strong>{drinksCount}</strong>
         </article>
         <article className="inv-summary-card menu-summary-card accent-green">
-          <span className="menu-summary-copy"><span>Foods</span><small>Food collection</small></span>
+          <span className="menu-summary-copy"><span>Foods</span></span>
           <strong>{foodsCount}</strong>
         </article>
         <article className="inv-summary-card menu-summary-card accent-blue">
-          <span className="menu-summary-copy"><span>Available</span><small>Ready for orders</small></span>
+          <span className="menu-summary-copy"><span>Available</span></span>
           <strong>{availableCount}</strong>
         </article>
         <article className="inv-summary-card menu-summary-card accent-gray">
-          <span className="menu-summary-copy"><span>Unavailable</span><small>Needs attention</small></span>
+          <span className="menu-summary-copy"><span>Unavailable</span></span>
           <strong>{unavailableCount}</strong>
         </article>
       </section>
@@ -300,8 +303,9 @@ export default function ManageMenuPage() {
 
       <div className="menu-manage-toolbar">
         <div className="menu-toolbar-group menu-toolbar-main-actions">
-          <button type="button" className="ops-secondary-action compact" onClick={() => setCategoryManagerOpen(true)}><Folder size={15} /> Manage Categories</button>
           <button type="button" className="ops-main-action compact menu-add-item-action" onClick={() => setFormTarget({ item: null })}><Plus size={15} /> Add Item</button>
+          <button type="button" className="ops-secondary-action compact" onClick={() => setCategoryManagerOpen(true)}><Folder size={15} /> Manage Categories</button>
+          <button type="button" className="ops-secondary-action compact" onClick={() => setAddonManagerOpen(true)}><Sparkles size={15} /> Manage Add-ons</button>
           <span className="menu-filter-label" aria-hidden="true">Filters:</span>
           <label className="menu-sort-control">
             <span className="sr-only">Sort items</span>
@@ -438,6 +442,13 @@ export default function ManageMenuPage() {
           onChanged={load} pushToast={pushToast} requestApproval={requestApproval}
         />
       )}
+      {addonManagerOpen && (
+        <AddOnManagerModal
+          mainCategories={mainCategories} subcategories={subcategories}
+          onClose={() => setAddonManagerOpen(false)}
+          pushToast={pushToast} requestApproval={requestApproval}
+        />
+      )}
 
       <div className="ops-toasts" role="status" aria-live="polite">
         {toasts.map((t) => <div className={`ops-toast ops-toast-${t.type}`} key={t.id}>{t.type === 'success' ? <Check size={15} /> : <AlertTriangle size={15} />} {t.message}</div>)}
@@ -528,11 +539,10 @@ function ItemDrawer({ item, onClose, onEdit, onToggleAvailability }) {
             <p>Online SC/PWD discount: {item.onlineBenefitEligible ? 'Eligible' : 'Not eligible'}</p>
             <p>Temperature: {TEMP_LABEL[item.temperatureType]}</p>
             {item.prepTimeMinutes ? <p>Prep time: {item.prepTimeMinutes} min</p> : null}
-            {(item.availableFrom || item.availableUntil) && <p>Scheduled: {item.availableFrom || '—'} to {item.availableUntil || '—'}</p>}
           </section>
           <section><h3>Recipe</h3>
             {loading ? <p className="ops-proof-pending">Loading…</p> : recipe.length === 0 ? <p className="ops-proof-pending">No recipe linked yet.</p> : (
-              <ul className="inv-movement-list">{recipe.map((r) => <li key={r.ingredient_id}><b>{r.quantity_per_serving}</b> per serving</li>)}</ul>
+              <ul className="inv-movement-list">{recipe.map((r) => <li key={r.ingredient_id}><b>{r.ingredients?.name || 'Ingredient'}</b><span>{r.quantity_per_serving} {r.unit || r.ingredients?.unit || ''} per serving</span></li>)}</ul>
             )}
           </section>
         </div>
@@ -547,22 +557,33 @@ function ItemDrawer({ item, onClose, onEdit, onToggleAvailability }) {
 
 function ItemFormModal({ item, mainCategories, subcategories, onClose, onDelete, onSave }) {
   const draftScope = `staff:menu:${item?.id || 'new'}:draft`
+  const defaultSaleOption = item?.variantOptions?.options?.[0] || { key: 'default', name: item?.itemType === 'drink' ? 'Serving' : 'Piece', quantity: 1, unit: item?.itemType === 'drink' ? 'serving' : 'piece', price: item?.price ?? '' }
   const [values, setValues, clearValues] = useManagementSessionState(`${draftScope}:values`, {
     name: item?.name || '', description: item?.description || '', mainCategoryId: item?.mainCategoryId || mainCategories[0]?.id || '',
     subcategoryId: item?.subcategoryId || '', price: item?.price ?? '', itemType: item?.itemType || 'food', temperatureType: item?.temperatureType || 'none',
     allowIce: item?.allowIce ?? false, allowSugar: item?.allowSugar ?? false, allowAddons: item?.allowAddons ?? false,
     onlineBenefitEligible: item?.onlineBenefitEligible ?? false,
     imageUrl: item?.imageUrl || '', manualAvailable: item?.manualAvailable ?? true, isFeatured: item?.isFeatured ?? false, isBestseller: item?.isBestseller ?? false,
-    prepTimeMinutes: item?.prepTimeMinutes ?? '', availableFrom: item?.availableFrom || '', availableUntil: item?.availableUntil || '', sortOrder: item?.sortOrder ?? 0,
+    prepTimeMinutes: item?.prepTimeMinutes ?? '', inventorySource: item?.inventorySource || 'none',
+    sellingOptions: item?.variantOptions?.options?.length ? item.variantOptions.options : [defaultSaleOption],
+    allowSellingOptions: Boolean(item?.variantOptions?.enabled),
+    presetBundle: Boolean(item?.variantOptions?.presetBundle || item?.variantOptions?.options?.some((option) => option.key === 'bundle-default')),
+    bundleName: item?.variantOptions?.bundleName || item?.variantOptions?.options?.find((option) => option.key === 'bundle-default')?.name || item?.name || '', bundleQuantity: item?.variantOptions?.bundleQuantity || item?.variantOptions?.options?.find((option) => option.key === 'bundle-default')?.quantity || 1,
+    bundleUnit: item?.variantOptions?.bundleUnit || item?.variantOptions?.options?.find((option) => option.key === 'bundle-default')?.unit || 'piece',
+    ingredientBom: [], productBom: [],
   })
   const [imagePreview, setImagePreview, clearImagePreview] = useManagementSessionState(`${draftScope}:image`, item?.image || '')
   const [uploading, setUploading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [ingredients, setIngredients] = useState([])
+  const [products, setProducts] = useState([])
+  useEffect(() => { Promise.all([fetchIngredientOptions(), fetchFinishedProductOptions(), item ? fetchMenuItemRecipe(item.id) : Promise.resolve([]), item ? fetchMenuItemProductLinks(item.id) : Promise.resolve([])]).then(([i, p, r, l]) => { setIngredients(i); setProducts(p); set('ingredientBom', r.map((x) => ({ ingredientId: x.ingredient_id, quantity: x.quantity_per_serving }))); set('productBom', l.map((x) => ({ productId: x.finished_product_id, optionKey: x.variant_key || '' }))) }).catch((cause) => setError(describeError(cause, 'Could not load inventory links.'))); }, [item?.id])
   const [section, setSection, clearSection] = useManagementSessionState(`${draftScope}:section`, 'basics')
   const fileRef = useRef(null)
   const set = (key, value) => setValues((c) => ({ ...c, [key]: value }))
   const close = () => { clearValues(); clearImagePreview(); clearSection(); onClose() }
+  useEffect(() => { if (!values.presetBundle) return; const limit = Math.max(1, Number(values.bundleQuantity) || 1); if (values.productBom.length > limit) set('productBom', values.productBom.slice(0, limit)) }, [values.presetBundle, values.bundleQuantity])
 
   const availableSubcategories = useMemo(() => subcategories.filter((s) => !s.is_archived && s.main_category_id === values.mainCategoryId), [subcategories, values.mainCategoryId])
 
@@ -586,10 +607,17 @@ function ItemFormModal({ item, mainCategories, subcategories, onClose, onDelete,
     if (!values.name.trim()) { setSection('basics'); return setError('Item name is required.') }
     const price = Number(values.price)
     if (Number.isNaN(price) || price < 0) { setSection('basics'); return setError('Price must be zero or greater.') }
-    if (values.availableFrom && values.availableUntil && values.availableFrom > values.availableUntil) { setSection('scheduling'); return setError('Available-from date must be before the available-until date.') }
+    if (values.inventorySource === 'ingredients' && values.ingredientBom.some((row) => !row.ingredientId || Number(row.quantity) <= 0)) { setSection('bom'); return setError('Each ingredient link needs an ingredient and a quantity greater than zero.') }
+    if (values.presetBundle && (!values.bundleName.trim() || Number(values.bundleQuantity) <= 0 || !values.bundleUnit.trim())) { setSection('options'); return setError('Preset bundles need a name, total quantity, and unit.') }
+    if (values.inventorySource === 'products' && values.presetBundle && (!values.productBom.length || values.productBom.some((row) => !row.productId))) { setSection('bom'); return setError('Add each preset flavor/product before saving.') }
+    if (values.inventorySource === 'products' && values.presetBundle && values.productBom.length > Number(values.bundleQuantity)) { setSection('bom'); return setError(`A ${values.bundleQuantity}-piece bundle can have at most ${values.bundleQuantity} preset product rows.`) }
+    if (values.inventorySource === 'products' && !values.presetBundle && (!values.sellingOptions.length || values.sellingOptions.some((row) => !row.name?.trim() || Number(row.quantity) <= 0 || !row.unit?.trim() || Number(row.price) < 0))) { setSection('options'); return setError('Product-linked items need a complete default sale format or selling option.') }
     setSaving(true); setError('')
     try {
-      await onSave({ id: item?.id, ...values, onlineBenefitEligible: values.onlineBenefitEligible ?? item?.onlineBenefitEligible ?? false, price, prepTimeMinutes: values.prepTimeMinutes === '' ? null : Number(values.prepTimeMinutes) })
+      if (values.presetBundle) values.productBom.forEach((row) => { row.optionKey = 'bundle-default' })
+      const options = values.presetBundle ? [{ key: 'bundle-default', name: values.bundleName.trim(), quantity: Number(values.bundleQuantity), unit: values.bundleUnit.trim(), price }] : values.sellingOptions.map((row, index) => ({ key: row.key || `option-${index + 1}`, name: row.name.trim(), quantity: Number(row.quantity), unit: row.unit.trim(), price: Number(row.price) }))
+      if (values.presetBundle) values.sellingOptions = options
+      await onSave({ id: item?.id, ...values, price: values.allowSellingOptions && options.length ? options[0].price : price, sellingOptions: options, variantOptions: { enabled: Boolean(values.allowSellingOptions), type: 'selling_options', options, labels: Object.fromEntries(options.map((x) => [x.key, x.name])), prices: Object.fromEntries(options.map((x) => [x.key, x.price])), quantities: Object.fromEntries(options.map((x) => [x.key, x.quantity])), units: Object.fromEntries(options.map((x) => [x.key, x.unit])) }, onlineBenefitEligible: values.onlineBenefitEligible ?? item?.onlineBenefitEligible ?? false, prepTimeMinutes: values.prepTimeMinutes === '' ? null : Number(values.prepTimeMinutes), availableFrom: null, availableUntil: null, ingredients: values.ingredientBom.map((x) => ({ ingredient_id: x.ingredientId, quantity_per_serving: Number(x.quantity) })), products: values.productBom.map((x) => ({ finished_product_id: x.productId, variant_key: x.optionKey || null })) })
       clearValues(); clearImagePreview(); clearSection()
     } catch (cause) {
       if (cause?.code !== 'APPROVAL_CANCELLED') setError(describeError(cause, 'Could not save this item.'))
@@ -610,7 +638,7 @@ function ItemFormModal({ item, mainCategories, subcategories, onClose, onDelete,
             <nav className="menu-editor-nav" role="tablist" aria-label="Item editor sections">
               <button type="button" role="tab" aria-selected={section === 'basics'} aria-controls="menu-editor-basics" className={section === 'basics' ? 'active' : ''} onClick={() => setSection('basics')}><ImagePlus size={18} /><span><b>Basics</b><small>Name, image, and category</small></span></button>
               <button type="button" role="tab" aria-selected={section === 'options'} aria-controls="menu-editor-options" className={section === 'options' ? 'active' : ''} onClick={() => setSection('options')}><SlidersHorizontal size={18} /><span><b>Options</b><small>Availability and choices</small></span></button>
-              <button type="button" role="tab" aria-selected={section === 'scheduling'} aria-controls="menu-editor-scheduling" className={section === 'scheduling' ? 'active' : ''} onClick={() => setSection('scheduling')}><CalendarDays size={18} /><span><b>Scheduling</b><small>Timing and display order</small></span></button>
+              <button type="button" role="tab" aria-selected={section === 'bom'} aria-controls="menu-editor-bom" className={section === 'bom' ? 'active' : ''} onClick={() => setSection('bom')}><Box size={18} /><span><b>BOM</b><small>Inventory links</small></span></button>
             </nav>
             <div className="menu-editor-panel">
               {section === 'basics' && (
@@ -626,6 +654,7 @@ function ItemFormModal({ item, mainCategories, subcategories, onClose, onDelete,
                     <label className="field"><span>Main category</span><select value={values.mainCategoryId} onChange={(e) => { set('mainCategoryId', e.target.value); set('subcategoryId', '') }}>{mainCategories.filter((c) => !c.is_archived).map((c) => <option key={c.id} value={c.id}>{c.display_name || c.name}</option>)}</select></label>
                     <label className="field"><span>Subcategory</span><select value={values.subcategoryId} onChange={(e) => set('subcategoryId', e.target.value)}><option value="">No subcategory</option>{availableSubcategories.map((s) => <option key={s.id} value={s.id}>{s.display_name || s.name}</option>)}</select></label>
                     <label className="field"><span>Item type</span><select value={values.itemType} onChange={(e) => set('itemType', e.target.value)}><option value="drink">Drink</option><option value="food">Food</option></select></label>
+                    <label className="field"><span>Prep time (minutes)</span><input type="number" min="0" value={values.prepTimeMinutes} onChange={(e) => set('prepTimeMinutes', e.target.value)} placeholder="e.g. 10" /><small>Used by staff as preparation guidance.</small></label>
                   </div>
                   <label className="field menu-description-field"><span>Description</span><textarea rows="3" maxLength={500} value={values.description} onChange={(e) => set('description', e.target.value)} placeholder="Describe the flavor, ingredients, or serving style." /></label>
                 </section>
@@ -644,18 +673,14 @@ function ItemFormModal({ item, mainCategories, subcategories, onClose, onDelete,
                     <label className="menu-option-card"><input type="checkbox" checked={values.allowSugar} onChange={(e) => set('allowSugar', e.target.checked)} /><span><b>Sugar levels</b><small>Let customers adjust sweetness.</small></span></label>
                     <label className="menu-option-card"><input type="checkbox" checked={values.allowAddons} onChange={(e) => set('allowAddons', e.target.checked)} /><span><b>Add-ons</b><small>Allow compatible extras.</small></span></label>
                   </div></fieldset>
+                  <fieldset className="menu-option-group"><legend>Selling options</legend><label className="menu-option-card"><input type="checkbox" checked={values.allowSellingOptions} onChange={(e) => set('allowSellingOptions', e.target.checked)} /><span><b>Allow additional selling options</b><small>The default sale format is always available. Turn this on to add formats such as boxes or whole cakes.</small></span></label>
+                    <div className="menu-default-option-note"><b>Default: {values.sellingOptions[0]?.name || 'Piece'}</b><span>{values.sellingOptions[0]?.quantity || 1} {values.sellingOptions[0]?.unit || 'piece'} · {money(Number(values.sellingOptions[0]?.price || values.price || 0))}</span></div>
+                    {values.allowSellingOptions && <div className="menu-selling-options">{values.sellingOptions.slice(1).map((option, index) => <div className="menu-selling-option-row" key={option.key || index}><input value={option.name || ''} onChange={(e) => set('sellingOptions', values.sellingOptions.map((x, i) => i === index + 1 ? { ...x, name: e.target.value } : x))} placeholder="Displayed name" aria-label="Selling option name" /><input type="number" min="0.001" step="any" value={option.quantity ?? ''} onChange={(e) => set('sellingOptions', values.sellingOptions.map((x, i) => i === index + 1 ? { ...x, quantity: e.target.value } : x))} placeholder="Quantity" aria-label="Selling option quantity" /><input value={option.unit || ''} onChange={(e) => set('sellingOptions', values.sellingOptions.map((x, i) => i === index + 1 ? { ...x, unit: e.target.value } : x))} placeholder="Unit name" aria-label="Selling option unit" /><input type="number" min="0" step="0.01" value={option.price ?? ''} onChange={(e) => set('sellingOptions', values.sellingOptions.map((x, i) => i === index + 1 ? { ...x, price: e.target.value } : x))} placeholder="Price" aria-label="Selling option price" /><button type="button" className="ops-secondary-action compact" onClick={() => set('sellingOptions', values.sellingOptions.filter((_, i) => i !== index + 1))}>Remove</button></div>)}<button type="button" className="ops-secondary-action compact" onClick={() => set('sellingOptions', [...values.sellingOptions, { key: `option-${Date.now()}`, name: '', quantity: 1, unit: values.sellingOptions[0]?.unit || 'piece', price: '' }])}><Plus size={14} /> Add selling option</button></div>}
+                  </fieldset>
+                  <fieldset className="menu-option-group"><legend>Preset bundle</legend><label className="menu-option-card"><input type="checkbox" checked={values.presetBundle} onChange={(e) => set('presetBundle', e.target.checked)} /><span><b>Use a staff-defined preset bundle</b><small>For Bestseller Boxes, Sampler Boxes, and other fixed contents. Customers will not choose flavors.</small></span></label>{values.presetBundle && <div className="menu-bundle-fields"><label className="field"><span>Bundle name</span><input value={values.bundleName} onChange={(e) => set('bundleName', e.target.value)} placeholder="e.g. Bestseller Box" /></label><label className="field"><span>Total quantity</span><input type="number" min="1" step="1" value={values.bundleQuantity} onChange={(e) => set('bundleQuantity', e.target.value)} /></label><label className="field"><span>Unit name</span><input value={values.bundleUnit} onChange={(e) => set('bundleUnit', e.target.value)} placeholder="piece" /></label></div>}</fieldset>
                 </section>
               )}
-              {section === 'scheduling' && (
-                <section id="menu-editor-scheduling" role="tabpanel" className="menu-form-section" aria-label="Item scheduling">
-                  <header><h3>Scheduling and order</h3><p>Control preparation guidance, menu position, and optional selling dates.</p></header>
-                  <div className="form-grid menu-form-grid">
-                    <label className="field"><span>Prep time (minutes)</span><input type="number" min="0" value={values.prepTimeMinutes} onChange={(e) => set('prepTimeMinutes', e.target.value)} placeholder="e.g. 10" /><small>Used by staff as preparation guidance.</small></label>
-                    <label className="field"><span>Display order</span><input type="number" value={values.sortOrder} onChange={(e) => set('sortOrder', e.target.value)} /><small>Lower numbers appear first.</small></label>
-                  </div>
-                  <div className="menu-schedule-card"><div><CalendarDays size={18} /><span><b>Optional selling window</b><small>Leave both dates empty to keep the item available year-round.</small></span></div><div className="form-grid menu-form-grid"><label className="field"><span>Available from</span><input type="date" value={values.availableFrom} onChange={(e) => set('availableFrom', e.target.value)} /></label><label className="field"><span>Available until</span><input type="date" value={values.availableUntil} onChange={(e) => set('availableUntil', e.target.value)} /></label></div></div>
-                </section>
-              )}
+              {section === 'bom' && <section id="menu-editor-bom" role="tabpanel" className="menu-form-section" aria-label="Bills of materials"><header><h3>BOM · Bills of materials</h3><p>Choose one inventory source. Links can be reused across many menu items and products.</p></header><label className="field"><span>Inventory source</span><select value={values.inventorySource} onChange={(e) => set('inventorySource', e.target.value)}><option value="none">Not linked</option><option value="ingredients">Ingredients</option><option value="products">Products</option></select></label>{values.inventorySource === 'ingredients' && <div className="menu-bom-list">{values.ingredientBom.map((row, index) => <div className="menu-bom-row" key={index}><select value={row.ingredientId || ''} onChange={(e) => set('ingredientBom', values.ingredientBom.map((x, i) => i === index ? { ...x, ingredientId: e.target.value } : x))}><option value="">Select ingredient</option>{ingredients.map((x) => <option key={x.id} value={x.id}>{x.name} ({x.unit})</option>)}</select><input type="number" min="0.001" step="any" value={row.quantity ?? ''} onChange={(e) => set('ingredientBom', values.ingredientBom.map((x, i) => i === index ? { ...x, quantity: e.target.value } : x))} placeholder="Quantity per sale" /><button type="button" className="ops-secondary-action compact" onClick={() => set('ingredientBom', values.ingredientBom.filter((_, i) => i !== index))}>Remove</button></div>)}<button type="button" className="ops-secondary-action compact" onClick={() => set('ingredientBom', [...values.ingredientBom, { ingredientId: '', quantity: '' }])}><Plus size={14} /> Add ingredient</button></div>}{values.inventorySource === 'products' && <div className="menu-bom-list"><h4 className="menu-bom-subtitle">Preset box contents</h4><p className="menu-form-hint">Add each product included in the selected selling option. Customers and cashier POS will see only the box name and fixed price.</p>{values.productBom.map((row, index) => { const option = values.sellingOptions.find((x) => (x.key || '') === row.optionKey); const deductionQuantity = values.presetBundle ? 1 : option?.quantity; return <div className="menu-bom-row" key={index}><select value={row.optionKey || ''} onChange={(e) => set('productBom', values.productBom.map((x, i) => i === index ? { ...x, optionKey: e.target.value } : x))}><option value="">Select selling option</option>{values.sellingOptions.map((x, i) => <option key={x.key || i} value={x.key || `option-${i + 1}`}>{x.name || `Option ${i + 1}`} · {x.quantity || '—'} {x.unit || ''}</option>)}</select><select value={row.productId || ''} onChange={(e) => set('productBom', values.productBom.map((x, i) => i === index ? { ...x, productId: e.target.value } : x))}><option value="">Select included product</option>{products.map((x) => <option key={x.id} value={x.id}>{x.name} ({x.unit})</option>)}</select>{option && <span className="menu-bom-quantity">Deducts {deductionQuantity} {option.unit}</span>}<button type="button" className="ops-secondary-action compact" onClick={() => set('productBom', values.productBom.filter((_, i) => i !== index))}>Remove</button></div>})}<button type="button" className="ops-secondary-action compact" onClick={() => { if (values.presetBundle && values.productBom.length >= Number(values.bundleQuantity)) return; set('productBom', [...values.productBom, { optionKey: 'bundle-default', productId: '' }]) }} disabled={values.presetBundle && values.productBom.length >= Number(values.bundleQuantity)}><Plus size={14} /> Add preset product</button></div>}</section>}
             </div>
           </div>
           {error && <p className="form-error menu-workspace-error" role="alert">{error}</p>}
@@ -694,7 +719,7 @@ function CategoryManagerModal({ mainCategories, subcategories, onClose, onChange
     if (!name.trim()) return setError('Name is required.')
     setSaving(true); setError('')
     try {
-      await requestApproval({ action: 'add', itemName: displayName || name, summary: 'Add a menu subcategory', changeTypes: ['New category'], operationKey: 'upsert_subcategory', payload: { name, displayName, mainCategoryId: parentId || null } }, () => upsertSubcategory({ name, displayName, mainCategoryId: parentId || null }))
+      await requestApproval({ action: 'add', itemName: displayName || name, summary: 'Add a menu subcategory', changeTypes: ['New category'], operationKey: 'upsert_subcategory', payload: { name, displayName: displayName || name, mainCategoryId: parentId || null } }, () => upsertSubcategory({ name, displayName, mainCategoryId: parentId || null }))
       setName(''); setDisplayName('')
       pushToast('success', 'Subcategory sent for admin review.')
     } catch (cause) { if (cause?.code !== 'APPROVAL_CANCELLED') setError(describeError(cause, 'Could not save subcategory.')) } finally { setSaving(false) }
@@ -716,7 +741,6 @@ function CategoryManagerModal({ mainCategories, subcategories, onClose, onChange
         <header className="menu-workspace-header">
           <span className="payment-modal-kicker">Menu organization</span>
           <h2 id="category-manager-title">Categories and subcategories</h2>
-          <p>Organize the customer menu into broad groups, then use subcategories for easier browsing.</p>
         </header>
         <nav className="category-workspace-tabs" role="tablist" aria-label="Category type">
           <button type="button" role="tab" aria-selected={tab === 'main'} aria-controls="category-main-panel" className={tab === 'main' ? 'active' : ''} onClick={() => changeTab('main')}><Folder size={18} /><span><b>Main categories</b><small>Top-level menu groups</small></span><strong>{activeMainCategories.length}</strong></button>
@@ -743,13 +767,191 @@ function CategoryManagerModal({ mainCategories, subcategories, onClose, onChange
             )}
           </section>
           <aside className="category-create-panel">
-            <header><span><Plus size={18} /></span><div><h3>Add {tab === 'main' ? 'a main category' : 'a subcategory'}</h3><p>{tab === 'main' ? 'Create a broad menu group such as Drinks or Foods.' : 'Create a focused group such as Espresso or Cakes.'}</p></div></header>
+            <header><span><Plus size={18} /></span><div><h3>Add {tab === 'main' ? 'a main category' : 'a subcategory'}</h3></div></header>
             <form onSubmit={tab === 'main' ? addMain : addSub}>
               {tab === 'sub' && <label className="field"><span>Parent category</span><select value={parentId} onChange={(e) => setParentId(e.target.value)} required>{activeMainCategories.map((category) => <option key={category.id} value={category.id}>{category.display_name || category.name}</option>)}</select><small>Where this subcategory will appear.</small></label>}
                   <label className="field"><span>Internal name</span><input autoFocus value={name} maxLength={40} onChange={(e) => setName(sanitizeCatalogText(e.target.value, 40))} placeholder={tab === 'main' ? 'e.g. drinks' : 'e.g. espresso'} required /><small>Use a short, unique system name.</small></label>
                   <label className="field"><span>Customer-facing name</span><input value={displayName} maxLength={60} onChange={(e) => setDisplayName(sanitizeCatalogText(e.target.value, 60))} placeholder={tab === 'main' ? 'e.g. Drinks' : 'e.g. Espresso'} /><small>Optional. Falls back to the internal name.</small></label>
               {error && <p className="form-error" role="alert">{error}</p>}
               <button className="primary-button category-add-button" type="submit" disabled={saving || (tab === 'sub' && activeMainCategories.length === 0)}>{saving ? 'Saving…' : `Add ${tab === 'main' ? 'category' : 'subcategory'}`}</button>
+            </form>
+          </aside>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function AddOnManagerModal({ mainCategories, subcategories, onClose, pushToast, requestApproval }) {
+  const [addons, setAddons] = useState([])
+  const [selectedId, setSelectedId] = useState(null)
+  const [search, setSearch] = useState('')
+  const [draft, setDraft] = useState({ id: '', name: '', price: '', isAvailable: true, subcategoryIds: [], sortOrder: 0 })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const activeMainCategories = useMemo(() => mainCategories.filter((category) => !category.is_archived), [mainCategories])
+  const activeSubcategories = useMemo(() => subcategories.filter((category) => !category.is_archived), [subcategories])
+  const groupedSubcategories = useMemo(() => activeMainCategories.map((main) => ({
+    main,
+    items: activeSubcategories.filter((subcategory) => subcategory.main_category_id === main.id),
+  })).filter((group) => group.items.length), [activeMainCategories, activeSubcategories])
+  const filteredAddons = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return addons.filter((addon) => !query || addon.name.toLowerCase().includes(query))
+  }, [addons, search])
+  const assignedSubcategoryCount = useMemo(() => new Set(addons.flatMap((addon) => addon.subcategoryIds || [])).size, [addons])
+
+  const toDraft = (addon) => ({
+    id: addon.id,
+    name: addon.name || '',
+    price: addon.price ?? '',
+    isAvailable: Boolean(addon.is_available),
+    subcategoryIds: addon.subcategoryIds || [],
+    sortOrder: addon.sort_order ?? 0,
+  })
+
+  const loadAddons = async () => {
+    setLoading(true)
+    try {
+      const rows = await fetchAddonOptions()
+      setAddons(rows.map((row) => ({
+        ...row,
+        price: Number(row.price || 0),
+        subcategoryIds: (row.addon_subcategories || []).map((link) => link.subcategory_id).filter(Boolean),
+      })))
+      setError('')
+    } catch (cause) {
+      setError(describeError(cause, 'Could not load add-ons.'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAddons()
+    const handleChange = () => loadAddons()
+    window.addEventListener('menu-approval-requests-changed', handleChange)
+    return () => window.removeEventListener('menu-approval-requests-changed', handleChange)
+  }, [])
+
+  useEffect(() => {
+    if (!selectedId) return
+    const selected = addons.find((addon) => addon.id === selectedId)
+    if (selected) setDraft(toDraft(selected))
+  }, [addons, selectedId])
+
+  const startNew = () => {
+    setSelectedId(null)
+    setDraft({ id: '', name: '', price: '', isAvailable: true, subcategoryIds: [], sortOrder: 0 })
+    setError('')
+  }
+
+  const selectAddon = (addon) => {
+    setSelectedId(addon.id)
+    setDraft(toDraft(addon))
+    setError('')
+  }
+
+  const updateDraft = (key, value) => setDraft((current) => ({ ...current, [key]: value }))
+  const toggleSubcategory = (id) => setDraft((current) => ({
+    ...current,
+    subcategoryIds: current.subcategoryIds.includes(id)
+      ? current.subcategoryIds.filter((subcategoryId) => subcategoryId !== id)
+      : [...current.subcategoryIds, id],
+  }))
+
+  const submit = async (event) => {
+    event.preventDefault()
+    const name = draft.name.trim()
+    const price = Number(draft.price)
+    if (!name) return setError('Add-on name is required.')
+    if (Number.isNaN(price) || price < 0) return setError('Price must be zero or greater.')
+    if (!draft.subcategoryIds.length) return setError('Choose at least one menu subcategory.')
+    setSaving(true)
+    setError('')
+    try {
+      await requestApproval({
+        action: draft.id ? 'change' : 'add',
+        itemName: name,
+        summary: draft.id ? 'Update an add-on and its menu subcategory placement' : 'Create an add-on and choose where it appears in the menu',
+        changeTypes: ['Add-ons'],
+        operationKey: 'upsert_addon',
+        payload: {
+          id: draft.id || null,
+          name,
+          price,
+          appliesTo: 'both',
+          isAvailable: Boolean(draft.isAvailable),
+          sortOrder: draft.sortOrder ?? 0,
+          subcategoryIds: draft.subcategoryIds,
+        },
+      }, () => Promise.resolve())
+      pushToast('success', `${name} was sent for admin review.`)
+      startNew()
+    } catch (cause) {
+      if (cause?.code !== 'APPROVAL_CANCELLED') setError(describeError(cause, 'Could not submit this add-on.'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const addonSubcategoryNames = (addon) => (addon.subcategoryIds || [])
+    .map((id) => activeSubcategories.find((subcategory) => subcategory.id === id)?.display_name || activeSubcategories.find((subcategory) => subcategory.id === id)?.name)
+    .filter(Boolean)
+
+  return (
+    <div className="payment-modal-backdrop ops-modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose() }} onKeyDown={(event) => { if (event.key === 'Escape' && !saving) onClose() }}>
+      <section className="payment-modal inv-form-modal addon-workspace-modal ops-popup-modal" role="dialog" aria-modal="true" aria-labelledby="addon-manager-title">
+        <button className="payment-modal-close" type="button" onClick={onClose} disabled={saving} aria-label="Close add-on manager"><X size={18} /></button>
+        <header className="menu-workspace-header addon-workspace-header">
+          <span className="payment-modal-kicker">Menu customization</span>
+          <h2 id="addon-manager-title">Manage add-ons</h2>
+        </header>
+        <div className="addon-summary-strip" aria-label="Add-on overview">
+          <div><strong>{addons.filter((addon) => addon.is_available).length}</strong><span>Available add-ons</span></div>
+          <div><strong>{addons.length}</strong><span>Total add-ons</span></div>
+          <div><strong>{assignedSubcategoryCount}</strong><span>Subcategories covered</span></div>
+        </div>
+        <div className="addon-workspace-grid">
+          <section className="addon-list-panel" aria-labelledby="addon-list-title">
+            <header className="addon-list-toolbar">
+              <div><h3 id="addon-list-title">Your add-ons</h3></div>
+              <button type="button" className="ops-secondary-action compact" onClick={startNew}><Plus size={14} /> New add-on</button>
+            </header>
+            <label className="menu-manage-search addon-list-search">
+              <Search size={16} /><span className="sr-only">Search add-ons</span>
+              <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search add-ons" />
+              {search && <button type="button" className="menu-manage-search-clear" aria-label="Clear add-on search" onClick={() => setSearch('')}><X size={14} /></button>}
+            </label>
+            {loading ? <div className="addon-empty-state"><RefreshCw size={20} className="spin" /><span>Loading add-ons…</span></div> : filteredAddons.length === 0 ? (
+              <div className="addon-empty-state"><Sparkles size={22} /><b>{search ? 'No add-ons found' : 'No add-ons yet'}</b><span>{search ? 'Try another search.' : 'Use New add-on to create your first reusable extra.'}</span></div>
+            ) : (
+              <ul className="addon-list">
+                {filteredAddons.map((addon) => {
+                  const scopes = addonSubcategoryNames(addon)
+                  return <li key={addon.id} className={`addon-row ${selectedId === addon.id ? 'active' : ''}`}>
+                    <span className="addon-row-icon" aria-hidden="true"><Sparkles size={17} /></span>
+                    <span className="addon-row-copy"><b>{addon.name}</b><span>{money(addon.price)}</span><span className="addon-scope-badges">{scopes.slice(0, 3).map((scope) => <em key={scope}>{scope}</em>)}{scopes.length > 3 && <em>+{scopes.length - 3} more</em>}{!scopes.length && <em>Needs placement</em>}</span></span>
+                    <span className="addon-row-actions"><span className={`addon-availability ${addon.is_available ? 'available' : 'unavailable'}`}>{addon.is_available ? 'Available' : 'Hidden'}</span><button type="button" className="ops-secondary-action compact" onClick={() => selectAddon(addon)}><Pencil size={14} /> Edit</button></span>
+                  </li>
+                })}
+              </ul>
+            )}
+          </section>
+          <aside className="addon-edit-panel">
+            <header className="addon-edit-header"><span className="addon-edit-icon"><Sparkles size={18} /></span><div><span className="payment-modal-kicker">{draft.id ? 'Edit add-on' : 'New add-on'}</span><h3>{draft.id ? 'Update this extra' : 'Create a reusable extra'}</h3></div></header>
+            <form className="addon-edit-form" onSubmit={submit}>
+              <div className="addon-form-grid">
+                <label className="field addon-name-field"><span>Add-on name</span><input autoFocus={!draft.id} value={draft.name} maxLength={80} onChange={(event) => updateDraft('name', sanitizeCatalogText(event.target.value, 80))} placeholder="e.g. Oat milk" required /></label>
+                <label className="field"><span>Price (PHP)</span><input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => updateDraft('price', event.target.value)} placeholder="0.00" required /></label>
+              </div>
+              <label className="addon-availability-toggle"><input type="checkbox" checked={draft.isAvailable} onChange={(event) => updateDraft('isAvailable', event.target.checked)} /><span><b>Available in ordering screens</b></span></label>
+              <fieldset className="addon-category-picker"><legend>Show in menu subcategories</legend>{groupedSubcategories.length ? <div className="addon-category-groups">{groupedSubcategories.map((group) => <section className="addon-category-group" key={group.main.id}><h4>{group.main.display_name || group.main.name}</h4><div className="addon-category-options">{group.items.map((subcategory) => <label className={`addon-category-option ${draft.subcategoryIds.includes(subcategory.id) ? 'active' : ''}`} key={subcategory.id}><input type="checkbox" checked={draft.subcategoryIds.includes(subcategory.id)} onChange={() => toggleSubcategory(subcategory.id)} /><span><b>{subcategory.display_name || subcategory.name}</b></span></label>)}</div></section>)}</div> : <div className="addon-picker-empty">Create an active subcategory first, then assign this add-on to it.</div>}</fieldset>
+              {draft.subcategoryIds.length > 0 && <p className="addon-selection-count"><Check size={15} /> Shown in {draft.subcategoryIds.length} {draft.subcategoryIds.length === 1 ? 'subcategory' : 'subcategories'}</p>}
+              {error && <p className="form-error" role="alert">{error}</p>}
+              <div className="addon-form-actions"><button type="button" className="secondary-button" onClick={startNew} disabled={saving}>Clear</button><button type="submit" className="primary-button" disabled={saving || !groupedSubcategories.length}>{saving ? 'Sending…' : draft.id ? 'Send changes for review' : 'Send for admin review'}</button></div>
             </form>
           </aside>
         </div>

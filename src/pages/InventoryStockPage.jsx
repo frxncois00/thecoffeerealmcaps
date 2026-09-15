@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, Archive, Bell, Box, Check, MoreVertical,
-  Minus, Package, PackageMinus, PackagePlus, PackageX, Pencil, Plus, RefreshCw, Search, X,
+  AlertTriangle, Archive, Bell, Box, Check,
+  Package, PackageMinus, PackagePlus, PackageX, Pencil, Plus, RefreshCw, Search, X,
 } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import { describeError } from '../utils/describeError'
 import {
   fetchIngredients, fetchFinishedProducts, fetchMenuItemOptions,
-  fetchMovements, fetchRecipeUsage,
+  fetchMovements, fetchRecipeUsage, fetchIngredientMenuLinks, setIngredientMenuLinks,
   upsertIngredient, archiveIngredient, upsertFinishedProduct, archiveFinishedProduct, adjustStock,
 } from '../services/opsInventoryService'
 import { getCurrentPortalSession } from '../lib/auth'
@@ -16,7 +16,7 @@ import { useManagementSessionState } from '../hooks/useManagementSessionState'
 import { sanitizeCatalogText } from '../utils/inputValidation'
 
 const ENTITY_CONFIGS = {
-  ingredient: { key: 'ingredient', label: 'Ingredients', singular: 'Ingredient', fetch: fetchIngredients, upsert: upsertIngredient, archive: archiveIngredient, hasType: true },
+  ingredient: { key: 'ingredient', label: 'Ingredients', singular: 'Ingredient', fetch: fetchIngredients, upsert: upsertIngredient, archive: archiveIngredient, hasType: true, hasMenuLink: true },
   finished_product: { key: 'finished_product', label: 'Products', singular: 'Product', fetch: fetchFinishedProducts, upsert: upsertFinishedProduct, archive: archiveFinishedProduct, hasType: false, hasMenuLink: true },
 }
 const PAGE_SIZE = 25
@@ -68,7 +68,6 @@ export default function InventoryStockPage() {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE_SIZE)
   const [filtersReady, setFiltersReady] = useState(false)
-  const [menuOpenId, setMenuOpenId] = useState('')
 
   const [formTarget, setFormTarget] = useManagementSessionState('staff:inventory:item-form', null)
   const [drawerItem, setDrawerItem] = useManagementSessionState('staff:inventory:drawer', null)
@@ -172,6 +171,7 @@ export default function InventoryStockPage() {
 
   const runSaveForm = async (payload) => {
     const id = await config.upsert(payload)
+    if (config.key === 'ingredient' && id) await setIngredientMenuLinks(id, payload.saleMappings || [])
     await load(activeEntity)
     pushToast('success', `${payload.name} was saved.`)
     setFormTarget(null)
@@ -263,7 +263,7 @@ export default function InventoryStockPage() {
               <thead>
                 <tr>
                   <th>{config.singular} Name</th><th>Category</th>{config.hasType && <th>Type</th>}
-                  <th>Quantity</th><th>Unit</th><th>Status</th><th>Low Stock Alert</th><th>Healthy Point</th><th>Last Updated</th><th aria-label="Actions" />
+                  <th>Quantity</th><th>Unit</th><th>Status</th><th>Low Stock Alert</th><th>Healthy Point</th><th>Last Updated</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -281,13 +281,9 @@ export default function InventoryStockPage() {
                       <td>{formatQty(item.highStockLevel)}</td>
                       <td>{timeAgo(item.updatedAt)}</td>
                       <td>
-                        <RowActions item={item} busy={busyId === item.id} menuOpen={menuOpenId === item.id}
-                          onToggleMenu={() => setMenuOpenId((id) => (id === item.id ? '' : item.id))}
-                          onView={() => { setDrawerItem(item); setMenuOpenId('') }}
-                          onAdd={() => { setAdjustTarget({ item, mode: 'restock' }); setMenuOpenId('') }}
-                          onDeduct={() => { setAdjustTarget({ item, mode: 'deduction' }); setMenuOpenId('') }}
-                          onEdit={() => { setFormTarget({ item }); setMenuOpenId('') }}
-                          onArchive={() => { setArchiveTarget(item); setMenuOpenId('') }} />
+                        <RowActions item={item} busy={busyId === item.id}
+                          onView={() => { setDrawerItem(item) }}
+                          onEdit={() => { setFormTarget({ item }) }} />
                       </td>
                     </tr>
                   )
@@ -307,8 +303,6 @@ export default function InventoryStockPage() {
                   <p className="inv-card-thresholds">Low: {formatQty(item.minStockLevel)} · Healthy: {formatQty(item.highStockLevel)} · Updated {timeAgo(item.updatedAt)}</p>
                   <div className="inv-card-actions">
                     <button type="button" className="ops-secondary-action" onClick={() => setDrawerItem(item)}>View</button>
-                    <button type="button" className="ops-secondary-action" onClick={() => setAdjustTarget({ item, mode: 'restock' })}><PackagePlus size={14} /> Add</button>
-                    <button type="button" className="ops-secondary-action" onClick={() => setAdjustTarget({ item, mode: 'deduction' })}><PackageMinus size={14} /> Deduct</button>
                     <button type="button" className="ops-secondary-action" onClick={() => setFormTarget({ item })}><Pencil size={14} /> Edit</button>
                   </div>
                 </article>
@@ -327,12 +321,12 @@ export default function InventoryStockPage() {
       )}
 
       {formTarget && (
-        <ItemFormModal config={config} item={formTarget.item} menuItems={menuItems} onClose={() => setFormTarget(null)} onSave={runSaveForm} />
+        <ItemFormModal config={config} item={formTarget.item} menuItems={menuItems} onClose={() => setFormTarget(null)} onSave={runSaveForm} onDelete={() => setArchiveTarget(formTarget.item)} />
       )}
       {drawerItem && (
-        <ItemDrawer config={config} item={items.find((i) => i.id === drawerItem.id) || drawerItem} onClose={() => setDrawerItem(null)}
-          onAdd={() => { setAdjustTarget({ item: drawerItem, mode: 'restock' }); setDrawerItem(null) }}
-          onDeduct={() => { setAdjustTarget({ item: drawerItem, mode: 'deduction' }); setDrawerItem(null) }}
+        <ItemDrawer config={config} item={items.find((i) => i.id === drawerItem.id) || drawerItem}
+          onClose={() => setDrawerItem(null)}
+          onAdjust={() => { setAdjustTarget({ item: drawerItem }); setDrawerItem(null) }}
           onEdit={() => { setFormTarget({ item: drawerItem }); setDrawerItem(null) }} />
       )}
       {adjustTarget && (
@@ -353,26 +347,16 @@ function InventorySkeleton() {
   return <div className="inv-skeleton">{Array.from({ length: 6 }).map((_, i) => <div className="inv-skeleton-row" key={i} />)}</div>
 }
 
-function RowActions({ item, busy, menuOpen, onToggleMenu, onView, onAdd, onDeduct, onEdit, onArchive }) {
+function RowActions({ item, busy, onView, onEdit }) {
   return (
     <div className="inv-row-actions">
       <button type="button" className="ops-secondary-action compact" onClick={onView}>View</button>
-      <button type="button" className="ops-icon-button small inv-action-add" aria-label={`Add stock for ${item.name}`} title="Add stock" onClick={onAdd} disabled={busy}><Plus size={15} /></button>
-      <button type="button" className="ops-icon-button small inv-action-deduct" aria-label={`Deduct stock for ${item.name}`} title="Deduct stock" onClick={onDeduct} disabled={busy}><Minus size={15} /></button>
-      <div className="inv-overflow">
-        <button type="button" className="ops-icon-button small inv-action-more" aria-label={`More actions for ${item.name}`} aria-expanded={menuOpen} onClick={onToggleMenu}><MoreVertical size={15} /></button>
-        {menuOpen && (
-          <div className="inv-overflow-menu" role="menu">
-            <button type="button" role="menuitem" onClick={onEdit}><Pencil size={14} /> Edit item</button>
-            <button type="button" role="menuitem" className="danger" onClick={onArchive}><Archive size={14} /> Archive item</button>
-          </div>
-        )}
-      </div>
+      <button type="button" className="ops-secondary-action compact inv-action-edit" onClick={onEdit} disabled={busy}><Pencil size={14} /> Edit</button>
     </div>
   )
 }
 
-function ItemFormModal({ config, item, menuItems, onClose, onSave }) {
+function ItemFormModal({ config, item, menuItems, onClose, onSave, onDelete }) {
   const draftScope = `staff:inventory:${config.key}:${item?.id || 'new'}:draft`
   const [values, setValues, clearValues] = useManagementSessionState(draftScope, {
     name: item?.name || '', category: item?.category || '', type: item?.type || 'other', unit: item?.unit || '',
@@ -382,6 +366,7 @@ function ItemFormModal({ config, item, menuItems, onClose, onSave }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  useEffect(() => { if (config.key === 'ingredient' && item?.id) fetchIngredientMenuLinks(item.id).then((links) => set('saleMappings', links)).catch(() => {}) }, [config.key, item?.id])
   const set = (key, value) => setValues((c) => ({ ...c, [key]: value }))
   const close = () => { clearValues(); onClose() }
 
@@ -394,7 +379,7 @@ function ItemFormModal({ config, item, menuItems, onClose, onSave }) {
     if (Number.isNaN(min) || min < 0) return setError('Low-stock threshold must be zero or greater.')
     if (Number.isNaN(high) || high < 0) return setError('Healthy-stock target must be zero or greater.')
     if (high > 0 && min > high) return setError('The low-stock threshold cannot exceed the healthy-stock target.')
-    if (config.hasMenuLink && values.saleMappings.some((mapping) => !mapping.menuItemId || Number(mapping.unitsPerSale) <= 0)) return setError('Choose a menu item and a positive inventory quantity for every sale format.')
+    if (config.hasMenuLink && values.saleMappings.some((mapping) => !mapping.menuItemId || Number(config.key === 'ingredient' ? mapping.quantityPerServing : mapping.unitsPerSale) <= 0)) return setError(config.key === 'ingredient' ? 'Choose a menu item and a positive ingredient quantity for every link.' : 'Choose a menu item and a positive inventory quantity for every sale format.')
     if (!item) {
       const initial = Number(values.initialQuantity)
       if (Number.isNaN(initial) || initial < 0) return setError('Starting quantity cannot be negative.')
@@ -411,47 +396,51 @@ function ItemFormModal({ config, item, menuItems, onClose, onSave }) {
 
   return (
     <div className="payment-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !saving) close() }}>
-      <section className={`payment-modal inv-form-modal inv-form-modal-${config.key}`} role="dialog" aria-modal="true" aria-labelledby="inv-form-title" aria-describedby="inv-form-description">
+      <section className={`payment-modal inv-form-modal inv-form-modal-${config.key}`} role="dialog" aria-modal="true" aria-labelledby="inv-form-title">
         <button className="payment-modal-close" type="button" onClick={close} disabled={saving} aria-label="Close">×</button>
-        <header className="inv-form-header"><span className="inv-form-icon"><Package size={20} /></span><div><span>{item ? `Editing ${config.singular.toLowerCase()}` : `New ${config.singular.toLowerCase()}`}</span><h2 id="inv-form-title">{item ? item.name : `Add ${config.singular.toLowerCase()} stock`}</h2><p id="inv-form-description">{config.key === 'finished_product' ? 'Set the stock unit, then define how each menu format uses this product.' : 'Add the item details, stock levels, and replenishment thresholds.'}</p></div></header>
+        <header className="inv-form-header"><span className="inv-form-icon"><Package size={20} /></span><div><span>{item ? `Editing ${config.singular.toLowerCase()}` : `New ${config.singular.toLowerCase()}`}</span><h2 id="inv-form-title">{item ? item.name : `Add ${config.singular.toLowerCase()} stock`}</h2></div></header>
         <form className="inv-record-form" onSubmit={submit}>
-          <section className="inv-form-section"><header><h3>Item details</h3><p>How this item will appear in inventory.</p></header><div className="form-grid">
-            <label className="field"><span>{config.singular} name</span><input value={values.name} onChange={(e) => set('name', sanitizeCatalogText(e.target.value, 80))} maxLength={80} required /></label>
-            <label className="field"><span>Category</span><input value={values.category} onChange={(e) => set('category', sanitizeCatalogText(e.target.value, 60))} maxLength={60} placeholder="e.g. Milk, Protein, Syrup" /></label>
-            {config.hasType && (
-              <label className="field"><span>Type</span>
-                <select value={values.type} onChange={(e) => set('type', e.target.value)}>
-                  <option value="wet">Wet</option><option value="dry">Dry</option><option value="other">Other</option>
-                </select>
-              </label>
-            )}
-          </div></section>
-          <section className="inv-form-section"><header><h3>Stock levels</h3><p>Use the same unit for the quantity and thresholds.</p></header><div className="form-grid">
-            <label className="field"><span>Unit</span><input value={values.unit} onChange={(e) => set('unit', sanitizeCatalogText(e.target.value, 24))} maxLength={24} placeholder={config.key === 'finished_product' ? 'piece, slice, box' : 'kg, L, pcs'} required /></label>
-            {!item && <label className="field"><span>Starting quantity</span><input type="number" min="0" step="any" value={values.initialQuantity} onChange={(e) => set('initialQuantity', e.target.value)} /></label>}
-            <label className="field"><span>Low-stock threshold</span><input type="number" min="0" step="any" value={values.minStockLevel} onChange={(e) => set('minStockLevel', e.target.value)} required /></label>
-            <label className="field"><span>Healthy-stock target</span><input type="number" min="0" step="any" value={values.highStockLevel} onChange={(e) => set('highStockLevel', e.target.value)} required /></label>
-          </div></section>
+          <div className="inv-form-details-column">
+            <section className="inv-form-section"><header><h3>Item details</h3></header><div className="form-grid">
+              <label className="field"><span>{config.singular} name</span><input value={values.name} onChange={(e) => set('name', sanitizeCatalogText(e.target.value, 80))} maxLength={80} required /></label>
+              <label className="field"><span>Category</span><input value={values.category} onChange={(e) => set('category', sanitizeCatalogText(e.target.value, 60))} maxLength={60} placeholder="e.g. Milk, Protein, Syrup" /></label>
+              {config.hasType && (
+                <label className="field"><span>Type</span>
+                  <select value={values.type} onChange={(e) => set('type', e.target.value)}>
+                    <option value="wet">Wet</option><option value="dry">Dry</option><option value="other">Other</option>
+                  </select>
+                </label>
+              )}
+            </div></section>
+            <section className="inv-form-section"><header><h3>Stock levels</h3></header><div className="form-grid">
+              <label className="field"><span>Unit</span><input value={values.unit} onChange={(e) => set('unit', sanitizeCatalogText(e.target.value, 24))} maxLength={24} placeholder={config.key === 'finished_product' ? 'piece, slice, box' : 'kg, L, pcs'} required /></label>
+              {!item && <label className="field"><span>Starting quantity</span><input type="number" min="0" step="any" value={values.initialQuantity} onChange={(e) => set('initialQuantity', e.target.value)} /></label>}
+              <label className="field"><span>Low-stock threshold</span><input type="number" min="0" step="any" value={values.minStockLevel} onChange={(e) => set('minStockLevel', e.target.value)} required /></label>
+              <label className="field"><span>Healthy-stock target</span><input type="number" min="0" step="any" value={values.highStockLevel} onChange={(e) => set('highStockLevel', e.target.value)} required /></label>
+            </div></section>
+          </div>
           {config.hasMenuLink && (
-            <fieldset className="inv-sale-mappings">
-              <legend>How this product is sold</legend>
-              <p>Link each menu format to the number of inventory units it uses. A box of six cookies uses 6 pieces.</p>
+            <fieldset className={`inv-sale-mappings${values.saleMappings.length >= 5 ? ' has-scroll' : ''}`}>
+              <legend>{config.key === 'ingredient' ? 'Where this ingredient is used' : 'How this product is sold'}</legend>
               {values.saleMappings.map((mapping, index) => {
                 const selectedMenuItem = menuItems.find((menuItem) => menuItem.id === mapping.menuItemId)
                 const variants = Object.keys(selectedMenuItem?.variant_options?.prices || {})
                 const updateMapping = (key, value) => set('saleMappings', values.saleMappings.map((entry, entryIndex) => entryIndex === index ? { ...entry, [key]: value } : entry))
-                return <div className="inv-sale-mapping" key={index}>
-                  <select value={mapping.menuItemId} onChange={(e) => updateMapping('menuItemId', e.target.value)} aria-label="Menu item"><option value="">Select menu item</option>{menuItems.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select>
-                  <select value={mapping.variantKey} onChange={(e) => updateMapping('variantKey', e.target.value)} aria-label="Menu variant"><option value="">Default sale</option>{variants.map((variant) => <option key={variant} value={variant}>{variant}</option>)}</select>
-                  <input type="number" min="0.001" step="any" value={mapping.unitsPerSale} onChange={(e) => updateMapping('unitsPerSale', e.target.value)} aria-label="Inventory units per sale" placeholder="Units per sale" />
-                  <button type="button" className="ops-secondary-action compact" onClick={() => set('saleMappings', values.saleMappings.filter((_, entryIndex) => entryIndex !== index))}>Remove</button>
+                return <div className="inv-sale-mapping" key={index}><div className="inv-sale-mapping-heading"><b>Link {index + 1}</b></div><label><span>Menu item</span><select value={mapping.menuItemId} onChange={(e) => updateMapping('menuItemId', e.target.value)} aria-label="Menu item"><option value="">Select menu item</option>{menuItems.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}</select></label>
+                  {config.key === 'ingredient' ? <><label><span>Quantity used</span><input type="number" min="0.001" step="any" value={mapping.quantityPerServing ?? ''} onChange={(e) => updateMapping('quantityPerServing', e.target.value)} aria-label="Ingredient quantity used" placeholder="e.g. 20" /></label><small className="inv-sale-mapping-unit"><b>{mapping.quantityPerServing || 0} {values.unit || 'unit'}</b> used per menu item</small></> : <>
+                  <label><span>Selling option</span><select value={mapping.variantKey} onChange={(e) => updateMapping('variantKey', e.target.value)} aria-label="Menu variant"><option value="">Default sale</option>{variants.map((variant) => <option key={variant} value={variant}>{selectedMenuItem?.variant_options?.labels?.[variant] || variant}</option>)}</select></label>
+                  <label><span>Quantity per sale</span><input type="number" min="0.001" step="any" value={mapping.unitsPerSale} onChange={(e) => updateMapping('unitsPerSale', e.target.value)} aria-label="Inventory units per sale" placeholder="e.g. 8" /></label>
+                  <small className="inv-sale-mapping-unit"><b>{mapping.unitsPerSale || 0} {values.unit || 'unit'}</b> deducted per sale</small>
+                  </>}
+                  <button type="button" className="ops-secondary-action compact" onClick={() => set('saleMappings', values.saleMappings.filter((_, entryIndex) => entryIndex !== index))}>Remove link</button>
                 </div>
               })}
-              <button type="button" className="ops-secondary-action compact" onClick={() => set('saleMappings', [...values.saleMappings, { menuItemId: '', variantKey: '', unitsPerSale: 1 }])}>Add sale format</button>
+              <button type="button" className="ops-secondary-action compact" onClick={() => set('saleMappings', [...values.saleMappings, config.key === 'ingredient' ? { menuItemId: '', quantityPerServing: 1 } : { menuItemId: '', variantKey: '', unitsPerSale: 1 }])}>+ {config.key === 'ingredient' ? 'Link another menu item' : 'Link another menu format'}</button>
             </fieldset>
           )}
           {error && <p className="form-error">{error}</p>}
           <div className="payment-modal-actions inv-form-actions">
+            {item && <button className="danger-button inv-form-remove-button" type="button" onClick={onDelete} disabled={saving}>Remove item</button>}
             <button className="secondary-button" type="button" onClick={close} disabled={saving}>Cancel</button>
             <button className="primary-button" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
           </div>
@@ -569,7 +558,7 @@ function ArchiveConfirmModal({ item, busy, onClose, onConfirm }) {
   )
 }
 
-function ItemDrawer({ config, item, onClose, onAdd, onDeduct, onEdit }) {
+function ItemDrawer({ config, item, onClose, onAdjust, onEdit }) {
   const [movements, setMovements] = useState([])
   const [recipeUsage, setRecipeUsage] = useState([])
   const [loading, setLoading] = useState(true)
@@ -589,55 +578,78 @@ function ItemDrawer({ config, item, onClose, onAdd, onDeduct, onEdit }) {
   }, [config.key, item.id])
 
   return (
-    <div className="ops-drawer-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <aside className="ops-drawer" role="dialog" aria-modal="true" aria-labelledby="inv-drawer-title">
-        <header>
-          <div><span className="settings-kicker">{config.singular}</span><h2 id="inv-drawer-title">{item.name}</h2></div>
-          <button type="button" onClick={onClose} aria-label="Close item details"><X size={20} /></button>
+    <div className="ops-drawer-backdrop inv-view-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <aside className="ops-drawer inv-view-modal" role="dialog" aria-modal="true" aria-labelledby="inv-drawer-title">
+        <header className="inv-view-header">
+          <div className="inv-view-title">
+            <span className="inv-view-icon"><Package size={20} /></span>
+            <div>
+              <span className="inv-view-kicker">{config.singular} details</span>
+              <h2 id="inv-drawer-title">{item.name}</h2>
+            </div>
+          </div>
+          <button className="inv-view-close" type="button" onClick={onClose} aria-label="Close item details"><X size={20} /></button>
         </header>
-        <div className="ops-drawer-body">
-          <section>
-            <h3>Current stock</h3>
-            <p><b>{formatQty(item.quantity)} {item.unit}</b> <span className={`inv-status tone-${STATUS_META[status].tone}`}>{STATUS_META[status].label}</span></p>
-          </section>
-          <section>
-            <h3>Thresholds</h3>
-            <p>Low-stock alert: {formatQty(item.minStockLevel)} {item.unit}</p>
-            <p>Healthy-stock target: {formatQty(item.highStockLevel)} {item.unit}</p>
-          </section>
-          <section>
-            <h3>Item information</h3>
-            <p>Category: {item.category || '—'}</p>
-            {config.hasType && <p className="inv-capitalize">Type: {item.type}</p>}
-            {item.supplier && <p>Supplier: {item.supplier}</p>}
-            {item.notes && <p>Notes: {item.notes}</p>}
-          </section>
-          {config.key === 'ingredient' && (
-            <section>
-              <h3>Used in</h3>
-              {recipeUsage.length === 0 ? <p className="ops-proof-pending">Not used in any recipe yet.</p> : recipeUsage.map((r) => <p key={r.menuItemId}>{r.name} — {formatQty(r.quantityPerServing)} {item.unit} per serving</p>)}
+
+        <div className="ops-drawer-body inv-view-body">
+          <div className="inv-view-column inv-view-column--primary">
+            <section className="inv-view-card inv-view-stock-card">
+              <div className="inv-view-card-heading">
+                <div><span className="inv-view-card-kicker">Live snapshot</span><h3>Current stock</h3></div>
+                <span className={`inv-status tone-${STATUS_META[status].tone}`}>{STATUS_META[status].label}</span>
+              </div>
+              <div className="inv-view-stock-value"><b>{formatQty(item.quantity)}</b><span>{item.unit || 'unit'} available</span></div>
             </section>
-          )}
-          <section>
-            <h3>Recent stock movements</h3>
-            {loadError && <p className="form-error">{loadError}</p>}
-            {loading ? <p className="ops-proof-pending">Loading…</p> : movements.length === 0 ? <p className="ops-proof-pending">No stock movements recorded yet.</p> : (
-              <ul className="inv-movement-list">
-                {movements.map((m) => (
-                  <li key={m.id}>
-                    <span className={`inv-movement-type ${m.movement_type}`}>{m.movement_type}</span>
-                    <b>{m.movement_type === 'restock' ? '+' : '−'}{formatQty(m.quantity)} {item.unit}</b>
-                    <span className="inv-movement-meta">{m.reason || 'No reason given'} · {m.staffName} · {timeAgo(m.created_at)}</span>
-                  </li>
-                ))}
-              </ul>
+
+            <section className="inv-view-card">
+              <div className="inv-view-card-heading"><div><span className="inv-view-card-kicker">Planning</span><h3>Stock thresholds</h3></div></div>
+              <dl className="inv-view-detail-grid">
+                <div><dt>Low-stock alert</dt><dd>{formatQty(item.minStockLevel)} {item.unit}</dd></div>
+                <div><dt>Healthy-stock target</dt><dd>{formatQty(item.highStockLevel)} {item.unit}</dd></div>
+              </dl>
+            </section>
+
+            <section className="inv-view-card">
+              <div className="inv-view-card-heading"><div><span className="inv-view-card-kicker">Reference</span><h3>Item information</h3></div></div>
+              <dl className="inv-view-detail-grid">
+                <div><dt>Category</dt><dd>{item.category || '—'}</dd></div>
+                {config.hasType && <div><dt>Type</dt><dd className="inv-capitalize">{item.type || '—'}</dd></div>}
+              </dl>
+            </section>
+
+            {config.key === 'ingredient' && (
+              <section className="inv-view-card">
+                <div className="inv-view-card-heading"><div><span className="inv-view-card-kicker">Recipe connections</span><h3>Used in</h3></div></div>
+                {recipeUsage.length === 0 ? <p className="inv-view-empty">Not used in any recipe yet.</p> : (
+                  <ul className="inv-view-usage-list">
+                    {recipeUsage.map((recipe) => <li key={recipe.menuItemId}><b>{recipe.name}</b><span>{formatQty(recipe.quantityPerServing)} {item.unit} per serving</span></li>)}
+                  </ul>
+                )}
+              </section>
             )}
-          </section>
+          </div>
+
+          <div className="inv-view-column inv-view-column--ledger">
+            <section className="inv-view-card inv-view-card--ledger">
+              <div className="inv-view-card-heading"><div><span className="inv-view-card-kicker">Inventory ledger</span><h3>Recent stock movements</h3></div><span className="inv-view-count">{movements.length} {movements.length === 1 ? 'entry' : 'entries'}</span></div>
+              {loadError && <p className="form-error">{loadError}</p>}
+              {loading ? <p className="inv-view-empty">Loading movement history…</p> : movements.length === 0 ? <p className="inv-view-empty">No stock movements recorded yet.</p> : (
+                <ul className="inv-movement-list inv-view-movement-list">
+                  {movements.map((movement) => (
+                    <li key={movement.id}>
+                      <div className="inv-view-movement-main"><span className={`inv-movement-type ${movement.movement_type}`}>{movement.movement_type}</span><b>{movement.movement_type === 'restock' ? '+' : '−'}{formatQty(movement.quantity)} {item.unit}</b></div>
+                      <span className="inv-movement-meta">{movement.reason || 'No reason given'} · {movement.staffName} · {timeAgo(movement.created_at)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </div>
         </div>
-        <footer className="ops-drawer-footer">
-          <button type="button" className="ops-main-action" onClick={onAdd}><PackagePlus size={16} /> Add Stock</button>
-          <button type="button" className="ops-secondary-action" onClick={onDeduct}><PackageMinus size={16} /> Deduct</button>
-          <button type="button" className="ops-secondary-action" onClick={onEdit}><Pencil size={16} /> Edit</button>
+
+        <footer className="ops-drawer-footer inv-view-footer">
+          <button type="button" className="ops-secondary-action inv-view-adjust" onClick={onAdjust}><PackagePlus size={16} /> Restock / Deduct</button>
+          <button type="button" className="ops-main-action inv-view-edit" onClick={onEdit}><Pencil size={16} /> Edit item</button>
         </footer>
       </aside>
     </div>

@@ -5,6 +5,7 @@ const fallbackImage = '/images/coffeerealmlogo.png'
 
 function imagePath(value) {
   if (!value) return fallbackImage
+  if (/^https?:\/\//i.test(String(value))) return String(value)
   const clean = String(value).replace(/^\/+/, '')
   if (clean.startsWith('assets/')) return `/${clean}`
   return value.startsWith('/') ? value : `/${value}`
@@ -40,6 +41,7 @@ function normalizeMenuItem(row, orderCount = 0) {
     availableUntil: row.available_until,
     sortOrder: row.sort_order ?? 0,
     variantOptions: row.variant_options || {},
+    inventorySource: row.inventory_source || 'none',
     isArchived: Boolean(row.is_archived),
     updatedAt: row.updated_at,
     createdAt: row.created_at,
@@ -85,8 +87,14 @@ export async function fetchIngredientOptions() {
   return data || []
 }
 
+export async function fetchFinishedProductOptions() {
+  const { data, error } = await supabase.from('finished_products').select('id,name,unit,quantity,is_archived').eq('is_archived', false).order('name')
+  if (error) throw error
+  return data || []
+}
+
 export async function fetchAddonOptions() {
-  const { data, error } = await supabase.from('addons').select('id,name,price,is_available').order('sort_order')
+  const { data, error } = await supabase.from('addons').select('id,name,price,applies_to,is_available,sort_order,updated_at,addon_subcategories(subcategory_id)').order('sort_order')
   if (error) throw error
   return data || []
 }
@@ -95,6 +103,12 @@ export async function fetchMenuItemRecipe(menuItemId) {
   const { data, error } = await supabase.from('menu_item_ingredients').select('ingredient_id,quantity_per_serving').eq('menu_item_id', menuItemId)
   if (error) throw error
   return data || []
+}
+
+export async function fetchMenuItemProductLinks(menuItemId) {
+  const { data, error } = await supabase.from('finished_product_sale_mappings').select('finished_product_id,variant_key,units_per_sale,finished_products(name,unit)').eq('menu_item_id', menuItemId)
+  if (error) throw error
+  return (data || []).map((row) => ({ ...row, variant_key: row.variant_key || 'default' }))
 }
 
 export async function upsertMainCategory(payload) {
@@ -179,6 +193,15 @@ export async function setMenuItemRecipe(menuItemId, ingredients) {
   const { error } = await supabase.rpc('staff_set_menu_item_recipe', {
     p_menu_item_id: menuItemId,
     p_ingredients: ingredients.map((i) => ({ ingredient_id: i.ingredientId, quantity_per_serving: i.quantityPerServing })),
+  })
+  if (error) throw error
+}
+
+export async function setMenuItemConfiguration(menuItemId, source, ingredients, products) {
+  const { error } = await supabase.rpc('staff_set_menu_item_configuration', {
+    p_menu_item_id: menuItemId, p_inventory_source: source || 'none',
+    p_ingredients: (ingredients || []).map((x) => ({ ingredient_id: x.ingredientId, quantity_per_serving: Number(x.quantity) })),
+    p_products: (products || []).map((x) => ({ finished_product_id: x.productId, variant_key: x.optionKey || null })),
   })
   if (error) throw error
 }

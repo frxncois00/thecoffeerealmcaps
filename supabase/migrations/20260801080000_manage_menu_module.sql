@@ -201,11 +201,11 @@ begin
   begin
     if p_id is null then
       insert into public.subcategories (main_category_id, name, display_name, sort_order)
-        values (p_main_category_id, btrim(p_name), nullif(btrim(coalesce(p_display_name,'')),''), coalesce(p_sort_order,0))
+        values (p_main_category_id, btrim(p_name), coalesce(nullif(btrim(coalesce(p_display_name,'')),''), btrim(p_name)), coalesce(p_sort_order,0))
         returning id into v_id;
     else
       v_id := p_id;
-      update public.subcategories set main_category_id = p_main_category_id, name = btrim(p_name), display_name = nullif(btrim(coalesce(p_display_name,'')),''), sort_order = coalesce(p_sort_order, sort_order)
+      update public.subcategories set main_category_id = p_main_category_id, name = btrim(p_name), display_name = coalesce(nullif(btrim(coalesce(p_display_name,'')),''), btrim(p_name)), sort_order = coalesce(p_sort_order, sort_order)
         where id = v_id and not is_archived;
       if not found then raise exception 'Subcategory not found'; end if;
     end if;

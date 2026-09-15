@@ -35,8 +35,7 @@ export default function ProductCustomizationModal({ product, onClose, onAdd, var
   const applicableAddons = product.allowAddons
     ? (product.addons || []).filter(
         (a) =>
-          (!a.appliesTo || a.appliesTo === 'both' || a.appliesTo === product.itemType) &&
-          (!a.targetTemperature || a.targetTemperature === 'both' || (isCold && /iced|cold/.test(a.targetTemperature))),
+          !a.appliesTo || a.appliesTo === 'both' || a.appliesTo === product.itemType,
       )
     : []
   const selectedAddons = addons.filter((a) => applicableAddons.some((valid) => valid.id === a.id))
@@ -92,10 +91,7 @@ export default function ProductCustomizationModal({ product, onClose, onAdd, var
               title="Temperature"
               options={temperatures.map((x) => ({ id: x, name: x }))}
               value={selectedTemperature}
-              onChange={(value) => {
-                setTemperature(value)
-                if (!/cold|iced/i.test(value)) setAddons((current) => current.filter((a) => a.targetTemperature === 'both'))
-              }}
+              onChange={setTemperature}
             />
           )}
           {product.allowIce && isCold && (

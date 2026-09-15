@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle, Bell, Bike, Check, Clock, Coffee,
-  MapPin, Package, Phone, RefreshCw, Search, ShoppingBag, X,
+  ExternalLink, Grid2X2, List, Package, RefreshCw, Search, ShoppingBag, X,
 } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import { usePricing } from '../context/usePricing'
@@ -9,7 +9,7 @@ import { money } from '../utils/money'
 import { describeError } from '../utils/describeError'
 import { buildVatExemptOrderBreakdown, formatVatRate } from '../utils/pricing'
 import {
-  fetchOpsOrders, fetchAddonNameMap, confirmOrder, advanceOrderStatus,
+  fetchOpsOrders, fetchAddonNameMap, confirmOrder, advanceOrderStatus, saveOrderTrackingLink,
   cancelOrder, reviewCancellation, resolveCancellation, completeCancellationRefund, getPaymentProofUrl,
 } from '../services/opsOrderService'
 import { getCurrentPortalSession } from '../lib/auth'
@@ -50,8 +50,10 @@ function paymentMethodLabel(method) {
 }
 function paymentStatusLabel(order) {
   const method = paymentMethod(order)
-  if (method === 'cod') return order.payment_status === 'paid' ? 'Paid' : 'Pay upon delivery'
-  return order.payment_confirmed ? 'Verified' : 'Pending verification'
+  const payment = order.payments?.[0]
+  const paid = order.payment_confirmed || order.payment_status === 'paid' || payment?.status === 'paid'
+  if (method === 'cod') return paid ? 'Paid' : 'Pay upon delivery'
+  return paid ? 'Verified' : 'Pending verification'
 }
 function itemCount(order) {
   return (order.order_items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0)
@@ -117,6 +119,42 @@ function refundStatusLabel(value) {
     : 'No refund required'
 }
 
+function orderStatusTone(status) {
+  if (['Completed', 'Received'].includes(status)) return 'completed'
+  if (status === 'Cancelled') return 'cancelled'
+  if (status === 'Preparing') return 'preparing'
+  if (status === 'Ready for Pickup') return 'pickup'
+  if (status === 'Out for Delivery') return 'delivery'
+  if (/pending|awaiting|received/i.test(status)) return 'attention'
+  return 'neutral'
+}
+
+function orderPaymentTone(order) {
+  const payment = order.payments?.[0]
+  if (order.payment_confirmed || order.payment_status === 'paid' || payment?.status === 'paid') return 'completed'
+  if (paymentMethod(order) === 'cod') return 'neutral'
+  return 'attention'
+}
+
+function orderRefundMeta(order) {
+  const refundStatus = order.refund_status || order.refunds?.[0]?.refund_status || 'not_applicable'
+  if (refundStatus === 'processed') return { label: 'Refund completed', tone: 'completed' }
+  if (refundStatus === 'failed' || refundStatus === 'rejected') return { label: refundStatus === 'failed' ? 'Refund needs attention' : 'Refund rejected', tone: 'cancelled' }
+  if (['pending_review', 'pending', 'processing'].includes(refundStatus)) return { label: refundStatusLabel(refundStatus), tone: 'attention' }
+  return { label: 'No refund', tone: 'neutral' }
+}
+
+function formatOrderDateTime(value) {
+  if (!value) return 'Not recorded'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Not recorded'
+  return new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(date)
+}
+
+function orderTypeLabel(type) {
+  return type === 'walk-in' ? 'Walk-in order' : type === 'pickup' ? 'Pickup order' : 'Delivery order'
+}
+
 function actionableRefund(order) {
   return (order.refunds || []).find((refund) => ['pending', 'approved', 'processing', 'failed'].includes(refund.refund_status)) || null
 }
@@ -156,10 +194,13 @@ export default function OrderPreparationPage() {
   const [activeTab, setActiveTab] = useState('active')
 
   const [search, setSearch] = useState('')
+  const [layoutView, setLayoutView] = useState('grid')
   const [fulfillmentFilter, setFulfillmentFilter] = useState('all')
   const [paymentFilter, setPaymentFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState(() => new Date().toLocaleDateString('en-CA'))
   const [sortBy, setSortBy] = useState('priority')
+  const [rowsPerPage, setRowsPerPage] = useState(25)
+  const [tablePage, setTablePage] = useState(1)
   const [filtersReady, setFiltersReady] = useState(false)
 
   const columnRefs = useRef({})
@@ -175,6 +216,7 @@ export default function OrderPreparationPage() {
         setActiveTab(normalizeOrderTab(remembered?.activeTab || preferences.order_queue))
         setSortBy(remembered?.sortBy || preferences.order_sort)
         setFulfillmentFilter(remembered?.fulfillmentFilter || preferences.fulfillment_filter)
+        setRowsPerPage(Number(preferences.rows_per_page) || 25)
         if (remembered) {
           setSearch(remembered.search || '')
           setPaymentFilter(remembered.paymentFilter || 'all')
@@ -215,7 +257,7 @@ export default function OrderPreparationPage() {
 
   const patchOrder = (id, patch) => setOrders((current) => current.map((o) => (o.id === id ? { ...o, ...patch } : o)))
 
-  const runAction = async (order, kind, next) => {
+  const runAction = async (order, kind, next, trackingUrl) => {
     if (busyId) return
     setBusyId(order.id)
     try {
@@ -224,8 +266,10 @@ export default function OrderPreparationPage() {
         patchOrder(order.id, { status: 'Preparing', payment_confirmed: paymentMethod(order) !== 'cod' ? true : order.payment_confirmed, payment_status: paymentMethod(order) !== 'cod' ? 'paid' : order.payment_status })
         pushToast('success', `${order.order_number} moved to Preparing.`)
       } else if (kind === 'advance') {
+        if (next === 'Out for Delivery' && trackingUrl && !/^https?:\/\/\S+$/i.test(trackingUrl)) throw new Error('Enter a valid HTTP or HTTPS tracking link.')
         await advanceOrderStatus(order.id, next)
-        patchOrder(order.id, { status: next })
+        if (next === 'Out for Delivery') await saveOrderTrackingLink(order.id, trackingUrl)
+        patchOrder(order.id, { status: next, ...(next === 'Out for Delivery' ? { tracking_url: trackingUrl || null } : {}) })
         pushToast('success', `${order.order_number} is now ${next}.`)
       }
       setDrawerOrder((current) => (current && current.id === order.id ? { ...current, status: next || 'Preparing' } : current))
@@ -254,6 +298,24 @@ export default function OrderPreparationPage() {
       return true
     } catch (cause) {
       pushToast('error', describeError(cause, 'Could not cancel this order.'))
+      return false
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  const runTrackingSave = async (order, trackingUrl) => {
+    if (busyId) return false
+    setBusyId(order.id)
+    try {
+      const updated = await saveOrderTrackingLink(order.id, trackingUrl)
+      const savedUrl = updated?.tracking_url || null
+      patchOrder(order.id, { tracking_url: savedUrl })
+      setDrawerOrder((current) => current && current.id === order.id ? { ...current, tracking_url: savedUrl } : current)
+      pushToast('success', savedUrl ? 'Delivery tracking link saved.' : 'Delivery tracking link removed.')
+      return true
+    } catch (cause) {
+      pushToast('error', describeError(cause, 'Could not save the tracking link.'))
       return false
     } finally {
       setBusyId('')
@@ -361,9 +423,13 @@ export default function OrderPreparationPage() {
     else if (sortBy === 'scheduled') list.sort((a, b) => activeTab === 'completed' ? eventTime(b) - eventTime(a) : eventTime(a) - eventTime(b))
     else if (sortBy === 'priority') list.sort((a, b) => ['cancelled', 'completed'].includes(activeTab)
       ? eventTime(b) - eventTime(a)
-      : Number(isOverdue(b)) - Number(isOverdue(a)) || eventTime(a) - eventTime(b))
+      : (Math.min(...(a.order_items || []).map((item) => Number(item.menu_items?.prep_time_minutes || item.prep_time_minutes || 9999))) - Math.min(...(b.order_items || []).map((item) => Number(item.menu_items?.prep_time_minutes || item.prep_time_minutes || 9999)))) || Number(isOverdue(b)) - Number(isOverdue(a)) || eventTime(a) - eventTime(b))
     return list
   }, [filtered, sortBy, activeTab])
+  const tablePages = Math.max(1, Math.ceil(sorted.length / rowsPerPage))
+  const tableOrders = sorted.slice((tablePage - 1) * rowsPerPage, tablePage * rowsPerPage)
+  useEffect(() => { setTablePage(1) }, [activeTab, search, fulfillmentFilter, paymentFilter, dateFilter, sortBy, rowsPerPage])
+  useEffect(() => { if (tablePage > tablePages) setTablePage(tablePages) }, [tablePage, tablePages])
 
   const activeColumns = useMemo(() => COLUMNS.map((col) => ({ ...col, orders: sorted.filter((o) => stageOf(o) === col.key) })), [sorted])
   const selectedMobileStage = COLUMNS.some((column) => column.key === mobileStage) ? mobileStage : 'pending'
@@ -424,14 +490,15 @@ export default function OrderPreparationPage() {
         <label className="ops-toolbar-field"><span>Fulfillment</span><select value={fulfillmentFilter} onChange={(e) => setFulfillmentFilter(e.target.value)}><option value="all">All</option><option value="walk-in">Walk-in</option><option value="pickup">Pickup</option><option value="delivery">Delivery</option></select></label>
         <label className="ops-toolbar-field"><span>Payment method</span><select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}><option value="all">All methods</option><option value="cash">Cash</option><option value="gcash">GCash</option><option value="bank_transfer">Bank transfer</option><option value="cod">Cash on Delivery</option></select></label>
         <label className="ops-toolbar-field"><span>Date</span><select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}><option value="">All dates</option><option value={today}>Today</option><option value={yesterday}>Yesterday</option></select></label>
-        <label className="ops-toolbar-field"><span>Sort by</span><select value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="scheduled">{activeTab === 'cancelled' ? 'Cancelled time' : 'Scheduled time'}</option><option value="priority">{activeTab === 'completed' ? 'Recently completed' : 'Priority (overdue first)'}</option></select></label>
+        <label className="ops-toolbar-field"><span>Sort by</span><select value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="scheduled">{activeTab === 'cancelled' ? 'Cancelled time' : 'Scheduled time'}</option><option value="priority">{activeTab === 'completed' ? 'Recently completed' : 'Lowest preparation time'}</option></select></label>
+        <div className="ops-layout-toggle" role="group" aria-label="Order layout view"><button type="button" className={layoutView === 'grid' ? 'active' : ''} aria-label="Grid view" aria-pressed={layoutView === 'grid'} onClick={() => setLayoutView('grid')}><Grid2X2 size={17}/></button><button type="button" className={layoutView === 'table' ? 'active' : ''} aria-label="Table view" aria-pressed={layoutView === 'table'} onClick={() => setLayoutView('table')}><List size={19}/></button></div>
       </div>
       {activeTab === 'active' && <>
       {loading ? (
         <p className="customer-state">Loading orders…</p>
       ) : (
         <>
-          <div className="ops-kanban">
+          {layoutView === 'table' ? <><OrderTable orders={tableOrders} busyId={busyId} onView={setDrawerOrder} onMain={(order, action) => setConfirmAction({ order, ...action })} onCancel={setCancelTarget} /><footer className="ops-order-pagination"><span>Showing {sorted.length ? (tablePage - 1) * rowsPerPage + 1 : 0}–{Math.min(tablePage * rowsPerPage, sorted.length)} of {sorted.length} orders</span><b>Page {tablePage} of {tablePages}</b><div><button type="button" aria-label="Previous page" disabled={tablePage <= 1} onClick={() => setTablePage((page) => page - 1)}>‹</button><button type="button" aria-label="Next page" disabled={tablePage >= tablePages} onClick={() => setTablePage((page) => page + 1)}>›</button></div></footer></> : <div className="ops-kanban">
             {activeColumns.map((col) => (
               <div className={`ops-column tone-${col.tone}`} key={col.key} ref={(el) => { columnRefs.current[col.key] = el }}>
                 <header><span className="ops-column-dot" /><div><h3>{col.title}</h3>{col.subtitle&&<p>{col.subtitle}</p>}</div><span className="ops-column-count" aria-label={`${col.orders.length} orders`}>{col.orders.length}</span></header>
@@ -444,7 +511,7 @@ export default function OrderPreparationPage() {
                 </div>
               </div>
             ))}
-          </div>
+          </div>}
 
           <div className="ops-mobile">
             <div className="ops-mobile-tabs">
@@ -474,17 +541,11 @@ export default function OrderPreparationPage() {
             <div><h2>Completed Orders</h2><p>Finished orders are kept here for quick review and reference.</p></div>
             <span>{completedOrderCount} total</span>
           </div>
-          {loading ? <p className="customer-state">Loading completed orders…</p> : sorted.length === 0 ? (
-            <div className="ops-empty"><ShoppingBag size={20} /><span>No completed orders match these filters.</span></div>
-          ) : (
-            <div className="ops-completed-grid">
-              {sorted.map((order) => (
-                <OrderCard key={order.id} order={order} busy={busyId === order.id} onView={() => setDrawerOrder(order)}
-                  onMain={(action) => setConfirmAction({ order, ...action })}
-                  onCancel={() => setCancelTarget(order)} />
-              ))}
-            </div>
-          )}
+          {loading ? <p className="customer-state">Loading completed orders…</p> : layoutView === 'table' ? <><OrderTable orders={tableOrders} busyId={busyId} onView={setDrawerOrder} onMain={(order, action) => setConfirmAction({ order, ...action })} onCancel={setCancelTarget} /><OrderTablePagination total={sorted.length} page={tablePage} pages={tablePages} rowsPerPage={rowsPerPage} onPage={setTablePage} /></> : sorted.length === 0 ? <div className="ops-empty"><ShoppingBag size={22} /><span>No completed orders match these filters.</span></div> : <div className="ops-completed-grid">
+            {sorted.map((order) => <OrderCard key={order.id} order={order} busy={busyId === order.id} onView={() => setDrawerOrder(order)}
+              onMain={(action) => setConfirmAction({ order, ...action })}
+              onCancel={() => setCancelTarget(order)} />)}
+          </div>}
         </section>
       )}
 
@@ -494,12 +555,12 @@ export default function OrderPreparationPage() {
           <div><h2>Cancellations and Refunds</h2><p>Review payment-sensitive requests, then keep completed cancellation records.</p></div>
           <span>{cancelledOrderCount} total</span>
         </div>
-        <div className="ops-cancel-groups">
+        {loading ? <p className="customer-state">Loading cancelled orders…</p> : layoutView === 'table' ? <><OrderTable orders={tableOrders} busyId={busyId} onView={setDrawerOrder} onMain={(order, action) => setConfirmAction({ order, ...action })} onCancel={setCancelTarget} /><OrderTablePagination total={sorted.length} page={tablePage} pages={tablePages} rowsPerPage={rowsPerPage} onPage={setTablePage} /></> : <div className="ops-cancel-groups">
           <CancellationRequestGroup orders={cancellationRequests} onView={setDrawerOrder} onReview={setReviewTarget} busyId={busyId} />
           <CancelGroup title="Cancelled by Customer" tone="red" orders={cancelledByCustomer} onView={setDrawerOrder} onResolve={runResolve} onRefund={(order, refund) => setRefundTarget({ order, refund })} busyId={busyId} />
           <CancelGroup title="Cancelled by Operations Staff" tone="red" orders={cancelledByStaff} onView={setDrawerOrder} onReview={setReviewTarget} onResolve={runResolve} busyId={busyId} />
           <CancelGroup title="Resolved Cancelled Orders" tone="neutral" orders={resolvedCancellations} onView={setDrawerOrder} resolved />
-        </div>
+        </div>}
       </section>
       }
 
@@ -507,6 +568,7 @@ export default function OrderPreparationPage() {
         <OrderDrawer order={orders.find((o) => o.id === drawerOrder.id) || drawerOrder} addonNames={addonNames} onClose={() => setDrawerOrder(null)}
           onMain={(action) => setConfirmAction({ order: orders.find((o) => o.id === drawerOrder.id) || drawerOrder, ...action })}
           onCancel={() => setCancelTarget(orders.find((o) => o.id === drawerOrder.id) || drawerOrder)}
+          onTracking={(trackingUrl) => runTrackingSave(orders.find((o) => o.id === drawerOrder.id) || drawerOrder, trackingUrl)}
           busy={busyId === drawerOrder.id} />
       )}
 
@@ -516,7 +578,7 @@ export default function OrderPreparationPage() {
           message={`Are you sure you want to ${confirmAction.label.toLowerCase()} for ${confirmAction.order.order_number}?`}
           busy={busyId === confirmAction.order.id}
           onCancel={() => setConfirmAction(null)}
-          onConfirm={() => runAction(confirmAction.order, confirmAction.kind, confirmAction.next)}
+          onConfirm={(trackingUrl) => runAction(confirmAction.order, confirmAction.kind, confirmAction.next, trackingUrl)}
         />
       )}
 
@@ -575,6 +637,15 @@ function OrderCard({ order, busy, onView, onMain, onCancel }) {
       </div>
     </article>
   )
+}
+
+function OrderTable({ orders, busyId, onView, onMain, onCancel }) {
+  if (!orders.length) return <div className="ops-empty"><ShoppingBag size={20} /><span>No orders match these filters.</span></div>
+  return <div className="ops-order-table-wrap"><table className="ops-order-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th>Main action</th><th>Others</th></tr></thead><tbody>{orders.map((order) => { const main = mainActionFor(order); const canCancel = stageOf(order) !== 'completed' && stageOf(order) !== 'cancelled' && !cancellationRequested(order); return <tr key={order.id}><td><b>{order.order_number}</b><small>{timeAgo(order.created_at)}</small></td><td>{order.customer_name}</td><td>{order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</td><td>{itemCount(order)}</td><td>{paymentMethodLabel(paymentMethod(order))}</td><td><span className={`ops-table-status ops-table-status--${orderStatusTone(order.status)}`}>{order.status}</span></td><td><b>{money(order.final_total)}</b></td><td>{main && <button type="button" className="ops-main-action compact" disabled={busyId === order.id || main.disabled} onClick={() => onMain(order, main)}>{busyId === order.id ? 'Please wait…' : main.label}</button>}</td><td><div className="ops-table-actions"><button type="button" className="ops-secondary-action compact" onClick={() => onView(order)}>View details</button>{canCancel && <button type="button" className="ops-destructive-action compact" disabled={busyId === order.id} onClick={() => onCancel(order)}>Cancel</button>}</div></td></tr>})}</tbody></table></div>
+}
+
+function OrderTablePagination({ total, page, pages, rowsPerPage, onPage }) {
+  return <footer className="ops-order-pagination"><span>Showing {total ? (page - 1) * rowsPerPage + 1 : 0}–{Math.min(page * rowsPerPage, total)} of {total} orders</span><b>Page {page} of {pages}</b><div><button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => onPage(page - 1)}>‹</button><button type="button" aria-label="Next page" disabled={page >= pages} onClick={() => onPage(page + 1)}>›</button></div></footer>
 }
 
 function CancelGroup({ title, tone, orders, onView, onReview, onResolve, onRefund, resolved, busyId }) {
@@ -662,15 +733,18 @@ function CancellationRequestGroup({ orders, onView, onReview, busyId }) {
 }
 
 function ConfirmModal({ title, message, busy, onCancel, onConfirm }) {
+  const [trackingUrl, setTrackingUrl] = useState('')
+  const isDeliveryAction = title === 'Mark Out for Delivery'
   return (
     <div className="payment-modal-backdrop ops-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onCancel() }}>
       <section className="payment-modal ops-popup-modal" role="alertdialog" aria-modal="true" aria-labelledby="ops-confirm-title">
         <span className="payment-modal-kicker">Confirm action</span>
         <h2 id="ops-confirm-title">{title}</h2>
         <p>{message}</p>
+        {isDeliveryAction && <label className="field"><span>Delivery tracking link (optional)</span><input type="url" value={trackingUrl} onChange={(event) => setTrackingUrl(event.target.value.slice(0, 500))} maxLength={500} placeholder="https://…" /></label>}
         <div className="payment-modal-actions">
           <button className="secondary-button" type="button" onClick={onCancel} disabled={busy}>Go back</button>
-          <button className="primary-button" type="button" onClick={onConfirm} disabled={busy}>{busy ? 'Please wait…' : 'Confirm'}</button>
+          <button className="primary-button" type="button" onClick={() => onConfirm(trackingUrl.trim())} disabled={busy}>{busy ? 'Please wait…' : 'Confirm'}</button>
         </div>
       </section>
     </div>
@@ -750,10 +824,12 @@ function CancellationReviewModal({ order, busy, onClose, onSubmit }) {
   )
 }
 
-function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, busy }) {
+function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking, busy }) {
   const { pricing } = usePricing()
   const [proofUrl, setProofUrl] = useState('')
   const [proofError, setProofError] = useState('')
+  const [trackingUrl, setTrackingUrl] = useState(order.tracking_url || '')
+  const drawerBodyRef = useRef(null)
   const method = paymentMethod(order)
   const stage = stageOf(order)
   const main = mainActionFor(order)
@@ -761,6 +837,16 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, busy }) {
   const vatRate = order.vat_rate ?? pricing.vatRate
   const pricesIncludeVat = order.prices_include_vat !== false
   const breakdown = buildVatExemptOrderBreakdown({ subtotal: order.subtotal, discountSubtotal: order.discount_subtotal, discountType: order.discount_type, discountAmount: order.discount_amount, vatExemptAmount: order.vat_exempt_amount, vatRate, pricesIncludeVat })
+  const paymentLabel = paymentStatusLabel(order)
+  const paymentTone = orderPaymentTone(order)
+  const refundMeta = orderRefundMeta(order)
+  const payment = order.payments?.[0]
+  const sectionIds = {
+    overview: `order-overview-${order.id}`,
+    order: `order-items-${order.id}`,
+    payment: `order-payment-${order.id}`,
+    history: `order-history-${order.id}`,
+  }
 
   useEffect(() => {
     setProofUrl(''); setProofError('')
@@ -769,112 +855,173 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, busy }) {
     getPaymentProofUrl(order.payment_proof_path).then((url) => { if (active) setProofUrl(url || '') }).catch((cause) => { if (active) setProofError(describeError(cause, 'Could not load payment proof.')) })
     return () => { active = false }
   }, [order.id, order.payment_proof_path, method])
+  useEffect(() => { setTrackingUrl(order.tracking_url || '') }, [order.id, order.tracking_url])
+
+  const scrollToSection = (section) => {
+    drawerBodyRef.current?.querySelector(`#${sectionIds[section]}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const timeline = [
     { label: 'Order placed', done: true, at: order.created_at },
-    { label: 'Payment verified', done: method === 'cod' || order.payment_confirmed, at: order.payment_confirmed_at },
-    { label: 'Preparing', done: !PENDING_STATUSES.includes(order.status) && order.status !== 'Cancelled' },
-    { label: order.order_type === 'delivery' ? 'Out for delivery' : 'Ready for pickup / dine-in / take-out', done: ['Ready for Pickup', 'Out for Delivery', 'Completed', 'Received'].includes(order.status) },
-    { label: order.order_type === 'delivery' ? 'Received by customer' : 'Completed', done: order.order_type === 'delivery' ? order.status === 'Received' : order.status === 'Completed' },
+    { label: 'Payment verified', done: method === 'cod' || order.payment_confirmed, at: order.payment_confirmed_at || (method === 'cod' ? order.updated_at : null) },
+    { label: 'Preparing', done: !PENDING_STATUSES.includes(order.status) && order.status !== 'Cancelled', at: !PENDING_STATUSES.includes(order.status) && order.status !== 'Cancelled' ? order.updated_at : null },
+    { label: order.order_type === 'delivery' ? 'Out for delivery' : 'Ready for pickup / dine-in / take-out', done: ['Ready for Pickup', 'Out for Delivery', 'Completed', 'Received'].includes(order.status), at: ['Ready for Pickup', 'Out for Delivery', 'Completed', 'Received'].includes(order.status) ? order.out_for_delivery_at || order.updated_at : null },
+    { label: order.order_type === 'delivery' ? 'Received by customer' : 'Completed', done: order.order_type === 'delivery' ? order.status === 'Received' : order.status === 'Completed', at: order.order_type === 'delivery' ? order.received_at : order.completed_at || (order.status === 'Completed' ? order.updated_at : null) },
   ]
+  if (cancellationRequested(order)) timeline.push({ label: 'Cancellation review requested', done: false, at: order.cancellation_requested_at })
+  if (order.status === 'Cancelled') timeline.push({ label: 'Cancelled', done: true, at: order.cancelled_at || order.updated_at })
 
   return (
     <div className="ops-drawer-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <aside className="ops-drawer" role="dialog" aria-modal="true" aria-labelledby="ops-drawer-title">
-        <header>
-          <div><span className="settings-kicker">{order.order_type === 'walk-in' ? 'Walk-in order' : order.order_type === 'pickup' ? 'Pickup order' : 'Delivery order'}</span><h2 id="ops-drawer-title">{order.order_number}</h2></div>
+      <aside className="ops-drawer txn-drawer ops-order-drawer" role="dialog" aria-modal="true" aria-labelledby="ops-order-drawer-title">
+        <header className="txn-drawer-header">
+          <div><span className="settings-kicker">{orderTypeLabel(order.order_type)}</span><h2 id="ops-order-drawer-title">{order.order_number}</h2></div>
+          <div className="txn-header-total" aria-label={`Order total ${money(order.final_total)}`}><span>Total</span><b>{money(order.final_total)}</b></div>
           <button type="button" onClick={onClose} aria-label="Close order details"><X size={20} /></button>
         </header>
 
-        <div className="ops-drawer-body">
-          {cancellationRequested(order) && (
-            <div className="ops-drawer-cancellation-review">
-              <AlertTriangle size={16} />
-              <div><b>Cancellation review in progress</b><p>Fulfillment is on hold while payment and refund requirements are checked.</p><small>{order.cancellation_reason || 'No reason provided.'}</small></div>
-            </div>
-          )}
-          {order.status === 'Cancelled' && (
-            <div className="ops-drawer-cancelled">
-              <AlertTriangle size={16} />
-              <div><b>Cancelled{order.cancelled_by_role ? ` by ${order.cancelled_by_role}` : ''}</b><p>{order.cancellation_reason || 'No reason provided.'}</p><small>{refundStatusLabel(order.refund_status)}</small></div>
-            </div>
-          )}
+        <nav className="txn-drawer-nav" aria-label="Order details sections">
+          {Object.entries({ overview: 'Overview', order: 'Order', payment: 'Payment', history: 'History' }).map(([key, label]) => (
+            <button key={key} type="button" onClick={() => scrollToSection(key)}>{label}</button>
+          ))}
+        </nav>
 
-          <section>
-            <h3>Customer</h3>
-            <p>{order.customer_name}</p>
-            {order.customer_phone && <p><Phone size={13} /> {order.customer_phone}</p>}
-            {order.customer_email && <p>{order.customer_email}</p>}
+        <div className="ops-drawer-body txn-drawer-body" ref={drawerBodyRef}>
+          <section id={sectionIds.overview} className="txn-detail-overview txn-drawer-section">
+            <div className="txn-section-heading">
+              <div><span>At a glance</span><h3>Order overview</h3></div>
+              <div className="txn-pill-row">
+                <span className={`status-chip status-chip--${orderStatusTone(order.status)}`}>{order.status}</span>
+                <span className={`status-chip status-chip--${paymentTone}`}>{paymentLabel}</span>
+                <span className={`status-chip status-chip--${refundMeta.tone}`}>{refundMeta.label}</span>
+              </div>
+            </div>
+            {cancellationRequested(order) && (
+              <div className="txn-order-alert txn-order-alert--review">
+                <AlertTriangle size={16} />
+                <div><b>Cancellation review in progress</b><p>Fulfillment is on hold while payment and refund requirements are checked.</p><small>{order.cancellation_reason || 'No reason provided.'}</small></div>
+              </div>
+            )}
+            {order.status === 'Cancelled' && (
+              <div className="txn-order-alert txn-order-alert--cancelled">
+                <AlertTriangle size={16} />
+                <div><b>Cancelled{order.cancelled_by_role ? ` by ${order.cancelled_by_role}` : ''}</b><p>{order.cancellation_reason || 'No reason provided.'}</p><small>{refundStatusLabel(order.refund_status)}</small></div>
+              </div>
+            )}
+            <div className="txn-overview-cards">
+              <article className="txn-info-card">
+                <span>Customer</span>
+                <b>{order.customer_name || 'Guest customer'}</b>
+                <small>{order.customer_email || order.customer_phone ? 'Contact details on file' : 'No contact details recorded'}</small>
+                {order.customer_phone && <p>Phone: {order.customer_phone}</p>}
+              </article>
+              <article className="txn-info-card">
+                <span>Fulfillment</span>
+                <b>{order.order_type === 'delivery' ? 'Delivery' : order.order_type === 'walk-in' ? 'Dine-in / Take-out' : 'Pickup'}</b>
+                <small>{orderTypeLabel(order.order_type)} · {paymentMethodLabel(method)}</small>
+                <p>{scheduleLabel(order)}</p>
+              </article>
+            </div>
+            <div className="txn-detail-grid">
+              <div><span>Created</span><b>{formatOrderDateTime(order.created_at)}</b></div>
+              <div><span>Payment status</span><b>{paymentLabel}</b></div>
+              <div><span>Scheduled</span><b>{scheduleLabel(order)}</b></div>
+              {order.customer_email && <div><span>Email</span><b>{order.customer_email}</b></div>}
+              {order.customer_phone && <div><span>Phone</span><b>{order.customer_phone}</b></div>}
+              {order.delivery_address && <div className="wide"><span>Delivery address</span><b>{order.delivery_address}</b></div>}
+            </div>
           </section>
 
-          <section>
-            <h3>{order.order_type === 'delivery' ? 'Delivery details' : order.order_type === 'walk-in' ? 'Dine-in / Take-out details' : 'Pickup details'}</h3>
-            {order.order_type === 'delivery' && order.delivery_address && <p><MapPin size={13} /> {order.delivery_address}</p>}
-            <p>Scheduled: {scheduleLabel(order)}</p>
-          </section>
-
-          <section>
-            <h3>Items</h3>
-            <div className="ops-drawer-items">
+          <section id={sectionIds.order} className="txn-drawer-section">
+            <div className="txn-section-heading"><div><span>Order details</span><h3>Items and totals</h3></div><b className="txn-item-count">{itemCount(order)} item{itemCount(order) === 1 ? '' : 's'}</b></div>
+            <ul className="txn-item-list">
               {(order.order_items || []).map((item) => {
                 const custom = item.customizations || {}
-                const addonList = (item.addons || []).map((id) => addonNames[id] || id)
+                const addonList = (item.addons || []).map((id) => typeof id === 'string' ? addonNames[id] || id : id?.name || 'Add-on')
+                const itemDetails = [
+                  custom.temperature && `Temperature: ${custom.temperature}`,
+                  custom.variation_id && `Option: ${custom.variation_id}`,
+                  addonList.length > 0 && `Add-ons: ${addonList.join(', ')}`,
+                  custom.special_instructions && `Special instructions: "${custom.special_instructions}"`,
+                ].filter(Boolean).join(' - ')
                 return (
-                  <div className="ops-drawer-item" key={item.id}>
-                    <div><b>{item.quantity}× {item.display_name || item.item_name}</b><span>{money(item.unit_price)} each</span></div>
-                    {(custom.temperature || custom.variation_id || addonList.length > 0 || custom.special_instructions) && (
-                      <p className="ops-item-detail">
-                        {[custom.temperature, custom.variation_id, addonList.join(', ')].filter(Boolean).join(' · ')}
-                        {custom.special_instructions ? ` — "${custom.special_instructions}"` : ''}
-                      </p>
-                    )}
-                    <b className="ops-item-total">{money(item.line_total)}</b>
-                  </div>
+                  <li key={item.id}>
+                    <div><b>{item.quantity}x {item.display_name || item.item_name}</b><span>{money(item.line_total)}</span></div>
+                    <small>Unit price: {money(item.unit_price)} each</small>
+                    {itemDetails && <small>{itemDetails}</small>}
+                  </li>
                 )
               })}
+            </ul>
+            <div className="txn-total-list" aria-label="Order total breakdown">
+              {breakdown.isVatExemptDiscount ? <>
+                {breakdown.regularBaseAmount > 0 && <div><span>VATable Sale</span><b>{money(breakdown.regularBaseAmount)}</b></div>}
+                <div><span>VAT-Exempt Sale</span><b>{money(breakdown.vatExemptSale)}</b></div>
+                <div><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.regularVatAmount)}</b></div>
+                <div><span>Less 20% SC/PWD Disc.</span><b>- {money(breakdown.discountAmount)}</b></div>
+              </> : <>
+                <div><span>Subtotal</span><b>{money(breakdown.baseAmount)}</b></div>
+                <div><span>{pricesIncludeVat ? `VAT included (${formatVatRate(vatRate)})` : 'VAT calculated at checkout'}</span><b>{money(breakdown.vatAmount)}</b></div>
+                <div><span>Discounts</span><b>{order.discount_amount > 0 ? `- ${money(order.discount_amount)}` : '-'}</b></div>
+              </>}
+              <div><span>Delivery fee</span><b>{order.delivery_fee > 0 ? money(order.delivery_fee) : '-'}</b></div>
+              <div className="total"><span>Total</span><b>{money(order.final_total)}</b></div>
             </div>
           </section>
 
-          <section>
-            <h3>Payment</h3>
-            <p>{paymentMethodLabel(method)} · {paymentStatusLabel(order)}</p>
+          <section id={sectionIds.payment} className="txn-drawer-section">
+            <div className="txn-section-heading"><div><span>Payment</span><h3>Payment record</h3></div><span className={`status-chip status-chip--${paymentTone}`}>{paymentLabel}</span></div>
+            <div className="txn-payment-record">
+              <div className="txn-payment-method"><span>Method</span><b>{paymentMethodLabel(method)}</b></div>
+              <div className="txn-detail-grid">
+                <div><span>Status</span><b>{paymentLabel}</b></div>
+                {payment?.reference_number && <div><span>Payment reference</span><b>{payment.reference_number}</b></div>}
+                {payment?.amount_due != null && <div><span>Amount due</span><b>{money(payment.amount_due)}</b></div>}
+                {!payment?.reference_number && payment?.amount_due == null && <div className="wide"><span>Payment reference</span><b>No additional payment details recorded</b></div>}
+              </div>
+            </div>
             {(method === 'gcash' || method === 'bank_transfer') && (
               proofError ? <p className="form-error">{proofError}</p> :
-              proofUrl ? <a href={proofUrl} target="_blank" rel="noreferrer"><img className="ops-proof-image" src={proofUrl} alt="Payment proof" /></a> :
+              proofUrl ? <div className="txn-proof-card"><img src={proofUrl} alt="Payment proof" className="ops-proof-image" /><a className="secondary-button" href={proofUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} /> Open Payment Proof</a></div> :
               <p className="ops-proof-pending">No payment proof uploaded yet.</p>
             )}
           </section>
 
-          <section>
-            <h3>Price breakdown</h3>
-            <div className="ops-price-rows">
-              {breakdown.isVatExemptDiscount ? <>
-                {breakdown.regularBaseAmount > 0 && <p><span>VATable Sale</span><b>{money(breakdown.regularBaseAmount)}</b></p>}
-                <p><span>VAT-Exempt Sale</span><b>{money(breakdown.vatExemptSale)}</b></p>
-                <p><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.regularVatAmount)}</b></p>
-                <p><span>Less 20% SC/PWD Disc.</span><b>-{money(breakdown.discountAmount)}</b></p>
-              </> : <>
-                <p><span>Subtotal</span><b>{money(breakdown.baseAmount)}</b></p>
-                <p><span>{pricesIncludeVat ? `VAT included (${formatVatRate(vatRate)})` : 'VAT calculated at checkout'}</span><b>{money(breakdown.vatAmount)}</b></p>
-              </>}
-              {order.order_type === 'delivery' && <p><span>Delivery fee</span><b>{money(order.delivery_fee || 0)}</b></p>}
-              <p className="ops-price-total"><span>Total</span><b>{money(order.final_total)}</b></p>
-            </div>
-          </section>
+          {(cancellationRequested(order) || order.status === 'Cancelled' || (order.refunds || []).length > 0) && (
+            <section className="txn-drawer-section txn-exception-section">
+              <div className="txn-section-heading"><div><span>Exceptions</span><h3>Cancellation and refund activity</h3></div><AlertTriangle size={18} /></div>
+              {cancellationRequested(order) && <div className="txn-refund-row"><p><b>Review requested</b> while payment and refund requirements are checked.</p><small>{order.cancellation_requested_at ? `Requested ${formatOrderDateTime(order.cancellation_requested_at)}` : 'Awaiting staff review'}</small></div>}
+              {order.status === 'Cancelled' && <div className="txn-refund-row"><p><b>Order cancelled</b>{order.cancelled_by_role ? ` by ${order.cancelled_by_role}` : ''}</p><small>{order.cancellation_reason || 'No reason provided.'}</small></div>}
+              {(order.refunds || []).map((refund) => <div key={refund.id} className="txn-refund-row"><p><b>{money(refund.refund_amount)}</b> refund <span className={`status-chip status-chip--${refund.refund_status === 'processed' ? 'completed' : ['failed', 'rejected'].includes(refund.refund_status) ? 'cancelled' : 'attention'}`}>{refundStatusLabel(refund.refund_status)}</span></p><small>Requested {formatOrderDateTime(refund.requested_at)}{refund.processed_at ? ` - Completed ${formatOrderDateTime(refund.processed_at)}` : ''}{refund.reference_number ? ` - Ref ${refund.reference_number}` : ''}</small></div>)}
+            </section>
+          )}
 
-          <section>
-            <h3>Order timeline</h3>
-            <ul className="ops-timeline">
-              {timeline.map((step) => <li key={step.label} className={step.done ? 'done' : ''}>{step.done ? <Check size={13} /> : <Clock size={13} />} {step.label}</li>)}
+          <section id={sectionIds.history} className="txn-drawer-section">
+            <div className="txn-section-heading"><div><span>History</span><h3>Order activity</h3></div></div>
+            <ul className="txn-timeline">
+              {timeline.map((step) => (
+                <li key={step.label} className={step.done ? 'is-done' : 'is-pending'}>
+                  <span>{step.done ? <Check size={14} /> : <Clock size={14} />}</span>
+                  <div><b>{step.label}</b><small>{step.at ? formatOrderDateTime(step.at) : step.done ? 'Completed' : 'Waiting for update'}</small></div>
+                </li>
+              ))}
             </ul>
           </section>
         </div>
 
-        <footer className="ops-drawer-footer">
+        <footer className="ops-drawer-footer txn-drawer-footer">
+          {order.status === 'Out for Delivery' && order.order_type === 'delivery' && (
+            <div className="ops-drawer-tracking-row">
+              <label className="field"><span>Delivery tracking link (optional)</span><input type="url" value={trackingUrl} maxLength={500} placeholder="https://…" onChange={(event) => setTrackingUrl(event.target.value.slice(0, 500))} /></label>
+              <button type="button" className="ops-secondary-action" disabled={busy} onClick={() => onTracking(trackingUrl.trim())}>{busy ? 'Saving…' : 'Save link'}</button>
+            </div>
+          )}
           {main && <button type="button" className="ops-main-action" disabled={busy || main.disabled} onClick={() => onMain(main)}>{busy ? 'Please wait…' : main.label}</button>}
           {canCancel && <button type="button" className="ops-destructive-action" disabled={busy} onClick={onCancel}>Cancel Order</button>}
+          {!main && !canCancel && <button type="button" className="ops-secondary-action" onClick={onClose}>Close details</button>}
         </footer>
       </aside>
     </div>
   )
 }
+
