@@ -558,6 +558,9 @@ function ItemDrawer({ item, onClose, onEdit, onToggleAvailability }) {
 function ItemFormModal({ item, mainCategories, subcategories, onClose, onDelete, onSave }) {
   const draftScope = `staff:menu:${item?.id || 'new'}:draft`
   const defaultSaleOption = item?.variantOptions?.options?.[0] || { key: 'default', name: item?.itemType === 'drink' ? 'Serving' : 'Piece', quantity: 1, unit: item?.itemType === 'drink' ? 'serving' : 'piece', price: item?.price ?? '' }
+  const storedSellingOptions = item?.variantOptions?.options?.length
+    ? item.variantOptions.options.map((option, index) => index === 0 && !item.variantOptions.enabled ? { ...option, price: item.price ?? option.price } : option)
+    : null
   const [values, setValues, clearValues] = useManagementSessionState(`${draftScope}:values`, {
     name: item?.name || '', description: item?.description || '', mainCategoryId: item?.mainCategoryId || mainCategories[0]?.id || '',
     subcategoryId: item?.subcategoryId || '', price: item?.price ?? '', itemType: item?.itemType || 'food', temperatureType: item?.temperatureType || 'none',
@@ -565,7 +568,7 @@ function ItemFormModal({ item, mainCategories, subcategories, onClose, onDelete,
     onlineBenefitEligible: item?.onlineBenefitEligible ?? false,
     imageUrl: item?.imageUrl || '', manualAvailable: item?.manualAvailable ?? true, isFeatured: item?.isFeatured ?? false, isBestseller: item?.isBestseller ?? false,
     prepTimeMinutes: item?.prepTimeMinutes ?? '', inventorySource: item?.inventorySource || 'none',
-    sellingOptions: item?.variantOptions?.options?.length ? item.variantOptions.options : [defaultSaleOption],
+    sellingOptions: storedSellingOptions || [defaultSaleOption],
     allowSellingOptions: Boolean(item?.variantOptions?.enabled),
     presetBundle: Boolean(item?.variantOptions?.presetBundle || item?.variantOptions?.options?.some((option) => option.key === 'bundle-default')),
     bundleName: item?.variantOptions?.bundleName || item?.variantOptions?.options?.find((option) => option.key === 'bundle-default')?.name || item?.name || '', bundleQuantity: item?.variantOptions?.bundleQuantity || item?.variantOptions?.options?.find((option) => option.key === 'bundle-default')?.quantity || 1,
@@ -615,7 +618,7 @@ function ItemFormModal({ item, mainCategories, subcategories, onClose, onDelete,
     setSaving(true); setError('')
     try {
       if (values.presetBundle) values.productBom.forEach((row) => { row.optionKey = 'bundle-default' })
-      const options = values.presetBundle ? [{ key: 'bundle-default', name: values.bundleName.trim(), quantity: Number(values.bundleQuantity), unit: values.bundleUnit.trim(), price }] : values.sellingOptions.map((row, index) => ({ key: row.key || `option-${index + 1}`, name: row.name.trim(), quantity: Number(row.quantity), unit: row.unit.trim(), price: Number(row.price) }))
+      const options = values.presetBundle ? [{ key: 'bundle-default', name: values.bundleName.trim(), quantity: Number(values.bundleQuantity), unit: values.bundleUnit.trim(), price }] : values.sellingOptions.map((row, index) => ({ key: row.key || `option-${index + 1}`, name: row.name.trim(), quantity: Number(row.quantity), unit: row.unit.trim(), price: Number(!values.allowSellingOptions && index === 0 ? price : row.price) }))
       if (values.presetBundle) values.sellingOptions = options
       await onSave({ id: item?.id, ...values, price: values.allowSellingOptions && options.length ? options[0].price : price, sellingOptions: options, variantOptions: { enabled: Boolean(values.allowSellingOptions), type: 'selling_options', options, labels: Object.fromEntries(options.map((x) => [x.key, x.name])), prices: Object.fromEntries(options.map((x) => [x.key, x.price])), quantities: Object.fromEntries(options.map((x) => [x.key, x.quantity])), units: Object.fromEntries(options.map((x) => [x.key, x.unit])) }, onlineBenefitEligible: values.onlineBenefitEligible ?? item?.onlineBenefitEligible ?? false, prepTimeMinutes: values.prepTimeMinutes === '' ? null : Number(values.prepTimeMinutes), availableFrom: null, availableUntil: null, ingredients: values.ingredientBom.map((x) => ({ ingredient_id: x.ingredientId, quantity_per_serving: Number(x.quantity) })), products: values.productBom.map((x) => ({ finished_product_id: x.productId, variant_key: x.optionKey || null })) })
       clearValues(); clearImagePreview(); clearSection()

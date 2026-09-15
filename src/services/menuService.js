@@ -10,7 +10,9 @@ const imagePath=value=>{if(!value)return fallbackImage;if(/^https?:\/\//i.test(S
 const parseVariants=(row,category)=>{
  const configured=row.variant_options&&typeof row.variant_options==='object'?row.variant_options:null
  if(configured?.enabled&&Array.isArray(configured.options)&&configured.options.length)return configured.options.map(option=>({id:option.key,name:option.name,price:Number(option.price),quantity:Number(option.quantity),unit:option.unit,priceAdjustment:Number(option.price)-Number(row.price)}))
- if(configured&&Object.keys(configured.prices||{}).length)return Object.entries(configured.prices).map(([id,price])=>({id,name:configured.labels?.[id]||id,price:Number(price),priceAdjustment:Number(price)-Number(row.price)}))
+ const isPresetBundle=Boolean(configured?.presetBundle)||configured?.options?.some(option=>option.key==='bundle-default')
+ if(isPresetBundle&&Array.isArray(configured.options)&&configured.options.length)return configured.options.map(option=>({id:option.key,name:option.name,price:Number(option.price),quantity:Number(option.quantity),unit:option.unit,priceAdjustment:Number(option.price)-Number(row.price)}))
+ if(configured?.enabled&&Object.keys(configured.prices||{}).length)return Object.entries(configured.prices).map(([id,price])=>({id,name:configured.labels?.[id]||id,price:Number(price),priceAdjustment:Number(price)-Number(row.price)}))
  if(category==='Cakes'&&cakeWholePrices[row.slug])return [{id:'slice',name:'Slice',price:Number(row.price),priceAdjustment:0},{id:'whole',name:'Whole',price:cakeWholePrices[row.slug],priceAdjustment:cakeWholePrices[row.slug]-Number(row.price)}]
  if(row.slug==='bestseller-box')return [{id:'box3',name:'Box of 3',price:365,priceAdjustment:0},{id:'box6',name:'Box of 6',price:750,priceAdjustment:385}]
  return []
