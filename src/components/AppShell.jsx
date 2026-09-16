@@ -1,4 +1,4 @@
-import { BarChart3, Bell, Boxes, CalendarDays, CheckCheck, ClipboardList, Coffee, FileBarChart, LayoutDashboard, LogOut, MenuSquare, Moon, ReceiptText, RefreshCw, Settings, ShieldCheck, Sun, Trash2, Users, X } from 'lucide-react'
+import { BarChart3, Bell, Boxes, CalendarDays, CheckCheck, ClipboardCheck, ClipboardList, Coffee, FileBarChart, LayoutDashboard, LogOut, MenuSquare, Moon, ReceiptText, RefreshCw, Settings, ShieldCheck, Sun, Trash2, Users, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { signOutPortal } from '../lib/auth'
@@ -15,13 +15,13 @@ import { clearManagementSessionState, requestManagementDataRefresh, useManagemen
 
 const adminGroups = [
   { label: 'Main', links: [['Dashboard','/admin',LayoutDashboard]] },
-  { label: 'Operations', links: [['Inventory Monitoring','/admin/inventory',Boxes],['Transaction History','/admin/transactions',ReceiptText]] },
+  { label: 'Operations', links: [['Inventory Monitoring','/admin/inventory',Boxes],['Purchase Orders','/admin/purchase-orders',ClipboardCheck],['Menu Approvals','/admin/menu-approvals',ClipboardCheck],['Benefits Verification','/admin/benefits-verification',ShieldCheck],['Transaction History','/admin/transactions',ReceiptText]] },
   { label: 'Reports', links: [['Sales Reports','/admin/reports',FileBarChart],['Inventory Report','/admin/inventory-report',ClipboardList],['Cancellation & Refunds','/admin/cancellations',ShieldCheck]] },
   { label: '', links: [['Analytics','/admin/analytics',BarChart3]] },
   { label: 'Administration', links: [['Content Management','/admin/content',MenuSquare],['Users & Access','/admin/users-access',Users],['System Settings','/admin/settings',Settings]] },
   { label: '', links: [['Settings','/admin/preferences',Settings]] },
 ]
-const staffGroups = [{ label:'', links:[['Order Preparation','/staff',ClipboardList],['Inventory Management','/staff/inventory',Boxes],['Manage Menu','/staff/menu',Coffee],['Transactions','/staff/transactions',ReceiptText],['Settings','/staff/settings',Settings]] }]
+const staffGroups = [{ label:'', links:[['Order Preparation','/staff',ClipboardList],['Inventory Management','/staff/inventory',Boxes],['Purchase Orders','/staff/purchase-orders',ClipboardCheck],['Manage Menu','/staff/menu',Coffee],['Transactions','/staff/transactions',ReceiptText],['Settings','/staff/settings',Settings]] }]
 
 function notificationTime(value) {
   const elapsed = Date.now() - new Date(value).getTime()

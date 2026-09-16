@@ -15,6 +15,9 @@ import InventoryReportPage from './InventoryReportPage'
 import TransactionsPage from './TransactionsPage'
 import SalesReportPage from './SalesReportPage'
 import CancellationReportPage from './CancellationReportPage'
+import PurchaseOrdersPage from './PurchaseOrdersPage'
+import MenuApprovalsPage from './MenuApprovalsPage'
+import BenefitsVerificationPage from './BenefitsVerificationPage'
 import StaffSettingsPage from './StaffSettingsPage'
 import { computeDashboardMetrics, fetchDashboardData } from '../services/adminDashboardService'
 import { describeError } from '../utils/describeError'
@@ -24,6 +27,9 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase'
 const adminPageTitles = {
   '/admin': 'Dashboard',
   '/admin/inventory': 'Inventory Monitoring',
+  '/admin/purchase-orders': 'Purchase Orders',
+  '/admin/menu-approvals': 'Menu Approvals',
+  '/admin/benefits-verification': 'Benefits Verification',
   '/admin/transactions': 'Transaction History',
   '/admin/reports': 'Sales',
   '/admin/analytics': 'Analytics',
@@ -249,11 +255,15 @@ export default function AdminDashboard() {
   if (pathname === '/admin/logs') return <Navigate to="/admin/users-access/activity" replace />
   if (pathname === '/admin/users-access') return <Navigate to="/admin/users-access/users" replace />
   if (pathname === '/admin/users-access/approvals') return <Navigate to="/admin/users-access/users" replace />
+  if (pathname === '/admin/users-access/benefits') return <Navigate to="/admin/benefits-verification" replace />
   if (pathname.startsWith('/admin/users-access/')) return <UsersAccessPage />
   if (pathname === '/admin/content') return <ContentManagementPage />
+  if (pathname === '/admin/menu-approvals') return <MenuApprovalsPage />
+  if (pathname === '/admin/benefits-verification') return <BenefitsVerificationPage />
   if (pathname === '/admin/settings') return <SystemSettingsPage />
   if (pathname === '/admin/preferences') return <StaffSettingsPage role="admin" />
   if (pathname === '/admin/inventory') return <AdminInventoryPage />
+  if (pathname === '/admin/purchase-orders') return <PurchaseOrdersPage role="admin" />
   if (pathname === '/admin/inventory-report') return <InventoryReportPage />
   if (pathname === '/admin/transactions') return <TransactionsPage />
   if (pathname === '/admin/reports' || pathname === '/admin/analytics' || pathname === '/admin/products' || pathname === '/admin/trends') return <SalesReportPage />

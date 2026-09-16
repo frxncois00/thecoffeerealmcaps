@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import AppShell from '../components/AppShell'
 import { describeError } from '../utils/describeError'
 import { sanitizePersonName } from '../utils/inputValidation'
-import { fetchMenuApprovalRequests, updateMenuApprovalRequest } from '../services/menuApprovalService'
+import { fetchMenuApprovalRequests } from '../services/menuApprovalService'
 import {
   CONTENT_DEFAULTS, deleteTestimonial, fetchContentMenuOptions, fetchPortalConfiguration,
   fetchTestimonials, savePortalConfiguration, saveTestimonial,
@@ -12,7 +12,6 @@ import {
 const SECTIONS = [
   ['hero', 'Homepage', Home, 'Hero and first impression'],
   ['featured', 'Featured menu', Sparkles, 'Bestseller selection'],
-  ['approvals', 'Menu approvals', ClipboardCheck, 'Review staff menu changes'],
   ['about', 'About', MessageSquareQuote, 'Café story'],
   ['reviews', 'Testimonials', MessageSquareQuote, 'Customer quotes'],
   ['footer', 'Footer & Social', Info, 'Contact and social links'],
@@ -136,7 +135,6 @@ export default function ContentManagementPage() {
               </div></div>
             </EditorSection>}
 
-            {section === 'approvals' && <MenuApprovalsQueue onAction={async (request, state) => { try { await updateMenuApprovalRequest(request.id, state); setNotice(`${request.itemName} marked ${state}.`) } catch (cause) { setError(describeError(cause, 'The approval decision could not be saved.')) } }} />}
 
             {section === 'reviews' && <section className="ac-editor-section"><header><div><h2>Testimonials</h2><p>Publish short, attributable customer quotes. Keep each one easy to scan.</p></div><button className="ac-primary-button" type="button" onClick={() => setReviewDraft({ ...EMPTY_REVIEW, display_order: testimonials.length })}><Plus size={16}/>Add testimonial</button></header>
               <div className="ac-review-list">{testimonials.length ? testimonials.map((review) => <article key={review.id}><div className="ac-review-rating">{'★'.repeat(review.rating || 5)}</div><blockquote>“{review.quote}”</blockquote><div><span><b>{review.name}</b><small>{review.label || 'Customer'} · {review.visible ? 'Published' : 'Hidden'}</small></span><span><button type="button" onClick={() => setReviewDraft({ ...review })}>Edit</button><button type="button" className="is-danger" onClick={() => removeReview(review)} disabled={String(review.id).startsWith('default-')} title={String(review.id).startsWith('default-') ? 'Publish this default testimonial before removing it' : undefined}><Trash2 size={15}/></button></span></div></article>) : <EmptyContent title="No testimonials yet" message="Add a customer quote when you have permission to publish it."/>}</div>
@@ -183,7 +181,7 @@ function matchesApprovalChangeType(item, filter) {
   return (terms[filter] || []).some((term) => types.some((type) => type.includes(term)))
 }
 
-function MenuApprovalsQueue({ onAction }) {
+export function MenuApprovalsQueue({ onAction, compact = false }) {
   const [status, setStatus] = useState('pending')
   const [changeType, setChangeType] = useState('all')
   const [sort, setSort] = useState('newest')
@@ -208,25 +206,25 @@ function MenuApprovalsQueue({ onAction }) {
     rejected: requests.filter((item) => item.state === 'rejected').length,
   }
 
-  return <section className="ac-approval-section" aria-labelledby="menu-approvals-title">
-    <header className="ac-approval-header"><div><span className="ac-approval-icon"><ClipboardCheck size={21}/></span><div><h2 id="menu-approvals-title">Menu change approvals</h2><p>Review menu updates submitted by staff before they appear on the customer storefront.</p></div></div></header>
+  return <section className={`ac-approval-section${compact ? ' is-compact' : ''}`} aria-labelledby="menu-approvals-title">
+    <header className="ac-approval-header"><div><span className="ac-approval-icon"><ClipboardCheck size={21}/></span><div><h2 id="menu-approvals-title">Menu approvals</h2><p>{compact ? 'Review staff menu changes.' : 'Review staff menu changes before publishing.'}</p></div></div></header>
     <div className="ac-approval-controls">
       <div className="ac-approval-tabs" role="tablist" aria-label="Menu approval status">
         {[['pending', 'Pending approval', counts.pending], ['approved', 'Approved', counts.approved], ['rejected', 'Rejected', counts.rejected]].map(([key, label, count]) => <button key={key} type="button" role="tab" aria-selected={status === key} className={status === key ? 'is-active' : ''} onClick={() => { setStatus(key); setPage(1) }}>{label}<b>{count}</b></button>)}
       </div>
       <div className="ac-approval-toolbar"><label><span>Change type</span><select value={changeType} onChange={(event) => { setChangeType(event.target.value); setPage(1) }}><option value="all">All change types</option><option value="price">Price update</option><option value="new">New item</option><option value="updated">Updated</option><option value="image">Image update</option><option value="description">Description update</option><option value="addons">Add-ons updated</option><option value="choices">Choices updated</option><option value="ingredients">Ingredients updated</option><option value="ready">Ready-made item</option><option value="category">Category update</option><option value="temperature">Temperature update</option><option value="display">Display settings</option><option value="discount">SC/PWD discount eligibility</option></select></label><label><span>Sort</span><select value={sort} onChange={(event) => { setSort(event.target.value); setPage(1) }}><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></label></div>
     </div>
-    <div className="ac-approval-table-wrap"><table className="ac-approval-table"><thead><tr><th>Menu item</th><th>Change type</th><th>Changed by</th><th>Date</th><th>Details</th><th>Actions</th></tr></thead><tbody>{visibleRows.map((item) => <tr key={item.id}>
-      <td><div className="ac-approval-item"><span><b>{item.itemName}</b><small>Staff menu change</small><em>{item.action}</em></span></div></td>
+    <div className="po-table-panel ac-approval-table-wrap"><div className="po-table-scroll"><table className="po-table"><thead><tr><th>Menu item</th><th>Change type</th><th>Changed by</th><th>Date</th><th>Details</th><th>Actions</th></tr></thead><tbody>{visibleRows.map((item) => <tr key={item.id}>
+      <td><div className="ac-approval-item"><span><b>{item.itemName}</b><small>Staff change</small><em>{item.action}</em></span></div></td>
       <td><span className="ac-change-badge ac-change-badge--updated">{item.changeTypes.join(', ')}</span></td>
       <td><span className="ac-approval-person"><i>ST</i><span><b>Staff member</b><small>Staff</small></span></span></td>
       <td><span className="ac-approval-date">{new Date(item.createdAt).toLocaleDateString()}<small>{new Date(item.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></span></td>
-      <td><span className="ac-approval-detail">{item.summary}<small>Awaiting admin decision</small></span></td>
+      <td><span className="ac-approval-detail">{item.summary}<small>Pending review</small></span></td>
       <td><div className="ac-approval-actions"><button type="button" className="ac-approval-reject" onClick={() => onAction(item, 'rejected')}><XCircle size={14}/>Reject</button><button type="button" className="ac-approval-approve" onClick={() => onAction(item, 'approved')}><CheckCircle2 size={14}/>Approve</button></div></td>
-    </tr>)}</tbody></table></div>
-    <div className="ac-approval-cards">{visibleRows.map((item) => <article className="ac-approval-card" key={item.id}><div className="ac-approval-card-top"><div className="ac-approval-item"><img src={item.image} alt=""/><span><b>{item.itemName}</b><small>Staff menu change</small></span></div><span className="ac-change-badge ac-change-badge--updated">{item.action}</span></div><div className="ac-approval-card-grid"><span><small>Submitted</small><b>{new Date(item.createdAt).toLocaleString()}</b></span><span><small>Change types</small><b>{item.changeTypes.join(', ')}</b></span><span><small>Details</small><b>{item.summary}</b></span></div><div className="ac-approval-actions"><button type="button" className="ac-approval-reject" onClick={() => onAction(item, 'rejected')}><XCircle size={14}/>Reject</button><button type="button" className="ac-approval-approve" onClick={() => onAction(item, 'approved')}><CheckCircle2 size={14}/>Approve</button></div></article>)}</div>
+    </tr>)}</tbody></table></div></div>
+    <div className="ac-approval-cards">{visibleRows.map((item) => <article className="ac-approval-card" key={item.id}><div className="ac-approval-card-top"><div className="ac-approval-item"><img src={item.image} alt=""/><span><b>{item.itemName}</b><small>Staff change</small></span></div><span className="ac-change-badge ac-change-badge--updated">{item.action}</span></div><div className="ac-approval-card-grid"><span><small>Submitted</small><b>{new Date(item.createdAt).toLocaleString()}</b></span><span><small>Change types</small><b>{item.changeTypes.join(', ')}</b></span><span><small>Details</small><b>{item.summary}</b></span></div><div className="ac-approval-actions"><button type="button" className="ac-approval-reject" onClick={() => onAction(item, 'rejected')}><XCircle size={14}/>Reject</button><button type="button" className="ac-approval-approve" onClick={() => onAction(item, 'approved')}><CheckCircle2 size={14}/>Approve</button></div></article>)}</div>
     {!sortedRows.length && <div className="ac-approval-empty"><ClipboardCheck size={24}/><b>No {status} changes</b><span>Staff submissions will appear here when an approval request is created.</span></div>}
-    <footer className="ac-approval-footer"><span>Showing {sortedRows.length ? ((page - 1) * pageSize) + 1 : 0}–{Math.min(page * pageSize, sortedRows.length)} of {sortedRows.length} requests</span><div className="ac-pagination" aria-label="Approval request pages"><button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button><b>Page {page} of {totalPages}</b><button type="button" aria-label="Next page" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>›</button></div></footer>
+    <footer className="po-pagination"><span>Showing {sortedRows.length ? ((page - 1) * pageSize) + 1 : 0}–{Math.min(page * pageSize, sortedRows.length)} of {sortedRows.length}</span><b>Page {page} of {totalPages}</b><div aria-label="Approval request pages"><button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button><button type="button" aria-label="Next page" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>›</button></div></footer>
   </section>
 }
 function Toggle({ checked, onChange, label }) { return <label className="ac-toggle-row"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)}/><span aria-hidden="true"><i/></span><b>{label}</b></label> }

@@ -881,7 +881,8 @@ export default function TransactionsPage() {
                   <th>Order #</th>
                   <th>Customer / Date</th>
                   <th>Payment</th>
-                  <th>Fulfillment / Status</th>
+                  <th>Fulfillment</th>
+                  <th>Status</th>
                   <th>Total</th>
                   <th aria-label="Actions" />
                 </tr>
@@ -894,8 +895,9 @@ export default function TransactionsPage() {
                     <tr key={transaction.id} className={`txn-row-in ${transaction.isVoided ? 'txn-row-voided' : ''} ${rowMenuId === transaction.id ? 'txn-row-menu-open' : ''}`}>
                       <td><b>{transaction.orderNumber}</b><br /><small>{transaction.receiptNumber}</small></td>
                       <td>{transaction.customerName}<br /><small>{formatDateTime(transaction.createdAt)}</small></td>
-                      <td><span className={`status-chip status-chip--${paymentMeta.tone}`}>{paymentMeta.label}</span><br /><small>{PAYMENT_METHOD_LABEL[transaction.paymentMethod] || '-'}</small></td>
-                      <td><span className={`status-chip status-chip--${statusTone(transaction.isVoided ? 'Voided' : transaction.status)}`}>{transaction.isVoided ? 'Voided' : transaction.status}</span><br /><small>{getSourceLabel(transaction)} · {startCase(transaction.fulfillment)} · {transaction.itemCount} item{transaction.itemCount === 1 ? '' : 's'}</small>{refundMeta.key !== 'not_applicable' && <><br /><span className={`status-chip status-chip--${refundMeta.tone}`}>{refundMeta.label}</span></>}</td>
+                      <td><b>{PAYMENT_METHOD_LABEL[transaction.paymentMethod] || '-'}</b><br /><small>{paymentMeta.label}</small></td>
+                      <td><b>{transaction.fulfillment || getSourceLabel(transaction)}</b><br /><small>{getSourceLabel(transaction)} · {transaction.itemCount} item{transaction.itemCount === 1 ? '' : 's'}</small></td>
+                      <td><span className={`status-chip status-chip--${statusTone(transaction.isVoided ? 'Voided' : transaction.status)}`}>{transaction.isVoided ? 'Voided' : transaction.status}</span>{refundMeta.key !== 'not_applicable' && <><br /><span className={`status-chip status-chip--${refundMeta.tone}`}>{refundMeta.label}</span></>}</td>
                       <td><b>{money(transaction.finalTotal)}</b></td>
                       <td>
                         <RowActionsMenu
@@ -935,11 +937,8 @@ export default function TransactionsPage() {
                     <span className={`status-chip status-chip--${statusTone(transaction.isVoided ? 'Voided' : transaction.status)}`}>{transaction.isVoided ? 'Voided' : transaction.status}</span>
                   </div>
                   <p className="inv-card-meta">{formatDateTime(transaction.createdAt)} - {transaction.customerName}</p>
-                  <p className="inv-card-meta">{getSourceLabel(transaction)} - {transaction.fulfillment} - {transaction.itemCount} item{transaction.itemCount === 1 ? '' : 's'}</p>
-                  <div className="txn-card-badges">
-                    <span className={`status-chip status-chip--${paymentMeta.tone}`}>{paymentMeta.label}</span>
-                    <span className={`status-chip status-chip--${refundMeta.tone}`}>{refundMeta.label}</span>
-                  </div>
+                  <div className="txn-card-fields"><span><small>Payment</small><b>{PAYMENT_METHOD_LABEL[transaction.paymentMethod] || '-'}</b></span><span><small>Fulfillment</small><b>{transaction.fulfillment || getSourceLabel(transaction)}</b></span><span><small>Status</small><b className={`status-chip status-chip--${statusTone(transaction.isVoided ? 'Voided' : transaction.status)}`}>{transaction.isVoided ? 'Voided' : transaction.status}</b></span></div>
+                  {refundMeta.key !== 'not_applicable' && <div className="txn-card-badges"><span className={`status-chip status-chip--${refundMeta.tone}`}>{refundMeta.label}</span></div>}
                   <p className="inv-card-qty">{money(transaction.finalTotal)}</p>
                   <div className="inv-card-actions">
                     <button type="button" className="ops-secondary-action" onClick={() => openDetails(transaction)}><Eye size={14} /> View Details</button>

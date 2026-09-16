@@ -10,4 +10,5 @@ import './styles.css'
 import './management-theme.css'
 import './cashier-polish.css'
 import './pricing.css'
+import './purchase-orders.css'
 createRoot(document.getElementById('root')).render(<StrictMode><BrowserRouter><ThemeProvider><PricingProvider><AuthProvider><CartProvider><App /></CartProvider></AuthProvider></PricingProvider></ThemeProvider></BrowserRouter></StrictMode>)

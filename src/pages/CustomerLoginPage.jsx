@@ -65,6 +65,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
     if (!identifier.includes('@') && sanitizeUsername(identifier, 24) !== identifier) return setAuthError('Enter a valid email address or username.')
     setLoading(true)
     let authData
+    const isUsernameLogin = !identifier.includes('@')
     if (identifier.includes('@')) {
       const { data: emailAuthData, error } = await supabase.auth.signInWithPassword({ email: identifier, password })
       if (error) {
@@ -99,13 +100,18 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
       .maybeSingle()
     setLoading(false)
 
-    if (profileError || !profile) {
+    // Username sign-in can authenticate legacy accounts whose profile row is
+    // still being backfilled. The Edge Function has already verified the
+    // account as a customer, so use its signup metadata as a temporary role
+    // fallback while keeping email sign-in strict about the profile record.
+    const resolvedRole = profile?.role || (isUsernameLogin ? authData.user.user_metadata?.role : '')
+    if (profileError || (!profile && !isCustomerRole(resolvedRole))) {
       await supabase.auth.signOut()
       return setAuthError('We could not verify this customer account. Please try again or contact support.')
     }
 
-    if (!isCustomerRole(profile.role)) {
-      const portalRoute = roleRoutes[normalizeRole(profile.role)]
+    if (!isCustomerRole(resolvedRole)) {
+      const portalRoute = roleRoutes[normalizeRole(resolvedRole)]
       if (portalRoute) return navigate(portalRoute, { replace: true })
       await supabase.auth.signOut()
       return setAuthError('This account is not registered as a customer. Please use the correct sign-in portal.')

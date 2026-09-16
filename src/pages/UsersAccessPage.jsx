@@ -7,7 +7,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
-import BenefitsReviewModule from './BenefitsReviewModule'
 import { useAuth } from '../context/AuthContext'
 import { describeError } from '../utils/describeError'
 import { EMAIL_MAX_LENGTH, isValidEmail, sanitizePersonName, sanitizeUsername } from '../utils/inputValidation'
@@ -48,7 +47,6 @@ function useEscapeClose(open, onClose) {
 function WorkspaceTabs() {
   return <nav className="ua-tabs" aria-label="Users and access modules">
     <NavLink to="/admin/users-access/users"><Users size={18} aria-hidden="true"/><span><b>User Management</b><small>Accounts, roles and access</small></span></NavLink>
-    <NavLink to="/admin/users-access/benefits"><BadgeCheck size={18} aria-hidden="true"/><span><b>PWD / Senior Citizen Approval</b><small>Senior Citizen and PWD verification</small></span></NavLink>
     <NavLink to="/admin/users-access/activity"><History size={18} aria-hidden="true"/><span><b>Activity Logs</b><small>Portal-wide audit trail</small></span></NavLink>
   </nav>
 }
@@ -65,8 +63,7 @@ export default function UsersAccessPage() {
     titleActions={<WorkspaceTabs />}
     onRefresh={() => setRefreshSignal((value) => value + 1)}
   >
-    {pathname.endsWith('/benefits') ? <BenefitsReviewModule refreshSignal={refreshSignal}/> : activityTab
-      ? <ActivityLogsModule refreshSignal={refreshSignal} />
+    {activityTab ? <ActivityLogsModule refreshSignal={refreshSignal} />
       : <UserManagementModule refreshSignal={refreshSignal} inviteOpen={inviteOpen} setInviteOpen={setInviteOpen} />}
   </AppShell>
 }

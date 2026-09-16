@@ -12,6 +12,7 @@ import BenefitsPage from './pages/customer/BenefitsPage'
 import InventoryStockPage from './pages/InventoryStockPage'
 import ManageMenuPage from './pages/ManageMenuPage'
 import OrderPreparationPage from './pages/OrderPreparationPage'
+import PurchaseOrdersPage from './pages/PurchaseOrdersPage'
 import PortalLoginPage from './pages/PortalLoginPage'
 import StaffDashboard from './pages/StaffDashboard'
 import StaffSettingsPage from './pages/StaffSettingsPage'
@@ -75,6 +76,10 @@ export default function App() {
         <Route
           path="/staff/inventory"
           element={<ProtectedRoute allowedRoles={['staff', 'operational_staff']}><InventoryStockPage /></ProtectedRoute>}
+        />
+        <Route
+          path="/staff/purchase-orders"
+          element={<ProtectedRoute allowedRoles={['staff', 'operational_staff']}><PurchaseOrdersPage role="staff" /></ProtectedRoute>}
         />
         <Route
           path="/staff/menu"

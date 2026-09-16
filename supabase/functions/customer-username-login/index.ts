@@ -35,17 +35,49 @@ Deno.serve(async (request) => {
       return json({ success: false, error: "Invalid username, email, or password." });
     }
 
+    // Resolve both the normalized profile field and signup metadata. Existing
+    // customers may have only one of these populated, depending on when they
+    // registered and which migrations had already been applied.
     const escapedUsername = username.replace(/[%,_]/g, "\\$&");
-    const { data: profile, error: profileError } = await admin
+    const { data: profileMatchResult, error: profileMatchError } = await admin
       .from("profiles")
-      .select("email, role, removed_at")
+      .select("id, email, role, removed_at")
       .ilike("username", escapedUsername)
       .maybeSingle();
+    // The username column was added by a later migration. If an environment
+    // has not applied it yet, continue with the metadata resolver below rather
+    // than turning every username login into a 500 response.
+    const usernameColumnMissing = profileMatchError && (
+      profileMatchError.code === "42703" ||
+      /column .*username.*does not exist/i.test(String(profileMatchError.message || ""))
+    );
+    if (profileMatchError && !usernameColumnMissing) throw profileMatchError;
 
-    if (profileError) throw profileError;
-    const role = String(profile?.role || "").trim().toLowerCase().replace(/[ -]+/g, "_");
+    let authUser = null;
+    let profile = usernameColumnMissing ? null : profileMatchResult;
+    if (profile?.id) {
+      const { data: userResult, error: userError } = await admin.auth.admin.getUserById(profile.id);
+      if (userError) throw userError;
+      authUser = userResult.user;
+    } else {
+      const { data: usersPage, error: usersError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (usersError) throw usersError;
+      authUser = (usersPage.users || []).find((user) =>
+        String(user.user_metadata?.username || "").trim().toLowerCase() === username.toLowerCase()
+      );
+      if (authUser) {
+        const { data: metadataProfile, error: metadataProfileError } = await admin
+          .from("profiles")
+          .select("id, email, role, removed_at")
+          .eq("id", authUser.id)
+          .maybeSingle();
+        if (metadataProfileError) throw metadataProfileError;
+        profile = metadataProfile;
+      }
+    }
+    const role = String(profile?.role || authUser?.user_metadata?.role || "").trim().toLowerCase().replace(/[ -]+/g, "_");
     const isActiveCustomer = role === "customer" && !profile?.removed_at;
-    const loginEmail = isActiveCustomer && profile?.email ? profile.email : "invalid-customer-login@invalid.local";
+    const loginEmail = isActiveCustomer ? (profile?.email || authUser?.email) : "invalid-customer-login@invalid.local";
     const { data, error } = await authClient.auth.signInWithPassword({ email: loginEmail, password });
 
     if (error || !isActiveCustomer || !data.session) {
