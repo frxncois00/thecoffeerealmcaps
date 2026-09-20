@@ -2,13 +2,17 @@ import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Separate build: never overwrites the production dist directory or router.
+const tourRoot = fileURLToPath(new URL('./preview/realm-tour', import.meta.url))
+const tourOutput = fileURLToPath(new URL('./dist/preview/realm-tour', import.meta.url))
+
+// Add the isolated tour beneath the existing production output.
 export default defineConfig({
-  root: fileURLToPath(new URL('.', import.meta.url)),
+  root: tourRoot,
+  base: '/preview/realm-tour/',
   plugins: [react()],
   build: {
-    outDir: 'preview/realm-tour/build',
-    emptyOutDir: true,
+    outDir: tourOutput,
+    emptyOutDir: false,
     rollupOptions: {
       input: fileURLToPath(new URL('./preview/realm-tour/index.html', import.meta.url)),
     },

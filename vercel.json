@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/preview/realm-tour", "destination": "/preview/realm-tour/index.html" },
+    { "source": "/preview/realm-tour/", "destination": "/preview/realm-tour/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
