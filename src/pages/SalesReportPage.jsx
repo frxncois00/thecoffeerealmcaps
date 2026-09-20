@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle, BarChart3, Boxes, CalendarDays, Check, ChevronDown, Clock3,
-  Download, FileText, PhilippinePeso, Printer, ShoppingBag, SlidersHorizontal,
+  AlertTriangle, ArrowUpDown, Ban, BarChart3, Boxes, CalendarDays, Check, ChevronDown, Clock3,
+  Coffee, Download, FileText, PhilippinePeso, Printer, RotateCcw, ShoppingBag, SlidersHorizontal,
   Minus, Store, Truck, TrendingDown, TrendingUp,
 } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
@@ -26,6 +26,7 @@ const PERIOD_OPTIONS = [
 ]
 
 const PAYMENT_COLOR = { cash: '#1b2f22', gcash: '#4f7cff', bank_transfer: '#9b8cf2', cod: '#c8a86b', other: '#68736b' }
+const CATEGORY_COLOR = { Drinks: '#2f5c46', Pastries: '#c39b50', Food: '#5887a0', Other: '#8a8179' }
 const ORDER_TYPE_ICON = { 'walk-in': Store, pickup: ShoppingBag, delivery: Truck, preorder: Clock3 }
 const ANALYTICS_TABS = [
   { key: 'products', label: 'Product Performance', detail: 'Products, units, and revenue', icon: BarChart3 },
@@ -36,8 +37,6 @@ const TREND_METRICS = [
   { key: 'orders', label: 'Orders', detail: 'Completed paid orders', icon: ShoppingBag, format: (value) => Math.round(value).toLocaleString('en-PH'), previousKey: 'previousOrders' },
   { key: 'units', label: 'Units', detail: 'Items sold', icon: Boxes, format: (value) => Math.round(value).toLocaleString('en-PH'), previousKey: 'previousUnits' },
 ]
-const SALES_GRAPH_DURATION = 4
-
 function AnimatedValue({ value, format }) {
   return <>{format ? format(value) : Math.round(value).toLocaleString('en-PH')}</>
 }
@@ -106,13 +105,6 @@ function periodLabel(applied) {
   return `${fmt.format(applied.from)} - ${fmt.format(applied.to)}`
 }
 
-function chartEaseTimelinePosition(progress) {
-  const easedProgress = Math.min(1, Math.max(0, progress))
-  const parameter = 1 - Math.cbrt(1 - easedProgress)
-  const inverse = 1 - parameter
-  return 3 * inverse ** 2 * parameter * 0.16 + 3 * inverse * parameter ** 2 * 0.3 + parameter ** 3
-}
-
 function smoothLinePath(points) {
   if (!points.length) return ''
   if (points.length < 2) return `M ${points[0][0]} ${points[0][1]}`
@@ -132,6 +124,16 @@ function smoothLinePath(points) {
     path += ` C ${controlOneX} ${controlOneY}, ${controlTwoX} ${controlTwoY}, ${nextPoint[0]} ${nextPoint[1]}`
   }
   return path
+}
+
+function chartLabelIndexes(pointCount, maxLabels = 7) {
+  if (pointCount <= 0) return []
+  const labelCount = Math.min(pointCount, maxLabels)
+  if (labelCount === 1) return [0]
+  return [...new Set(Array.from(
+    { length: labelCount },
+    (_, index) => Math.round((index * (pointCount - 1)) / (labelCount - 1)),
+  ))]
 }
 
 export default function SalesReportPage() {
@@ -300,9 +302,9 @@ export default function SalesReportPage() {
     [filteredOrders, filteredPrevious],
   )
   const productRows = useMemo(() => {
-    const products = [...(report.topProducts || [])]
+    const products = [...(report.products || [])]
     return products.sort((a, b) => productSort === 'qty' ? b.qty - a.qty || b.revenue - a.revenue : b.revenue - a.revenue || b.qty - a.qty)
-  }, [productSort, report.topProducts])
+  }, [productSort, report.products])
 
   const filterLabel = useMemo(() => {
     const parts = [periodLabel(applied)]
@@ -421,7 +423,9 @@ export default function SalesReportPage() {
           )}
           {filterError && <p className="srp-filter-error" role="alert">{filterError}</p>}
 
-          {analyticsView === 'products' ? (
+          {report.summary.totalOrders === 0 ? (
+            <NoSalesState summary={report.summary} filterLabel={filterLabel} />
+          ) : analyticsView === 'products' ? (
             <ProductPerformanceContent
               report={report}
               productRows={productRows}
@@ -444,16 +448,18 @@ export default function SalesReportPage() {
             />
           ) : (
             <>
-              <section className="srp-overview-grid" aria-label="Sales overview">
-                <SummaryCard featured icon={PhilippinePeso} label="Net Revenue" value={<AnimatedValue value={report.summary.netRevenue} format={money} />} pct={report.comparison.revenuePct} hint={comparisonHint} className="srp-net-revenue-card">
-                  <RevenueReconciliation summary={report.summary} />
-                </SummaryCard>
+              <section className="srp-overview-grid srp-sales-overview-grid" aria-label="Sales overview">
+                <SummaryCard featured icon={PhilippinePeso} label="Net Revenue" value={<AnimatedValue value={report.summary.netRevenue} format={money} />} pct={report.comparison.revenuePct} hint={comparisonHint} className="srp-net-revenue-card" />
                 <div className="srp-support-kpis">
                   <SummaryCard icon={ShoppingBag} label="Completed Paid Orders" value={<AnimatedValue value={report.summary.totalOrders} />} pct={report.comparison.ordersPct} hint={comparisonHint} tone="cream" />
                   <SummaryCard icon={PhilippinePeso} label="Average Order Value" value={<AnimatedValue value={report.summary.averageOrderValue} format={money} />} pct={comparisonPct(report.summary.averageOrderValue, report.previousSummary.averageOrderValue)} hint={comparisonHint} tone="gold" />
                   <SummaryCard icon={Boxes} label="Items Sold" value={<AnimatedValue value={report.summary.totalItems} />} pct={report.comparison.itemsPct} hint={comparisonHint} tone="blue" />
+                  <SummaryCard icon={RotateCcw} label="Refund Rate" value={`${report.summary.refundRate.toFixed(1)}%`} detail={`${report.summary.refundedOrders.toLocaleString('en-PH')} of ${report.summary.totalOrdersInRange.toLocaleString('en-PH')} total orders`} tone="blue" />
+                  <SummaryCard icon={Ban} label="Cancellation Rate" value={`${report.summary.cancellationRate.toFixed(1)}%`} detail={`${report.summary.cancelledOrders.toLocaleString('en-PH')} of ${report.summary.totalOrdersInRange.toLocaleString('en-PH')} total orders`} tone="gold" />
                 </div>
               </section>
+
+              <RevenueReconciliation summary={report.summary} />
 
               <section className="panel dash-panel srp-trend-panel">
                 <div className="panel-head">
@@ -464,7 +470,7 @@ export default function SalesReportPage() {
                     ))}
                   </div>
                 </div>
-                <TrendChart trend={trend} />
+                <TrendChart trend={trend} showAllLabels={applied.period === 'year' && granularity === 'month'} />
               </section>
 
               <section className="dashboard-grid srp-breakdown-grid">
@@ -472,11 +478,19 @@ export default function SalesReportPage() {
                   <div className="panel-head"><div><span>Payment Methods</span><small>Net revenue share</small></div></div>
                   <PaymentDonut totals={report.paymentTotals} />
                 </article>
+                <article className="panel dash-panel">
+                  <div className="panel-head"><div><span>Revenue by Category</span><small>Line-item revenue from completed paid orders</small></div></div>
+                  <CategoryDonut totals={report.categoryTotals} available={raw?.categoryDataAvailable !== false} />
+                </article>
                 <article className="panel dash-panel srp-channel-panel">
                   <div className="panel-head"><div><span>Order Channels</span><small>Completed paid orders</small></div><b className="srp-panel-total">{report.summary.totalOrders.toLocaleString('en-PH')}</b></div>
                   <OrderTypeMix counts={report.orderChannelCounts} total={report.summary.totalOrders} />
                 </article>
               </section>
+
+              <SalesProductTable products={report.products || []} />
+
+              <SalesPatterns hourlySales={report.hourlySales || []} weekdaySales={report.weekdaySales || []} />
 
             </>
           )}
@@ -684,7 +698,7 @@ function TrendAnalyticsChart({ trend, metric }) {
     .map((coords, index) => `${index === 0 ? 'M' : 'L'}${coords}`)
     .join(' ')
   const hovered = hoverIndex != null ? trend[hoverIndex] : null
-  const labelStep = Math.max(1, Math.ceil(trend.length / 8))
+  const labelIndexes = chartLabelIndexes(trend.length)
 
   return (
     <div className={`srp-trend-chart srp-trend-analytics-chart ${hovered ? 'is-hovering' : ''}`}>
@@ -720,7 +734,9 @@ function TrendAnalyticsChart({ trend, metric }) {
         </div>
       )}
       <div className="chart-labels srp-trend-labels">
-        {trend.map((point, index) => (index % labelStep === 0 ? <span key={point.key}>{point.label}</span> : null))}
+        {labelIndexes.map((index) => (
+          <span key={trend[index].key} style={{ left: `${(x(index) / W) * 100}%` }}>{trend[index].label}</span>
+        ))}
       </div>
       <div className="srp-trend-legend">
         <span><i className="srp-legend-current" /> Current period</span>
@@ -918,6 +934,147 @@ function ProductPerformanceTable({ products, title = 'Top-Selling Products', des
   )
 }
 
+function RevenueReconciliation({ summary }) {
+  return (
+    <section className="srp-reconciliation" aria-label="Net revenue breakdown">
+      <div><span>Gross Sales</span><b>{money(summary.grossSales)}</b><small>Before adjustments</small></div>
+      <div><span>Discounts</span><b>- {money(summary.discounts)}</b><small>Applied discounts</small></div>
+      <div><span>Refunds</span><b>- {money(summary.refunds)}</b><small>Processed refunds</small></div>
+      <div><span>Delivery Fees</span><b>{money(summary.deliveryFees)}</b><small>Excluded from revenue</small></div>
+      <div><span>Cancelled</span><b>{summary.cancelledOrders.toLocaleString('en-PH')}</b><small>Excluded from revenue</small></div>
+    </section>
+  )
+}
+
+const PRODUCT_SORT_LABELS = {
+  name: 'Item',
+  qty: 'Qty Sold',
+  revenue: 'Revenue',
+  pct: '% of Total Sales',
+}
+
+function SalesProductTable({ products }) {
+  const [mode, setMode] = useState('top')
+  const [sort, setSort] = useState({ key: 'revenue', direction: 'desc' })
+
+  const chooseMode = (nextMode) => {
+    setMode(nextMode)
+    setSort((current) => ({ ...current, direction: nextMode === 'top' ? 'desc' : 'asc' }))
+  }
+
+  const chooseSort = (key) => {
+    const direction = sort.key === key
+      ? (sort.direction === 'desc' ? 'asc' : 'desc')
+      : (key === 'name' ? 'asc' : mode === 'top' ? 'desc' : 'asc')
+    setSort({ key, direction })
+    if (key !== 'name') setMode(direction === 'desc' ? 'top' : 'bottom')
+  }
+
+  const rows = useMemo(() => {
+    const direction = sort.direction === 'desc' ? -1 : 1
+    return [...products]
+      .sort((a, b) => {
+        if (sort.key === 'name') return direction * a.name.localeCompare(b.name)
+        const delta = Number(a[sort.key] || 0) - Number(b[sort.key] || 0)
+        return delta ? direction * delta : a.name.localeCompare(b.name)
+      })
+      .slice(0, 10)
+  }, [products, sort])
+
+  const ariaSort = (key) => sort.key === key ? (sort.direction === 'desc' ? 'descending' : 'ascending') : 'none'
+  const sortHeader = (key, numeric = false) => (
+    <th className={numeric ? 'srp-num' : undefined} aria-sort={ariaSort(key)}>
+      <button type="button" className={`srp-sort${sort.key === key ? ' is-active' : ''}`} onClick={() => chooseSort(key)}>
+        {PRODUCT_SORT_LABELS[key]} <ArrowUpDown size={12} aria-hidden="true" />
+      </button>
+    </th>
+  )
+
+  return (
+    <section className="panel dash-panel srp-products-panel srp-report-products" aria-labelledby="sales-products-title">
+      <div className="panel-head srp-products-head">
+        <div><span id="sales-products-title">Top / Bottom Products</span><small>Actual quantities and line-item revenue from completed paid orders</small></div>
+        <div className="srp-product-mode" role="group" aria-label="Product ranking direction">
+          <button type="button" className={mode === 'top' ? 'active' : ''} aria-pressed={mode === 'top'} onClick={() => chooseMode('top')}>Top</button>
+          <button type="button" className={mode === 'bottom' ? 'active' : ''} aria-pressed={mode === 'bottom'} onClick={() => chooseMode('bottom')}>Bottom</button>
+        </div>
+      </div>
+      {rows.length ? (
+        <>
+          <div className="inv-table-wrap srp-products-wrap srp-products-desktop">
+            <table className="inv-table srp-products-table srp-report-products-table">
+              <thead><tr>{sortHeader('name')}{sortHeader('qty', true)}{sortHeader('revenue', true)}{sortHeader('pct', true)}</tr></thead>
+              <tbody>
+                {rows.map((product) => (
+                  <tr key={product.id || product.name}>
+                    <td><b>{product.name}</b><small>{product.category}</small></td>
+                    <td className="srp-num">{product.qty.toLocaleString('en-PH')}</td>
+                    <td className="srp-num"><b>{money(product.revenue)}</b></td>
+                    <td className="srp-num">{product.pct.toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="srp-product-cards" aria-label={`${mode === 'top' ? 'Top' : 'Bottom'} products`}>
+            {rows.map((product, index) => (
+              <article className="srp-product-card" key={`${product.id || product.name}-report-card`}>
+                <header><span className="srp-rank">{index + 1}</span><div><b>{product.name}</b><small>{product.category}</small></div><strong>{money(product.revenue)}</strong></header>
+                <dl>
+                  <div><dt>Qty sold</dt><dd>{product.qty.toLocaleString('en-PH')}</dd></div>
+                  <div><dt>% of total sales</dt><dd>{product.pct.toFixed(1)}%</dd></div>
+                </dl>
+              </article>
+            ))}
+          </div>
+        </>
+      ) : <EmptyMini text="No product sales in the selected range." />}
+    </section>
+  )
+}
+
+function SalesPatterns({ hourlySales, weekdaySales }) {
+  const timeBlocks = [
+    { label: '12–3 AM', start: 0, end: 3 },
+    { label: '4–7 AM', start: 4, end: 7 },
+    { label: '8–11 AM', start: 8, end: 11 },
+    { label: '12–3 PM', start: 12, end: 15 },
+    { label: '4–7 PM', start: 16, end: 19 },
+    { label: '8–11 PM', start: 20, end: 23 },
+  ].map((block) => ({
+    ...block,
+    orders: hourlySales.slice(block.start, block.end + 1).reduce((sum, entry) => sum + entry.orders, 0),
+    revenue: hourlySales.slice(block.start, block.end + 1).reduce((sum, entry) => sum + entry.revenue, 0),
+  }))
+
+  return (
+    <section className="srp-pattern-grid" aria-label="Sales patterns">
+      <PatternBars title="Sales by Time of Day" description="Completed paid orders, grouped in four-hour blocks" entries={timeBlocks} />
+      <PatternBars title="Sales by Day of Week" description="Completed paid orders by weekday" entries={weekdaySales} />
+    </section>
+  )
+}
+
+function PatternBars({ title, description, entries }) {
+  const max = Math.max(1, ...entries.map((entry) => entry.orders))
+  const titleId = `${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-title`
+  return (
+    <article className="panel dash-panel srp-pattern-panel" aria-labelledby={titleId}>
+      <div className="panel-head"><div><span id={titleId}>{title}</span><small>{description}</small></div></div>
+      <ul className="srp-pattern-bars">
+        {entries.map((entry) => (
+          <li key={entry.label} aria-label={`${entry.label}: ${entry.orders} completed paid orders, ${money(entry.revenue)}`}>
+            <span>{entry.label}</span>
+            <div aria-hidden="true"><i style={{ width: `${entry.orders ? Math.max(5, (entry.orders / max) * 100) : 0}%` }} /></div>
+            <b>{entry.orders.toLocaleString('en-PH')}</b>
+            <small>{money(entry.revenue)}</small>
+          </li>
+        ))}
+      </ul>
+    </article>
+  )
+}
+
 function SummaryCard({ icon: Icon, label, value, pct = 0, hint = '', tone = 'sage', invert = false, featured = false, detail = '', className = '', children }) {
   const rounded = Math.round(pct)
   const isFlat = rounded === 0
@@ -938,27 +1095,52 @@ function SummaryCard({ icon: Icon, label, value, pct = 0, hint = '', tone = 'sag
   )
 }
 
-function RevenueReconciliation({ summary }) {
+function chartAxisMoney(value) {
+  return `₱${Math.round(value).toLocaleString('en-PH')}`
+}
+
+function NoSalesState({ summary, filterLabel }) {
+  const hasOrderActivity = summary.totalOrdersInRange > 0
   return (
-    <div className="srp-net-revenue-breakdown" aria-label="Revenue reconciliation">
-      <div><span>Gross Sales</span><b>{money(summary.grossSales)}</b></div>
-      <div><span>Discounts</span><b>- {money(summary.discounts)}</b></div>
-      <div><span>Refunds</span><b>- {money(summary.refunds)}</b></div>
-      <div><span>Delivery Fees <small>Excluded from revenue</small></span><b>{money(summary.deliveryFees)}</b></div>
-      <div><span>Cancelled</span><b>{summary.cancelledOrders.toLocaleString('en-PH')}</b></div>
-    </div>
+    <section className="panel dash-panel srp-no-sales" role="status" aria-live="polite">
+      <span className="srp-no-sales-icon" aria-hidden="true"><Coffee size={24} /></span>
+      <div>
+        <h2>No sales in this period</h2>
+        <p>No completed paid orders match {filterLabel}. Try another range or clear the additional filters.</p>
+      </div>
+      {hasOrderActivity && (
+        <dl aria-label="Other order activity in this period">
+          <div><dt>Total orders</dt><dd>{summary.totalOrdersInRange.toLocaleString('en-PH')}</dd></div>
+          <div><dt>Cancelled</dt><dd>{summary.cancelledOrders.toLocaleString('en-PH')}</dd></div>
+          <div><dt>Refunded</dt><dd>{summary.refundedOrders.toLocaleString('en-PH')}</dd></div>
+        </dl>
+      )}
+    </section>
   )
 }
 
-function TrendChart({ trend }) {
+function niceChartScale(value, targetIntervals = 4) {
+  const safeValue = Math.max(1, Number(value) || 0)
+  const roughStep = safeValue / targetIntervals
+  const magnitude = 10 ** Math.floor(Math.log10(roughStep))
+  const normalized = roughStep / magnitude
+  const niceFactor = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 3 ? 3 : normalized <= 5 ? 5 : 10
+  const step = niceFactor * magnitude
+  const intervalCount = Math.ceil(safeValue / step)
+  const max = intervalCount * step
+  return { max, ticks: Array.from({ length: intervalCount + 1 }, (_, index) => max - index * step) }
+}
+
+function TrendChart({ trend, showComparison = true, showAllLabels = false }) {
   const [hoverIndex, setHoverIndex] = useState(null)
-  const hasData = trend.some((point) => point.revenue > 0 || (point.previousRevenue || 0) > 0)
+  const hasData = trend.some((point) => point.revenue > 0 || (showComparison && (point.previousRevenue || 0) > 0))
   if (!trend.length || !hasData) return <EmptyMini text="No sales recorded for this range yet. Completed orders will appear here." />
 
   const W = 760
   const H = 220
   const PAD = 10
-  const max = Math.max(1, ...trend.map((point) => Math.max(point.revenue, point.previousRevenue || 0)))
+  const rawMax = Math.max(1, ...trend.map((point) => Math.max(point.revenue, showComparison ? point.previousRevenue || 0 : 0)))
+  const { max, ticks: yTicks } = niceChartScale(rawMax)
   const x = (index) => trend.length === 1 ? W / 2 : PAD + (index / (trend.length - 1)) * (W - PAD * 2)
   const y = (value) => H - 26 - (value / max) * (H - 48)
 
@@ -966,62 +1148,61 @@ function TrendChart({ trend }) {
   const linePath = smoothLinePath(currentPoints)
   const areaPath = `${linePath} L${currentPoints[currentPoints.length - 1][0]},${H - 22} L${currentPoints[0][0]},${H - 22} Z`
 
-  const previousPoints = trend.filter((point) => point.previousRevenue != null)
+  const previousPoints = showComparison ? trend.filter((point) => point.previousRevenue != null) : []
   const previousCoordinates = trend
-    .map((point, index) => point.previousRevenue == null ? null : [x(index), y(point.previousRevenue)])
+    .map((point, index) => !showComparison || point.previousRevenue == null ? null : [x(index), y(point.previousRevenue)])
     .filter(Boolean)
   const prevPath = smoothLinePath(previousCoordinates)
 
   const hovered = hoverIndex != null ? trend[hoverIndex] : null
-  const labelStep = Math.max(1, Math.ceil(trend.length / 8))
+  const labelIndexes = chartLabelIndexes(trend.length, showAllLabels ? trend.length : 7)
   const chartKey = trend.map((point) => `${point.key}:${point.revenue}:${point.previousRevenue ?? ''}`).join('|')
 
   return (
     <div className={`srp-trend-chart ${hovered ? 'is-hovering' : ''}`}>
-      <svg key={chartKey} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-labelledby="sales-trend-title sales-trend-description">
-        <defs>
-          <linearGradient id="srpFade" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#2f5c46" stopOpacity=".24" />
-            <stop offset="1" stopColor="#2f5c46" stopOpacity="0" />
-          </linearGradient>
-          <clipPath id="srpSalesRevealClip">
-            <rect
-              key={`srp-clip-${chartKey}`}
-              className="srp-sales-line-clip"
-              x={PAD - 6}
-              y="0"
-              width={W - PAD * 2 + 12}
-              height={H}
-              style={{ animationDuration: `${SALES_GRAPH_DURATION}s` }}
-            />
-          </clipPath>
-        </defs>
-        <title id="sales-trend-title">Net revenue trend</title>
-        <desc id="sales-trend-description">Current period net revenue is shown with a solid line. The previous period is shown with a dashed line.</desc>
-        {[0.25, 0.5, 0.75].map((f) => <line key={f} x1={PAD} x2={W - PAD} y1={y(max * f)} y2={y(max * f)} className="srp-grid-line" />)}
-        {hovered && <line x1={x(hoverIndex)} x2={x(hoverIndex)} y1={12} y2={H - 22} className="dash-hover-guide" />}
-        {previousPoints.length > 1 && <path d={prevPath} fill="none" clipPath="url(#srpSalesRevealClip)" className="srp-prev-line" />}
-        <path d={areaPath} fill="url(#srpFade)" clipPath="url(#srpSalesRevealClip)" className="srp-current-area" />
-        <path d={linePath} fill="none" clipPath="url(#srpSalesRevealClip)" className="srp-current-line" vectorEffect="non-scaling-stroke" />
-        {trend.map((point, index) => (
-          <g key={point.key} className="srp-chart-point" style={{ '--srp-point-delay': `${chartEaseTimelinePosition(index / Math.max(1, trend.length - 1)) * SALES_GRAPH_DURATION}s` }}>
-            <circle cx={x(index)} cy={y(point.revenue)} r={hoverIndex === index ? 5.5 : 3.5} className={`srp-dot ${hoverIndex === index ? 'is-active' : ''}`} />
-            <circle cx={x(index)} cy={y(point.revenue)} r="22" fill="transparent" tabIndex={0} role="img"
-              aria-label={`${point.label}: ${money(point.revenue)}, ${point.orders} order${point.orders === 1 ? '' : 's'}${point.previousRevenue != null ? `, previous period ${money(point.previousRevenue)}` : ''}`}
-              onMouseEnter={() => setHoverIndex(index)} onMouseLeave={() => setHoverIndex((current) => (current === index ? null : current))}
-              onFocus={() => setHoverIndex(index)} onBlur={() => setHoverIndex((current) => (current === index ? null : current))} />
-          </g>
-        ))}
-      </svg>
-      {hovered && (
-        <div className="dash-chart-tooltip srp-trend-tooltip" style={{ left: `${(x(hoverIndex) / W) * 100}%`, top: `${(y(hovered.revenue) / H) * 100}%` }}>
-          <b>{hovered.label}</b>
-          <span><i /> {money(hovered.revenue)} ({hovered.orders} order{hovered.orders === 1 ? '' : 's'})</span>
-          {hovered.previousRevenue != null && <span className="srp-tooltip-prev"><i /> Prev: {money(hovered.previousRevenue)}</span>}
+      <div className="srp-trend-plot-shell">
+        <div className="srp-y-axis" aria-hidden="true">
+          {yTicks.map((tick) => <span key={tick} style={{ top: `${(y(tick) / H) * 100}%` }}>{chartAxisMoney(tick)}</span>)}
         </div>
-      )}
-      <div className="chart-labels srp-trend-labels">
-        {trend.map((point, index) => (index % labelStep === 0 ? <span key={point.key}>{point.label}</span> : null))}
+        <div className="srp-trend-plot">
+          <svg key={chartKey} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-labelledby="sales-trend-title sales-trend-description">
+            <defs>
+              <linearGradient id="srpFade" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stopColor="#2f5c46" stopOpacity=".24" />
+                <stop offset="1" stopColor="#2f5c46" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <title id="sales-trend-title">Net revenue trend</title>
+            <desc id="sales-trend-description">Current period net revenue is shown with a solid line.{showComparison ? ' The previous period is shown with a dashed line.' : ''}</desc>
+            {yTicks.map((tick) => <line key={tick} x1={PAD} x2={W - PAD} y1={y(tick)} y2={y(tick)} className="srp-grid-line" />)}
+            {hovered && <line x1={x(hoverIndex)} x2={x(hoverIndex)} y1={12} y2={H - 22} className="dash-hover-guide" />}
+            {previousPoints.length > 1 && <path d={prevPath} fill="none" className="srp-prev-line" />}
+            <path d={areaPath} fill="url(#srpFade)" className="srp-current-area" />
+            <path d={linePath} fill="none" className="srp-current-line" vectorEffect="non-scaling-stroke" />
+            {trend.map((point, index) => (
+              <g key={point.key}>
+                {showComparison && point.previousRevenue != null ? <circle cx={x(index)} cy={y(point.previousRevenue)} r="3" className="srp-prev-dot" /> : null}
+                <circle cx={x(index)} cy={y(point.revenue)} r={hoverIndex === index ? 5.5 : 3.5} className={`srp-dot ${hoverIndex === index ? 'is-active' : ''}`} />
+                <circle cx={x(index)} cy={y(point.revenue)} r="22" fill="transparent" tabIndex={0} role="img"
+                  aria-label={`${point.label}: ${money(point.revenue)}, ${point.orders} order${point.orders === 1 ? '' : 's'}${showComparison && point.previousRevenue != null ? `, previous period ${money(point.previousRevenue)}` : ''}`}
+                  onMouseEnter={() => setHoverIndex(index)} onMouseLeave={() => setHoverIndex((current) => (current === index ? null : current))}
+                  onFocus={() => setHoverIndex(index)} onBlur={() => setHoverIndex((current) => (current === index ? null : current))} />
+              </g>
+            ))}
+          </svg>
+          {hovered && (
+            <div className="dash-chart-tooltip srp-trend-tooltip" style={{ left: `${(x(hoverIndex) / W) * 100}%`, top: `${(y(hovered.revenue) / H) * 100}%` }}>
+              <b>{hovered.label}</b>
+              <span><i /> {money(hovered.revenue)} ({hovered.orders} order{hovered.orders === 1 ? '' : 's'})</span>
+              {showComparison && hovered.previousRevenue != null && <span className="srp-tooltip-prev"><i /> Prev: {money(hovered.previousRevenue)}</span>}
+            </div>
+          )}
+          <div className="chart-labels srp-trend-labels">
+            {labelIndexes.map((index) => (
+              <span key={trend[index].key} style={{ left: `${(x(index) / W) * 100}%` }}>{trend[index].label}</span>
+            ))}
+          </div>
+        </div>
       </div>
       <div className="srp-trend-legend">
         <span><i className="srp-legend-current" /> Current period</span>
@@ -1129,6 +1310,76 @@ function PaymentDonut({ totals }) {
             <i style={{ background: PAYMENT_COLOR[key] || PAYMENT_COLOR.other }} />
             {PAYMENT_LABEL[key] || key}
             <span>{money(value)} ({total ? Math.round((value / total) * 100) : 0}%)</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function CategoryDonut({ totals, available = true }) {
+  const [hoverKey, setHoverKey] = useState(null)
+  const entries = [...totals].sort((a, b) => b.revenue - a.revenue)
+  const total = entries.reduce((sum, entry) => sum + entry.revenue, 0)
+  if (!available) return <EmptyMini text="Menu category data could not be loaded. Revenue has not been estimated." />
+  if (!total) return <EmptyMini text="No product revenue in the selected range." />
+  const r = 60
+  const circumference = 2 * Math.PI * r
+  let offset = 0
+  const segments = entries.map((entry) => {
+    const dash = (entry.revenue / total) * circumference
+    const startAngle = (offset / circumference) * 360 - 90
+    const midAngle = startAngle + ((dash / circumference) * 360) / 2
+    const radians = (midAngle * Math.PI) / 180
+    const segment = { ...entry, dash, offset, x: 80 + r * Math.cos(radians), y: 80 + r * Math.sin(radians) }
+    offset += dash
+    return segment
+  })
+  const hovered = segments.find((segment) => segment.category === hoverKey)
+  const chartKey = segments.map((segment) => `${segment.category}:${segment.revenue}`).join('|')
+
+  return (
+    <div className="dash-doughnut-wrap srp-donut-wrap">
+      <div className="dash-doughnut-svg-box">
+        <svg key={chartKey} viewBox="0 0 160 160" className="dash-doughnut" role="img" aria-labelledby="category-share-title category-share-description">
+          <title id="category-share-title">Revenue by menu category</title>
+          <desc id="category-share-description">A proportion chart showing each menu category's share of line-item revenue. Exact values are listed beside the chart.</desc>
+          <circle cx="80" cy="80" r={r} fill="none" className="srp-donut-track" strokeWidth="20" />
+          {segments.map((segment, index) => (
+            <circle key={segment.category} cx="80" cy="80" r={r} fill="none"
+              stroke={CATEGORY_COLOR[segment.category] || CATEGORY_COLOR.Other}
+              strokeOpacity={hoverKey && hoverKey !== segment.category ? 0.3 : 1}
+              strokeWidth={hoverKey === segment.category ? 24 : 20}
+              transform="rotate(-90 80 80)"
+              className="dash-doughnut-seg srp-donut-seg-enter"
+              style={{ '--srp-donut-dash': segment.dash, '--srp-donut-gap': circumference - segment.dash, '--srp-donut-offset': -segment.offset, '--srp-donut-delay': `${index * 80}ms` }}
+              tabIndex={0}
+              role="img"
+              aria-label={`${segment.category}: ${money(segment.revenue)}, ${Math.round((segment.revenue / total) * 100)} percent`}
+              onMouseEnter={() => setHoverKey(segment.category)}
+              onMouseLeave={() => setHoverKey((current) => (current === segment.category ? null : current))}
+              onFocus={() => setHoverKey(segment.category)}
+              onBlur={() => setHoverKey((current) => (current === segment.category ? null : current))} />
+          ))}
+          <text x="80" y="76" textAnchor="middle" className="srp-donut-total">{money(total).replace('.00', '')}</text>
+          <text x="80" y="96" textAnchor="middle" className="srp-donut-caption">Line revenue</text>
+        </svg>
+        {hovered && (
+          <div className="dash-chart-tooltip" style={{ left: `${(hovered.x / 160) * 100}%`, top: `${(hovered.y / 160) * 100}%` }}>
+            <b>{hovered.category}</b>
+            <span><i style={{ background: CATEGORY_COLOR[hovered.category] }} /> {money(hovered.revenue)}</span>
+          </div>
+        )}
+      </div>
+      <ul className="dash-doughnut-legend">
+        {entries.map((entry) => (
+          <li key={entry.category} tabIndex={0} aria-label={`${entry.category}: ${money(entry.revenue)}, ${Math.round((entry.revenue / total) * 100)} percent`}
+            className={`${hoverKey === entry.category ? 'is-active' : ''}${hoverKey && hoverKey !== entry.category ? ' is-muted' : ''}`}
+            onFocus={() => setHoverKey(entry.category)} onBlur={() => setHoverKey((current) => (current === entry.category ? null : current))}
+            onMouseEnter={() => setHoverKey(entry.category)} onMouseLeave={() => setHoverKey((current) => (current === entry.category ? null : current))}>
+            <i style={{ background: CATEGORY_COLOR[entry.category] || CATEGORY_COLOR.Other }} />
+            {entry.category}
+            <span>{money(entry.revenue)} ({Math.round((entry.revenue / total) * 100)}%)</span>
           </li>
         ))}
       </ul>

@@ -14,6 +14,8 @@
 
 .app-layout.legacy-admin .srp-overview-grid{display:grid;grid-template-columns:minmax(390px,1.35fr) minmax(0,1.65fr);gap:14px;margin-bottom:14px}
 .app-layout.legacy-admin .srp-support-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;min-width:0}
+.app-layout.legacy-admin .srp-overview-grid.srp-sales-overview-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-bottom:20px}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-support-kpis{display:contents}
 .app-layout.legacy-admin .srp-kpi-card{--srp-accent:var(--mgmt-primary);position:relative;isolation:isolate;min-width:0;min-height:132px;overflow:hidden;padding:18px;border:1px solid color-mix(in srgb,var(--srp-accent) 23%,var(--mgmt-border));border-radius:14px;background:linear-gradient(145deg,var(--mgmt-elevated),var(--mgmt-surface));box-shadow:0 10px 26px rgba(31,65,45,.055),inset 0 1px 0 var(--mgmt-highlight);transition:border-color .18s ease,box-shadow .18s ease}
 .app-layout.legacy-admin .srp-kpi-card:before{content:'';position:absolute;inset:0 auto 0 0;width:3px;background:var(--srp-accent)}
 .app-layout.legacy-admin .srp-kpi-card:after{content:'';position:absolute;z-index:-1;right:-48px;bottom:-68px;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle,color-mix(in srgb,var(--srp-accent) 13%,transparent),transparent 68%)}
@@ -30,6 +32,16 @@
 .app-layout.legacy-admin .srp-kpi-featured>strong{font-size:clamp(2rem,3.2vw,2.75rem);color:var(--mgmt-primary)}
 .app-layout.legacy-admin .srp-net-revenue-card{min-height:228px;padding:20px}
 .app-layout.legacy-admin .srp-net-revenue-card>strong{font-size:clamp(2.4rem,4vw,3.25rem)}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-kpi-card{min-height:154px;gap:9px;padding:22px;border-radius:17px;border-color:color-mix(in srgb,var(--srp-accent) 18%,var(--mgmt-border));box-shadow:0 12px 30px rgba(31,65,45,.055),inset 0 1px 0 var(--mgmt-highlight)}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-kpi-card:before{display:none}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-kpi-card.metric-sage{background:linear-gradient(135deg,color-mix(in srgb,var(--mgmt-primary) 9%,var(--mgmt-elevated)),color-mix(in srgb,var(--mgmt-primary) 14%,var(--mgmt-surface)))}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-kpi-card.metric-cream{background:linear-gradient(135deg,var(--mgmt-elevated),color-mix(in srgb,#78a78a 10%,var(--mgmt-surface)))}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-kpi-card.metric-gold{background:linear-gradient(135deg,color-mix(in srgb,#c89337 6%,var(--mgmt-elevated)),color-mix(in srgb,#c89337 14%,var(--mgmt-surface)))}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-kpi-card.metric-blue{background:linear-gradient(135deg,color-mix(in srgb,#5b88ab 6%,var(--mgmt-elevated)),color-mix(in srgb,#5b88ab 14%,var(--mgmt-surface)))}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-kpi-card>strong,.app-layout.legacy-admin .srp-sales-overview-grid .srp-kpi-featured>strong{margin-top:4px;color:var(--mgmt-heading);font-size:clamp(1.75rem,2.5vw,2.25rem)}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-net-revenue-card{min-height:154px;padding:22px}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-kpi-card>small{margin-top:auto}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-support-kpis .srp-kpi-card:nth-child(n+4){grid-column:span 2}
 .app-layout.legacy-admin .srp-net-revenue-breakdown{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;margin-top:auto;padding-top:13px;border-top:1px solid color-mix(in srgb,var(--mgmt-primary) 18%,var(--mgmt-border))}
 .app-layout.legacy-admin .srp-net-revenue-breakdown>div{display:flex;min-width:0;flex-direction:column;gap:4px;padding:0 9px}
 .app-layout.legacy-admin .srp-net-revenue-breakdown>div+div{border-left:1px solid color-mix(in srgb,var(--mgmt-primary) 14%,var(--mgmt-border))}
@@ -72,28 +84,34 @@
 .app-layout.legacy-admin .srp-filter-error{margin:-3px 0 16px;color:var(--mgmt-danger);font-size:.7rem;font-weight:700}
 .app-layout.legacy-admin .srp-range-bar :is(button,input):focus-visible,.app-layout.legacy-admin .srp-filter-row select:focus-visible,.app-layout.legacy-admin .srp-granularity button:focus-visible{outline:2px solid var(--mgmt-primary);outline-offset:2px}
 
-.app-layout.legacy-admin .srp-trend-panel,.app-layout.legacy-admin .srp-products-panel,.app-layout.legacy-admin .srp-table-panel,.app-layout.legacy-admin .srp-breakdown-grid>.panel{border:1px solid var(--mgmt-border)!important;border-radius:14px!important;background:var(--mgmt-surface)!important;box-shadow:0 10px 28px rgba(31,65,45,.05)!important}
+.app-layout.legacy-admin .srp-trend-panel,.app-layout.legacy-admin .srp-products-panel,.app-layout.legacy-admin .srp-table-panel,.app-layout.legacy-admin .srp-breakdown-grid>.panel{border:1px solid var(--mgmt-border)!important;border-radius:18px!important;background:var(--mgmt-surface)!important;box-shadow:0 10px 28px rgba(31,65,45,.05)!important}
 .app-layout.legacy-admin :is(.srp-trend-panel,.srp-products-panel,.srp-table-panel,.srp-breakdown-grid>.panel):hover{transform:none!important;box-shadow:0 10px 28px rgba(31,65,45,.05)!important}
-.app-layout.legacy-admin .srp-trend-panel,.app-layout.legacy-admin .srp-products-panel,.app-layout.legacy-admin .srp-table-panel{margin:0 0 18px;padding:20px!important}
+.app-layout.legacy-admin .srp-trend-panel,.app-layout.legacy-admin .srp-products-panel,.app-layout.legacy-admin .srp-table-panel{margin:0 0 20px;padding:24px!important}
 .app-layout.legacy-admin .panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:18px}
 .app-layout.legacy-admin .panel-head>div:first-child{display:grid;gap:3px}
 .app-layout.legacy-admin .panel-head span{color:var(--mgmt-heading);font-size:.9rem;font-weight:850;letter-spacing:-.01em}
 .app-layout.legacy-admin .panel-head small{color:var(--mgmt-muted);font-size:.7rem;line-height:1.35}
-.app-layout.legacy-admin .srp-granularity{display:inline-flex;padding:3px;border:1px solid var(--mgmt-border);border-radius:9px;background:var(--mgmt-subtle)}
+.app-layout.legacy-admin .srp-granularity{display:inline-flex;flex-direction:row;padding:3px;border:1px solid var(--mgmt-border);border-radius:9px;background:var(--mgmt-subtle)}
 .app-layout.legacy-admin .srp-granularity button{min-width:58px;min-height:34px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--mgmt-muted);font:inherit;font-size:.7rem;font-weight:800}
 .app-layout.legacy-admin .srp-granularity button.active{background:var(--mgmt-surface);color:var(--mgmt-primary);box-shadow:0 2px 8px rgba(31,65,45,.1)}
 
 .app-layout.legacy-admin .srp-trend-chart{position:relative;min-width:0;color:var(--mgmt-heading)}
 .app-layout.legacy-admin .srp-trend-chart>svg{display:block;width:100%;height:205px;overflow:visible}
+.app-layout.legacy-admin .srp-trend-plot-shell{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:start;gap:10px;min-width:0}
+.app-layout.legacy-admin .srp-y-axis{position:relative;height:220px;color:var(--mgmt-muted);font-size:.63rem;font-variant-numeric:tabular-nums}
+.app-layout.legacy-admin .srp-y-axis span{position:absolute;right:0;white-space:nowrap;transform:translateY(-50%)}
+.app-layout.legacy-admin .srp-trend-plot{position:relative;min-width:0}
+.app-layout.legacy-admin .srp-trend-plot>svg{display:block;width:100%;height:220px;overflow:visible}
 .app-layout.legacy-admin .srp-grid-line{stroke:var(--mgmt-border);stroke-width:1}
 .app-layout.legacy-admin .srp-current-line{stroke:var(--mgmt-primary);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .app-layout.legacy-admin .srp-prev-line{stroke:var(--mgmt-faint);stroke-width:2;stroke-dasharray:7 7;vector-effect:non-scaling-stroke}
+.app-layout.legacy-admin .srp-prev-dot{fill:var(--mgmt-surface);stroke:var(--mgmt-faint);stroke-width:2;vector-effect:non-scaling-stroke}
 .app-layout.legacy-admin .srp-dot{fill:var(--mgmt-surface);stroke:var(--mgmt-primary);stroke-width:3;vector-effect:non-scaling-stroke}
 .app-layout.legacy-admin .srp-dot.is-active{fill:var(--mgmt-primary)}
 .app-layout.legacy-admin .srp-trend-chart svg [tabindex]:focus{outline:none;stroke:var(--mgmt-warning);stroke-width:3}
-.app-layout.legacy-admin .srp-trend-labels{display:flex;justify-content:space-between;gap:10px;margin-top:6px;color:var(--mgmt-muted);font-size:.64rem}
-.app-layout.legacy-admin .srp-trend-labels span{white-space:nowrap}
-.app-layout.legacy-admin .srp-trend-legend{display:flex;align-items:center;gap:18px;margin-top:13px;color:var(--mgmt-muted);font-size:.68rem;font-weight:700}
+.app-layout.legacy-admin .srp-trend-labels{position:relative;display:block;height:14px;margin-top:8px;color:var(--mgmt-muted);font-size:.64rem}
+.app-layout.legacy-admin .srp-trend-labels span{position:absolute;top:0;white-space:nowrap;transform:translateX(-50%)}
+.app-layout.legacy-admin .srp-trend-legend{display:flex;align-items:center;gap:18px;margin:16px 0 0 58px;color:var(--mgmt-muted);font-size:.68rem;font-weight:700}
 .app-layout.legacy-admin .srp-trend-legend span{display:inline-flex;align-items:center;gap:7px}
 .app-layout.legacy-admin .srp-trend-legend i{width:22px;height:3px;display:inline-block;border-radius:4px;background:var(--mgmt-primary)}
 .app-layout.legacy-admin .srp-trend-legend .srp-legend-prev{height:2px;background:repeating-linear-gradient(90deg,var(--mgmt-faint) 0 5px,transparent 5px 9px)}
@@ -104,10 +122,10 @@
 .app-layout.legacy-admin .srp-trend-data .inv-table-wrap{margin-top:10px;border-radius:10px}
 .app-layout.legacy-admin .srp-trend-data .inv-table{min-width:620px}
 
-.app-layout.legacy-admin .srp-breakdown-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch;gap:14px;margin:0 0 18px}
+.app-layout.legacy-admin .srp-breakdown-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:18px;margin:0 0 20px}
 .app-layout.legacy-admin .srp-breakdown-grid.srp-breakdown-single{grid-template-columns:1fr}
 .app-layout.legacy-admin .srp-breakdown-grid.srp-breakdown-single>.panel:first-child{grid-row:auto}
-.app-layout.legacy-admin .srp-breakdown-grid>.panel{display:flex;min-width:0;height:100%;margin:0!important;padding:18px!important;flex-direction:column}
+.app-layout.legacy-admin .srp-breakdown-grid>.panel{display:flex;min-width:0;height:100%;margin:0!important;padding:22px!important;flex-direction:column}
 .app-layout.legacy-admin .srp-breakdown-grid>.panel:first-child{grid-row:span 2}
 .app-layout.legacy-admin .srp-breakdown-grid:not(.srp-breakdown-single)>.panel:first-child{grid-row:auto}
 .app-layout.legacy-admin .srp-channel-panel{display:flex;min-height:100%;flex-direction:column}
@@ -156,6 +174,28 @@
 .app-layout.legacy-admin .srp-share-bar{height:5px;overflow:hidden;border-radius:5px;background:var(--mgmt-border)}
 .app-layout.legacy-admin .srp-share-bar i{display:block;height:100%;border-radius:inherit;background:var(--mgmt-primary)}
 .app-layout.legacy-admin .srp-share>span{color:var(--mgmt-muted);font-size:.68rem;text-align:right;font-variant-numeric:tabular-nums}
+.app-layout.legacy-admin .srp-products-head{align-items:center}
+.app-layout.legacy-admin .srp-product-mode{display:inline-flex;flex:none;padding:3px;border:1px solid var(--mgmt-border);border-radius:9px;background:var(--mgmt-subtle)}
+.app-layout.legacy-admin .srp-product-mode button{min-width:68px;min-height:34px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--mgmt-muted);font:inherit;font-size:.7rem;font-weight:800;cursor:pointer;transition:background-color .18s ease,color .18s ease,box-shadow .18s ease}
+.app-layout.legacy-admin .srp-product-mode button:hover{color:var(--mgmt-heading)}
+.app-layout.legacy-admin .srp-product-mode button.active{background:var(--mgmt-surface);color:var(--mgmt-primary);box-shadow:0 2px 8px rgba(31,65,45,.1)}
+.app-layout.legacy-admin .srp-product-mode button:focus-visible{outline:2px solid var(--mgmt-primary);outline-offset:2px}
+.app-layout.legacy-admin .srp-report-products-table{min-width:680px}
+.app-layout.legacy-admin .srp-report-products-table td:first-child{display:grid;gap:3px}
+.app-layout.legacy-admin .srp-report-products-table td:first-child b{color:var(--mgmt-heading);font-size:.73rem}
+.app-layout.legacy-admin .srp-report-products-table td:first-child small{color:var(--mgmt-muted);font-size:.62rem}
+.app-layout.legacy-admin .srp-report-products-table th .srp-sort{cursor:pointer}
+
+.app-layout.legacy-admin .srp-pattern-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:0 0 20px}
+.app-layout.legacy-admin .srp-pattern-panel{min-width:0;margin:0!important;padding:22px!important;border:1px solid var(--mgmt-border)!important;border-radius:18px!important;background:var(--mgmt-surface)!important;box-shadow:0 10px 28px rgba(31,65,45,.05)!important}
+.app-layout.legacy-admin .srp-pattern-panel:hover{transform:none!important;box-shadow:0 10px 28px rgba(31,65,45,.05)!important}
+.app-layout.legacy-admin .srp-pattern-bars{display:grid;gap:9px;margin:0;padding:0;list-style:none}
+.app-layout.legacy-admin .srp-pattern-bars li{display:grid;grid-template-columns:72px minmax(70px,1fr) 30px 88px;align-items:center;gap:9px;min-height:34px;color:var(--mgmt-text);font-size:.68rem}
+.app-layout.legacy-admin .srp-pattern-bars li>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app-layout.legacy-admin .srp-pattern-bars li>div{height:8px;overflow:hidden;border-radius:999px;background:var(--mgmt-subtle)}
+.app-layout.legacy-admin .srp-pattern-bars li>div i{display:block;height:100%;border-radius:inherit;background:var(--mgmt-primary)}
+.app-layout.legacy-admin .srp-pattern-bars b{text-align:right;color:var(--mgmt-heading);font-size:.7rem;font-variant-numeric:tabular-nums}
+.app-layout.legacy-admin .srp-pattern-bars small{text-align:right;color:var(--mgmt-muted);font-size:.62rem;font-variant-numeric:tabular-nums;white-space:nowrap}
 
 .app-layout.legacy-admin .srp-table-head{align-items:center}
 .app-layout.legacy-admin .srp-table-summary{display:grid;gap:3px}
@@ -199,6 +239,15 @@
 .app-layout.legacy-admin .srp-detail-totals>div{display:flex;align-items:center;justify-content:space-between;gap:18px;color:var(--mgmt-muted);font-size:.75rem}.app-layout.legacy-admin .srp-detail-totals b{color:var(--mgmt-heading);font-variant-numeric:tabular-nums}.app-layout.legacy-admin .srp-detail-refund b{color:var(--mgmt-danger)}.app-layout.legacy-admin .srp-detail-grand{margin-top:3px;padding-top:10px;border-top:1px solid var(--mgmt-border);color:var(--mgmt-heading)!important;font-weight:850}.app-layout.legacy-admin .srp-detail-grand b{color:var(--mgmt-primary);font-size:1rem}
 
 .app-layout.legacy-admin .srp-empty-mini{min-height:170px;color:var(--mgmt-muted)}
+.app-layout.legacy-admin .srp-no-sales{min-height:330px;display:grid;place-items:center;align-content:center;gap:15px;margin:0;padding:36px;border:1px solid var(--mgmt-border);border-radius:18px;background:var(--mgmt-surface);box-shadow:0 10px 28px rgba(31,65,45,.05);text-align:center}
+.app-layout.legacy-admin .srp-no-sales:hover{transform:none;box-shadow:0 10px 28px rgba(31,65,45,.05)}
+.app-layout.legacy-admin .srp-no-sales-icon{width:52px;height:52px;display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--mgmt-primary) 25%,var(--mgmt-border));border-radius:14px;background:color-mix(in srgb,var(--mgmt-primary) 9%,var(--mgmt-surface));color:var(--mgmt-primary)}
+.app-layout.legacy-admin .srp-no-sales h2{margin:0;color:var(--mgmt-heading);font-size:1.12rem}
+.app-layout.legacy-admin .srp-no-sales p{max-width:560px;margin:6px 0 0;color:var(--mgmt-muted);font-size:.76rem;line-height:1.55}
+.app-layout.legacy-admin .srp-no-sales dl{display:grid;grid-template-columns:repeat(3,minmax(100px,1fr));gap:8px;margin:4px 0 0}
+.app-layout.legacy-admin .srp-no-sales dl>div{display:grid;gap:4px;padding:10px 14px;border:1px solid var(--mgmt-border);border-radius:10px;background:var(--mgmt-subtle)}
+.app-layout.legacy-admin .srp-no-sales dt{color:var(--mgmt-muted);font-size:.59rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.app-layout.legacy-admin .srp-no-sales dd{margin:0;color:var(--mgmt-heading);font-size:.86rem;font-weight:850;font-variant-numeric:tabular-nums}
 .app-layout.legacy-admin .srp-skeleton{display:grid;gap:14px}
 .app-layout.legacy-admin .srp-skeleton .srp-kpi-row{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
 .app-layout.legacy-admin .srp-skel-reconciliation{height:66px}.app-layout.legacy-admin .srp-skel-filter{height:150px}.app-layout.legacy-admin .srp-skel-trend{height:285px}.app-layout.legacy-admin .srp-skel-table{height:360px}
@@ -211,6 +260,8 @@
 
 @media(max-width:1240px){
   .app-layout.legacy-admin .srp-overview-grid{grid-template-columns:1fr}
+  .app-layout.legacy-admin .srp-overview-grid.srp-sales-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .app-layout.legacy-admin .srp-sales-overview-grid .srp-support-kpis .srp-kpi-card:nth-child(n+4){grid-column:auto}
   .app-layout.legacy-admin .srp-kpi-featured{min-height:142px}
 }
 @media(max-width:1000px){
@@ -221,6 +272,7 @@
   .app-layout.legacy-admin .srp-reconciliation>div:nth-child(5){border-top:1px solid var(--mgmt-border)}
   .app-layout.legacy-admin .srp-breakdown-grid{grid-template-columns:1fr}
   .app-layout.legacy-admin .srp-breakdown-grid>.panel:first-child{grid-row:auto}
+  .app-layout.legacy-admin .srp-pattern-grid{grid-template-columns:1fr}
 }
 @media(max-width:1100px){
   .app-layout.legacy-admin .srp-range-bar{align-items:stretch;flex-wrap:wrap}
@@ -257,9 +309,16 @@
   .app-layout.legacy-admin .srp-filter-row select{min-height:44px;font-size:16px}
   .app-layout.legacy-admin .srp-filter-error{margin-left:0}
   .app-layout.legacy-admin .srp-trend-panel,.app-layout.legacy-admin .srp-products-panel,.app-layout.legacy-admin .srp-table-panel{padding:16px!important}
+  .app-layout.legacy-admin .srp-products-head{align-items:stretch;flex-direction:column}
+  .app-layout.legacy-admin .srp-product-mode{width:100%}
+  .app-layout.legacy-admin .srp-product-mode button{min-height:44px;flex:1}
+  .app-layout.legacy-admin .srp-pattern-panel{padding:16px!important}
   .app-layout.legacy-admin .srp-trend-panel .panel-head{align-items:stretch;flex-direction:column}
   .app-layout.legacy-admin .srp-granularity{width:100%}.app-layout.legacy-admin .srp-granularity button{flex:1}
   .app-layout.legacy-admin .srp-trend-chart>svg{height:190px}
+  .app-layout.legacy-admin .srp-trend-plot>svg,.app-layout.legacy-admin .srp-y-axis{height:190px}
+  .app-layout.legacy-admin .srp-trend-plot-shell{grid-template-columns:44px minmax(0,1fr);gap:8px}
+  .app-layout.legacy-admin .srp-trend-legend{margin-left:52px}
   .app-layout.legacy-admin .srp-trend-labels span:nth-child(even){display:none}
   .app-layout.legacy-admin .srp-breakdown-grid>.panel{padding:16px!important}
   .app-layout.legacy-admin .srp-donut-wrap .dash-doughnut-legend li{min-height:44px}
@@ -287,6 +346,7 @@
   .app-layout.legacy-admin .srp-range-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
   .app-layout.legacy-admin .srp-export-wrap{width:100%}.app-layout.legacy-admin .srp-export-btn{width:100%}
   .app-layout.legacy-admin .srp-support-kpis{grid-template-columns:1fr}.app-layout.legacy-admin .srp-support-kpis .srp-kpi-card:last-child{grid-column:auto}
+  .app-layout.legacy-admin .srp-overview-grid.srp-sales-overview-grid{grid-template-columns:1fr}
   .app-layout.legacy-admin .srp-presets{grid-template-columns:repeat(2,minmax(0,1fr))}
   .app-layout.legacy-admin .srp-filter-row{grid-template-columns:1fr}
   .app-layout.legacy-admin .srp-channel-row{grid-template-columns:minmax(105px,1fr) minmax(65px,1.2fr) 46px;gap:8px;padding:8px}
@@ -296,28 +356,25 @@
   .app-layout.legacy-admin .srp-mobile-transaction dl{grid-template-columns:1fr 1fr}.app-layout.legacy-admin .srp-mobile-transaction dl>div:last-child{grid-column:1/-1}
   .app-layout.legacy-admin .srp-pagination{align-items:stretch;flex-wrap:wrap}.app-layout.legacy-admin .srp-pagination span{order:-1;width:100%;text-align:center}.app-layout.legacy-admin .srp-pagination button{flex:1}
   .app-layout.legacy-admin .srp-detail-grid{grid-template-columns:1fr}
+  .app-layout.legacy-admin .srp-no-sales{min-height:280px;padding:24px 16px}
+  .app-layout.legacy-admin .srp-no-sales dl{width:100%;grid-template-columns:1fr}
+  .app-layout.legacy-admin .srp-pattern-bars li{grid-template-columns:64px minmax(54px,1fr) 26px}
+  .app-layout.legacy-admin .srp-pattern-bars small{grid-column:2/-1;text-align:right}
 }
 @media(prefers-reduced-motion:reduce){
   .app-layout.legacy-admin .srp-kpi-card,.app-layout.legacy-admin .srp-presets button,.app-layout.legacy-admin .srp-more-filters,.app-layout.legacy-admin .srp-pagination button{transition:none}
   .app-layout.legacy-admin .srp-kpi-card:after{display:none}
 }
 
-/* Match the Dashboard sales overview: reveal the plot from left to right, then settle the points along it. */
-@keyframes srp-sales-clip-reveal{to{transform:scaleX(1)}}
-@keyframes srp-point-reveal{to{opacity:1}}
 @keyframes srp-channel-row-in{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
 @keyframes srp-channel-fill{from{width:0}to{width:var(--srp-channel-width)}}
 @keyframes srp-donut-sweep{from{stroke-dasharray:0 377;stroke-dashoffset:0;opacity:.3}to{stroke-dasharray:var(--srp-donut-dash) var(--srp-donut-gap);stroke-dashoffset:var(--srp-donut-offset);opacity:1}}
-.app-layout.legacy-admin .srp-sales-line-clip{transform:scaleX(0);transform-box:fill-box;transform-origin:left center;animation:srp-sales-clip-reveal cubic-bezier(.16,1,.3,1) forwards}
-.app-layout.legacy-admin .srp-chart-point{opacity:0;animation:srp-point-reveal .16s ease-out var(--srp-point-delay) forwards}
 .app-layout.legacy-admin .srp-channel-row-animated{opacity:0;animation:srp-channel-row-in .38s cubic-bezier(.22,1,.36,1) var(--srp-channel-delay) both}
 .app-layout.legacy-admin .srp-channel-progress i{width:var(--srp-channel-width);animation:srp-channel-fill .65s cubic-bezier(.22,1,.36,1) var(--srp-channel-delay) both}
 .app-layout.legacy-admin .srp-donut-seg-enter{stroke-dasharray:var(--srp-donut-dash) var(--srp-donut-gap);stroke-dashoffset:var(--srp-donut-offset);animation:srp-donut-sweep .7s cubic-bezier(.22,1,.36,1) var(--srp-donut-delay) both}
-html[data-staff-motion="reduce"] .app-layout.legacy-admin .srp-sales-line-clip{transform:scaleX(1);animation:none}
-html[data-staff-motion="reduce"] .app-layout.legacy-admin .srp-chart-point,html[data-staff-motion="reduce"] .app-layout.legacy-admin .srp-channel-row-animated,html[data-staff-motion="reduce"] .app-layout.legacy-admin .srp-channel-progress i,html[data-staff-motion="reduce"] .app-layout.legacy-admin .srp-donut-seg-enter{animation:none;opacity:1}
+html[data-staff-motion="reduce"] .app-layout.legacy-admin .srp-channel-row-animated,html[data-staff-motion="reduce"] .app-layout.legacy-admin .srp-channel-progress i,html[data-staff-motion="reduce"] .app-layout.legacy-admin .srp-donut-seg-enter{animation:none;opacity:1}
 @media(prefers-reduced-motion:reduce){
-  .app-layout.legacy-admin .srp-sales-line-clip{transform:scaleX(1);animation:none}
-  .app-layout.legacy-admin .srp-chart-point,.app-layout.legacy-admin .srp-channel-row-animated,.app-layout.legacy-admin .srp-channel-progress i,.app-layout.legacy-admin .srp-donut-seg-enter{animation:none;opacity:1}
+  .app-layout.legacy-admin .srp-channel-row-animated,.app-layout.legacy-admin .srp-channel-progress i,.app-layout.legacy-admin .srp-donut-seg-enter{animation:none;opacity:1}
 }
 
 /* Focused analytics views */
