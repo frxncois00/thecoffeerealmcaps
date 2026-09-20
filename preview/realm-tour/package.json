@@ -1,0 +1,17 @@
+{
+  "name": "coffee-realm-tour-preview",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "styles": "tailwindcss -i ./tailwind.css -o ./tailwind.generated.css --minify",
+    "styles:watch": "npm run styles -- --watch",
+    "build": "npm run styles && vite build --config ../../vite.realm-tour.config.js"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "tailwindcss": "^4.1.0"
+  },
+  "dependencies": {
+    "thecoffeerealm-react": "file:../.."
+  }
+}
