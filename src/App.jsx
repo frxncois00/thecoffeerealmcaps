@@ -17,6 +17,7 @@ import PortalLoginPage from './pages/PortalLoginPage'
 import StaffDashboard from './pages/StaffDashboard'
 import StaffSettingsPage from './pages/StaffSettingsPage'
 import TransactionsPage from './pages/TransactionsPage'
+import RaimuWidget from './components/RaimuWidget'
 import {
   AboutPage,
   CheckoutPage,
@@ -101,6 +102,7 @@ export default function App() {
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <AuthUiLayer />
+      <RaimuWidget />
     </>
   )
 }

@@ -1,6 +1,17 @@
 import { supabase } from '../lib/supabase'
 import { fetchFinishedProducts, fetchIngredients } from './opsInventoryService'
 
+function purchaseUnitFactor(baseUnit, purchaseUnit) {
+  const base = String(baseUnit || '').toLowerCase()
+  const purchase = String(purchaseUnit || '').toLowerCase()
+  if (['g', 'gram', 'grams'].includes(base) && ['kg', 'kilogram', 'kilograms'].includes(purchase)) return 1000
+  if (['kg', 'kilogram', 'kilograms'].includes(base) && ['g', 'gram', 'grams'].includes(purchase)) return 0.001
+  if (['ml', 'milliliter', 'milliliters'].includes(base) && ['l', 'liter', 'liters'].includes(purchase)) return 1000
+  if (['l', 'liter', 'liters'].includes(base) && ['ml', 'milliliter', 'milliliters'].includes(purchase)) return 0.001
+  if (['piece', 'pieces', 'pc', 'pcs'].includes(base) && purchase === 'dozen') return 12
+  return 1
+}
+
 export const PURCHASE_ORDER_STATUSES = [
   'draft', 'pending_approval', 'approved', 'rejected', 'sent',
   'partially_received', 'received', 'disputed', 'closed', 'cancelled',
@@ -45,14 +56,22 @@ export async function savePurchaseOrder(payload) {
     p_supplier_name: payload.supplierName,
     p_supplier_contact: payload.supplierContact || null,
     p_requested_delivery_date: payload.requestedDeliveryDate || null,
-    p_reason: payload.reason || null,
-    p_notes: payload.notes || null,
-    p_items: payload.items.map((item) => ({
-      item_type: item.itemType,
-      item_id: item.itemId,
-      quantity_ordered: Number(item.quantityOrdered),
-      estimated_unit_cost: Number(item.estimatedUnitCost || 0),
-    })),
+    p_reason: null,
+    p_notes: null,
+    p_items: payload.items.map((item) => {
+      const option = payload.options?.find((entry) => entry.id === item.itemId && entry.itemType === item.itemType)
+      const baseUnit = String(option?.unit || '')
+      const purchaseUnit = String(item.purchaseUnit || option?.unit || '')
+      const factor = purchaseUnitFactor(baseUnit, purchaseUnit)
+      const baseQuantity = Number(item.quantityOrdered) * factor
+      const totalCost = Number(item.estimatedTotalCost || 0)
+      return {
+        item_type: item.itemType,
+        item_id: item.itemId,
+        quantity_ordered: baseQuantity,
+        estimated_unit_cost: baseQuantity > 0 ? totalCost / baseQuantity : 0,
+      }
+    }),
     p_submit: Boolean(payload.submit),
   })
   if (error) throw error
