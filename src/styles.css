@@ -6419,6 +6419,26 @@
 @keyframes raimu-slow-zoom-out{from{transform:scale(1.12)}to{transform:scale(.92)}}
 @media(prefers-reduced-motion:reduce){.raimu-floating-avatar video{animation:none;transform:scale(1)}}
 .raimu-floating-avatar{border:0;border-radius:0;background:transparent;box-shadow:none}
+.raimu-transparent-canvas{animation:none!important;transform:none!important;background:transparent!important;mix-blend-mode:normal}
+.raimu-floating-avatar img{width:100%;height:100%;display:block;object-fit:contain;background:transparent}
+.raimu-popover{top:auto!important;bottom:calc(100% + 14px)!important;right:0;z-index:3}
+.raimu-widget{width:120px!important;height:120px!important}
+.raimu-floating-avatar{width:120px!important;height:120px!important}
+.raimu-popover-messages{min-height:240px;max-height:380px}
+.raimu-popover-controls{display:flex!important;align-items:center;gap:4px}
+.raimu-popover-controls button{width:28px!important;height:28px!important;display:grid!important;place-items:center;border:0;border-radius:9px;background:rgba(36,74,54,.08);color:#315e45;cursor:pointer}
+.raimu-popover{border:1px solid rgba(255,255,255,.48);background:linear-gradient(155deg,#ffffff 0%,#f5fbf7 100%);box-shadow:0 12px 30px rgba(8,49,38,.16),0 0 0 1px rgba(25,91,61,.1);backdrop-filter:blur(12px)}
+.raimu-popover>header{background:linear-gradient(135deg,#0c4b32 0%,#176a48 58%,#0b3c2a 100%);color:#fff;border-bottom:1px solid rgba(255,255,255,.2);box-shadow:inset 0 1px 0 rgba(255,255,255,.22)}
+.raimu-popover>header span,.raimu-popover>header b{color:#fff}
+.raimu-popover-controls button{background:rgba(255,255,255,.16);color:#fff;border:1px solid rgba(255,255,255,.2)}
+.raimu-popover-messages{background:linear-gradient(180deg,rgba(234,247,239,.7),rgba(255,255,255,.85))}
+.raimu-popover-messages p{background:rgba(231,243,235,.88);border:1px solid rgba(73,125,92,.08);box-shadow:0 4px 14px rgba(24,77,49,.05)}
+.raimu-popover-messages p{overflow-wrap:anywhere;word-break:break-word}
+.raimu-popover-messages p a{display:inline-flex;margin-top:8px;padding:7px 10px;border-radius:8px;background:#0c5a3b;color:#fff;font-weight:700;text-decoration:none}
+.raimu-message-row{display:flex;flex-direction:column;max-width:88%}.raimu-message-row.user{align-self:flex-end}.raimu-message-row p{max-width:100%}.raimu-report-actions{display:flex;gap:5px;margin:-3px 0 4px}.raimu-report-actions button{border:1px solid #a5c8b1;border-radius:7px;background:#fff;color:#0c5a3b;padding:5px 8px;font-size:.68rem;font-weight:700;cursor:pointer}.raimu-report-actions button:hover{background:#e8f4eb}
+.raimu-popover-messages p.user{background:linear-gradient(135deg,#0c5a3b,#207a52);box-shadow:0 8px 18px rgba(10,79,49,.2)}
+.raimu-popover form{background:rgba(255,255,255,.92);border-top:1px solid #dcebe0}
+.raimu-popover form button{background:linear-gradient(135deg,#0b5739,#23805a);box-shadow:0 6px 14px rgba(10,79,49,.2)}
 .raimu-source-video{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}.raimu-transparent-canvas{width:100%;height:100%;display:block;object-fit:contain;transform-origin:center center;animation:raimu-slow-zoom-out 10s ease-in-out infinite alternate}
 .raimu-widget{width:160px;height:160px}.raimu-floating-avatar{width:160px;height:160px}.raimu-close-button{top:-8px;right:-8px;width:29px;height:29px}.raimu-transparent-canvas{width:135%;height:135%;margin:-17.5%}
 
@@ -6456,3 +6476,4 @@
 .ua-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:0 0 18px}.ua-summary-card{display:flex;align-items:center;justify-content:space-between;min-height:100px;padding:17px 18px;border:1px solid #c9e3d1;border-left:3px solid var(--ua-accent);border-radius:18px;background:linear-gradient(145deg,#fff,#f8fbf9);box-shadow:0 8px 20px rgba(31,65,45,.05)}.ua-summary-copy{display:flex;flex-direction:column;gap:4px;min-width:0}.ua-summary-copy span{color:#405b49;font-size:.78rem;font-weight:800}.ua-summary-copy small{color:#809087;font-size:.68rem;line-height:1.35}.ua-summary-card>b{color:var(--ua-accent);font-size:1.8rem;font-weight:900;line-height:1;letter-spacing:-.05em;font-variant-numeric:tabular-nums}.ua-summary-card.tone-green{--ua-accent:#27804e;border-color:#c9e3d1}.ua-summary-card.tone-blue{--ua-accent:#2f6ea6;border-color:#cbdced}.ua-summary-card.tone-purple{--ua-accent:#7356a8;border-color:#ddd2ef}.ua-summary-card.tone-amber{--ua-accent:#b7791f;border-color:#ead6a7}
 @media(max-width:860px){.ua-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.ua-summary{grid-template-columns:1fr 1fr;gap:8px}.ua-summary-card{min-height:78px;padding:13px 12px;border-radius:15px}.ua-summary-copy span{font-size:.7rem}.ua-summary-copy small{font-size:.62rem}.ua-summary-card>b{font-size:1.35rem}}
+.raimu-message-row.user p{background:linear-gradient(135deg,#0c5a3b,#207a52);color:#fff}
