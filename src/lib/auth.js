@@ -43,7 +43,11 @@ export async function signInPortal({ identifier, email, password, role }) {
   const loginIdentifier = String(identifier || email || '').trim()
   let loginEmail = loginIdentifier
 
-  if (['admin', 'staff', 'operational_staff', 'cashier'].includes(requestedRole)) {
+  // Email logins should go straight through Supabase Auth. The Edge Function is
+  // only needed to resolve an internal username to its backing Auth account.
+  // Routing email logins through the username lookup can reject valid portal
+  // accounts when their profile email/role is legacy or out of sync.
+  if (['admin', 'staff', 'operational_staff', 'cashier'].includes(requestedRole) && !loginIdentifier.includes('@')) {
     const { data: loginResult, error: loginError } = await supabase.functions.invoke('staff-username-login', {
       body: { username: loginIdentifier, password, role: requestedRole },
     })
