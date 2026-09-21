@@ -17,6 +17,9 @@ const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshTok
 const validEmail = (value: string) => value.length <= 160 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
 const validName = (value: string) => /^[A-Za-zÀ-ÖØ-öø-ÿ][A-Za-zÀ-ÖØ-öø-ÿ .'-]{1,59}$/.test(value);
 const validUsername = (value: string) => /^[A-Za-z0-9._-]{3,24}$/.test(value);
+const validPassword = (value: string) => value.length >= 8 && value.length <= 128;
+const internalEmailFor = (username: string) => `${username.toLowerCase()}@internal.coffeerealm.com`;
+const legacyInternalEmailFor = (username: string) => `${username.toLowerCase()}@internal.coffeerealm.local`;
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -37,26 +40,93 @@ Deno.serve(async (request) => {
     const body = await request.json();
     const action = String(body?.action || "");
 
-    if (action === "invite") {
+    if (action === "add_employee") {
       const email = String(body?.email || "").trim().toLowerCase();
       const fullName = String(body?.fullName || "").trim();
       const username = String(body?.username || "").trim() || null;
       const role = String(body?.role || "").trim().toLowerCase();
-      if (!validEmail(email) || !validName(fullName) || (username && !validUsername(username)) || !["admin", "operational_staff", "cashier"].includes(role)) {
-        return json({ success: false, error: "Name, email, and a valid portal role are required." }, 400);
+      const password = String(body?.password || "");
+      const confirmPassword = String(body?.confirmPassword || "");
+      if ((email && !validEmail(email)) || !validName(fullName) || !username || !validUsername(username) || !validPassword(password) || password !== confirmPassword || !["admin", "operational_staff", "cashier"].includes(role)) {
+        return json({ success: false, error: "Full name, username, matching password, and a valid portal role are required. Email is optional." }, 400);
       }
 
-      const { data: invited, error: inviteError } = await admin.auth.admin.inviteUserByEmail(email, {
-        data: { full_name: fullName, username, role },
+      const internalRoles = ["admin", "staff", "operational_staff", "cashier"];
+      const { data: usernameMatch } = await admin.from("profiles").select("id").ilike("username", username).in("role", internalRoles).is("removed_at", null).maybeSingle();
+      if (usernameMatch) return json({ success: false, error: "That username is already used by an existing account." }, 409);
+      const { data: nameMatch } = await admin.from("profiles").select("id").ilike("full_name", fullName).in("role", internalRoles).is("removed_at", null).maybeSingle();
+      if (nameMatch) return json({ success: false, error: "That full name is already used by an employee." }, 409);
+      if (email) {
+        const { data: emailMatch } = await admin.from("profiles").select("id").ilike("email", email).in("role", internalRoles).is("removed_at", null).maybeSingle();
+        if (emailMatch) return json({ success: false, error: "That email is already used by an employee." }, 409);
+      }
+
+      const authEmail = internalEmailFor(username);
+      let createdUser: { id: string } | null = null;
+      const { data: created, error: createError } = await admin.auth.admin.createUser({
+        email: authEmail, password, email_confirm: true,
+        user_metadata: { full_name: fullName, username, role },
       });
-      if (inviteError) throw inviteError;
-      const userId = invited.user?.id;
-      if (!userId) throw new Error("The invitation did not return a user account.");
+      if (createError) {
+        const createMessage = String(createError.message || "").toLowerCase();
+        if (createMessage.includes("already") || createMessage.includes("registered")) {
+          return json({ success: false, error: email ? "That email is already used by an account." : "That username is already used by an account." }, 409);
+        }
+        throw createError;
+        /* Legacy recovery code is intentionally unreachable. Add Employee is create-only. */
+        let { data: existingProfile } = await admin.from("profiles").select("id,email,role").eq("username", username).maybeSingle();
+        if (existingProfile?.id) {
+          const { data: linkedAuth, error: linkedAuthError } = await admin.auth.admin.getUserById(existingProfile.id);
+          if (linkedAuthError || !linkedAuth.user) {
+            const { error: staleDeleteError } = await admin.from("profiles").delete().eq("id", existingProfile.id);
+            if (staleDeleteError) throw staleDeleteError;
+            existingProfile = null;
+          }
+        }
+        if (existingProfile?.id) {
+          const { error: recoverError } = await admin.auth.admin.updateUserById(existingProfile.id, { email: authEmail, password, email_confirm: true, user_metadata: { full_name: fullName, username, role } });
+          if (recoverError) throw recoverError;
+          createdUser = { id: existingProfile.id };
+        }
+        if (!createdUser) {
+          const { data: users } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          const orphan = users.users.find((item) => [authEmail, legacyInternalEmailFor(username)].includes(item.email?.toLowerCase() || ""));
+          if (!orphan) throw createError;
+          const { error: recoverError } = await admin.auth.admin.updateUserById(orphan.id, { password, email_confirm: true, user_metadata: { full_name: fullName, username, role } });
+          if (recoverError) throw recoverError;
+          createdUser = { id: orphan.id };
+        }
+      } else {
+        createdUser = created.user ? { id: created.user.id } : null;
+      }
+      const userId = createdUser?.id;
+      if (!userId) throw new Error("The employee account could not be created.");
+
+      // An earlier failed attempt may have left a customer-role profile after
+      // its Auth account was deleted. Remove only that recoverable orphan so
+      // the username's unique constraint does not block recreation.
+      const { data: staleProfile } = await admin.from("profiles").select("id,email,role").eq("username", username).maybeSingle();
+      const staleRole = String(staleProfile?.role || "").trim().toLowerCase();
+      let staleAuthMissing = false;
+      if (staleProfile?.id && staleProfile.id !== userId) {
+        const { data: staleAuth, error: staleAuthError } = await admin.auth.admin.getUserById(staleProfile.id);
+        staleAuthMissing = Boolean(staleAuthError || !staleAuth.user);
+      }
+      const staleIsOrphan = staleProfile?.id && staleProfile.id !== userId && (staleAuthMissing || (staleRole === "customer" && (!staleProfile.email || [authEmail, legacyInternalEmailFor(username)].includes(staleProfile.email.toLowerCase()))));
+      if (staleIsOrphan) {
+        const { error: staleDeleteError } = await admin.from("profiles").delete().eq("id", staleProfile.id);
+        if (staleDeleteError) throw staleDeleteError;
+      }
 
       const { error: profileError } = await admin.from("profiles").upsert({
-        id: userId, email, full_name: fullName, username, role,
+        id: userId, email: email || null, full_name: fullName, username, role,
       }, { onConflict: "id" });
-      if (profileError) throw profileError;
+      if (profileError) {
+        if (profileError.code === "23502" && String(profileError.message || "").includes("email")) {
+          return json({ success: false, error: "The database still requires an email address. Apply the optional employee email migration, then try again." }, 503);
+        }
+        throw profileError;
+      }
 
       await admin.from("portal_audit_events").insert({
         actor_id: caller.id,
@@ -69,9 +139,43 @@ Deno.serve(async (request) => {
         entity_id: userId,
         entity_label: fullName,
         summary: `${caller.full_name || caller.email} added ${fullName} as ${role.replaceAll("_", " ")}`,
-        after_data: { email, full_name: fullName, username, role },
+        after_data: { email: email || null, full_name: fullName, username, role },
       });
       return json({ success: true, user: { id: userId, email, full_name: fullName, username, role } });
+    }
+
+    if (action === "edit_employee") {
+      const userId = String(body?.userId || "");
+      const email = String(body?.email || "").trim().toLowerCase();
+      const fullName = String(body?.fullName || "").trim();
+      const username = String(body?.username || "").trim();
+      const password = String(body?.password || "");
+      const confirmPassword = String(body?.confirmPassword || "");
+      if (!userId || !validName(fullName) || !validUsername(username) || (email && !validEmail(email)) || (password && (!validPassword(password) || password !== confirmPassword))) {
+        return json({ success: false, error: "Full name and username are required. Email is optional, and passwords must match." }, 400);
+      }
+      const { data: target, error: targetError } = await admin.from("profiles").select("id,email,full_name,username,role").eq("id", userId).maybeSingle();
+      if (targetError || !target) return json({ success: false, error: "Employee account not found." }, 404);
+      const { data: linkedAuth, error: linkedAuthError } = await admin.auth.admin.getUserById(userId);
+      if (linkedAuthError || !linkedAuth.user) return json({ success: false, error: "This employee no longer has an Auth account. Use Add Employee to create a new account." }, 404);
+      const internalRoles = ["admin", "staff", "operational_staff", "cashier"];
+      const { data: usernameMatch } = await admin.from("profiles").select("id").ilike("username", username).in("role", internalRoles).neq("id", userId).is("removed_at", null).maybeSingle();
+      if (usernameMatch) return json({ success: false, error: "That username is already used by another account." }, 409);
+      const { data: nameMatch } = await admin.from("profiles").select("id").ilike("full_name", fullName).in("role", internalRoles).neq("id", userId).is("removed_at", null).maybeSingle();
+      if (nameMatch) return json({ success: false, error: "That full name is already used by another employee." }, 409);
+      if (email) {
+        const { data: emailMatch } = await admin.from("profiles").select("id").ilike("email", email).neq("id", userId).in("role", internalRoles).is("removed_at", null).maybeSingle();
+        if (emailMatch) return json({ success: false, error: "That email is already used by another employee." }, 409);
+      }
+      const authEmail = internalEmailFor(username);
+      const authUpdate: Record<string, unknown> = { email: authEmail, user_metadata: { full_name: fullName, username, role: target.role } };
+      if (password) authUpdate.password = password;
+      const { error: authUpdateError } = await admin.auth.admin.updateUserById(userId, authUpdate);
+      if (authUpdateError) throw authUpdateError;
+      const { error: profileError } = await admin.from("profiles").update({ email: email || null, full_name: fullName, username, updated_at: new Date().toISOString() }).eq("id", userId);
+      if (profileError) throw profileError;
+      await admin.from("portal_audit_events").insert({ actor_id: caller.id, actor_name_snapshot: caller.full_name || caller.username || caller.email, actor_role_snapshot: "admin", surface: "admin", module: "users_access", action: "user.updated", entity_type: "profile", entity_id: userId, entity_label: fullName, summary: `${caller.full_name || caller.email} updated ${fullName}`, before_data: { email: target.email, full_name: target.full_name, username: target.username }, after_data: { email: email || null, full_name: fullName, username } });
+      return json({ success: true });
     }
 
     if (action === "reset_password") {
@@ -142,6 +246,7 @@ Deno.serve(async (request) => {
     return json({ success: false, error: "Unsupported user-management action." }, 400);
   } catch (error) {
     console.error("admin-manage-user failed", error);
-    return json({ success: false, error: error instanceof Error ? error.message : "User management failed." }, 500);
+    const detail = error instanceof Error ? error.message : (typeof error === "string" ? error : JSON.stringify(error));
+    return json({ success: false, error: detail || "User management failed." }, 500);
   }
 });

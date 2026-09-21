@@ -145,7 +145,7 @@ export default function HomePage() {
           </motion.div>
         </section>
 
-        <section className="marquee" aria-label="thecoffeerealm highlights">
+        <section className="marquee" aria-label="The Coffee Realm highlights">
           <span>Homemade cakes</span><i>*</i><span>Fresh cookie boxes</span><i>*</i><span>Coffee-based drinks</span><i>*</i><span>North Fairview cafe</span>
         </section>
 
@@ -188,14 +188,14 @@ export default function HomePage() {
 
         <section className="landing-map-section" id="visit">
           <Reveal tag="div" className="map-copy">
-            <span className="eyebrow">Visit thecoffeerealm</span>
+            <span className="eyebrow">Visit The Coffee Realm</span>
             <h2>Find us in North Fairview.</h2>
             <p><MapPin size={18} /> {publicStore.address}</p>
             <p><Clock size={18} /> Weekdays and weekends: 10:00 AM to 12:00 MN</p>
             <a className="button button-dark" href={store.map} target="_blank" rel="noreferrer">Get directions</a>
           </Reveal>
           <Reveal tag="div" className="map-embed-react" delay={0.1}>
-            <iframe title="thecoffeerealm North Fairview map" src={mapEmbed} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+            <iframe title="The Coffee Realm North Fairview map" src={mapEmbed} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
           </Reveal>
         </section>
       </main>
@@ -227,7 +227,7 @@ export default function HomePage() {
           <p>Order & Payment Policy</p>
           <p>Delivery & Pickup Policy</p>
         </div>
-        <span className="footer-bottom-line">© 2026 thecoffeerealm. All rights reserved.</span>
+        <span className="footer-bottom-line">© 2026 The Coffee Realm. All rights reserved.</span>
       </footer>
     </div>
   )

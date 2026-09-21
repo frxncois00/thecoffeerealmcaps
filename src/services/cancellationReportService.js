@@ -301,7 +301,7 @@ function printRefundReport({ records, summary, rangeLabel }) {
     body{font-family:Arial,sans-serif;color:#1b2f22;padding:32px}h1{margin-bottom:4px}p{color:#68736b}section{display:flex;gap:16px;margin:24px 0}
     article{border:1px solid #dfe4dd;border-radius:12px;padding:14px;flex:1}article span{font-size:11px;color:#68736b;text-transform:uppercase}article b{display:block;font-size:20px;margin-top:8px}
     table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:9px;border-bottom:1px solid #dfe4dd;text-align:left}th{background:#f5f7f3;text-transform:uppercase}
-  </style></head><body><h1>thecoffeerealm - Refunds Report</h1><p>${escape(rangeLabel)} - Generated ${escape(new Date().toLocaleString('en-PH'))}</p>
+  </style></head><body><h1>The Coffee Realm - Refunds Report</h1><p>${escape(rangeLabel)} - Generated ${escape(new Date().toLocaleString('en-PH'))}</p>
     <section><article><span>Refund records</span><b>${summary.total}</b></article><article><span>Needs action</span><b>${summary.needsAction}</b></article><article><span>Completed</span><b>${summary.completed}</b></article><article><span>Amount completed</span><b>PHP ${summary.completedAmount.toFixed(2)}</b></article></section>
     <table><thead><tr><th>Order</th><th>Customer</th><th>Payment</th><th>Refund</th><th>Status</th><th>Method</th><th>Reference</th><th>Date</th></tr></thead><tbody>${rows || '<tr><td colspan="8">No refund records in this period.</td></tr>'}</tbody></table></body></html>`)
   reportWindow.document.close()
@@ -350,11 +350,11 @@ const refundReportColumns = [
 
 function reportDefinition(view) {
   return view === 'refunds'
-    ? { label: 'Refunds', title: 'COFFEE REALM - REFUNDS REPORT', sheet: 'Refund Ledger', columns: refundReportColumns }
-    : { label: 'Cancellations', title: 'COFFEE REALM - CANCELLATIONS REPORT', sheet: 'Cancellation Ledger', columns: cancellationReportColumns }
+    ? { label: 'Refunds', title: 'THE COFFEE REALM - REFUNDS REPORT', sheet: 'Refund Ledger', columns: refundReportColumns }
+    : { label: 'Cancellations', title: 'THE COFFEE REALM - CANCELLATIONS REPORT', sheet: 'Cancellation Ledger', columns: cancellationReportColumns }
 }
 
-export async function exportCancellationReportToXlsx({ records = [], summary = {}, rangeLabel = 'Selected period', view = 'cancellations', generatedBy = 'Coffee Realm' }) {
+export async function exportCancellationReportToXlsx({ records = [], summary = {}, rangeLabel = 'Selected period', view = 'cancellations', generatedBy = 'The Coffee Realm' }) {
   const { default: ExcelJS } = await import('exceljs')
   const definition = reportDefinition(view)
   const workbook = new ExcelJS.Workbook()
@@ -405,7 +405,7 @@ export async function exportCancellationReportToXlsx({ records = [], summary = {
   downloadBlob(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `coffee-realm-${slug}-report-${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
-export async function exportCancellationReportToPdf({ records = [], summary = {}, rangeLabel = 'Selected period', view = 'cancellations', generatedBy = 'Coffee Realm' }) {
+export async function exportCancellationReportToPdf({ records = [], summary = {}, rangeLabel = 'Selected period', view = 'cancellations', generatedBy = 'The Coffee Realm' }) {
   const { jsPDF } = await import('jspdf')
   const definition = reportDefinition(view)
   const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' })
@@ -437,7 +437,7 @@ export function printCancellationReport({ records, summary, rangeLabel, view = '
     body{font-family:Arial,sans-serif;color:#1b2f22;padding:32px}h1{margin-bottom:4px}p{color:#68736b}section{display:flex;gap:16px;margin:24px 0}
     article{border:1px solid #dfe4dd;border-radius:12px;padding:14px;flex:1}article span{font-size:11px;color:#68736b;text-transform:uppercase}article b{display:block;font-size:20px;margin-top:8px}
     table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:9px;border-bottom:1px solid #dfe4dd;text-align:left}th{background:#f5f7f3;text-transform:uppercase}
-  </style></head><body><h1>thecoffeerealm - Cancellation Report</h1><p>${escape(rangeLabel)} · Generated ${escape(new Date().toLocaleString('en-PH'))}</p>
+  </style></head><body><h1>The Coffee Realm - Cancellation Report</h1><p>${escape(rangeLabel)} · Generated ${escape(new Date().toLocaleString('en-PH'))}</p>
     <section><article><span>Cancelled orders</span><b>${summary.cancelledOrders}</b></article><article><span>Refunded orders</span><b>${summary.refundedOrders}</b></article><article><span>Cancelled order value</span><b>PHP ${summary.cancelledValue.toFixed(2)}</b></article><article><span>Most common reason</span><b>${escape(summary.commonReason)}</b></article></section>
     <table><thead><tr><th>Order</th><th>Customer</th><th>Type</th><th>Payment</th><th>Amount</th><th>Reason</th><th>Cancelled by</th><th>Date</th></tr></thead><tbody>${rows || '<tr><td colspan="8">No records in this period.</td></tr>'}</tbody></table></body></html>`)
   reportWindow.document.close()

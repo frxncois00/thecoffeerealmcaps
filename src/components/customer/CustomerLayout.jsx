@@ -103,7 +103,7 @@ export default function CustomerLayout() {
           <Brand light />
           <p>Fresh coffee, homemade comfort, and slow little moments in North Fairview.</p>
           <div><Link to="/menu">Menu</Link><Link to="/about">About</Link><Link to="/contact">Contact</Link></div>
-          <small>© 2026 thecoffeerealm.</small>
+          <small>© 2026 The Coffee Realm.</small>
         </footer>
       )}
       <LogoutConfirmModal

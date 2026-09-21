@@ -43,9 +43,9 @@ export async function signInPortal({ identifier, email, password, role }) {
   const loginIdentifier = String(identifier || email || '').trim()
   let loginEmail = loginIdentifier
 
-  if (requestedRole === 'staff' && !loginIdentifier.includes('@')) {
+  if (['admin', 'staff', 'operational_staff', 'cashier'].includes(requestedRole)) {
     const { data: loginResult, error: loginError } = await supabase.functions.invoke('staff-username-login', {
-      body: { username: loginIdentifier, password },
+      body: { username: loginIdentifier, password, role: requestedRole },
     })
     if (loginError) throw new Error('Unable to complete staff sign-in. Please try again.')
     if (!loginResult?.success || !loginResult.session) throw new Error(loginResult?.error || 'Invalid email, username, or password.')

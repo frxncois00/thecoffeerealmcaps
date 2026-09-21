@@ -220,7 +220,7 @@ function buildReceiptHtml(transaction, pricing) {
       .sub{font-size:11px}.table-head,.receipt-item{display:grid;grid-template-columns:24px minmax(0,1fr) 72px;gap:6px;font-size:11px}
       .table-head{font-weight:800}.receipt-item-price{text-align:right}.receipt-option{font-size:10px}.grand{font-size:14px;font-weight:900}
     </style></head><body><div class="receipt">
-      <div class="center"><img src="/images/coffeerealmlogo.png" alt="" style="width:42px;height:42px;object-fit:contain;margin:0 auto 4px"/><div class="header">COFFEE REALM</div><div class="sub">Transaction receipt</div></div>
+      <div class="center"><img src="/images/coffeerealmlogo.png" alt="" style="width:42px;height:42px;object-fit:contain;margin:0 auto 4px"/><div class="header">THE COFFEE REALM</div><div class="sub">Transaction receipt</div></div>
       <div class="line"></div>
       <div class="row"><span class="label">Order #</span><span class="value">${transaction.orderNumber}</span></div>
       <div class="row"><span class="label">Receipt #</span><span class="value">${transaction.receiptNumber}</span></div>

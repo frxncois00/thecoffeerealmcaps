@@ -561,7 +561,7 @@ export function printSalesReportPdf({ report, trend, filterLabel, generatedBy })
       h2{font-size:1rem;margin-top:28px;border-bottom:2px solid #1b2f22;padding-bottom:6px}
       .num{text-align:right}
     </style></head><body>
-    <h1>thecoffeerealm - Sales Report</h1>
+    <h1>The Coffee Realm - Sales Report</h1>
     <p>Period: ${filterLabel}</p>
     <p>Generated: ${new Date().toLocaleString('en-PH')} by ${generatedBy || 'Unknown'}</p>
     <h2>Summary</h2>

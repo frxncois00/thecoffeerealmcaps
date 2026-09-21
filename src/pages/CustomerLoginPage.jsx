@@ -149,7 +149,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
     setPendingUsername(username)
     setOtpCode(Array(otpDigits).fill(''))
     setOtpOpen(true)
-    setAuthMessage('We sent a 6-digit thecoffeerealm verification code to your email. Check your inbox to complete registration.')
+    setAuthMessage('We sent a 6-digit The Coffee Realm verification code to your email. Check your inbox to complete registration.')
   }
 
   async function verifyOtp() {
@@ -305,13 +305,13 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
 
         <div className="legacy-auth-toggle">
           <div className="legacy-auth-panel toggle-left">
-            <img src="/images/coffeerealmlogo.png" alt="thecoffeerealm logo" />
+            <img src="/images/coffeerealmlogo.png" alt="The Coffee Realm logo" />
             <h2>Hello, Welcome!</h2>
             <p>Don't have an account?</p>
             <button type="button" onClick={() => { setAuthError(''); setAuthMessage(''); setMode('register') }}>Register Now!</button>
           </div>
           <div className="legacy-auth-panel toggle-right">
-            <img src="/images/coffeerealmlogo.png" alt="thecoffeerealm logo" />
+            <img src="/images/coffeerealmlogo.png" alt="The Coffee Realm logo" />
             <h2>Welcome Back!</h2>
             <p>Already have an account?</p>
             <button type="button" onClick={() => { setAuthError(''); setAuthMessage(''); setMode('login') }}>Login!</button>

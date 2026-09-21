@@ -47,12 +47,22 @@ export async function fetchManagedUsers() {
   }))
 }
 
-export async function invitePortalUser(values) {
+export async function addEmployee(values) {
   const { data, error } = await supabase.functions.invoke('admin-manage-user', {
-    body: { action: 'invite', ...values },
+    body: { action: 'add_employee', ...values },
   })
-  if (error) throw setupAwareError(error)
-  if (!data?.success) throw new Error(data?.error || 'Could not invite the user.')
+  if (error) {
+    let detail = ''
+    try {
+      const response = error.context
+      if (response?.clone) {
+        const payload = await response.clone().json()
+        detail = payload?.error || payload?.message || ''
+      }
+    } catch { /* Keep the provider error when the response is not JSON. */ }
+    throw setupAwareError(detail ? new Error(detail) : error)
+  }
+  if (!data?.success) throw new Error(data?.error || 'Could not add the employee.')
   return data.user
 }
 
@@ -73,9 +83,13 @@ export async function removePortalUser(userId) {
 }
 
 export async function updatePortalUser(userId, values) {
-  const { data, error } = await supabase.rpc('admin_update_portal_user', {
-    p_user_id: userId,
-    p_role: values.role,
+  if (values.role && !values.fullName) {
+    const { data, error } = await supabase.rpc('admin_update_portal_user', { p_user_id: userId, p_role: values.role })
+    if (error) throw setupAwareError(error)
+    return data
+  }
+  const { data, error } = await supabase.functions.invoke('admin-manage-user', {
+    body: { action: 'edit_employee', userId, ...values },
   })
   if (error) throw setupAwareError(error)
   return data

@@ -212,7 +212,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
 
   return <div className={`app-layout legacy-${role}`} data-theme={resolvedTheme} data-staff-density={staffPreferences.table_density} data-staff-contrast={String(staffPreferences.high_contrast)} data-staff-overdue={role === 'staff' ? String(staffPreferences.overdue_highlighting) : undefined}>
     <aside className="sidebar internal-sidebar">
-      <div className="internal-brand"><img src="/images/coffeerealmlogo.png" alt="thecoffeerealm logo"/><div><h2>thecoffeerealm</h2>{role === 'admin' && <p>Admin Portal</p>}</div></div>
+      <div className="internal-brand"><img src="/images/coffeerealmlogo.png" alt="The Coffee Realm logo"/><div><h2>The Coffee Realm</h2>{role === 'admin' && <p>Admin Portal</p>}</div></div>
       <nav aria-label={`${role} navigation`}>{groups.map(group => <div className="internal-nav-group" key={group.label || group.links[0][1]}>{group.label && <span className="internal-group-label">{group.label}</span>}{group.links.map(([label,to,Icon]) => <NavLink key={to} to={to} end={to === `/${role}`} title={label}><Icon size={20}/><span>{label}</span></NavLink>)}</div>)}</nav>
       <div className="sidebar-footer-stack">
         <div className="sidebar-theme-switcher" role="group" aria-label="Theme options">

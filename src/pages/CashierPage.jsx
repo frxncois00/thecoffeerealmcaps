@@ -1280,7 +1280,7 @@ function CashierReceipt({ order, onClose }) {
           <div className="receipt-line" />
           <div className="receipt-row"><span className="receipt-label">Items:</span><span className="receipt-value">{itemCount}</span></div>
           <div className="receipt-line" />
-          <div className="receipt-footer">Thank you for choosing thecoffeerealm,<br />Enjoy your drink and have a great day!</div>
+          <div className="receipt-footer">Thank you for choosing The Coffee Realm,<br />Enjoy your drink and have a great day!</div>
           <div className="receipt-line" />
         </div>
       </div>

@@ -635,7 +635,7 @@ function ReceiptModal({order,addonNames,onClose}){
         <div id="printable-receipt" className="receipt-print-area customer-receipt-paper">
           <div className="receipt-header">
             <span className="customer-receipt-brand-badge"><img className="receipt-logo" src="/images/coffeerealmlogo.png" alt="Store logo" /></span>
-            <div className="receipt-store-name" id="receipt-title">COFFEE REALM</div>
+            <div className="receipt-store-name" id="receipt-title">THE COFFEE REALM</div>
             <div className="receipt-store-info">Receipt preview</div>
             <div className="receipt-store-info">TIN ID: {RECEIPT_TIN_ID}</div>
           </div>
@@ -665,7 +665,7 @@ function ReceiptModal({order,addonNames,onClose}){
            {isDelivery&&Number(order.delivery_fee||0)>0&&<div className="receipt-total-row"><span>Delivery Fee</span><span>{receiptMoney(order.delivery_fee)}</span></div>}
            <div className="receipt-total-row"><span>Total</span><span className="receipt-grand-total">{receiptMoney(order.final_total)}</span></div>
           <div className="receipt-row"><span className="receipt-label">Item Count</span><span className="receipt-value">{orderCount(order)}</span></div>
-          <div className="receipt-footer">{isDelivery?'Please check your items upon delivery.':'Please check your order before leaving the store.'}<br/>Thank you for choosing the coffee realm.</div>
+          <div className="receipt-footer">{isDelivery?'Please check your items upon delivery.':'Please check your order before leaving the store.'}<br/>Thank you for choosing The Coffee Realm.</div>
         </div>
       </div>
       <div className="payment-modal-actions"><button className="primary-button" type="button" onClick={()=>window.print()}><Printer size={15}/> Print</button></div>
@@ -1112,7 +1112,7 @@ function ConfirmDeleteAddressModal({onCancel,onConfirm,busy}){
   </div>
 }
 
-export function AboutPage(){return <main className="customer-main"><section className="editorial-page"><img src="/images/craft.JPG" alt="Coffee being prepared at thecoffeerealm"/><div><span>Our story</span><h1>A neighborhood cafÃ© made for slow moments.</h1><p>thecoffeerealm began with a love for the daily ritual of coffee. In North Fairview, we pair thoughtfully brewed drinks with homemade cakes, cookies, and comforting meals.</p><p>Our aim is simple: make every visit feel warm, personal, and worth returning to.</p></div></section></main>}
+export function AboutPage(){return <main className="customer-main"><section className="editorial-page"><img src="/images/craft.JPG" alt="Coffee being prepared at The Coffee Realm"/><div><span>Our story</span><h1>A neighborhood cafÃ© made for slow moments.</h1><p>The Coffee Realm began with a love for the daily ritual of coffee. In North Fairview, we pair thoughtfully brewed drinks with homemade cakes, cookies, and comforting meals.</p><p>Our aim is simple: make every visit feel warm, personal, and worth returning to.</p></div></section></main>}
 const helpGroups=[
  {title:'Ordering guide',items:[['How do I browse the menu?','Explore the full selection of drinks, cakes, meals, and handcrafted treats from the Menu tab.'],['Can I customize a product?','Yes. Select the available size, add-ons, sugar level, temperature, and special instructions before adding an item to your cart.'],['How do I place an order?','Review your cart, proceed to checkout, then confirm your delivery or pickup details and payment method.']]},
  {title:'Delivery guide',items:[['What information is required for delivery?','Choose delivery at checkout and provide a complete address, contact number, and delivery instructions.'],['How is the delivery fee calculated?','Standard rates apply based on your distance from the North Fairview branch. The final fee is shown during checkout.'],['Where can I track my delivery?','Open My Orders and select Track order to view the latest order status.']]},

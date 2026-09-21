@@ -4,7 +4,7 @@ import { validateImageFile } from '../utils/imageUpload'
 
 export const CONTENT_DEFAULTS = {
   hero: {
-    eyebrow: 'thecoffeerealm in North Fairview',
+    eyebrow: 'The Coffee Realm in North Fairview',
     title: 'Fresh coffee, homemade sweets, and slow little moments.',
     body: 'We serve comforting coffee-based drinks, freshly baked cookies, homemade cakes, pasta, rice meals, toasts, and snacks in a warm neighborhood space.',
     primaryLabel: 'View full menu', primaryHref: '/menu', secondaryLabel: 'Send us a message', secondaryHref: '/help',
@@ -29,7 +29,7 @@ export const CONTENT_DEFAULTS = {
 
 export const SYSTEM_DEFAULTS = {
   store: {
-    name: 'thecoffeerealm', email: 'thecoffeerealmx@gmail.com', phone: '0966 964 7796',
+    name: 'The Coffee Realm', email: 'thecoffeerealmx@gmail.com', phone: '0966 964 7796',
     address: 'Lot 1 Block 210 Mark Street corner Dollar Street, North Fairview, Quezon City', timezone: 'Asia/Manila',
   },
   ordering: {

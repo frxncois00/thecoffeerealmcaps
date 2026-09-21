@@ -1,8 +1,8 @@
 import {
   Activity, AlertTriangle, BadgeCheck, CalendarDays, ChevronLeft, ChevronRight,
   CircleUserRound, Download, FilterX, History,
-  KeyRound, MailPlus, Search, ShieldCheck, Trash2,
-  UserPlus, Users, X,
+  KeyRound, UserPlus, Search, ShieldCheck, Trash2,
+  Users, X,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
@@ -12,7 +12,7 @@ import { describeError } from '../utils/describeError'
 import { EMAIL_MAX_LENGTH, isValidEmail, sanitizePersonName, sanitizeUsername } from '../utils/inputValidation'
 import {
   PORTAL_ROLES, downloadAuditCsv, fetchManagedUsers, fetchPortalAuditEvents,
-  fetchPortalAuditExport, invitePortalUser, removePortalUser, sendPortalPasswordReset, updatePortalUser,
+  fetchPortalAuditExport, addEmployee, removePortalUser, updatePortalUser,
 } from '../services/usersAccessService'
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100]
@@ -55,7 +55,7 @@ export default function UsersAccessPage() {
   const { pathname } = useLocation()
   const activityTab = pathname.endsWith('/activity')
   const [refreshSignal, setRefreshSignal] = useState(0)
-  const [inviteOpen, setInviteOpen] = useState(false)
+  const [employeeOpen, setEmployeeOpen] = useState(false)
 
   return <AppShell
     role="admin"
@@ -64,11 +64,11 @@ export default function UsersAccessPage() {
     onRefresh={() => setRefreshSignal((value) => value + 1)}
   >
     {activityTab ? <ActivityLogsModule refreshSignal={refreshSignal} />
-      : <UserManagementModule refreshSignal={refreshSignal} inviteOpen={inviteOpen} setInviteOpen={setInviteOpen} />}
+      : <UserManagementModule refreshSignal={refreshSignal} employeeOpen={employeeOpen} setEmployeeOpen={setEmployeeOpen} />}
   </AppShell>
 }
 
-function UserManagementModule({ refreshSignal, inviteOpen, setInviteOpen }) {
+function UserManagementModule({ refreshSignal, employeeOpen, setEmployeeOpen }) {
   const { user: currentUser } = useAuth()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -120,16 +120,16 @@ function UserManagementModule({ refreshSignal, inviteOpen, setInviteOpen }) {
     <header className="ua-module-intro">
       <div><span className="ua-module-icon"><Users size={20}/></span><div><h2 id="user-management-title">User Management</h2><p>Manage administrator, operations staff, and cashier access.</p></div></div>
       <div className="ua-module-intro-actions">
-        <span className="ua-module-count">{filtered.length} of {users.length} users</span>
-        <button type="button" className="ua-primary-action" onClick={() => setInviteOpen(true)}><UserPlus size={17}/>Add User</button>
+        <span className="ua-module-count">{filtered.length} of {users.length} employees</span>
+        <button type="button" className="ua-primary-action" onClick={() => setEmployeeOpen(true)}><UserPlus size={17}/>Add Employee</button>
       </div>
     </header>
 
-    <div className="ua-stat-rail" aria-label="Account summary">
-      <div><span>Total users</span><b>{counts.total}</b></div>
-      <div><span>Administrators</span><b>{counts.admins}</b></div>
-      <div><span>Operations staff</span><b>{counts.operations}</b></div>
-      <div><span>Cashiers</span><b>{counts.cashiers}</b></div>
+    <div className="ua-summary" aria-label="Employee summary">
+      <article className="ua-summary-card tone-green"><div className="ua-summary-copy"><span>Total employees</span><small>All active employee accounts</small></div><b>{counts.total}</b></article>
+      <article className="ua-summary-card tone-blue"><div className="ua-summary-copy"><span>Administrators</span><small>Full portal access</small></div><b>{counts.admins}</b></article>
+      <article className="ua-summary-card tone-purple"><div className="ua-summary-copy"><span>Operations staff</span><small>Inventory and order operations</small></div><b>{counts.operations}</b></article>
+      <article className="ua-summary-card tone-amber"><div className="ua-summary-copy"><span>Cashiers</span><small>Point-of-sale access</small></div><b>{counts.cashiers}</b></article>
     </div>
 
     <div className="ua-toolbar">
@@ -152,10 +152,10 @@ function UserManagementModule({ refreshSignal, inviteOpen, setInviteOpen }) {
         </table>
       </div>
       <div className="ua-mobile-list">{filtered.map((item) => <button type="button" className="ua-user-card" key={item.id} onClick={() => setSelected(item)}><UserIdentity user={item}/><span>{item.roleLabel}</span></button>)}</div>
-      {!filtered.length && <EmptyState icon={Users} title="No users found" message="Adjust the search or filters to see more accounts."/>}
+      {!filtered.length && <EmptyState icon={Users} title="No employees found" message="Adjust the search or filters to see more accounts."/>}
     </>}
 
-    <InviteUserModal open={inviteOpen} onClose={() => setInviteOpen(false)} onSuccess={(message) => refreshAfterChange(message)} />
+    <AddEmployeeModal open={employeeOpen} onClose={() => setEmployeeOpen(false)} onSuccess={(message) => refreshAfterChange(message)} />
     <UserDrawer user={selected} currentUserId={currentUser?.id} onClose={() => setSelected(null)} onChanged={(message) => { setSelected(null); refreshAfterChange(message) }} />
     {toast && <div className={`ua-toast ua-toast--${toast.tone}`} role="status"><BadgeCheck size={18}/>{toast.message}</div>}
   </section>
@@ -166,31 +166,36 @@ function UserIdentity({ user }) {
   return <div className="ua-user-identity"><span aria-hidden="true">{initials(name)}</span><div><b>{name}</b><small>{user.username ? `@${user.username} · ${user.email}` : user.email}</small></div></div>
 }
 
-function InviteUserModal({ open, onClose, onSuccess }) {
-  const [values, setValues] = useState({ fullName: '', email: '', username: '', role: 'operational_staff' })
+function AddEmployeeModal({ open, onClose, onSuccess }) {
+  const [values, setValues] = useState({ fullName: '', email: '', username: '', password: '', confirmPassword: '', role: 'operational_staff' })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   useEscapeClose(open, onClose)
-  useEffect(() => { if (open) { setValues({ fullName: '', email: '', username: '', role: 'operational_staff' }); setError('') } }, [open])
+  useEffect(() => { if (open) { setValues({ fullName: '', email: '', username: '', password: '', confirmPassword: '', role: 'operational_staff' }); setError('') } }, [open])
   if (!open) return null
   const submit = async (event) => {
     event.preventDefault(); setError('')
-    if (!isValidEmail(values.email)) { setError('Enter a valid email address.'); return }
+    if (!values.username) { setError('Enter a username.'); return }
+    if (values.email && !isValidEmail(values.email)) { setError('Enter a valid email address.'); return }
+    if (values.password.length < 8) { setError('Password must be at least 8 characters.'); return }
+    if (values.password !== values.confirmPassword) { setError('Passwords do not match.'); return }
     setBusy(true)
-    try { await invitePortalUser(values); onClose(); onSuccess(`${values.fullName} was added. Sign-in instructions were sent to ${values.email}.`) }
-    catch (cause) { setError(describeError(cause, 'Could not invite this user.')) }
+    try { await addEmployee(values); onClose(); onSuccess(`${values.fullName} was added as an employee.`) }
+    catch (cause) { setError(describeError(cause, 'Could not add this employee.')) }
     finally { setBusy(false) }
   }
-  return <div className="ua-overlay" onMouseDown={onClose}><form className="ua-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="invite-user-title">
-    <header><div><span className="ua-modal-icon"><MailPlus size={20}/></span><div><h2 id="invite-user-title">Add portal user</h2><p>Send a secure invitation to an internal team member.</p></div></div><button type="button" onClick={onClose} aria-label="Close add user dialog"><X/></button></header>
+  return <div className="ua-overlay" onMouseDown={onClose}><form className="ua-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="add-employee-title">
+    <header><div><span className="ua-modal-icon"><UserPlus size={20}/></span><div><h2 id="add-employee-title">Add employee</h2><p>Create an internal employee account.</p></div></div><button type="button" onClick={onClose} aria-label="Close add employee dialog"><X/></button></header>
     <div className="ua-form-grid">
       <label className="ua-field ua-field--wide"><span>Full name</span><input autoFocus required maxLength={60} value={values.fullName} onChange={(event) => setValues({ ...values, fullName: sanitizePersonName(event.target.value, 60) })} autoComplete="name"/></label>
-       <label className="ua-field"><span>Email</span><input required type="email" maxLength={EMAIL_MAX_LENGTH} value={values.email} onChange={(event) => setValues({ ...values, email: event.target.value.slice(0, EMAIL_MAX_LENGTH) })} autoComplete="email"/></label>
-      <label className="ua-field"><span>Username <small>Optional</small></span><input value={values.username} onChange={(event) => setValues({ ...values, username: sanitizeUsername(event.target.value, 24) })} autoComplete="username" minLength={3} maxLength={24} pattern="[A-Za-z0-9._-]+"/></label>
+       <label className="ua-field"><span>Email <small>Optional</small></span><input type="email" maxLength={EMAIL_MAX_LENGTH} value={values.email} onChange={(event) => setValues({ ...values, email: event.target.value.slice(0, EMAIL_MAX_LENGTH) })} autoComplete="email"/></label>
+      <label className="ua-field"><span>Username</span><input required value={values.username} onChange={(event) => setValues({ ...values, username: sanitizeUsername(event.target.value, 24) })} autoComplete="username" minLength={3} maxLength={24} pattern="[A-Za-z0-9._-]+"/></label>
+      <label className="ua-field"><span>Password</span><input required type="password" minLength={8} value={values.password} onChange={(event) => setValues({ ...values, password: event.target.value })} autoComplete="new-password"/></label>
+      <label className="ua-field"><span>Confirm password</span><input required type="password" minLength={8} value={values.confirmPassword} onChange={(event) => setValues({ ...values, confirmPassword: event.target.value })} autoComplete="new-password"/></label>
       <label className="ua-field ua-field--wide"><span>Portal role</span><select value={values.role} onChange={(event) => setValues({ ...values, role: event.target.value })}>{PORTAL_ROLES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select><small>The new user receives only the permissions assigned to this role.</small></label>
     </div>
     {error && <p className="ua-form-error" role="alert">{error}</p>}
-    <footer><button type="button" className="ua-secondary-action" onClick={onClose} disabled={busy}>Cancel</button><button type="submit" className="ua-primary-action" disabled={busy}>{busy ? 'Sending invitation…' : 'Send invitation'}</button></footer>
+    <footer><button type="button" className="ua-secondary-action" onClick={onClose} disabled={busy}>Cancel</button><button type="submit" className="ua-primary-action" disabled={busy}>{busy ? 'Adding employee…' : 'Confirm'}</button></footer>
   </form></div>
 }
 
@@ -200,10 +205,11 @@ function UserDrawer({ user, currentUserId, onClose, onChanged }) {
   const [error, setError] = useState('')
   const [recent, setRecent] = useState([])
   const [removeOpen, setRemoveOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   useEscapeClose(Boolean(user) && !removeOpen, onClose)
   useEffect(() => {
     if (!user) return
-    setRole(user.role === 'staff' ? 'operational_staff' : user.role); setError(''); setRemoveOpen(false)
+    setRole(user.role === 'staff' ? 'operational_staff' : user.role); setError(''); setRemoveOpen(false); setEditOpen(false)
     fetchPortalAuditEvents({ actorId: user.id }, { pageSize: 6 }).then(({ events }) => setRecent(events)).catch(() => setRecent([]))
   }, [user])
   if (!user) return null
@@ -212,12 +218,6 @@ function UserDrawer({ user, currentUserId, onClose, onChanged }) {
     setBusy(true); setError('')
     try { await updatePortalUser(user.id, { role }); onChanged(`${user.full_name || user.email} was updated.`) }
     catch (cause) { setError(describeError(cause, 'Could not update this user.')) }
-    finally { setBusy(false) }
-  }
-  const resetPassword = async () => {
-    setBusy(true); setError('')
-    try { await sendPortalPasswordReset(user.id); onChanged(`Password reset sent to ${user.email}.`) }
-    catch (cause) { setError(describeError(cause, 'Could not send the password reset.')) }
     finally { setBusy(false) }
   }
   return <><button className="ua-drawer-scrim" onClick={onClose} aria-label="Close user details"/><aside className="ua-drawer" role="dialog" aria-modal="true" aria-labelledby="user-drawer-title">
@@ -235,8 +235,32 @@ function UserDrawer({ user, currentUserId, onClose, onChanged }) {
       </section>
       {error && <p className="ua-form-error" role="alert">{error}</p>}
     </div>
-    <footer><button type="button" className="ua-danger-action" onClick={() => setRemoveOpen(true)} disabled={busy || isSelf} title={isSelf ? 'You cannot remove your own account' : undefined}><Trash2 size={16}/>Remove User</button><button type="button" className="ua-secondary-action" onClick={resetPassword} disabled={busy}><KeyRound size={16}/>Send password reset</button><button type="button" className="ua-primary-action" onClick={save} disabled={busy || role === user.role}>{busy ? 'Saving…' : 'Save changes'}</button></footer>
-  </aside><RemoveUserConfirm open={removeOpen} user={user} onClose={() => setRemoveOpen(false)} onRemoved={() => onChanged(`${user.full_name || user.email} was removed from portal access.`)} /></>
+    <footer><button type="button" className="ua-danger-action" onClick={() => setRemoveOpen(true)} disabled={busy || isSelf} title={isSelf ? 'You cannot remove your own account' : undefined}><Trash2 size={16}/>Remove User</button><button type="button" className="ua-secondary-action" onClick={() => setEditOpen(true)} disabled={busy}><KeyRound size={16}/>Edit account</button><button type="button" className="ua-primary-action" onClick={save} disabled={busy || role === user.role}>{busy ? 'Saving…' : 'Save changes'}</button></footer>
+  </aside><RemoveUserConfirm open={removeOpen} user={user} onClose={() => setRemoveOpen(false)} onRemoved={() => onChanged(`${user.full_name || user.email} was removed from portal access.`)} /><EditAccountModal open={editOpen} user={user} onClose={() => setEditOpen(false)} onSuccess={(message) => { setEditOpen(false); onChanged(message) }} /></>
+}
+
+function EditAccountModal({ open, user, onClose, onSuccess }) {
+  const [values, setValues] = useState({ fullName: '', username: '', email: '', password: '', confirmPassword: '' })
+  const [busy, setBusy] = useState(false); const [error, setError] = useState('')
+  useEscapeClose(open, onClose)
+  useEffect(() => { if (open) { setValues({ fullName: user?.full_name || '', username: user?.username || '', email: user?.email || '', password: '', confirmPassword: '' }); setError('') } }, [open, user])
+  if (!open) return null
+  const submit = async (event) => {
+    event.preventDefault(); setError('')
+    if (!values.username) return setError('Enter a username.')
+    if (values.email && !isValidEmail(values.email)) return setError('Enter a valid email address.')
+    if (values.password && values.password.length < 8) return setError('Password must be at least 8 characters.')
+    if (values.password !== values.confirmPassword) return setError('Passwords do not match.')
+    setBusy(true)
+    try { await updatePortalUser(user.id, values); onSuccess(`${values.fullName || values.username} was updated.`) }
+    catch (cause) { setError(describeError(cause, 'Could not update this account.')) }
+    finally { setBusy(false) }
+  }
+  return <div className="ua-overlay ua-account-overlay" onMouseDown={onClose}><form className="ua-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="edit-account-title">
+    <header><div><span className="ua-modal-icon"><KeyRound size={20}/></span><div><h2 id="edit-account-title">Edit account</h2><p>Update employee sign-in details.</p></div></div><button type="button" onClick={onClose} aria-label="Close edit account dialog"><X/></button></header>
+    <div className="ua-form-grid"><label className="ua-field ua-field--wide"><span>Full name</span><input autoFocus required maxLength={60} value={values.fullName} onChange={(event) => setValues({ ...values, fullName: sanitizePersonName(event.target.value, 60) })}/></label><label className="ua-field"><span>Email <small>Optional</small></span><input type="email" maxLength={EMAIL_MAX_LENGTH} value={values.email} onChange={(event) => setValues({ ...values, email: event.target.value.slice(0, EMAIL_MAX_LENGTH) })}/></label><label className="ua-field"><span>Username</span><input required value={values.username} onChange={(event) => setValues({ ...values, username: sanitizeUsername(event.target.value, 24) })} minLength={3} maxLength={24}/></label><label className="ua-field"><span>Password <small>Leave blank to keep current</small></span><input type="password" minLength={8} value={values.password} onChange={(event) => setValues({ ...values, password: event.target.value })}/></label><label className="ua-field"><span>Confirm password</span><input type="password" minLength={8} value={values.confirmPassword} onChange={(event) => setValues({ ...values, confirmPassword: event.target.value })}/></label></div>
+    {error && <p className="ua-form-error" role="alert">{error}</p>}<footer><button type="button" className="ua-secondary-action" onClick={onClose} disabled={busy}>Cancel</button><button type="submit" className="ua-primary-action" disabled={busy}>{busy ? 'Saving…' : 'Confirm'}</button></footer>
+  </form></div>
 }
 
 function RemoveUserConfirm({ open, user, onClose, onRemoved }) {
