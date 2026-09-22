@@ -20,7 +20,7 @@ export const PURCHASE_ORDER_STATUSES = [
 export async function fetchPurchaseOrders() {
   const { data, error } = await supabase
     .from('purchase_orders')
-    .select('*,created_by_profile:profiles!purchase_orders_created_by_fkey(full_name),purchase_order_items(*),purchase_order_events(id,from_status,to_status,action,note,created_by,created_at,profiles(full_name))')
+    .select('*,created_by_profile:profiles!purchase_orders_created_by_fkey(full_name),purchase_order_items(*),purchase_order_events(id,from_status,to_status,action,note,created_by,created_at,profiles(full_name)),purchase_order_documents(*)')
     .order('updated_at', { ascending: false })
   if (error) throw error
   return (data || []).map(normalizePurchaseOrder)
@@ -89,7 +89,7 @@ export async function markPurchaseOrderSent(id, supplierReference = '') {
 }
 
 export async function receivePurchaseOrder(id, lines, receivingNotes = '') {
-  const { error } = await supabase.rpc('receive_purchase_order', {
+  const { error } = await supabase.rpc('submit_purchase_order_receiving', {
     p_id: id,
     p_lines: lines.map((line) => ({
       id: line.id,
@@ -105,6 +105,47 @@ export async function receivePurchaseOrder(id, lines, receivingNotes = '') {
     p_receiving_notes: receivingNotes || null,
   })
   if (error) throw error
+}
+
+export async function reviewPurchaseOrderReceiving(id, approved, note = '') {
+  const { error } = await supabase.rpc('review_purchase_order_receiving', { p_id: id, p_approved: approved, p_note: note || null })
+  if (error) throw error
+}
+
+export async function reportPurchaseOrderIssue(id, reason, resolution, note = '') {
+  const { error } = await supabase.rpc('report_purchase_order_issue', { p_id: id, p_reason: reason, p_resolution: resolution, p_note: note || null })
+  if (error) throw error
+}
+
+export async function submitPurchaseOrderPayment(id, amount, method, reference = '') {
+  const { error } = await supabase.rpc('submit_purchase_order_payment', { p_id: id, p_amount: Number(amount), p_method: method, p_reference: reference || null })
+  if (error) throw error
+}
+
+export async function verifyPurchaseOrderPayment(id, approved, note = '') {
+  const { error } = await supabase.rpc('verify_purchase_order_payment', { p_id: id, p_approved: approved, p_note: note || null })
+  if (error) throw error
+}
+
+export async function uploadPurchaseOrderDocument(id, type, file) {
+  if (!file) throw new Error('Choose a file to upload.')
+  if (!['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(file.type)) throw new Error('Upload a JPG, PNG, WEBP, or PDF file.')
+  if (file.size > 10 * 1024 * 1024) throw new Error('Files must be 10 MB or smaller.')
+  const safeName = file.name.replace(/[^a-z0-9._-]/gi, '-').toLowerCase()
+  const path = `${id}/${type}/${crypto.randomUUID()}-${safeName}`
+  const { error: uploadError } = await supabase.storage.from('purchase-order-documents').upload(path, file, { contentType: file.type, upsert: false })
+  if (uploadError) throw uploadError
+  const { data: authData } = await supabase.auth.getUser()
+  const { data, error } = await supabase.from('purchase_order_documents').insert({ purchase_order_id: id, document_type: type, storage_path: path, file_name: file.name, mime_type: file.type, uploaded_by: authData.user?.id }).select().single()
+  if (error) throw error
+  return data
+}
+
+export async function getPurchaseOrderDocumentUrl(path) {
+  if (!path) return null
+  const { data, error } = await supabase.storage.from('purchase-order-documents').createSignedUrl(path, 300)
+  if (error) throw error
+  return data?.signedUrl || null
 }
 
 export async function closePurchaseOrder(id, notes = '') {
@@ -128,6 +169,7 @@ function normalizePurchaseOrder(row) {
     createdByName: row.created_by_profile?.full_name || '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    documents: row.purchase_order_documents || [],
     items: (row.purchase_order_items || []).map((item) => ({
       ...item,
       itemType: item.item_type,
