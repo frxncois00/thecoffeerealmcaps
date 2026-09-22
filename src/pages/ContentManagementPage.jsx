@@ -2,11 +2,10 @@ import { AlertTriangle, Check, CheckCircle2, ClipboardCheck, Eye, FileText, Home
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import AppShell from '../components/AppShell'
 import { describeError } from '../utils/describeError'
-import { sanitizePersonName } from '../utils/inputValidation'
 import { fetchMenuApprovalRequests } from '../services/menuApprovalService'
 import {
   CONTENT_DEFAULTS, deleteTestimonial, fetchContentMenuOptions, fetchPortalConfiguration,
-  fetchTestimonials, savePortalConfiguration, saveTestimonial,
+  fetchTestimonials, fetchFeedbackCandidates, savePortalConfiguration, saveTestimonial,
 } from '../services/adminPortalConfigurationService'
 
 const SECTIONS = [
@@ -16,7 +15,7 @@ const SECTIONS = [
   ['reviews', 'Testimonials', MessageSquareQuote, 'Customer quotes'],
   ['footer', 'Footer & Social', Info, 'Contact and social links'],
 ]
-const EMPTY_REVIEW = { name: '', label: 'Customer', quote: '', rating: 5, visible: true, display_order: 0 }
+const EMPTY_REVIEW = { name: '', username: '', avatar_url: '', quote: '', rating: 5, visible: true, display_order: 0 }
 
 function formatUpdated(value) {
   if (!value) return 'Not published from this workspace yet'
@@ -32,6 +31,7 @@ export default function ContentManagementPage() {
   const [content, setContent] = useState(CONTENT_DEFAULTS)
   const [menu, setMenu] = useState([])
   const [testimonials, setTestimonials] = useState([])
+  const [feedbackCandidates, setFeedbackCandidates] = useState([])
   const [updatedAt, setUpdatedAt] = useState(null)
   const [setupRequired, setSetupRequired] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -44,11 +44,11 @@ export default function ContentManagementPage() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [configuration, menuItems, reviews] = await Promise.all([
-        fetchPortalConfiguration('content'), fetchContentMenuOptions(), fetchTestimonials(),
+      const [configuration, menuItems, reviews, feedback] = await Promise.all([
+        fetchPortalConfiguration('content'), fetchContentMenuOptions(), fetchTestimonials(), fetchFeedbackCandidates(),
       ])
       setContent(configuration.values); setUpdatedAt(configuration.updatedAt); setSetupRequired(configuration.setupRequired)
-      setMenu(menuItems); setTestimonials(reviews); setError('')
+      setMenu(menuItems); setTestimonials(reviews); setFeedbackCandidates(feedback); setError('')
     } catch (cause) { setError(describeError(cause, 'Content settings could not be loaded.')) }
     finally { setLoading(false) }
   }, [])
@@ -137,7 +137,8 @@ export default function ContentManagementPage() {
 
 
             {section === 'reviews' && <section className="ac-editor-section"><header><div><h2>Testimonials</h2><p>Publish short, attributable customer quotes. Keep each one easy to scan.</p></div><button className="ac-primary-button" type="button" onClick={() => setReviewDraft({ ...EMPTY_REVIEW, display_order: testimonials.length })}><Plus size={16}/>Add testimonial</button></header>
-              <div className="ac-review-list">{testimonials.length ? testimonials.map((review) => <article key={review.id}><div className="ac-review-rating">{'★'.repeat(review.rating || 5)}</div><blockquote>“{review.quote}”</blockquote><div><span><b>{review.name}</b><small>{review.label || 'Customer'} · {review.visible ? 'Published' : 'Hidden'}</small></span><span><button type="button" onClick={() => setReviewDraft({ ...review })}>Edit</button><button type="button" className="is-danger" onClick={() => removeReview(review)} disabled={String(review.id).startsWith('default-')} title={String(review.id).startsWith('default-') ? 'Publish this default testimonial before removing it' : undefined}><Trash2 size={15}/></button></span></div></article>) : <EmptyContent title="No testimonials yet" message="Add a customer quote when you have permission to publish it."/>}</div>
+              {feedbackCandidates.length > 0 && <div className="ac-feedback-candidates"><h3>Customer feedback awaiting review</h3>{feedbackCandidates.map((feedback) => <article key={feedback.id}><div><b>@{feedback.username}</b><small>{feedback.order_number ? `Order ${feedback.order_number}` : 'Completed order'} · {feedback.rating}/5</small><p>{feedback.comment}</p></div><button className="ac-primary-button" type="button" onClick={() => setReviewDraft({ username: feedback.username, avatar_url: feedback.avatar_url, source_feedback_id: feedback.id, quote: feedback.comment, rating: feedback.rating, visible: true, display_order: testimonials.length })}>Review &amp; publish</button></article>)}</div>}
+              <div className="ac-review-list">{testimonials.length ? testimonials.map((review) => <article key={review.id}><div className="ac-review-rating">{'★'.repeat(review.rating || 5)}</div><blockquote>“{review.quote}”</blockquote><div><span><b>{review.username || review.name}</b><small>{review.visible ? 'Published' : 'Hidden'}</small></span><span><button type="button" onClick={() => setReviewDraft({ ...review, username: review.username || review.name })}>Edit</button><button type="button" className="is-danger" onClick={() => removeReview(review)} disabled={String(review.id).startsWith('default-')} title={String(review.id).startsWith('default-') ? 'Publish this default testimonial before removing it' : undefined}><Trash2 size={15}/></button></span></div></article>) : <EmptyContent title="No testimonials yet" message="Customer feedback will appear here for review."/>}</div>
             </section>}
 
             {section === 'footer' && <EditorSection title="Footer & Social" description="Contact details come from System Settings; these links shape the storefront footer." onSave={() => saveSection('footer')} saving={saving}>
@@ -153,8 +154,7 @@ export default function ContentManagementPage() {
       </div>
     </section>
     {reviewDraft && <div className="ac-modal-backdrop" onMouseDown={() => !saving && setReviewDraft(null)}><form className="ac-modal" onSubmit={saveReview} onMouseDown={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="review-editor-title"><header><div><h2 id="review-editor-title">{reviewDraft.id ? 'Edit testimonial' : 'Add testimonial'}</h2><p>Only publish quotes you have permission to use.</p></div></header><div className="ac-form-grid">
-       <Field label="Customer name"><input autoFocus required maxLength={60} value={reviewDraft.name} onChange={(event) => setReviewDraft({ ...reviewDraft, name: sanitizePersonName(event.target.value, 60) })}/></Field>
-       <Field label="Label"><input maxLength={40} value={reviewDraft.label} onChange={(event) => setReviewDraft({ ...reviewDraft, label: event.target.value })}/></Field>
+       <Field label="Customer username"><input autoFocus required maxLength={60} value={reviewDraft.username || reviewDraft.name || ''} onChange={(event) => setReviewDraft({ ...reviewDraft, username: event.target.value.trimStart() })}/></Field>
       <Field label="Quote" wide><textarea required rows="5" maxLength={420} value={reviewDraft.quote} onChange={(event) => setReviewDraft({ ...reviewDraft, quote: event.target.value })}/></Field>
       <Field label="Rating"><select value={reviewDraft.rating} onChange={(event) => setReviewDraft({ ...reviewDraft, rating: Number(event.target.value) })}>{[5,4,3,2,1].map((rating) => <option key={rating} value={rating}>{rating} stars</option>)}</select></Field>
       <Field label="Display order"><input type="number" min="0" value={reviewDraft.display_order} onChange={(event) => setReviewDraft({ ...reviewDraft, display_order: Number(event.target.value) })}/></Field>

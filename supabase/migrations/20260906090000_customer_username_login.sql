@@ -14,6 +14,9 @@ with username_candidates as (
   where public.normalize_role(p.role) = 'customer'
     and nullif(btrim(p.username), '') is null
     and nullif(btrim(u.raw_user_meta_data->>'username'), '') is not null
+    -- Leave malformed legacy profiles untouched; the profile validation trigger
+    -- must not prevent the rest of the username backfill from applying.
+    and nullif(btrim(p.full_name), '') ~ '^[A-Za-z][A-Za-z .''-]{1,59}$'
 ), safe_usernames as (
   select candidate.id, candidate.username
   from username_candidates candidate

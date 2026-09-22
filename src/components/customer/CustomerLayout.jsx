@@ -7,10 +7,11 @@ import { useCart } from '../../context/CartContext'
 import { usePricing } from '../../context/usePricing'
 import { isCustomerRole } from '../../lib/auth'
 import LogoutConfirmModal from '../auth/LogoutConfirmModal'
+import { LandingFooter } from '../../pages/LegalPage'
 import { formatVatRate, vatBreakdownFromInclusiveAmount } from '../../utils/pricing'
 
 const centerLinks = [['Menu', '/menu'], ['My Orders', '/orders'], ['Help', '/help'], ['Profile', '/profile']]
-const customerOnlyPaths = new Set(['/orders', '/profile'])
+const landingLinks = [['Menu', '#menu'], ['Our Story', '#about'], ['Visit Us', '#visit']]
 const money = (value) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value)
 
 export default function CustomerLayout() {
@@ -24,6 +25,9 @@ export default function CustomerLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const close = () => setOpen(false)
+  const isLandingPage = location.pathname === '/'
+  const isPublicLandingChrome = true
+  const publicLinks = landingLinks.map(([label, href]) => [label, isLandingPage ? href : `/${href}`])
 
   useEffect(() => {
     if (!cart.drawerOpen) return undefined
@@ -74,13 +78,16 @@ export default function CustomerLayout() {
         </button>
         <nav id="customer-navigation" className={open ? 'open' : ''}>
           <div className="customer-nav-center">
-            {centerLinks.filter(([,to])=>customerUser||!customerOnlyPaths.has(to)).map(([label, to]) => <NavLink key={to} to={to} onClick={close}>{label}</NavLink>)}
+            {customerUser
+              ? centerLinks.map(([label, to]) => <NavLink key={to} to={to} onClick={close}>{label}</NavLink>)
+              : isPublicLandingChrome
+                ? publicLinks.map(([label, href]) => <a key={href} href={href} onClick={close}>{label}</a>)
+                : null}
           </div>
           <div className="customer-nav-actions">
             <button className="nav-cart" type="button" onClick={() => { close(); cart.openCart() }} aria-haspopup="dialog">
               <ShoppingBag size={18} />
-              <span>Cart</span>
-              <b aria-label={`${cart.itemCount} cart items`}>{cart.itemCount}</b>
+              {cart.itemCount > 0 && <b aria-label={`${cart.itemCount} cart items`}>{cart.itemCount}</b>}
             </button>
             {customerUser ? (
               <button className="nav-auth-action" type="button" onClick={() => setLogoutOpen(true)}>
@@ -98,13 +105,7 @@ export default function CustomerLayout() {
       </header>
       <div className="customer-route-shell" key={location.pathname}><Outlet /></div>
       <CartDrawer cart={cart} user={customerUser} />
-      {location.pathname !== '/' && (
-        <footer className="customer-footer">
-          <Brand light />
-          <p>Fresh coffee, homemade comfort, and slow little moments in North Fairview.</p>
-          <small>© 2026 The Coffee Realm.</small>
-        </footer>
-      )}
+      <LandingFooter />
       <LogoutConfirmModal
         open={logoutOpen}
         busy={loggingOut}

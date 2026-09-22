@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Clock, Facebook, Instagram, Mail, MapPin, MessageCircle, Phone, Star } from 'lucide-react'
+import { ArrowRight, Clock, Mail, MapPin, Phone, Star, UserRound } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import Brand from '../components/Brand'
 import BestSellerCarousel from '../components/BestSellerCarousel'
 import Reveal from '../components/Reveal'
 import HowOrderingWorks from '../components/HowOrderingWorks'
@@ -24,10 +23,7 @@ export default function HomePage() {
   const { user, profile } = useAuth()
   const customerUser = Boolean(user && isCustomerRole(profile?.role))
   const [guestPromptOpen, setGuestPromptOpen] = useState(false)
-  const { openProduct, modal } = useProductCustomization({
-    alwaysCustomize: true,
-    modalVariant: 'menu-detail',
-  })
+  const { addToCart, modal } = useProductCustomization({ modalVariant: 'menu-detail' })
   const videoRefs = useRef([])
   const activeLayerRef = useRef(0)
   const currentVideoIndexRef = useRef(0)
@@ -65,7 +61,7 @@ export default function HomePage() {
       setGuestPromptOpen(true)
       return
     }
-    openProduct(item)
+    addToCart(item)
   }
 
   useEffect(() => {
@@ -150,15 +146,11 @@ export default function HomePage() {
             animate="show"
             variants={{ hidden: {}, show: { transition: { staggerChildren: 0.12 } } }}
           >
-            <motion.span className="eyebrow" variants={fadeUp}>{content.hero.eyebrow}</motion.span>
             <motion.h1 variants={fadeUp}>{content.hero.title}</motion.h1>
             <motion.p variants={fadeUp}>{content.hero.body}</motion.p>
             <motion.div className="hero-actions" variants={fadeUp}>
               <Link className="button button-light" to={content.hero.primaryHref || '/menu'}>{content.hero.primaryLabel}</Link>
-            </motion.div>
-            <motion.div className="hero-proof" variants={fadeUp}>
-              <div className="avatar-stack"><span>TC</span><span>CR</span><span>QC</span></div>
-              <span><b>Customer favorites</b> include tiramisu, burnt cheesecake, and cookie boxes.</span>
+              <a className="hero-tour-link" href="/preview/realm-tour/">Preview our café tour <ArrowRight size={17} /></a>
             </motion.div>
           </motion.div>
         </section>
@@ -177,18 +169,42 @@ export default function HomePage() {
           </Reveal>
         </section>}
 
-        <section className="story landing-about" id="about">
-          <Reveal tag="div" className="story-copy">
-            <span className="eyebrow">{content.about.eyebrow}</span>
-            <h2>{content.about.title}</h2>
-            {(content.about.paragraphs || []).filter(Boolean).map((paragraph) => <p key={paragraph}>{paragraph}</p>)}
+        <section className="landing-about" id="about" aria-labelledby="about-title">
+          <div className="landing-about-intro">
+            <Reveal tag="div" className="landing-about-image-wrap">
+              <img src="/images/about-origin.jpg" alt="Warm home interior where The Coffee Realm began" loading="lazy" />
+            </Reveal>
+            <Reveal tag="div" className="landing-about-copy" delay={0.08}>
+              <span className="eyebrow">Our story</span>
+              <h2 id="about-title">The Coffee Realm began at home.</h2>
+              <p>Founded by Mary Grace Baula Jose and Ian Jose, The Coffee Realm grew from a shared passion for coffee and years of café experience into a welcoming place for coffee, food, and desserts in North Fairview, Quezon City.</p>
+              <p>What started as a small home-based business now serves both walk-in and online customers, with a growing team behind every order.</p>
+            </Reveal>
+          </div>
+
+          <Reveal tag="div" className="landing-about-journey" delay={0.06}>
+            <div className="landing-about-journey-heading">
+              <span className="eyebrow">Our journey</span>
+              <h3>Small beginnings, steady steps.</h3>
+            </div>
+            <ol className="landing-about-timeline">
+              <li><span className="landing-about-timeline-marker">01</span><div><h4>2021 — Started from home</h4><p>During the pandemic, coffee was prepared and sold on a small scale from home.</p></div></li>
+              <li><span className="landing-about-timeline-marker">02</span><div><h4>The pop-up chapter</h4><p>As more customers discovered the business, it moved beyond its home-based setup.</p></div></li>
+              <li><span className="landing-about-timeline-marker">03</span><div><h4>A permanent home</h4><p>The journey led to a physical café in North Fairview, Quezon City.</p></div></li>
+              <li><span className="landing-about-timeline-marker">04</span><div><h4>Beyond coffee</h4><p>The menu grew to include pastries, cakes, cookies, sandwiches, pasta, rice meals, and more.</p></div></li>
+              <li><span className="landing-about-timeline-marker">05</span><div><h4>A growing team</h4><p>The café is now supported by a team of 15 people across daily operations.</p></div></li>
+              <li><span className="landing-about-timeline-marker">06</span><div><h4>Serving our community</h4><p>Today, around 150 customers visit or order online on a typical day.</p></div></li>
+            </ol>
           </Reveal>
+
         </section>
 
         <HowOrderingWorks />
 
         <section className="section landing-reviews" id="reviews">
-          <Reveal tag="div" className="section-heading"><div><span className="eyebrow">Customer reviews</span><h2>What our customers say.</h2></div></Reveal>
+          <Reveal tag="div" className="reviews-intro">
+            <div><span className="eyebrow">From the realm</span><h2>What our customers say.</h2></div>
+          </Reveal>
           <motion.div
             className="reviews-grid-react"
             initial="hidden"
@@ -196,20 +212,26 @@ export default function HomePage() {
             viewport={{ once: true, amount: 0.2 }}
             variants={{ hidden: {}, show: { transition: { staggerChildren: 0.12 } } }}
           >
-            {portalData.testimonials.map((review) => <motion.article className="review-card-react" key={review.id || review.name} variants={fadeUp}>
-              <div className="review-stars" aria-label={`${review.rating || 5} star review`}>{Array.from({ length: review.rating || 5 }, (_, index) => <Star key={index}/>)}</div>
-              <p>"{review.quote}"</p>
-              <b>{review.name}</b>
+            {portalData.testimonials.map((review, index) => <motion.article className={`review-card-react review-card-react--${index % 3}`} key={review.id || review.name} variants={fadeUp}>
+              <div className="review-card-top"><span className="review-quote-mark">“</span><div className="review-stars" aria-label={`${review.rating || 5} star review`}>{Array.from({ length: review.rating || 5 }, (_, starIndex) => <Star key={starIndex} fill="currentColor"/>)}</div></div>
+              <p>{review.quote}</p>
+              <footer>
+                <span className="review-author-avatar">{review.avatar_url ? <img src={review.avatar_url} alt="" /> : <UserRound size={17} />}</span>
+                <b>{review.username || review.name}</b>
+              </footer>
             </motion.article>)}
           </motion.div>
         </section>
 
         <section className="landing-map-section" id="visit">
           <Reveal tag="div" className="map-copy">
-            <span className="eyebrow">Visit The Coffee Realm</span>
-            <h2>Find us in North Fairview.</h2>
+            <span className="eyebrow">Visit or contact us</span>
+            <h2>Come by or get in touch.</h2>
+            <p className="map-copy-intro">We’d love to welcome you in North Fairview or help you with your next coffee order.</p>
             <p><MapPin size={18} /> {publicStore.address}</p>
             <p><Clock size={18} /> Weekdays and weekends: 10:00 AM to 12:00 MN</p>
+            <p><Phone size={18} /> {publicStore.phone}</p>
+            <p><Mail size={18} /> <a href={`mailto:${publicStore.email}`}>{publicStore.email}</a></p>
             <a className="button button-dark" href={store.map} target="_blank" rel="noreferrer">Get directions</a>
           </Reveal>
           <Reveal tag="div" className="map-embed-react" delay={0.1}>
@@ -221,33 +243,6 @@ export default function HomePage() {
       {modal}
       <GuestAuthPrompt open={guestPromptOpen} onClose={() => setGuestPromptOpen(false)} returnTo="/" />
 
-      <footer className="landing-footer-react">
-        <div>
-          <Brand light />
-          <p>{content.footer.tagline}</p>
-          <ul>
-            <li><Phone size={16} /> {publicStore.phone}</li>
-            <li><Mail size={16} /> <a href={`mailto:${publicStore.email}`}>{publicStore.email}</a></li>
-            <li><MapPin size={16} /> {publicStore.address}</li>
-          </ul>
-        </div>
-        <div>
-          <h3>Follow us</h3>
-          <div className="footer-social-links">
-            <a href={content.footer.facebookUrl} target="_blank" rel="noreferrer"><Facebook size={18} /> Facebook</a>
-            <a href={content.footer.tiktokUrl} target="_blank" rel="noreferrer"><MessageCircle size={18} /> TikTok</a>
-            <a href={content.footer.instagramUrl} target="_blank" rel="noreferrer"><Instagram size={18} /> Instagram</a>
-          </div>
-        </div>
-        <div>
-          <h3>Store details</h3>
-          <p>Privacy Policy</p>
-          <p>Terms & Conditions</p>
-          <p>Order & Payment Policy</p>
-          <p>Delivery & Pickup Policy</p>
-        </div>
-        <span className="footer-bottom-line">© 2026 The Coffee Realm. All rights reserved.</span>
-      </footer>
     </div>
   )
 }

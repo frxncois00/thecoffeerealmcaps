@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Minus, Plus, ShoppingBag, X } from 'lucide-react'
 import Choice from './Choice'
 import { money } from '../utils/money'
+import { allowsSpecialInstructions } from '../hooks/useProductCustomization'
 
 export default function ProductCustomizationModal({ product, onClose, onAdd, variant = '' }) {
   const closeButtonRef = useRef(null)
@@ -33,10 +34,9 @@ export default function ProductCustomizationModal({ product, onClose, onAdd, var
   const selectedTemperature = temperature || temperatures[0] || ''
   const isCold = /cold|iced/i.test(selectedTemperature)
   const applicableAddons = product.allowAddons
-    ? (product.addons || []).filter(
-        (a) =>
-          !a.appliesTo || a.appliesTo === 'both' || a.appliesTo === product.itemType,
-      )
+    ? [...new Map((product.addons || [])
+      .filter((a) => !a.appliesTo || a.appliesTo === 'both' || a.appliesTo === product.itemType)
+      .map((addon) => [addon.id || addon.name.trim().toLowerCase(), addon])).values()]
     : []
   const selectedAddons = addons.filter((a) => applicableAddons.some((valid) => valid.id === a.id))
   const unitPrice = variation?.price ?? product.basePrice ?? product.price
@@ -112,10 +112,10 @@ export default function ProductCustomizationModal({ product, onClose, onAdd, var
               ))}
             </fieldset>
           )}
-          <label className="field">
+          {allowsSpecialInstructions(product) && <label className="field">
             <span>Special instructions</span>
             <textarea value={instructions} maxLength={300} onChange={(event) => setInstructions(event.target.value)} placeholder="Allergies or preparation notes" />
-          </label>
+          </label>}
         </div>
 
         <div className="add-bar">

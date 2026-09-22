@@ -7,6 +7,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import CashierPage from './pages/CashierPage'
 import CustomerLoginPage from './pages/CustomerLoginPage'
 import HomePage from './pages/HomePage'
+import LegalPage from './pages/LegalPage'
 import HelpPage from './pages/customer/HelpPage'
 import BenefitsPage from './pages/customer/BenefitsPage'
 import InventoryStockPage from './pages/InventoryStockPage'
@@ -43,6 +44,8 @@ export default function App() {
           <Route path="/menu/:slug" element={<ProductPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/privacy-policy" element={<LegalPage />} />
+          <Route path="/terms-of-use" element={<LegalPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/checkout" element={protect(<CheckoutPage />)} />
           <Route path="/checkout/review" element={protect(<OrderReviewPage />)} />

@@ -77,11 +77,15 @@ Deno.serve(async (request) => {
       const wantsSales = lower.includes('sales') || lower.includes('revenue')
       const wantsInventory = lower.includes('inventory') || lower.includes('stock')
       const wantsTransactions = lower.includes('transaction') || lower.includes('payment')
-      if ((wantsSales && ['admin', 'staff'].includes(role)) || (wantsTransactions && ['admin', 'staff', 'cashier'].includes(role))) {
-        const { data } = await dataClient.from('orders').select('order_number,final_total,status,payment_status,created_at').order('created_at', { ascending: false }).limit(1000)
+      const wantsWalkIns = lower.includes('walk-in') || lower.includes('walk in')
+      if ((wantsSales && ['admin', 'staff'].includes(role)) || ((wantsTransactions || wantsWalkIns) && ['admin', 'staff', 'cashier'].includes(role))) {
+        let query = dataClient.from('orders').select('order_number,order_type,final_total,status,payment_status,created_at').order('created_at', { ascending: false }).limit(1000)
+        if (wantsWalkIns) query = query.eq('order_type', 'walk-in')
+        const { data } = await query
         const rows = (data || []).map((order) => [order.order_number, order.final_total, order.status, order.payment_status, order.created_at])
-        const url = await uploadReport(dataClient, user.id, wantsSales ? 'sales-report' : 'transaction-report', ['Order number', 'Amount', 'Status', 'Payment status', 'Created at'], rows)
-        return json({ text: `Your ${wantsSales ? 'sales' : 'transaction'} report is ready: ${url}`, provider: 'workspace', download_url: url })
+        const reportLabel = wantsWalkIns ? 'walk-in orders' : wantsSales ? 'sales' : 'transaction'
+        const url = await uploadReport(dataClient, user.id, wantsWalkIns ? 'walk-in-orders-report' : wantsSales ? 'sales-report' : 'transaction-report', ['Order number', 'Amount', 'Status', 'Payment status', 'Created at'], rows)
+        return json({ text: `Your ${reportLabel} report is ready: ${url}`, provider: 'workspace', download_url: url })
       }
       if (wantsInventory && ['admin', 'staff'].includes(role)) {
         const { data } = await dataClient.from('ingredients').select('name,unit,is_archived,inventory_stock(quantity,min_stock_level)').eq('is_archived', false).limit(500)
@@ -104,22 +108,7 @@ Deno.serve(async (request) => {
     let text = ''
     let provider = ''
 
-    if (geminiKey) {
-      const requestBody = JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 180 } })
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${encodeURIComponent(geminiKey)}`
-      let response = await fetchWithTimeout(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody })
-      if (response.status === 429 || response.status === 503) {
-        await new Promise((resolve) => setTimeout(resolve, 450))
-        response = await fetchWithTimeout(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody })
-      }
-      const result = await response.json()
-      if (response.ok) {
-        text = result?.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text || '').join('').trim() || ''
-        provider = 'gemini'
-      } else providerErrors.push(`Gemini: ${result?.error?.message || response.status}`)
-    }
-
-    if (!text && groqKey) {
+    if (groqKey) {
       const response = await fetchWithTimeout('https://api.groq.com/openai/v1/chat/completions', { method: 'POST', headers: { Authorization: `Bearer ${groqKey}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: 'openai/gpt-oss-20b', messages: [{ role: 'user', content: prompt }], temperature: 0.2, max_tokens: 180 }) })
       const result = await response.json()
       if (response.ok) {
@@ -136,6 +125,21 @@ Deno.serve(async (request) => {
         text = String(result?.result?.response || '').trim()
         provider = 'cloudflare'
       } else providerErrors.push(`Cloudflare: ${result?.errors?.[0]?.message || response.status}`)
+    }
+
+    if (!text && geminiKey) {
+      const requestBody = JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.2, maxOutputTokens: 180 } })
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${encodeURIComponent(geminiKey)}`
+      let response = await fetchWithTimeout(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody })
+      if (response.status === 429 || response.status === 503) {
+        await new Promise((resolve) => setTimeout(resolve, 450))
+        response = await fetchWithTimeout(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: requestBody })
+      }
+      const result = await response.json()
+      if (response.ok) {
+        text = result?.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text || '').join('').trim() || ''
+        provider = 'gemini'
+      } else providerErrors.push(`Gemini: ${result?.error?.message || response.status}`)
     }
 
     if (!text) return json({ error: providerErrors.join(' | ') || 'All AI providers are temporarily unavailable.' }, 502)

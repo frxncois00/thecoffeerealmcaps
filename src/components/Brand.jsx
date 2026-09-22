@@ -1,9 +1,7 @@
-import { Coffee } from 'lucide-react'
-
 export default function Brand({ light = false }) {
   return (
     <a className={`brand ${light ? 'brand-light' : ''}`} href="/" aria-label="The Coffee Realm home">
-      <span className="brand-mark"><Coffee size={20} strokeWidth={1.8} /></span>
+      <span className="brand-mark"><img src="/images/coffeerealmlogo.png" alt="" /></span>
       <span>The Coffee Realm</span>
     </a>
   )

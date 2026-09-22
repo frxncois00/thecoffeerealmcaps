@@ -12,6 +12,15 @@ export function needsCustomization(product) {
   )
 }
 
+export function allowsSpecialInstructions(product) {
+  const category = String(product.category || '').toLowerCase()
+  const name = String(product.name || '').toLowerCase()
+  if (/bread|sandwich|cake|meal|snack|pasta/.test(category)) return false
+  if (/best.?seller box|sampler box/.test(name)) return false
+  if (/cookie/.test(category) && !needsCustomization(product)) return false
+  return true
+}
+
 export function useProductCustomization({ alwaysCustomize = false, modalVariant = '' } = {}) {
   const { addItem } = useCart()
   const [product, setProduct] = useState(null)
@@ -21,7 +30,7 @@ export function useProductCustomization({ alwaysCustomize = false, modalVariant 
   }
 
   const addToCart = (item) => {
-    if (alwaysCustomize || needsCustomization(item)) {
+    if (alwaysCustomize || needsCustomization(item) || allowsSpecialInstructions(item)) {
       openProduct(item)
       return
     }

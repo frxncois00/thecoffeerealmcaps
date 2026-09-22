@@ -5,8 +5,8 @@ import { validateImageFile } from '../utils/imageUpload'
 export const CONTENT_DEFAULTS = {
   hero: {
     eyebrow: 'The Coffee Realm in North Fairview',
-    title: 'Fresh coffee, homemade sweets, and slow little moments.',
-    body: 'We serve comforting coffee-based drinks, freshly baked cookies, homemade cakes, pasta, rice meals, toasts, and snacks in a warm neighborhood space.',
+    title: 'Not just another coffee stop.',
+    body: 'We are a café serving carefully made drinks, homemade treats, and food worth staying for.',
     primaryLabel: 'View full menu', primaryHref: '/menu', secondaryLabel: 'Send us a message', secondaryHref: '/help',
   },
   featured: { eyebrow: 'Customer favorites', title: 'Bestsellers from the realm.', visible: true, itemIds: [] },
@@ -132,10 +132,26 @@ export async function fetchTestimonials({ publicOnly = false } = {}) {
   return data || []
 }
 
+export async function fetchFeedbackCandidates() {
+  requireSupabase()
+  const { data, error } = await supabase.from('order_feedback')
+    .select('id,order_id,customer_id,rating,comment,created_at,orders!inner(status,order_number),profiles(username,full_name,avatar_url)')
+    .in('orders.status', ['Completed', 'Received'])
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return (data || []).filter((item) => item.comment?.trim()).map((item) => ({
+    ...item,
+    username: item.profiles?.username || item.profiles?.full_name || 'Customer',
+    avatar_url: item.profiles?.avatar_url || null,
+    order_number: item.orders?.order_number || '',
+  }))
+}
+
 export async function saveTestimonial(values) {
+  const username = (values.username || values.name || '').trim()
   requireSupabase()
   const payload = {
-    name: values.name.trim(), label: values.label?.trim() || 'Customer', quote: values.quote.trim(),
+    name: username, username, avatar_url: values.avatar_url || null, source_feedback_id: values.source_feedback_id || null, label: '', quote: values.quote.trim(),
     rating: Number(values.rating || 5), visible: Boolean(values.visible), display_order: Number(values.display_order || 0), updated_at: new Date().toISOString(),
   }
   const query = values.id && !String(values.id).startsWith('default-')
@@ -193,5 +209,9 @@ export async function fetchPublicPortalData() {
   const [content, system, testimonials] = await Promise.all([
     fetchPortalConfiguration('content'), fetchPortalConfiguration('system'), fetchTestimonials({ publicOnly: true }),
   ])
-  return { content: content.values, system: system.values, testimonials }
+  const nextContent = content.values
+  const legacyHeroCopy = nextContent.hero?.title === 'Fresh coffee, homemade sweets, and slow little moments.'
+    || nextContent.hero?.body === 'We serve comforting coffee-based drinks, freshly baked cookies, homemade cakes, pasta, rice meals, toasts, and snacks in a warm neighborhood space.'
+  if (legacyHeroCopy) nextContent.hero = { ...nextContent.hero, ...CONTENT_DEFAULTS.hero }
+  return { content: nextContent, system: system.values, testimonials }
 }
