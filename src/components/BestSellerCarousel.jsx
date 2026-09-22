@@ -7,7 +7,7 @@ const AUTO_SLIDE_MS = 4500
 const SWIPE_THRESHOLD = 50
 const WHEEL_COOLDOWN_MS = 400
 
-export default function BestSellerCarousel({ items, onAddToCart }) {
+export default function BestSellerCarousel({ items, onChoose }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [isHovering, setIsHovering] = useState(false)
   const [hasEntered, setHasEntered] = useState(false)
@@ -114,7 +114,7 @@ export default function BestSellerCarousel({ items, onAddToCart }) {
               isActive={offset === 0}
               revealed={hasEntered || prefersReducedMotion}
               onSelect={(cardOffset) => goTo(activeIndex + cardOffset)}
-              onAddToCart={onAddToCart}
+              onChoose={onChoose}
             />
           )
         })}

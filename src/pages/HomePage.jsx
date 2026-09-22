@@ -6,9 +6,12 @@ import Brand from '../components/Brand'
 import BestSellerCarousel from '../components/BestSellerCarousel'
 import Reveal from '../components/Reveal'
 import HowOrderingWorks from '../components/HowOrderingWorks'
+import GuestAuthPrompt from '../components/customer/GuestAuthPrompt'
+import { useAuth } from '../context/AuthContext'
 import { store } from '../data/mockData'
 import { bestSellerItems } from '../data/bestSellers'
 import { useProductCustomization } from '../hooks/useProductCustomization'
+import { isCustomerRole } from '../lib/auth'
 import { CONTENT_DEFAULTS, DEFAULT_TESTIMONIALS, SYSTEM_DEFAULTS, fetchPublicPortalData } from '../services/adminPortalConfigurationService'
 import { fetchMenuCatalog } from '../services/menuService'
 
@@ -18,7 +21,10 @@ const fadeUp = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transi
 const HERO_VIDEOS = ['/assets/vids/part0.mp4', '/assets/vids/part1.mp4', '/assets/vids/part2.mp4']
 const HERO_FADE_SECONDS = 0.9
 export default function HomePage() {
-  const { addToCart, modal } = useProductCustomization({
+  const { user, profile } = useAuth()
+  const customerUser = Boolean(user && isCustomerRole(profile?.role))
+  const [guestPromptOpen, setGuestPromptOpen] = useState(false)
+  const { openProduct, modal } = useProductCustomization({
     alwaysCustomize: true,
     modalVariant: 'menu-detail',
   })
@@ -49,6 +55,18 @@ export default function HomePage() {
     }).catch(() => {})
     return () => { active = false }
   }, [])
+
+  useEffect(() => {
+    if (customerUser) setGuestPromptOpen(false)
+  }, [customerUser])
+
+  const chooseFeaturedItem = (item) => {
+    if (!customerUser) {
+      setGuestPromptOpen(true)
+      return
+    }
+    openProduct(item)
+  }
 
   useEffect(() => {
     const initialVideo = videoRefs.current[0]
@@ -155,7 +173,7 @@ export default function HomePage() {
             <Link className="text-link dark" to="/menu">See full menu <ArrowRight size={17} /></Link>
           </Reveal>
           <Reveal tag="div" delay={0.1}>
-            <BestSellerCarousel items={featuredItems} onAddToCart={addToCart} />
+            <BestSellerCarousel items={featuredItems} onChoose={chooseFeaturedItem} />
           </Reveal>
         </section>}
 
@@ -201,6 +219,7 @@ export default function HomePage() {
       </main>
 
       {modal}
+      <GuestAuthPrompt open={guestPromptOpen} onClose={() => setGuestPromptOpen(false)} returnTo="/" />
 
       <footer className="landing-footer-react">
         <div>

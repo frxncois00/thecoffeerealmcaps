@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion'
-import { Plus } from 'lucide-react'
 
-export default function CoffeeCard({ item, offset, isActive, revealed, onSelect, onAddToCart }) {
+export default function CoffeeCard({ item, offset, isActive, revealed, onSelect, onChoose }) {
   const distance = Math.abs(offset)
   const cardScale = isActive ? 1.06 : distance === 1 ? 0.9 : 0.82
   const cardOpacity = isActive ? 1 : distance === 1 ? 0.62 : distance === 2 ? 0.28 : 0
@@ -17,11 +16,15 @@ export default function CoffeeCard({ item, offset, isActive, revealed, onSelect,
       tabIndex={0}
       aria-label={`${item.name}${isActive ? ', selected' : ', show this coffee'}`}
       aria-current={isActive}
-      onClick={() => onSelect(offset)}
+      onClick={() => {
+        if (isActive) onChoose(item)
+        else onSelect(offset)
+      }}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
-          onSelect(offset)
+          if (isActive) onChoose(item)
+          else onSelect(offset)
         }
       }}
       initial={revealed ? false : {
@@ -58,17 +61,6 @@ export default function CoffeeCard({ item, offset, isActive, revealed, onSelect,
         {item.description && <p>{item.description}</p>}
         <div className="coffee-card-footer">
           <b>PHP {Number(item.price).toFixed(2)}</b>
-          <button
-            type="button"
-            className="coffee-card-add"
-            aria-label={`Add ${item.name} to cart`}
-            onClick={(event) => {
-              event.stopPropagation()
-              onAddToCart(item)
-            }}
-          >
-            <Plus size={16} /> Add to Cart
-          </button>
         </div>
       </div>
     </motion.article>

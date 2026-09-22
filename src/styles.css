@@ -5625,6 +5625,14 @@
 .order-mini-tracker{display:flex;align-items:center;gap:6px;margin-bottom:16px}
 .order-mini-tracker span{flex:1;height:5px;border-radius:999px;background:var(--cr-line)}
 .order-mini-tracker span.done{background:var(--cr-green)}
+.order-tracking-link{display:grid;grid-template-columns:46px minmax(0,1fr) auto;align-items:center;gap:13px;min-height:74px;margin:4px 0 18px;padding:12px 14px;border:1px solid #9fd6c6;border-radius:17px;background:linear-gradient(135deg,#e8f7f1,#f5fbf8);color:#0d5b48;text-decoration:none;box-shadow:0 8px 22px rgba(18,131,107,.1);transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+.order-tracking-link:hover{transform:translateY(-2px);border-color:#5db99f;box-shadow:0 12px 26px rgba(18,131,107,.16)}
+.order-tracking-link:focus-visible{outline:3px solid rgba(213,175,103,.65);outline-offset:3px}
+.order-tracking-link-icon{width:46px;height:46px;display:grid;place-items:center;border-radius:14px;background:#12836b;color:#fff;box-shadow:0 6px 14px rgba(18,131,107,.2)}
+.order-tracking-link-copy{display:grid;gap:2px;min-width:0}
+.order-tracking-link-copy small{color:#397264;font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase}
+.order-tracking-link-copy strong{color:#103f33;font-size:.94rem}
+.order-tracking-link-action{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 14px;border-radius:999px;background:#0f5d48;color:#fff;font-size:.78rem;font-weight:850;white-space:nowrap}
 .order-items-summary{border-top:1px dashed var(--cr-line);border-bottom:1px dashed var(--cr-line);padding:12px 0;margin:8px 0}
 .order-item-row{display:flex;justify-content:space-between;gap:12px;font-size:.86rem;padding:4px 0;color:var(--cr-ink)}
 .order-card-meta-row{display:flex;justify-content:space-between;font-size:.78rem;color:var(--cr-muted);margin:10px 0}
@@ -5668,7 +5676,18 @@
 @media(max-width:560px){.receipt-modal{width:calc(100vw - 16px);padding:18px 12px 12px}.customer-receipt-paper{width:100%!important;min-width:0!important}}
 
 .feedback-stars{display:flex;gap:6px;color:#d9a441;margin:14px 0}
-.feedback-stars.interactive button{border:0;background:none;color:#d9a441;padding:0}
+.feedback-stars.interactive{justify-content:center;gap:8px;margin:10px 0 20px}
+.feedback-stars.interactive button{width:44px;height:44px;display:grid;place-items:center;border:1px solid transparent;border-radius:50%;background:#fff8e8;color:#d09a32;padding:0;cursor:pointer;transition:transform .18s ease,border-color .18s ease,background .18s ease}
+.feedback-stars.interactive button:hover{transform:translateY(-2px) scale(1.05);border-color:#e2bd72;background:#fff3d6}
+.feedback-stars.interactive button:focus-visible{outline:3px solid rgba(213,175,103,.55);outline-offset:2px}
+.feedback-modal{width:min(520px,calc(100vw - 24px))}
+.feedback-thank-you{display:grid;grid-template-columns:58px minmax(0,1fr);gap:16px;align-items:start;padding-right:20px}
+.feedback-thank-you>span{width:58px;height:58px;display:grid;place-items:center;border-radius:50%;background:linear-gradient(135deg,#e4f4e8,#f8f2dc);color:var(--cr-green)}
+.feedback-thank-you small{display:block;margin:2px 0 5px;color:var(--cr-green);font-size:.68rem;font-weight:850;letter-spacing:.1em;text-transform:uppercase}
+.feedback-thank-you h2{margin:0;color:var(--cr-ink);font-family:Georgia,serif;font-size:1.7rem}
+.feedback-thank-you p{margin:8px 0 0;color:var(--cr-muted);font-size:.84rem;line-height:1.55}
+.feedback-question{margin:24px 0 0;text-align:center;color:var(--cr-ink);font-size:1rem}
+@media(max-width:520px){.feedback-thank-you{grid-template-columns:48px minmax(0,1fr);gap:12px}.feedback-thank-you>span{width:48px;height:48px}.feedback-thank-you h2{font-size:1.45rem}.feedback-stars.interactive{gap:4px}}
 
 @media print{
   body *{visibility:hidden}
@@ -5676,7 +5695,7 @@
   #printable-receipt{position:absolute;left:0;top:0;width:100%}
 }
 
-@media(max-width:760px){.past-order-actions{grid-template-columns:1fr 1fr}.order-card-actions{flex-direction:column;align-items:stretch}}
+@media(max-width:760px){.past-order-actions{grid-template-columns:1fr 1fr}.order-card-actions{flex-direction:column;align-items:stretch}.order-tracking-link{grid-template-columns:44px minmax(0,1fr);padding:12px}.order-tracking-link-icon{width:44px;height:44px}.order-tracking-link-action{grid-column:1/-1;justify-content:center;width:100%}}
 
 /* ---- Track Order modal ---- */
 .track-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.5);display:grid;place-items:center;padding:20px;z-index:60}

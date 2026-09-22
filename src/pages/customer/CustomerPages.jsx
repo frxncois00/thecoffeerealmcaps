@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronLeft, Clock3, Coffee, CreditCard, Info, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Trash2, X, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronLeft, Coffee, CreditCard, Info, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Trash2, X, XCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -285,7 +285,7 @@ export function OrderReviewPage(){
       setBusy(false)
     }
   };
-  const finish=destination=>{const orderId=createdOrder?.order_id||createdOrder?.id;if(!orderId)return;clearCart();if(destination==='menu'){navigate('/menu',{replace:true});return}navigate(`/orders/${orderId}/track`,{replace:true,state:{order:createdOrder,freshOrder}})};
+  const finish=destination=>{const orderId=createdOrder?.order_id||createdOrder?.id;if(!orderId)return;clearCart();if(destination==='menu'){navigate('/menu',{replace:true});return}navigate('/orders',{replace:true,state:{trackOrderId:orderId,order:{...createdOrder,id:createdOrder?.id||orderId}}})};
   const placeReviewedOrder=()=>{if(form.payment==='cod'){setModal('cod-confirm');return}if(!paymentProof){setError('Payment proof is missing. Return to checkout and upload it again.');return}place(paymentProof,form.paymentReference)}
   const itemCount=items.reduce((sum,item)=>sum+Number(item.quantity||0),0)
   const scheduledDay=scheduleDates.find(option=>option.id===form.scheduleDate)?.name||form.scheduleDate
@@ -331,7 +331,7 @@ export function OrderReviewPage(){
     {modal==='cod-confirm'&&form.payment==='cod'&&<CodConfirmationModal paymentConfig={paymentConfig} total={total} busy={busy} onClose={()=>setModal(null)} onConfirm={()=>place()}/>}
     {modal==='complete'&&<OrderCompleteModal order={createdOrder||mergePlacedOrderData({order:{},form,items,total})} freshOrder={freshOrder} fallbackEstimatedTime={form.estimatedDeliveryTime} onTrack={()=>finish('track')} onContinue={()=>finish('menu')}/>}
   </main>
-}export function OrderConfirmationPage(){const {state}=useLocation();const {id}=useParams();const order=state?.order||{order_number:id,status:'Pending',fulfillment:'delivery',payment:'pending',total:0};return <main className="customer-main narrow"><section className="success-card"><span><Check/></span><small>Order received</small><h1>Thank you. Weâ€™re on it!</h1><p>Your order <b>{customerOrderNumber(order.order_number)}</b> has been placed and is waiting for store confirmation.</p><div><p><span>Status</span><b>{order.status}</b></p><p><span>Fulfillment</span><b>{order.fulfillment||order.fulfillment_method}</b></p><p><span>Total</span><b>{money(order.total||order.total_amount||0)}</b></p></div><Link className="primary-button" to={`/orders/${id}/track`}>Track order</Link><Link className="secondary-button" to="/orders">View my orders</Link><Link className="text-button" to="/menu">Continue shopping</Link></section></main>}
+}export function OrderConfirmationPage(){const {state}=useLocation();const {id}=useParams();const order=state?.order||{order_number:id,status:'Pending',fulfillment:'delivery',payment:'pending',total:0};return <main className="customer-main narrow"><section className="success-card"><span><Check/></span><small>Order received</small><h1>Thank you. Weâ€™re on it!</h1><p>Your order <b>{customerOrderNumber(order.order_number)}</b> has been placed and is waiting for store confirmation.</p><div><p><span>Status</span><b>{order.status}</b></p><p><span>Fulfillment</span><b>{order.fulfillment||order.fulfillment_method}</b></p><p><span>Total</span><b>{money(order.total||order.total_amount||0)}</b></p></div><Link className="primary-button" to="/orders" state={{trackOrderId:id,order:{...order,id:order.id||id}}}>Track order</Link><Link className="secondary-button" to="/orders">View my orders</Link><Link className="text-button" to="/menu">Continue shopping</Link></section></main>}
 const CANCELLABLE_RAW_STATUSES=['Order Received','Awaiting Payment Verification','Pending Confirmation']
 const isCancellationReview=order=>order?.cancellation_status==='requested'||Boolean(order?.fulfillment_hold)
 const canCustomerCancel=order=>CANCELLABLE_RAW_STATUSES.includes(String(order?.status||'').trim())&&!isCancellationReview(order)
@@ -352,6 +352,8 @@ const orderItemDetail=(item,addonNames)=>{const custom=item.customizations||{};c
 
 export function MyOrdersPage(){
   const {user}=useAuth()
+  const location=useLocation()
+  const navigate=useNavigate()
   const [tab,setTab]=useState('current')
   const [orders,setOrders]=useState([])
   const [addonNames,setAddonNames]=useState({})
@@ -363,6 +365,7 @@ export function MyOrdersPage(){
   const [cancelOrder,setCancelOrderTarget]=useState(null)
   const [receiptOrder,setReceiptOrder]=useState(null)
   const [feedbackOrder,setFeedbackOrder]=useState(null)
+  const [feedbackThankYou,setFeedbackThankYou]=useState(false)
   const [reorderState,setReorderState]=useState(null)
   const [toast,setToast]=useState('')
   const [receiveError,setReceiveError]=useState('')
@@ -390,6 +393,18 @@ export function MyOrdersPage(){
   const cancelledOrders=orders.filter(o=>o.status==='Cancelled')
   const visiblePast=pastOrders.slice(0,pastPage*6)
 
+  useEffect(()=>{
+    const targetId=location.state?.trackOrderId
+    if(!targetId||loading)return
+    const storedOrder=orders.find(order=>String(order.id)===String(targetId))
+    const fallbackOrder=location.state?.order?{...location.state.order,id:location.state.order.id||location.state.order.order_id||targetId}:null
+    const targetOrder=storedOrder||fallbackOrder
+    if(!targetOrder)return
+    setTab('current')
+    setTrackOrder(targetOrder)
+    navigate('/orders',{replace:true,state:null})
+  },[loading,location.state,navigate,orders])
+
   const patchOrder=(id,patch)=>setOrders(current=>current.map(o=>o.id===id?{...o,...patch}:o))
 
   const runReceive=async order=>{
@@ -397,9 +412,12 @@ export function MyOrdersPage(){
     setReceivingId(order.id);setReceiveError('')
     try{
       await confirmCustomerOrderReceived(order.id)
-      patchOrder(order.id,{status:'Received',received_at:new Date().toISOString(),receipt_confirmation:'customer'})
+      const receivedOrder={...order,status:'Received',received_at:new Date().toISOString(),receipt_confirmation:'customer'}
+      patchOrder(order.id,receivedOrder)
       setTrackOrder(null)
-      setToast(`${customerOrderNumber(order.order_number)} was marked as received.`)
+      setTab('past')
+      setFeedbackThankYou(true)
+      setFeedbackOrder(receivedOrder)
     }catch(cause){
       setReceiveError(describeError(cause,'Could not confirm that this order was received.'))
     }finally{
@@ -458,7 +476,7 @@ export function MyOrdersPage(){
       {tab==='past'&&(pastOrders.length===0?<EmptyOrders hasAny={orders.length>0} label="past orders"/>:<>
         <section className="orders-grid">{visiblePast.map((order,index)=><PastOrderCard key={order.id} order={order} index={index}
           onView={()=>setDetailOrder(order)} onReceipt={()=>setReceiptOrder(order)}
-          onReorder={()=>runReorder(order)} onFeedback={()=>setFeedbackOrder(order)}
+          onReorder={()=>runReorder(order)} onFeedback={()=>{setFeedbackThankYou(false);setFeedbackOrder(order)}}
           reordering={reorderState?.orderId===order.id&&reorderState.busy}/>)}</section>
         {visiblePast.length<pastOrders.length&&<button className="secondary-button full" type="button" onClick={()=>setPastPage(p=>p+1)}>Load more</button>}
       </>)}
@@ -469,7 +487,7 @@ export function MyOrdersPage(){
     <AnimatePresence>{trackOrder&&<TrackOrderModal order={orders.find(o=>o.id===trackOrder.id)||trackOrder} onClose={()=>setTrackOrder(null)} onReceive={()=>runReceive(orders.find(o=>o.id===trackOrder.id)||trackOrder)} receiving={receivingId===trackOrder.id}/>}</AnimatePresence>
     <AnimatePresence>{cancelOrder&&<CancelOrderModal order={cancelOrder} onClose={()=>setCancelOrderTarget(null)} onConfirm={runCancel}/>}</AnimatePresence>
     <AnimatePresence>{receiptOrder&&<ReceiptModal order={receiptOrder} addonNames={addonNames} onClose={()=>setReceiptOrder(null)}/>}</AnimatePresence>
-    <AnimatePresence>{feedbackOrder&&<FeedbackModal order={feedbackOrder} userId={user?.id} onClose={()=>setFeedbackOrder(null)} onDone={()=>setToast('Thanks for your feedback!')}/>}</AnimatePresence>
+    <AnimatePresence>{feedbackOrder&&<FeedbackModal order={feedbackOrder} userId={user?.id} thankYou={feedbackThankYou} onClose={()=>{setFeedbackOrder(null);setFeedbackThankYou(false)}} onDone={()=>setToast('Thanks for your feedback!')}/>}</AnimatePresence>
     <AnimatePresence>{reorderState&&!reorderState.busy&&<ReorderResultModal state={reorderState} onClose={()=>setReorderState(null)}/>}</AnimatePresence>
   </main>
 }
@@ -498,13 +516,17 @@ function CurrentOrderCard({order,addonNames,onView,onCancel,onTrack,onReceive,re
     </header>
     <p className="order-status-message">{isCancellationReview(order)?'Your order is on hold while the store checks payment and refund requirements.':STATUS_MESSAGE[status]||'Waiting for update'}</p>
     <div className="order-mini-tracker">{steps.map((step,index)=><span key={step} className={index<=currentIndex?'done':''} title={step}/>)}</div>
+    {status==='Out for Delivery'&&order.tracking_url&&<a className="order-tracking-link" href={order.tracking_url} target="_blank" rel="noreferrer" aria-label="Open live delivery tracking in a new tab">
+      <span className="order-tracking-link-icon"><Bike size={20}/></span>
+      <span className="order-tracking-link-copy"><small>Live delivery tracking</small><strong>Follow your order on the map</strong></span>
+      <span className="order-tracking-link-action">Open tracker <ArrowRight size={18}/></span>
+    </a>}
     <OrderItemsSummary order={order} addonNames={addonNames} compact/>
     <div className="order-card-meta-row">
       <span>{paymentMethodLabel(orderPaymentMethod(order))} · {orderPaymentStatus(order)}</span>
       <span>{orderScheduleLabel(order)}</span>
     </div>
     <div className="order-card-total"><span>Total</span><b>{money(Number(order.final_total||0))}</b></div>
-    {status==='Out for Delivery'&&order.tracking_url&&<a className="order-tracking-link" href={order.tracking_url} target="_blank" rel="noreferrer">Open delivery tracking</a>}
     <div className="order-card-actions">
       <button className="secondary-button" type="button" onClick={onView}>View Details</button>
       <button className="primary-button" type="button" onClick={onTrack}>Track Order</button>
@@ -618,9 +640,49 @@ const receiptOrderNumber=order=>String(order?.order_number||order?.orderNumber||
 const receiptScheduleValue=order=>{const date=order?.schedule_date||order?.scheduleDate;const time=order?.schedule_time||order?.scheduleTime;if(!date||!time)return'To be confirmed';const minutes=parseScheduleMinutes(time);const longDate=new Intl.DateTimeFormat('en-PH',{month:'long',day:'numeric',year:'numeric'}).format(new Date(`${date}T00:00:00`));return `${longDate} at ${minutes===null?String(time).slice(0,5):timeLabel(minutes)}`}
 const receiptProofStatus=order=>{const method=orderPaymentMethod(order);if(method==='cod')return'';const raw=String(order?.payments?.[0]?.status||order?.payment_status||'pending').toLowerCase();const uploaded=Boolean(order?.payment_proof_path);if(raw==='paid'||raw==='verified'||raw==='confirmed')return uploaded?'Uploaded and verified':'Verified';if(raw==='failed')return uploaded?'Uploaded with issue':'Payment issue';return uploaded?'Uploaded and pending verification':'Not uploaded'}
 const receiptItemDetails=(item,addonNames)=>{const custom=item.customizations||{};const addons=(item.addons||[]).map(id=>addonNames[id]||id);return [custom.sugarLevel,custom.temperature,custom.iceLevel,...addons,custom.special_instructions?`Note: ${custom.special_instructions}`:''].filter(Boolean)}
+const CUSTOMER_RECEIPT_PRINT_CSS=`
+  @page{size:A4 portrait;margin:12mm}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#fff;color:#000}
+  body{font:11px/1.4 "Courier New",Courier,monospace;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .receipt-print-area{width:80mm;margin:0 auto;padding:5mm 4mm;border:1px solid #4b4b4b;background:#fff}
+  .receipt-print-area *{box-sizing:border-box;font-family:inherit;overflow-wrap:break-word}
+  .receipt-header,.receipt-footer{text-align:center}
+  .customer-receipt-brand-badge{display:grid;place-items:center;width:15mm;height:15mm;margin:0 auto 3mm;border:1px solid #4b4b4b;border-radius:50%}
+  .receipt-logo{display:block;width:11mm;height:11mm;object-fit:contain}
+  .receipt-store-name{font-size:16px;font-weight:800;letter-spacing:.06em}
+  .receipt-store-info{font-size:10px;line-height:1.3}
+  .receipt-line{width:100%;margin:2mm 0;border-top:1px dashed #000}
+  .receipt-row,.receipt-total-row{display:flex;align-items:flex-start;justify-content:space-between;gap:3mm;width:100%;margin:.8mm 0}
+  .receipt-label{flex:0 0 28mm;text-align:left}
+  .receipt-value{flex:1;min-width:0;text-align:right}
+  .receipt-table-header,.receipt-item{display:grid;grid-template-columns:7mm minmax(0,1fr) 24mm;gap:1.5mm;width:100%}
+  .receipt-table-header{font-weight:800}
+  .receipt-item{margin-bottom:1.2mm;break-inside:avoid}
+  .receipt-item-name{min-width:0}
+  .receipt-item-price{text-align:right;white-space:nowrap}
+  .receipt-option{grid-column:2/4;font-size:10px;line-height:1.3}
+  .receipt-grand-total{font-size:13px;font-weight:900}
+  .receipt-footer{margin-top:3mm;font-size:10px;line-height:1.45}
+`
+
+function printCustomerReceipt(element,orderNumber){
+  if(!element)return
+  const printWindow=window.open('','coffee-realm-receipt','width=520,height=760')
+  if(!printWindow)return
+  printWindow.document.open()
+  printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><base href="${window.location.origin}/"><title>The Coffee Realm receipt</title><style>${CUSTOMER_RECEIPT_PRINT_CSS}</style></head><body>${element.outerHTML}</body></html>`)
+  printWindow.document.close()
+  printWindow.document.title=`Receipt ${orderNumber}`
+  const images=[...printWindow.document.images]
+  const ready=images.length?Promise.all(images.map(image=>image.complete?Promise.resolve():new Promise(resolve=>{image.addEventListener('load',resolve,{once:true});image.addEventListener('error',resolve,{once:true})}))):Promise.resolve()
+  ready.then(()=>window.setTimeout(()=>{printWindow.focus();printWindow.print()},120))
+  printWindow.addEventListener('afterprint',()=>printWindow.close(),{once:true})
+}
 
 function ReceiptModal({order,addonNames,onClose}){
   const { pricing } = usePricing()
+  const receiptRef=useRef(null)
   const items=order.order_items||[]
   const paymentMethod=paymentMethodLabel(orderPaymentMethod(order))
   const paymentProof=receiptProofStatus(order)
@@ -632,7 +694,7 @@ function ReceiptModal({order,addonNames,onClose}){
     <motion.section className="payment-modal receipt-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-title" {...modalMotion}>
       <button className="payment-modal-close" type="button" onClick={onClose} aria-label="Close">&times;</button>
       <div className="receipt-preview-shell customer-receipt-shell">
-        <div id="printable-receipt" className="receipt-print-area customer-receipt-paper">
+        <div ref={receiptRef} id="printable-receipt" className="receipt-print-area customer-receipt-paper">
           <div className="receipt-header">
             <span className="customer-receipt-brand-badge"><img className="receipt-logo" src="/images/coffeerealmlogo.png" alt="Store logo" /></span>
             <div className="receipt-store-name" id="receipt-title">THE COFFEE REALM</div>
@@ -668,12 +730,12 @@ function ReceiptModal({order,addonNames,onClose}){
           <div className="receipt-footer">{isDelivery?'Please check your items upon delivery.':'Please check your order before leaving the store.'}<br/>Thank you for choosing The Coffee Realm.</div>
         </div>
       </div>
-      <div className="payment-modal-actions"><button className="primary-button" type="button" onClick={()=>window.print()}><Printer size={15}/> Print</button></div>
+      <div className="payment-modal-actions"><button className="primary-button" type="button" onClick={()=>printCustomerReceipt(receiptRef.current,receiptOrderNumber(order))}><Printer size={15}/> Print</button></div>
     </motion.section>
   </motion.div>
 }
 
-function FeedbackModal({order,userId,onClose,onDone}){
+function FeedbackModal({order,userId,thankYou=false,onClose,onDone}){
   const [existing,setExisting]=useState(null)
   const [loading,setLoading]=useState(true)
   const [rating,setRating]=useState(5)
@@ -687,15 +749,15 @@ function FeedbackModal({order,userId,onClose,onDone}){
     catch(cause){setError(describeError(cause,'Could not submit feedback.'));setBusy(false)}
   }
   return <motion.div className="payment-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget&&!busy)onClose()}} {...backdropMotion}>
-    <motion.section className="payment-modal" role="dialog" aria-modal="true" aria-labelledby="feedback-title" {...modalMotion}>
+    <motion.section className="payment-modal feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedback-title" {...modalMotion}>
       <button className="payment-modal-close" type="button" onClick={onClose} disabled={busy} aria-label="Close">×</button>
-      <span className="payment-modal-kicker">{customerOrderNumber(order.order_number)}</span>
-      <h2 id="feedback-title">{loading?'Loading…':existing?'Your feedback':'Leave feedback'}</h2>
+      {thankYou?<div className="feedback-thank-you"><span><PartyPopper size={27}/></span><div><small>Delivery confirmed · {customerOrderNumber(order.order_number)}</small><h2 id="feedback-title">Thank you for your order!</h2><p>We hope everything arrived just right. Your feedback helps The Coffee Realm serve you better.</p></div></div>:<><span className="payment-modal-kicker">{customerOrderNumber(order.order_number)}</span><h2 id="feedback-title">{loading?'Loading…':existing?'Your feedback':'Leave feedback'}</h2></>}
       {loading?null:existing?<div><div className="feedback-stars">{[1,2,3,4,5].map(n=><Star key={n} size={22} fill={n<=existing.rating?'currentColor':'none'}/>)}</div><p>{existing.comment||'No comment left.'}</p></div>:<>
+        {thankYou&&<h3 className="feedback-question">How was your order?</h3>}
         <div className="feedback-stars interactive">{[1,2,3,4,5].map(n=><button key={n} type="button" onClick={()=>setRating(n)} aria-label={`${n} star${n===1?'':'s'}`}><Star size={26} fill={n<=rating?'currentColor':'none'}/></button>)}</div>
-        <label className="field"><span>Comments (optional)</span><textarea rows="3" value={comment} onChange={e=>setComment(e.target.value)}/></label>
+        <label className="field"><span>Comments (optional)</span><textarea rows="3" maxLength="500" value={comment} onChange={e=>setComment(e.target.value)} placeholder="Tell us what you enjoyed or what we can improve."/></label>
         {error&&<p className="form-error">{error}</p>}
-        <div className="payment-modal-actions"><button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Cancel</button><button className="primary-button" type="button" onClick={submit} disabled={busy}>{busy?'Saving…':'Submit feedback'}</button></div>
+        <div className="payment-modal-actions"><button className="secondary-button" type="button" onClick={onClose} disabled={busy}>{thankYou?'Maybe later':'Cancel'}</button><button className="primary-button" type="button" onClick={submit} disabled={busy}>{busy?'Saving…':'Submit feedback'}</button></div>
       </>}
     </motion.section>
   </motion.div>
@@ -752,41 +814,6 @@ function TrackOrderModal({order,onClose,onReceive,receiving}){
   </motion.div>
 }
 
-export function OrderTrackingPage(){
-  const {id}=useParams()
-  const {state}=useLocation()
-  const [order,setOrder]=useState(state?.order||null)
-  const [loading,setLoading]=useState(!state?.order)
-  const [error,setError]=useState('')
-  const [receiving,setReceiving]=useState(false)
-  const freshOrder=Boolean(state?.freshOrder)
-  useEffect(()=>{
-    let active=true
-    setLoading(true)
-    fetchCustomerOrder(id).then(data=>{
-      if(!active)return
-      if(data)setOrder(current=>current?{...current,...data,payments:data.payments?.length?data.payments:current.payments,order_items:data.order_items?.length?data.order_items:current.order_items}:data)
-      setError('')
-    }).catch(cause=>{if(active)setError(cause.message||'Could not load this order.')}).finally(()=>{if(active)setLoading(false)})
-    return()=>{active=false}
-  },[id])
-  const receive=async()=>{
-    if(!order||receiving)return
-    setReceiving(true);setError('')
-    try{
-      await confirmCustomerOrderReceived(order.id)
-      setOrder(current=>({...current,status:'Received',received_at:new Date().toISOString(),receipt_confirmation:'customer'}))
-    }catch(cause){setError(describeError(cause,'Could not confirm that this order was received.'))}
-    finally{setReceiving(false)}
-  }
-  if(loading&&!order)return <main className="customer-state">Loading order…</main>
-  if(error&&!order)return <main className="customer-state error-state"><h2>We couldn’t load this order.</h2><p>{error}</p></main>
-  if(!order)return <NotFoundPage/>
-  const status=orderStatusLabel(order,{fresh:freshOrder})
-  const steps=trackingSteps(order)
-  const current=Math.max(steps.indexOf(status),0)
-  return <main className="customer-main narrow"><section className="page-title"><span>Live order status</span><h1>Track {customerOrderNumber(order.order_number||id)}</h1></section><section className="tracking-card">{steps.map((step,index)=><div className={index<=current?'done':''} key={step}><span>{index<current?<Check/>:index===current?<Clock3/>:<PackageCheck/>}</span><div><h2>{step}</h2><p>{index===current?trackingStatusCopy(order,status):index<current?'Completed':'Waiting for update'}</p></div></div>)}</section><section className="review-card"><h2>Order details</h2><p>{orderCount(order)} item{orderCount(order)===1?'':'s'} · {paymentMethodLabel(orderPaymentMethod(order))}</p><p>{fulfillmentLabel(order.order_type)}{order.delivery_address?` · ${order.delivery_address}`:''}</p><p>Scheduled for {orderScheduleLabel(order)}</p><strong>Total: {money(Number(order.final_total||0))}</strong>{status==='Out for Delivery'&&order.order_type==='delivery'&&<button className="primary-button full order-received-button" type="button" onClick={receive} disabled={receiving}><Check size={16}/> {receiving?'Confirming…':'Confirm Order Received'}</button>}</section>{error&&<p className="field-hint error">{error}</p>}</main>
-}
 export function ProfilePage(){
   const {profile,user,updateProfile}=useAuth()
   const [values,setValues]=useState({full_name:'',username:'',email:'',phone:''})

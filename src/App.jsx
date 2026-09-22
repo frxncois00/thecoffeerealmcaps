@@ -27,7 +27,6 @@ import {
   NotFoundPage,
   OrderConfirmationPage,
   OrderReviewPage,
-  OrderTrackingPage,
   ProductPage,
   ProfilePage,
 } from './pages/customer/CustomerPages'
@@ -49,7 +48,7 @@ export default function App() {
           <Route path="/checkout/review" element={protect(<OrderReviewPage />)} />
           <Route path="/orders" element={protect(<MyOrdersPage />)} />
           <Route path="/orders/:id/confirmation" element={protect(<OrderConfirmationPage />)} />
-          <Route path="/orders/:id/track" element={protect(<OrderTrackingPage />)} />
+          <Route path="/orders/:id/track" element={protect(<Navigate to="/orders" replace />)} />
           <Route path="/profile" element={protect(<ProfilePage />)} />
           <Route path="/profile/benefits" element={protect(<BenefitsPage />)} />
           <Route path="/addresses" element={<Navigate to="/profile" replace />} />
