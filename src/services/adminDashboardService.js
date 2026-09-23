@@ -37,7 +37,7 @@ export async function fetchDashboardData() {
     supabase.from('ingredients').select('id,name,unit,supplier,expiration_date,is_archived,inventory_stock(quantity,min_stock_level,high_stock_level)').eq('is_archived', false),
     supabase.from('finished_products').select('id,name,unit,quantity,min_stock_level,high_stock_level,supplier,expiration_date,is_archived').eq('is_archived', false),
     supabase.from('menu_items').select('id,name,is_available,manual_available,unavailable_reason,is_archived').eq('is_archived', false),
-    supabase.from('portal_audit_events').select('id,occurred_at,actor_name_snapshot,module,summary,result,severity').order('occurred_at', { ascending: false }).limit(12),
+    supabase.from('portal_audit_events').select('id,occurred_at,actor_id,actor_name_snapshot,module,action,entity_id,summary,result,severity').order('occurred_at', { ascending: false }).limit(40),
     supabase.from('portal_configuration').select('key,value,updated_at').eq('scope', 'system'),
   ])
   if (ordersError) throw ordersError
@@ -116,6 +116,7 @@ export function computeDashboardMetrics(raw) {
   const salesByDay = new Map()
   const ordersByDay = new Map()
   const paidOrdersByDay = new Map()
+  const itemsByDay = new Map()
   orders.filter(isCounted).forEach((o) => {
     const day = isoDay(new Date(o.created_at))
     ordersByDay.set(day, (ordersByDay.get(day) || 0) + 1)
@@ -124,10 +125,13 @@ export function computeDashboardMetrics(raw) {
     const day = isoDay(new Date(o.created_at))
     salesByDay.set(day, (salesByDay.get(day) || 0) + Number(o.final_total || 0))
     paidOrdersByDay.set(day, (paidOrdersByDay.get(day) || 0) + 1)
+    const units = (o.order_items || []).reduce((total, item) => total + Number(item.quantity || 0), 0)
+    itemsByDay.set(day, (itemsByDay.get(day) || 0) + units)
   })
   const salesTrend = []
   const ordersTrend = []
   const averageOrderTrend = []
+  const itemsTrend = []
   for (let i = 13; i >= 0; i -= 1) {
     const day = isoDay(dayStart(-i))
     const sales = salesByDay.get(day) || 0
@@ -135,6 +139,7 @@ export function computeDashboardMetrics(raw) {
     salesTrend.push({ day, total: sales })
     ordersTrend.push({ day, total: ordersByDay.get(day) || 0 })
     averageOrderTrend.push({ day, total: paidOrders ? sales / paidOrders : 0 })
+    itemsTrend.push({ day, total: itemsByDay.get(day) || 0 })
   }
 
   const fulfillmentCounts = { delivery: 0, pickup: 0, 'walk-in': 0 }
@@ -203,11 +208,11 @@ export function computeDashboardMetrics(raw) {
   })
 
   return {
-    totalSales, salesChangePct, totalOrders, avgOrderValue, completionRate,
+    totalSales, salesChangePct, totalOrders, avgOrderValue, completionRate, itemsSold: itemsByDay.get(today) || 0,
     totalCustomers,
     completedOrders, cancelledOrders, voidedOrders, refundedOrders, refundedAmount,
     lowStockItems, outOfStockItems, expiringItems, unavailableMenuItems, stockBlockedMenuItems,
-    salesTrend, ordersTrend, averageOrderTrend, fulfillmentCounts, paymentTotals, paymentUsage, bestSellers, recentOrders, newCustomers, returningCustomers,
+    salesTrend, ordersTrend, averageOrderTrend, itemsTrend, fulfillmentCounts, paymentTotals, paymentUsage, bestSellers, recentOrders, newCustomers, returningCustomers,
     attentionOrders, orderStageCounts, pendingRefunds, pendingRefundAmount,
     auditEvents, criticalAuditEvents,
     storeStatus: orderingConfig.storeStatus || 'open',

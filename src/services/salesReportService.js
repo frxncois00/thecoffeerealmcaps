@@ -21,12 +21,26 @@ const PAID_STATES = new Set(['paid', 'verified', 'confirmed'])
 const SETTLED_ORDER_STATES = new Set(['completed', 'received'])
 const PROCESSED_REFUND_STATES = new Set(['processed', 'completed'])
 const PASTRY_SUBCATEGORY_PATTERN = /(cake|cookie|bread|pastr|bakery|dessert)/i
+const AMBIGUOUS_SUBCATEGORY_PATTERN = /sandwich(?:es)? .*bread(?:s)?|bread(?:s)? .*sandwich(?:es)?/i
+const SUBCATEGORY_REPORT_GROUPS = new Map([
+  ['sandwich', 'Food'], ['sandwiches', 'Food'], ['pasta', 'Food'], ['snack', 'Food'], ['snacks', 'Food'],
+  ['cookie', 'Pastries'], ['cookies', 'Pastries'], ['bread', 'Pastries'], ['breads', 'Pastries'], ['cake', 'Pastries'], ['cakes', 'Pastries'],
+  ['non coffee', 'Drinks'], ['noncoffee', 'Drinks'], ['tcr special', 'Drinks'], ['tcr specials', 'Drinks'],
+])
+
+function normalizeTaxonomyName(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+}
 
 function reportCategory(taxonomy = {}) {
-  const main = String(taxonomy.mainName || taxonomy.mainLabel || '').toLowerCase()
-  const subcategory = `${taxonomy.subcategoryName || ''} ${taxonomy.subcategoryLabel || ''}`
-  if (main === 'drinks' || main === 'drink') return 'Drinks'
+  const main = normalizeTaxonomyName(taxonomy.mainName || taxonomy.mainLabel)
+  const subcategories = [taxonomy.subcategoryName, taxonomy.subcategoryLabel].map(normalizeTaxonomyName).filter(Boolean)
+  const subcategory = subcategories.join(' ')
+  if (AMBIGUOUS_SUBCATEGORY_PATTERN.test(subcategory)) return 'Other'
+  const explicitGroup = subcategories.map((name) => SUBCATEGORY_REPORT_GROUPS.get(name)).find(Boolean)
+  if (explicitGroup) return explicitGroup
   if (PASTRY_SUBCATEGORY_PATTERN.test(subcategory)) return 'Pastries'
+  if (main === 'drinks' || main === 'drink') return 'Drinks'
   if (main === 'foods' || main === 'food') return 'Food'
   return 'Other'
 }

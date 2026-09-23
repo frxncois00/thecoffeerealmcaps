@@ -51,7 +51,7 @@
 .app-layout.legacy-admin .srp-trend-flat{font-weight:700;color:var(--mgmt-muted)}
 .app-layout.legacy-admin .srp-kpi-card :is(.dash-trend-up,.dash-trend-down){font-size:.7rem}
 
-.app-layout.legacy-admin .srp-reconciliation{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin:0 0 18px;border:1px solid var(--mgmt-border);border-radius:12px;background:var(--mgmt-subtle);overflow:hidden}
+.app-layout.legacy-admin .srp-reconciliation{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:0 0 18px;border:1px solid var(--mgmt-border);border-radius:12px;background:var(--mgmt-subtle);overflow:hidden}
 .app-layout.legacy-admin .srp-reconciliation>div{min-width:0;display:flex;flex-direction:column;gap:4px;padding:13px 15px}
 .app-layout.legacy-admin .srp-reconciliation>div+div{border-left:1px solid var(--mgmt-border)}
 .app-layout.legacy-admin .srp-reconciliation span{color:var(--mgmt-muted);font-size:.64rem;font-weight:800;text-transform:uppercase;letter-spacing:.045em}
@@ -267,9 +267,10 @@
 @media(max-width:1000px){
   .app-layout.legacy-admin .srp-support-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
   .app-layout.legacy-admin .srp-support-kpis .srp-kpi-card:last-child{grid-column:1/-1}
-  .app-layout.legacy-admin .srp-reconciliation{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .app-layout.legacy-admin .srp-reconciliation>div:nth-child(4){border-left:0;border-top:1px solid var(--mgmt-border)}
-  .app-layout.legacy-admin .srp-reconciliation>div:nth-child(5){border-top:1px solid var(--mgmt-border)}
+  .app-layout.legacy-admin .srp-reconciliation{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .app-layout.legacy-admin .srp-reconciliation>div:nth-child(3){border-left:0;border-top:1px solid var(--mgmt-border)}
+  .app-layout.legacy-admin .srp-reconciliation>div:nth-child(n+3){border-top:1px solid var(--mgmt-border)}
+  .app-layout.legacy-admin .srp-reconciliation>div:nth-child(4){border-left:1px solid var(--mgmt-border)}
   .app-layout.legacy-admin .srp-breakdown-grid{grid-template-columns:1fr}
   .app-layout.legacy-admin .srp-breakdown-grid>.panel:first-child{grid-row:auto}
   .app-layout.legacy-admin .srp-pattern-grid{grid-template-columns:1fr}
@@ -757,4 +758,75 @@ html[data-staff-motion="reduce"] .app-layout.legacy-admin .srp-channel-row-anima
 }
 @media(prefers-reduced-motion:reduce){
   .app-layout.legacy-admin .srp-product-momentum-panel .srp-momentum-row{transition:none}
+}
+
+/* Sales report layout alignment pass */
+.app-layout.legacy-admin .srp-overview-grid{gap:18px;margin-bottom:18px}
+.app-layout.legacy-admin .srp-support-kpis{gap:18px}
+.app-layout.legacy-admin .srp-kpi-card{padding:20px;border-radius:16px}
+.app-layout.legacy-admin .srp-trend-insights .srp-trend-summary-card{padding:20px;border-radius:16px}
+.app-layout.legacy-admin .srp-overview-grid.srp-sales-overview-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-bottom:18px}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-support-kpis{display:contents}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-kpi-card{min-height:154px;padding:20px;border-radius:16px}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-net-revenue-card{min-height:154px;padding:20px}
+.app-layout.legacy-admin .srp-sales-overview-grid .srp-support-kpis .srp-kpi-card{grid-column:auto}
+.app-layout.legacy-admin .srp-rate-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:0 0 18px}
+.app-layout.legacy-admin .srp-rate-grid .srp-kpi-card{min-height:132px;padding:20px;border-radius:16px}
+
+.app-layout.legacy-admin .srp-reconciliation{margin-bottom:18px;border-radius:16px}
+.app-layout.legacy-admin .srp-trend-panel,.app-layout.legacy-admin .srp-products-panel,.app-layout.legacy-admin .srp-table-panel{margin:0 0 18px!important;padding:20px!important;border-radius:16px!important}
+.app-layout.legacy-admin .srp-breakdown-grid{grid-auto-rows:1fr;gap:18px;margin-bottom:18px}
+.app-layout.legacy-admin .srp-breakdown-grid>.panel{height:100%;padding:20px!important;border-radius:16px!important}
+.app-layout.legacy-admin .srp-pattern-grid{align-items:stretch;gap:18px;margin-bottom:18px}
+.app-layout.legacy-admin .srp-pattern-panel{height:100%;display:flex;flex-direction:column;padding:20px!important;border-radius:16px!important}
+.app-layout.legacy-admin .srp-trend-insights{gap:18px;margin-bottom:18px}
+.app-layout.legacy-admin .srp-trend-summary-insights-grid,.app-layout.legacy-admin .srp-trend-primary-grid,.app-layout.legacy-admin .srp-trend-lower-grid{gap:18px;margin-bottom:18px}
+.app-layout.legacy-admin .srp-trend-primary-grid>.srp-trend-panel,.app-layout.legacy-admin .srp-trend-primary-grid>.srp-trend-secondary-panel{padding:20px!important;border-radius:16px!important}
+.app-layout.legacy-admin .srp-trend-primary-grid .panel-head{margin:-20px -20px 16px;padding:18px 20px}
+.app-layout.legacy-admin .srp-trend-secondary-panel{padding:20px!important;border-radius:16px!important}
+.app-layout.legacy-admin .srp-product-momentum-panel .srp-momentum-panel-head{margin:-20px -20px 12px;padding:16px 20px}
+.app-layout.legacy-admin .srp-trend-summary-insights-grid>.srp-trend-reconciliation-subsummary{padding:20px;border-radius:16px!important}
+.app-layout.legacy-admin .srp-trend-subsummary-head{margin:-20px -20px 12px;padding:16px 20px}
+.app-layout.legacy-admin .srp-trend-summary-insights-grid>.srp-trend-insights-panel{padding:20px!important;border-radius:16px!important}
+.app-layout.legacy-admin .srp-trend-summary-insights-grid>.srp-trend-insights-panel .panel-head{margin:-20px -20px 16px;padding:18px 20px}
+
+.app-layout.legacy-admin .srp-product-mode{display:flex;flex-direction:row;align-items:center;gap:0;white-space:nowrap}
+.app-layout.legacy-admin .srp-product-mode button{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center}
+
+@media(max-width:1240px){
+  .app-layout.legacy-admin .srp-overview-grid.srp-sales-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .app-layout.legacy-admin .srp-sales-overview-grid .srp-support-kpis .srp-kpi-card{grid-column:auto}
+}
+@media(max-width:1000px){
+  .app-layout.legacy-admin .srp-sales-overview-grid .srp-support-kpis .srp-kpi-card:last-child{grid-column:auto}
+  .app-layout.legacy-admin .srp-reconciliation{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .app-layout.legacy-admin .srp-reconciliation>div:nth-child(3){border-left:0;border-top:1px solid var(--mgmt-border)}
+  .app-layout.legacy-admin .srp-reconciliation>div:nth-child(n+3){border-top:1px solid var(--mgmt-border)}
+  .app-layout.legacy-admin .srp-reconciliation>div:nth-child(4){border-left:1px solid var(--mgmt-border)}
+}
+@media(max-width:760px){
+  .app-layout.legacy-admin .srp-kpi-card{padding:16px}
+  .app-layout.legacy-admin .srp-trend-insights .srp-trend-summary-card{padding:16px}
+  .app-layout.legacy-admin .srp-sales-overview-grid .srp-kpi-card{min-height:124px}
+  .app-layout.legacy-admin .srp-reconciliation{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .app-layout.legacy-admin .srp-reconciliation>div:nth-child(-n+2){grid-column:auto}
+  .app-layout.legacy-admin .srp-trend-reconciliation-subsummary .srp-trend-reconciliation-cards{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .app-layout.legacy-admin .srp-trend-reconciliation-subsummary .srp-reconcile-card:nth-child(-n+3){grid-column:span 2}
+  .app-layout.legacy-admin .srp-trend-reconciliation-subsummary .srp-reconcile-card:nth-child(n+4){grid-column:span 3}
+  .app-layout.legacy-admin .srp-sales-overview-grid .srp-kpi-card,.app-layout.legacy-admin .srp-rate-grid .srp-kpi-card{padding:16px}
+  .app-layout.legacy-admin .srp-trend-panel,.app-layout.legacy-admin .srp-products-panel,.app-layout.legacy-admin .srp-table-panel,.app-layout.legacy-admin .srp-breakdown-grid>.panel,.app-layout.legacy-admin .srp-pattern-panel,.app-layout.legacy-admin .srp-trend-secondary-panel{padding:16px!important}
+  .app-layout.legacy-admin .srp-trend-primary-grid>.srp-trend-panel,.app-layout.legacy-admin .srp-trend-primary-grid>.srp-trend-secondary-panel{padding:16px!important}
+  .app-layout.legacy-admin .srp-trend-primary-grid .panel-head{margin:-16px -16px 14px;padding:14px 16px}
+  .app-layout.legacy-admin .srp-product-momentum-panel .srp-momentum-panel-head{margin:-16px -16px 10px;padding:14px 16px}
+  .app-layout.legacy-admin .srp-trend-summary-insights-grid>.srp-trend-reconciliation-subsummary{padding:16px}
+  .app-layout.legacy-admin .srp-trend-subsummary-head{margin:-16px -16px 12px;padding:14px 16px}
+  .app-layout.legacy-admin .srp-trend-summary-insights-grid>.srp-trend-insights-panel{padding:16px!important}
+  .app-layout.legacy-admin .srp-trend-summary-insights-grid>.srp-trend-insights-panel .panel-head{margin:-16px -16px 14px;padding:14px 16px}
+  .app-layout.legacy-admin .srp-rate-grid .srp-kpi-card{min-height:124px;padding:16px}
+}
+@media(max-width:480px){
+  .app-layout.legacy-admin .srp-overview-grid.srp-sales-overview-grid{grid-template-columns:1fr}
+  .app-layout.legacy-admin .srp-rate-grid{grid-template-columns:1fr}
+  .app-layout.legacy-admin .srp-trend-reconciliation-subsummary .srp-trend-reconciliation-cards{grid-template-columns:1fr}
+  .app-layout.legacy-admin .srp-trend-reconciliation-subsummary .srp-reconcile-card:nth-child(n){grid-column:auto}
 }

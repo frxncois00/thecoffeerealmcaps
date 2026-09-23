@@ -38,5 +38,5 @@ export async function fetchMenuCatalog(){
   const category=row.subcategories?.display_name||row.subcategories?.name||'Menu'
   return {id:row.id,slug:row.slug,name:row.name,category,description:row.description||'',basePrice:Number(row.price),image:imagePath(row.image_url),available:Boolean(row.is_available),onlineBenefitEligible:Boolean(row.online_benefit_eligible),itemType:row.item_type||'food',temperatureType:row.temperature_type||'none',temperatures:temperatures(row.temperature_type),allowIce:Boolean(row.allow_ice),iceLevels:row.allow_ice?['Less Ice','Default Ice','More Ice']:[],allowSugar:Boolean(row.allow_sugar),sugars:row.allow_sugar?['0%','25%','50%','75%','100%']:[],allowAddons:Boolean(row.allow_addons)||(row.subcategories?.name==='meals'),variations:parseVariants(row,category),addons:addons.filter(addon=>addonMatchesMenuItem(addon,row))}
  })
- return {products,categories:['All',...new Set(products.map(product=>product.category))]}
+ return {products,categories:['All',...new Set(products.filter(product=>product.available).map(product=>product.category))]}
 }
