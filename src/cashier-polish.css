@@ -7786,3 +7786,131 @@ html[data-theme] .cashier-v2 .cashier-brand-mark img {
     flex-basis: 44px;
   }
 }
+/* Cashier customization modal: compact two-tone café treatment. */
+html[data-theme] .cashier-v2 .cashier-custom-modal.customize-modal {
+  width: min(560px, calc(100vw - 24px)) !important;
+  max-width: 560px !important;
+  max-height: min(760px, calc(100dvh - 24px)) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+  background: #e8dcc4 !important;
+  grid-template-rows: auto minmax(0, 1fr) auto !important;
+}
+html[data-theme] .cashier-v2 .customize-modal-header {
+  grid-template-columns: 56px minmax(0, 1fr) 28px !important;
+  gap: 12px !important;
+  min-height: 84px !important;
+  padding: 14px 16px !important;
+  background: #1b2f22 !important;
+}
+html[data-theme] .cashier-v2 .customize-modal-header > img {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 10px !important;
+}
+html[data-theme] .cashier-v2 .customize-product-info > span {
+  color: #b8cbb0 !important;
+  font-size: 11px !important;
+  letter-spacing: .05em !important;
+  text-transform: uppercase !important;
+}
+html[data-theme] .cashier-v2 .customize-product-info h2 {
+  margin: 2px 0 3px !important;
+  color: #fff !important;
+  font: 700 19px/1.15 Georgia, serif !important;
+}
+html[data-theme] .cashier-v2 .customize-product-info p {
+  color: #9fb596 !important;
+  font-size: 12px !important;
+}
+html[data-theme] .cashier-v2 .cashier-custom-modal.customize-modal .customize-close {
+  width: 28px !important;
+  min-width: 28px !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  border: 0 !important;
+  border-radius: 7px !important;
+  background: rgba(255,255,255,.12) !important;
+  color: #fff !important;
+  font-size: 20px !important;
+  line-height: 1 !important;
+}
+html[data-theme] .cashier-v2 .customize-modal-body {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  gap: 12px !important;
+  min-height: 0 !important;
+  padding: 16px !important;
+  overflow-y: auto !important;
+  background: #f8f6f0 !important;
+}
+html[data-theme] .cashier-v2 .customize-choice-list { display: grid !important; grid-template-columns: 1fr !important; gap: 12px !important; }
+html[data-theme] .cashier-v2 .customize-choice-section,
+html[data-theme] .cashier-v2 .customize-addons-section {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+html[data-theme] .cashier-v2 .customize-section-head { margin: 0 0 8px !important; align-items: baseline !important; }
+html[data-theme] .cashier-v2 .customize-section-head h3 { color: #1b2f22 !important; font-size: 13px !important; font-weight: 700 !important; }
+html[data-theme] .cashier-v2 .customize-section-head > span { color: #7d857d !important; font-size: 10px !important; letter-spacing: .03em !important; text-transform: uppercase !important; }
+html[data-theme] .cashier-v2 .customize-choice-grid { display: flex !important; flex-wrap: wrap !important; gap: 6px !important; }
+html[data-theme] .cashier-v2 .customize-temperature-section .customize-choice-grid { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; }
+html[data-theme] .cashier-v2 .customize-choice-button {
+  min-height: 42px !important;
+  min-width: 0 !important;
+  flex: 0 0 auto !important;
+  padding: 8px 13px !important;
+  border: 1px solid #d2d4cd !important;
+  border-radius: 20px !important;
+  background: transparent !important;
+  color: #68736b !important;
+  font-size: 13px !important;
+  box-shadow: none !important;
+}
+html[data-theme] .cashier-v2 .customize-temperature-section .customize-choice-button { width: 100% !important; border-radius: 10px !important; }
+html[data-theme] .cashier-v2 .customize-choice-button.active { border-color: #1b2f22 !important; background: #1b2f22 !important; color: #e8dcc4 !important; font-weight: 700 !important; }
+html[data-theme] .cashier-v2 .customize-choice-button svg { flex: 0 0 auto; vertical-align: middle; }
+html[data-theme] .cashier-v2 .customize-addons-grid { display: grid !important; grid-template-columns: 1fr !important; gap: 8px !important; }
+html[data-theme] .cashier-v2 .customize-addon-button {
+  display: grid !important;
+  grid-template-columns: 18px minmax(0,1fr) auto !important;
+  align-items: center !important;
+  gap: 9px !important;
+  width: 100% !important;
+  min-height: 44px !important;
+  padding: 10px 12px !important;
+  border: 1px solid #d2d4cd !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  color: #263529 !important;
+  text-align: left !important;
+  cursor: pointer !important;
+}
+html[data-theme] .cashier-v2 .customize-addon-button input { width: 16px; height: 16px; margin: 0; accent-color: #1b2f22; }
+html[data-theme] .cashier-v2 .customize-addon-button b { color: #7d857d !important; font-size: 12px !important; font-weight: 500 !important; }
+html[data-theme] .cashier-v2 .customize-modal-footer {
+  display: grid !important;
+  grid-template-columns: auto auto minmax(0, 1fr) !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-height: 70px !important;
+  padding: 12px 16px !important;
+  background: #1b2f22 !important;
+}
+html[data-theme] .cashier-v2 .customize-total { padding: 0 !important; border: 0 !important; display: grid !important; gap: 2px !important; }
+html[data-theme] .cashier-v2 .customize-total span { color: #b8cbb0 !important; font-size: 10px !important; letter-spacing: .03em !important; text-transform: uppercase !important; }
+html[data-theme] .cashier-v2 .customize-total b { color: #fff !important; font-size: 18px !important; }
+html[data-theme] .cashier-v2 .customize-quantity { display: block !important; min-width: 0 !important; }
+html[data-theme] .cashier-v2 .customize-stepper { display: grid !important; grid-template-columns: 26px 26px 26px !important; width: 82px !important; min-height: 30px !important; padding: 2px !important; border-radius: 8px !important; background: rgba(255,255,255,.1) !important; }
+html[data-theme] .cashier-v2 .customize-stepper button { width: 26px !important; min-width: 26px !important; height: 26px !important; min-height: 26px !important; border: 0 !important; background: transparent !important; color: #fff !important; }
+html[data-theme] .cashier-v2 .customize-stepper strong { width: 26px !important; min-width: 26px !important; height: 26px !important; color: #fff !important; font-size: 13px !important; }
+html[data-theme] .cashier-v2 .customize-add-button { width: 100% !important; min-height: 40px !important; border: 0 !important; border-radius: 10px !important; background: #e8dcc4 !important; color: #1b2f22 !important; font-size: 13px !important; font-weight: 800 !important; }
+@media (max-width: 420px) {
+  html[data-theme] .cashier-v2 .customize-modal-footer { gap: 8px !important; padding-inline: 10px !important; }
+  html[data-theme] .cashier-v2 .customize-total b { font-size: 16px !important; }
+  html[data-theme] .cashier-v2 .customize-add-button { font-size: 12px !important; }
+}

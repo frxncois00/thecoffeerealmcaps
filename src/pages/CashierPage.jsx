@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
   ShoppingBag,
   Wallet,
+  Flame,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -1049,7 +1050,12 @@ function ItemCustomizationModal({ product, onClose, onAdd }) {
   const isCold = temperature === 'Cold'
   const [sugarLevel, setSugarLevel] = useState(product.customizations?.sugarLevel || (product.allowSugar ? '100% Sugar' : ''))
   const [iceLevel, setIceLevel] = useState(product.customizations?.iceLevel || (product.allowIce && isCold ? 'Default Ice' : ''))
-  const [addons, setAddons] = useState(product.selectedAddons || product.customizations?.addons || [])
+  const [addons, setAddons] = useState(() => {
+    const existing = product.selectedAddons || product.customizations?.addons || []
+    if (existing.length) return existing
+    const example = (product.addons || []).find((option) => /whipped cream/i.test(option.name))
+    return example ? [example] : []
+  })
   const [quantity, setQuantity] = useState(Number(product.qty || 1))
   const unitTotal = Number(selectedVariant?.price ?? product.price ?? 0) + addonTotal(addons)
   const modalTotal = unitTotal * quantity
@@ -1089,7 +1095,7 @@ function ItemCustomizationModal({ product, onClose, onAdd }) {
         <div className="customize-product-info">
           <span>Customize</span>
           <h2 id="customize-modal-title">{product.name}</h2>
-          <p>{product.category}</p>
+          <p>{product.category} · {peso(product.price ?? 0)}</p>
         </div>
         <button type="button" className="customize-close" onClick={onClose} aria-label="Close customization">&times;</button>
       </header>
@@ -1101,20 +1107,20 @@ function ItemCustomizationModal({ product, onClose, onAdd }) {
           {product.allowIce && isCold ? <OptionGroup title="Ice level" options={['Less Ice', 'Default Ice', 'More Ice']} value={iceLevel} onChange={setIceLevel} /> : null}
         </div> : <p className="customize-standard-note">This item uses its standard preparation.</p>}
         {product.allowAddons && (product.addons || []).length > 0 ? <section className="customize-addons-section" aria-labelledby="customize-addons-title">
-          <div className="customize-section-head"><h3 id="customize-addons-title">Add-ons</h3><span>Optional</span></div>
+          <div className="customize-section-head"><h3 id="customize-addons-title">Add-ons</h3><span>Optional · Multi-select</span></div>
           <div className="customize-addons-grid">{(product.addons || []).map((option) => {
             const selected = addons.some((item) => item.name === option.name)
-            return <button type="button" className={`customize-addon-button ${selected ? 'active' : ''}`} aria-pressed={selected} key={option.name} onClick={() => toggleAddon(option)}>
-              <span>{selected ? <i>&#10003;</i> : null}{option.name}</span>
+            return <label className={`customize-addon-button ${selected ? 'active' : ''}`} key={option.name}>
+              <input type="checkbox" checked={selected} onChange={() => toggleAddon(option)} />
+              <span>{option.name}</span>
               <b>+{peso(option.price)}</b>
-            </button>
+            </label>
           })}</div>
         </section> : null}
       </div>
       <footer className="customize-modal-footer">
         <div className="customize-total"><span>Total</span><b>{peso(modalTotal)}</b></div>
         <div className="customize-quantity">
-          <span>Quantity</span>
           <div className="customize-stepper" aria-label="Quantity selector">
             <button type="button" onClick={() => changeQuantity(-1)} aria-label="Decrease quantity"><Minus size={15} /></button>
             <strong>{quantity}</strong>
@@ -1129,7 +1135,15 @@ function ItemCustomizationModal({ product, onClose, onAdd }) {
 }
 function OptionGroup({ title, options, value, onChange }) {
   const layoutClass = title === 'Temperature' ? ' customize-temperature-section' : title === 'Ice level' ? ' customize-ice-section' : ''
-  return <section className={`customize-choice-section${layoutClass}`} aria-label={title}><div className="customize-section-head"><h3>{title}</h3><span>Select one</span></div><div className="customize-choice-grid">{options.map((option) => <button type="button" className={`customize-choice-button ${value === option ? 'active' : ''}`} aria-pressed={value === option} key={option} onClick={() => onChange(option)}><span className="customize-choice-label">{option}</span></button>)}</div></section>
+  const required = title === 'Temperature' || title === 'Sugar level'
+  const displayLabel = (option) => option.replace(/ Sugar$/, '')
+  return <section className={`customize-choice-section${layoutClass}`} aria-label={title}>
+    <div className="customize-section-head"><h3>{title}</h3><span>{required ? 'Required' : 'Select one'}</span></div>
+    <div className="customize-choice-grid">{options.map((option) => <button type="button" className={`customize-choice-button ${value === option ? 'active' : ''}`} aria-pressed={value === option} key={option} onClick={() => onChange(option)}>
+      {title === 'Temperature' && option === 'Hot' && value === option ? <Flame size={14} aria-hidden="true" /> : null}
+      <span className="customize-choice-label">{displayLabel(option)}</span>
+    </button>)}</div>
+  </section>
 }
 function VariantGroup({ title, options, value, onChange }) {
   return <section className="customize-choice-section customize-variant-section" aria-label={title}><div className="customize-section-head"><h3>{title}</h3><span>Select one</span></div><div className="customize-choice-grid">{options.map((option) => <button type="button" className={`customize-choice-button ${value?.key === option.key ? 'active' : ''}`} aria-pressed={value?.key === option.key} key={option.key} onClick={() => onChange(option)}><span className="customize-choice-label">{option.label}</span><small>{peso(option.price)}</small></button>)}</div></section>

@@ -1,4 +1,4 @@
-import { ArrowRight, ChevronDown, Coffee, Eye, EyeOff, Lock, ShieldCheck, UserRound, UsersRound } from 'lucide-react'
+import { ArrowRight, Coffee, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { normalizeRole, roleRoutes, signInPortal } from '../lib/auth'
@@ -45,15 +45,20 @@ export default function PortalLoginPage() {
   }
 
   return <div className="legacy-portal">
-    <header className="legacy-portal-header"><div className="legacy-portal-brand"><Coffee size={22} fill="currentColor"/><span>The Coffee Realm</span></div><Lock size={21}/></header>
-    <main className="legacy-login-card"><h1>Internal Portal Login</h1><p>Private access for admin, staff, and cashier only.</p><form onSubmit={submit} autoComplete="off">
-      <label htmlFor="portal-role">Role</label><div className="legacy-input"><UsersRound size={19}/><select id="portal-role" value={role} onChange={event => setRole(event.target.value)} required><option value="admin">Admin</option><option value="staff">Operations Staff</option><option value="cashier">Cashier</option></select><ChevronDown size={18}/></div>
-       <label htmlFor="portal-identifier">{role === 'staff' ? 'Email or username' : 'Email'}</label><div className="legacy-input"><UserRound size={19}/><input id="portal-identifier" name="identifier" type={role === 'staff' ? 'text' : 'email'} maxLength={role === 'staff' ? EMAIL_MAX_LENGTH : EMAIL_MAX_LENGTH} pattern={role === 'staff' ? '[A-Za-z0-9._@+-]+' : undefined} placeholder={role === 'staff' ? 'name@example.com or username' : 'name@example.com'} required autoComplete="username" autoCapitalize="none" spellCheck="false"/></div>
-       <label htmlFor="portal-password">Password</label><div className="legacy-input"><Lock size={19}/><input id="portal-password" name="password" type={showPassword ? 'text' : 'password'} minLength="8" maxLength="32" placeholder="********" required autoComplete="current-password"/><button type="button" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={19}/> : <Eye size={19}/>}</button></div>
-      {message ? <p className="portal-message portal-message-error">{message}</p> : null}
-      <button className="legacy-sign-in" type="submit" disabled={loading}><span>{loading ? 'Signing in...' : 'Sign In'}</span><ArrowRight size={19}/></button>
-    </form></main>
-    <footer className="legacy-portal-footer"><div><ShieldCheck size={18} fill="currentColor"/><span>Secure Internal Network</span></div><div><strong>The Coffee Realm</strong><span>(c) 2026 The Coffee Realm internal systems</span></div></footer>
+    <header className="legacy-portal-header"><div className="legacy-portal-brand"><span className="legacy-portal-brand-icon"><Coffee size={16}/></span><span>The Coffee Realm</span></div><button className="legacy-portal-lock" type="button" aria-label="Secure internal portal"><Lock size={16}/></button></header>
+    <main className="legacy-login-card">
+      <div className="legacy-login-heading"><span className="legacy-login-icon"><ShieldCheck size={24}/></span><h1>Internal Portal Login</h1><p>Private access for admin, staff, and cashier</p></div>
+      <form onSubmit={submit} autoComplete="off">
+        <label>Role</label><div className="legacy-role-picker" role="group" aria-label="Choose portal role">
+          {[['admin', 'Admin'], ['staff', 'Staff'], ['cashier', 'Cashier']].map(([value, label]) => <button key={value} type="button" className={role === value ? 'active' : ''} aria-pressed={role === value} onClick={() => setRole(value)}>{label}</button>)}
+        </div>
+        <label htmlFor="portal-identifier">Email</label><div className="legacy-input"><Mail size={17}/><input id="portal-identifier" name="identifier" type={role === 'staff' ? 'text' : 'email'} maxLength={EMAIL_MAX_LENGTH} pattern={role === 'staff' ? '[A-Za-z0-9._@+-]+' : undefined} placeholder="name@example.com" required autoComplete="username" autoCapitalize="none" spellCheck="false"/></div>
+        <label htmlFor="portal-password">Password</label><div className="legacy-input"><Lock size={17}/><input id="portal-password" name="password" type={showPassword ? 'text' : 'password'} minLength="8" maxLength="32" placeholder="••••••••" required autoComplete="current-password"/><button type="button" onClick={() => setShowPassword(value => !value)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}</button></div>
+        {message ? <p className="portal-message portal-message-error">{message}</p> : null}
+        <button className="legacy-sign-in" type="submit" disabled={loading}><Coffee size={16}/><span>{loading ? 'Signing in...' : 'Sign In'}</span><ArrowRight size={17}/></button>
+      </form>
+    </main>
+    <footer className="legacy-portal-footer"><div><ShieldCheck size={15}/><span>Secure internal network</span></div><div><strong>The Coffee Realm</strong><span>© 2026 internal systems</span></div></footer>
   </div>
 }
 
