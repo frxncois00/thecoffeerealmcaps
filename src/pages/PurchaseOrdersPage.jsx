@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Check, ClipboardCheck, FileText, Package, PackageCheck, Plus, ReceiptText, Send, ShieldAlert, Store, Upload, X } from 'lucide-react'
+import { useEffect, useId, useMemo, useState } from 'react'
+import { AlertTriangle, Check, ClipboardCheck, FileImage, FileText, ImagePlus, Package, PackageCheck, Plus, ReceiptText, Send, ShieldAlert, Store, Trash2, Upload, X } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import { useAuth } from '../context/AuthContext'
 import { describeError } from '../utils/describeError'
@@ -139,7 +139,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   async function reviewReceiving(approved, note) { try { await reviewPurchaseOrderReceiving(selected.id, approved, note); await load(); announce(approved ? 'Receiving approved for payment.' : 'Receiving returned for correction.'); setAction(null) } catch (cause) { setError(describeError(cause, 'Receiving review could not be completed.')) } }
   async function submitPayment(payload) { try { if (payload.receipt) await uploadPurchaseOrderDocument(selected.id, 'payment_receipt', payload.receipt); await submitPurchaseOrderPayment(selected.id, payload.amount, payload.method, payload.reference); setPaymentOpen(false); await load(); announce('Payment submitted for admin verification.'); } catch (cause) { setError(describeError(cause, 'Payment could not be submitted.')) } }
   async function verifyPayment(approved, note) { try { await verifyPurchaseOrderPayment(selected.id, approved, note); await load(); announce(approved ? 'Payment verified. Inventory updated and PO closed.' : 'Payment returned for correction.'); setAction(null) } catch (cause) { setError(describeError(cause, 'Payment review could not be completed.')) } }
-  async function reportIssue(payload) { try { await reportPurchaseOrderIssue(selected.id, payload.reason, payload.resolution, payload.note); setIssueOpen(false); setReceivingOpen(false); await load(); announce('Issue reported to admin.'); } catch (cause) { setError(describeError(cause, 'Issue could not be reported.')) } }
+  async function reportIssue(payload) { try { for (const file of payload.evidenceFiles || []) await uploadPurchaseOrderDocument(selected.id, 'issue_evidence', file); await reportPurchaseOrderIssue(selected.id, payload.reason, payload.resolution, payload.note); setIssueOpen(false); setReceivingOpen(false); await load(); announce('Issue reported to admin with the affected items recorded.'); } catch (cause) { setError(describeError(cause, 'Issue could not be reported.')) } }
 
   return (
     <AppShell role={role} title="Purchase Orders" eyebrow={isAdmin ? 'Approval queue' : 'Inventory purchasing'} onRefresh={load} actions={<button type="button" className="ops-icon-button" aria-label="Refresh purchase orders" title="Refresh" onClick={load} disabled={loading}><ClipboardCheck size={18} /></button>}>
@@ -264,7 +264,7 @@ function ReceivingModal({ order, onClose, onSave, onReport }) {
             <fieldset className="po-receive-group po-receive-group-trace"><legend>Traceability</legend><label>Actual cost / {line.unit}<input type="number" min="0" step="0.01" value={line.actualUnitCost} onChange={(event) => setLine(index, 'actualUnitCost', event.target.value)} required /></label><label>Batch / lot<input value={line.batchNumber} onChange={(event) => setLine(index, 'batchNumber', event.target.value)} /></label><label>Expiry date<input type="date" value={line.expirationDate} onChange={(event) => setLine(index, 'expirationDate', event.target.value)} /></label></fieldset>
           </div>
         </section>)}
-        <div className="po-receiving-documents"><Field label="Proof of items received" required><input type="file" accept="image/*,application/pdf" onChange={(event) => setProof(event.target.files?.[0] || null)} required /></Field><Field label="Supplier invoice" required><input type="file" accept="image/*,application/pdf" onChange={(event) => setInvoice(event.target.files?.[0] || null)} required /></Field></div>
+        <div className="po-receiving-documents"><DocumentUpload label="Proof of items received" hint="Photo or PDF of the delivered goods" files={proof ? [proof] : []} onChange={(files) => setProof(files[0] || null)} required /><DocumentUpload label="Supplier invoice" hint="Clear photo or PDF of the invoice" files={invoice ? [invoice] : []} onChange={(files) => setInvoice(files[0] || null)} required /></div>
         <Field label="Receiving notes"><textarea rows="2" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={500} placeholder="Optional: note shortages, damage, or supplier issues" /></Field>
         {error ? <p className="po-inline-error" role="alert">{error}</p> : null}
         <footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="button" className="ops-destructive-action" onClick={onReport}>Report to Admin</button><button type="submit" className="ops-main-action" disabled={saving}>{saving ? 'Submitting…' : 'Submit receiving'}</button></footer>
@@ -280,6 +280,7 @@ function IssueReportModal({ order, onClose, onSave }) {
   const [otherReason, setOtherReason] = useState('')
   const [replacementDate, setReplacementDate] = useState('')
   const [affected, setAffected] = useState({})
+  const [evidenceFiles, setEvidenceFiles] = useState([])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const itemSpecific = reason !== 'All items damaged'
@@ -312,23 +313,47 @@ function IssueReportModal({ order, onClose, onSave }) {
     if (replacementDate) details.push(`Replacement date: ${replacementDate}`)
     if (note.trim()) details.push(`Note: ${note.trim()}`)
     setSaving(true)
-    try { await onSave({ reason, resolution, note: details.join(' | ') }) } finally { setSaving(false) }
+    try { await onSave({ reason, resolution, note: details.join(' | '), evidenceFiles }) } finally { setSaving(false) }
   }
-  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal po-issue-modal" role="dialog" aria-modal="true" aria-label="Report receiving issue"><header><div><span>{order.po_number}</span><h2>Report to Admin</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><form onSubmit={submit}>
+  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal po-issue-modal" role="dialog" aria-modal="true" aria-label="Report receiving issue"><header><div><span>{order.po_number} · Receiving issue</span><h2>Report to Admin</h2><p className="po-modal-intro">Tell the admin what happened and what response you need. Inventory will not change from this report.</p></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><form onSubmit={submit}>
+    <div className="po-issue-step"><b>1</b><span><strong>Describe the issue</strong><small>Choose what happened and the action you are requesting.</small></span></div>
     <div className="po-issue-selects"><Field label="Reason" required><select value={reason} onChange={(event) => { setReason(event.target.value); setError('') }}><option>All items damaged</option><option>Damaged items</option><option>Missing items</option><option>Wrong items</option><option>Quantity mismatch</option><option>Quality issue</option><option>Expired items</option><option>Other</option></select></Field><Field label="Request approval to" required><select value={resolution} onChange={(event) => { setResolution(event.target.value); setError('') }}><option>Return all items</option><option>Return affected items</option><option>Request replacement</option><option>Accept partial delivery</option><option>Hold delivery</option></select></Field></div>
     {reason === 'Other' ? <Field label="Issue" required><input value={otherReason} onChange={(event) => setOtherReason(event.target.value)} required /></Field> : null}
-    {itemSpecific ? <fieldset className="po-issue-items"><legend>Affected items</legend>{order.items.map((item) => {
+    <div className="po-issue-step"><b>2</b><span><strong>{itemSpecific ? 'Select affected products' : 'Review affected products'}</strong><small>{itemSpecific ? 'Choose each product and enter how many units are affected.' : 'This report applies to every product in the order.'}</small></span></div>
+    {itemSpecific ? <fieldset className="po-issue-items"><legend>Products in this delivery</legend>{order.items.map((item) => {
       const entry = affected[item.id] || {}
       return <div className={`po-issue-line ${entry.selected ? 'is-selected' : ''}`} key={item.id}>
-        <label className="po-issue-check"><input type="checkbox" checked={Boolean(entry.selected)} onChange={(event) => updateAffected(item.id, 'selected', event.target.checked)} /><span><b>{item.item_name}</b><small>{qty(item.quantityOrdered)} {item.unit} ordered</small></span></label>
+        <label className="po-issue-check"><input type="checkbox" checked={Boolean(entry.selected)} onChange={(event) => updateAffected(item.id, 'selected', event.target.checked)} /><span><b>{item.item_name}</b><small>Expected: {qty(item.quantityOrdered)} {item.unit}</small></span><em>{entry.selected ? 'Selected' : 'Select product'}</em></label>
         {entry.selected ? <div className="po-issue-fields"><label>Affected quantity<input type="number" min="0.01" max={item.quantityOrdered} step="0.01" value={entry.quantity || ''} onChange={(event) => updateAffected(item.id, 'quantity', event.target.value)} required /></label>{reason === 'Wrong items' ? <label>Item received<input value={entry.detail || ''} onChange={(event) => updateAffected(item.id, 'detail', event.target.value)} required /></label> : null}{resolution === 'Accept partial delivery' ? <label>Accepted quantity<input type="number" min="0" max={item.quantityOrdered} step="0.01" value={entry.accepted ?? ''} onChange={(event) => updateAffected(item.id, 'accepted', event.target.value)} required /></label> : null}</div> : null}
       </div>
     })}</fieldset> : <div className="po-issue-all"><b>All order lines</b><span>{order.items.length} {order.items.length === 1 ? 'item' : 'items'}</span></div>}
-    {resolution === 'Request replacement' ? <Field label="Replacement needed by" required><input type="date" value={replacementDate} onChange={(event) => setReplacementDate(event.target.value)} required /></Field> : null}
-    <Field label="Note"><textarea rows="2" value={note} onChange={(event) => setNote(event.target.value)} /></Field>
+    {resolution === 'Request replacement' ? <div className="po-issue-followup"><strong>Replacement details</strong><Field label="Replacement needed by" required><input type="date" value={replacementDate} onChange={(event) => setReplacementDate(event.target.value)} required /></Field></div> : null}
+    <div className="po-issue-step"><b>3</b><span><strong>Add evidence and notes</strong><small>Photos help the admin verify damage, quality, or incorrect items.</small></span></div>
+    <DocumentUpload label="Issue photos" hint="Add up to 3 JPG, PNG, or WebP images" files={evidenceFiles} onChange={setEvidenceFiles} accept="image/jpeg,image/png,image/webp" multiple limit={3} />
+    <Field label="Additional note"><textarea rows="3" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Add supplier comments, packaging condition, or other useful details" /></Field>
     {error ? <p className="po-inline-error" role="alert">{error}</p> : null}
     <footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-destructive-action" disabled={saving}>{saving ? 'Sending…' : 'Send report'}</button></footer>
   </form></section></div>
+}
+
+function FilePreview({ file }) {
+  const [url, setUrl] = useState('')
+  useEffect(() => { if (!file?.type?.startsWith('image/')) return undefined; const next = URL.createObjectURL(file); setUrl(next); return () => URL.revokeObjectURL(next) }, [file])
+  return url ? <img src={url} alt="" /> : <FileImage size={22} aria-hidden="true" />
+}
+
+function DocumentUpload({ label, hint, files = [], onChange, accept = 'image/*,application/pdf', multiple = false, limit = 1, required = false }) {
+  const inputId = useId()
+  function selectFiles(event) {
+    const picked = Array.from(event.target.files || [])
+    onChange(multiple ? [...files, ...picked].slice(0, limit) : picked.slice(0, 1))
+    event.target.value = ''
+  }
+  return <section className="po-upload-card">
+    <div className="po-upload-heading"><span>{label}{required ? ' *' : ''}</span>{multiple ? <small>{files.length}/{limit}</small> : null}</div>
+    {files.length ? <div className="po-upload-files">{files.map((file, index) => <div className="po-upload-file" key={`${file.name}-${file.lastModified}-${index}`}><FilePreview file={file} /><span><b>{file.name}</b><small>{(file.size / 1024 / 1024).toFixed(1)} MB</small></span><button type="button" onClick={() => onChange(files.filter((_, fileIndex) => fileIndex !== index))} aria-label={`Remove ${file.name}`}><Trash2 size={16} /></button></div>)}</div> : null}
+    {files.length < limit ? <label className="po-upload-drop" htmlFor={inputId}><ImagePlus size={24} aria-hidden="true" /><span><b>{files.length ? 'Add another image' : 'Choose a file'}</b><small>{hint}</small></span><input id={inputId} className="po-upload-input" type="file" accept={accept} multiple={multiple} onChange={selectFiles} /></label> : null}
+  </section>
 }
 
 function DocumentLink({ document }) {

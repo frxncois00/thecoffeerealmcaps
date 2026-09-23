@@ -13,7 +13,6 @@ import {
   SlidersHorizontal,
   ShoppingBag,
   Wallet,
-  Flame,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -1048,14 +1047,9 @@ function ItemCustomizationModal({ product, onClose, onAdd }) {
   const [selectedVariant, setSelectedVariant] = useState(existingVariant || null)
   const [temperature, setTemperature] = useState(product.customizations?.temperature || (temperatureOptions[0] || ''))
   const isCold = temperature === 'Cold'
-  const [sugarLevel, setSugarLevel] = useState(product.customizations?.sugarLevel || (product.allowSugar ? '100% Sugar' : ''))
-  const [iceLevel, setIceLevel] = useState(product.customizations?.iceLevel || (product.allowIce && isCold ? 'Default Ice' : ''))
-  const [addons, setAddons] = useState(() => {
-    const existing = product.selectedAddons || product.customizations?.addons || []
-    if (existing.length) return existing
-    const example = (product.addons || []).find((option) => /whipped cream/i.test(option.name))
-    return example ? [example] : []
-  })
+  const [sugarLevel, setSugarLevel] = useState(product.customizations?.sugarLevel || (product.allowSugar ? '50% Sugar' : ''))
+  const [iceLevel, setIceLevel] = useState(product.customizations?.iceLevel || (product.allowIce && isCold ? '50% Ice' : ''))
+  const [addons, setAddons] = useState(product.selectedAddons || product.customizations?.addons || [])
   const [quantity, setQuantity] = useState(Number(product.qty || 1))
   const unitTotal = Number(selectedVariant?.price ?? product.price ?? 0) + addonTotal(addons)
   const modalTotal = unitTotal * quantity
@@ -1064,7 +1058,7 @@ function ItemCustomizationModal({ product, onClose, onAdd }) {
 
   function chooseTemperature(option) {
     setTemperature(option)
-    if (option === 'Cold' && product.allowIce && !iceLevel) setIceLevel('Default Ice')
+    if (option === 'Cold' && product.allowIce && !iceLevel) setIceLevel('50% Ice')
     if (option !== 'Cold') setIceLevel('')
   }
 
@@ -1088,7 +1082,7 @@ function ItemCustomizationModal({ product, onClose, onAdd }) {
   }
 
   return createPortal(<div className="cashier-v2 cashier-modal-portal cashier-refined-modal">
-    <div className="cashier-custom-backdrop customize-backdrop" role="dialog" aria-modal="true" aria-labelledby="customize-modal-title">
+    <div className="cashier-custom-backdrop customize-backdrop" role="dialog" aria-modal="true" aria-labelledby="customize-modal-title" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <section className="cashier-custom-modal customize-modal">
       <header className="customize-modal-header">
         <img src={product.image} alt={product.name} />
@@ -1104,17 +1098,16 @@ function ItemCustomizationModal({ product, onClose, onAdd }) {
           {variantOptions.length ? <VariantGroup title={variantTitle} options={variantOptions} value={selectedVariant} onChange={setSelectedVariant} /> : null}
           {temperatureOptions.length ? <OptionGroup title="Temperature" options={temperatureOptions} value={temperature} onChange={chooseTemperature} /> : null}
           {product.allowSugar ? <OptionGroup title="Sugar level" options={['0% Sugar', '25% Sugar', '50% Sugar', '75% Sugar', '100% Sugar']} value={sugarLevel} onChange={setSugarLevel} /> : null}
-          {product.allowIce && isCold ? <OptionGroup title="Ice level" options={['Less Ice', 'Default Ice', 'More Ice']} value={iceLevel} onChange={setIceLevel} /> : null}
+          {product.allowIce && isCold ? <OptionGroup title="Ice level" options={[...new Set(['Less Ice', '50% Ice', 'More Ice', iceLevel].filter(Boolean))]} value={iceLevel} onChange={setIceLevel} /> : null}
         </div> : <p className="customize-standard-note">This item uses its standard preparation.</p>}
         {product.allowAddons && (product.addons || []).length > 0 ? <section className="customize-addons-section" aria-labelledby="customize-addons-title">
           <div className="customize-section-head"><h3 id="customize-addons-title">Add-ons</h3><span>Optional · Multi-select</span></div>
           <div className="customize-addons-grid">{(product.addons || []).map((option) => {
             const selected = addons.some((item) => item.name === option.name)
-            return <label className={`customize-addon-button ${selected ? 'active' : ''}`} key={option.name}>
-              <input type="checkbox" checked={selected} onChange={() => toggleAddon(option)} />
+            return <button type="button" className={`customize-addon-button ${selected ? 'active' : ''}`} key={option.name} aria-pressed={selected} onClick={() => toggleAddon(option)}>
               <span>{option.name}</span>
               <b>+{peso(option.price)}</b>
-            </label>
+            </button>
           })}</div>
         </section> : null}
       </div>
@@ -1140,7 +1133,6 @@ function OptionGroup({ title, options, value, onChange }) {
   return <section className={`customize-choice-section${layoutClass}`} aria-label={title}>
     <div className="customize-section-head"><h3>{title}</h3><span>{required ? 'Required' : 'Select one'}</span></div>
     <div className="customize-choice-grid">{options.map((option) => <button type="button" className={`customize-choice-button ${value === option ? 'active' : ''}`} aria-pressed={value === option} key={option} onClick={() => onChange(option)}>
-      {title === 'Temperature' && option === 'Hot' && value === option ? <Flame size={14} aria-hidden="true" /> : null}
       <span className="customize-choice-label">{displayLabel(option)}</span>
     </button>)}</div>
   </section>

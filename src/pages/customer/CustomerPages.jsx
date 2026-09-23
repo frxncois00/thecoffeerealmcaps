@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Coffee, CreditCard, Info, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Trash2, X, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Coffee, CreditCard, Info, Link2, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Trash2, Unlink, X, XCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -6,7 +6,7 @@ import { useMenuCatalog } from '../../hooks/useMenuCatalog'
 import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePricing } from '../../context/usePricing'
-import { createCustomerOrderWithBenefitDiscount, fetchCustomerBenefitApplication, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress, saveProfile, uploadPaymentProof, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, confirmCustomerOrderReceived, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
+import { createCustomerOrderWithBenefitDiscount, fetchCustomerBenefitApplication, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, confirmCustomerOrderReceived, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
 import { deliveryAreas } from '../../data/deliveryAreas'
 import { money } from '../../utils/money'
 import { describeError } from '../../utils/describeError'
@@ -86,7 +86,7 @@ function scheduleSlots(date,fulfillment,ordering=SYSTEM_DEFAULTS.ordering){if(!d
 export function CheckoutPage(){
   const cart=useCart();const {items,subtotal}=cart;const {user,profile}=useAuth();const {pricing}=usePricing();const navigate=useNavigate();
   const [submitError,setSubmitError]=useState('');
-  const [paymentProof,setPaymentProof]=useState(null);const [paymentProofPreview,setPaymentProofPreview]=useState('');const [paymentProofError,setPaymentProofError]=useState('');
+  const [paymentProof,setPaymentProof]=useState(null);const [paymentProofPreview,setPaymentProofPreview]=useState('');const [paymentProofError,setPaymentProofError]=useState('');const [validatingPaymentProof,setValidatingPaymentProof]=useState(false);
   const [systemSettings,setSystemSettings]=useState(SYSTEM_DEFAULTS);
   const [availableAreas,setAvailableAreas]=useState(deliveryAreas);
   const [addresses,setAddresses]=useState([]);const [selectedAddress,setSelectedAddress]=useState('');const [addressMode,setAddressMode]=useState('loading');const [draftReady,setDraftReady]=useState(false);const [requestKey,setRequestKey]=useState(()=>crypto.randomUUID());
@@ -130,13 +130,33 @@ export function CheckoutPage(){
   }
   const selectedArea=availableAreas.find(area=>area.barangay.toLowerCase()===form.barangay.trim().toLowerCase());const fee=form.fulfillment==='delivery'?(selectedArea?.fee||0):0;const benefitEligible=benefitApplication?.status==='approved';const eligibleBenefit=mostExpensiveEligibleItemBenefit(items,pricing.vatRate,pricing.pricesIncludeVat);const benefitDiscount=benefitEligible&&form.applyBenefitDiscount?eligibleBenefit.benefitAmount:0;const total=subtotal+fee-benefitDiscount;const slots=useMemo(()=>scheduleSlots(form.scheduleDate,form.fulfillment,systemSettings.ordering),[form.scheduleDate,form.fulfillment,systemSettings.ordering]);
   if(!items.length)return <Empty title="Nothing to checkout" body="Your cart needs at least one item." action="Browse menu" to="/menu"/>;
-  if(cart.checkingAvailability)return <main className="customer-main"><section className="customer-state">Checking your cart against today’s availability…</section></main>;
   if(cart.hasUnavailableItems)return <main className="customer-main"><section className="empty-state"><AlertTriangle/><h1>Update your cart</h1><p>Remove unavailable items before continuing to checkout.</p><button className="primary-button" type="button" onClick={cart.openCart}>Review cart</button></section></main>;
   const set=(key,value)=>setForm(current=>({...current,[key]:value}));
   const setFulfillment=value=>setForm(current=>{const allowed=(systemSettings.payments.enabledMethods||[]).filter(method=>value==='delivery'||method!=='cod');const payment=allowed.includes(current.payment)?current.payment:(allowed[0]||'');return {...current,fulfillment:value,payment,paymentReference:payment===current.payment?current.paymentReference:'',scheduleDate:manilaDate(),scheduleTime:''}});
-  const clearPaymentProof=()=>{if(paymentProofPreview)URL.revokeObjectURL(paymentProofPreview);setPaymentProof(null);setPaymentProofPreview('');setPaymentProofError('')}
+  const clearPaymentProof=()=>{if(paymentProofPreview)URL.revokeObjectURL(paymentProofPreview);setPaymentProof(null);setPaymentProofPreview('');setPaymentProofError('');setValidatingPaymentProof(false)}
   const setPayment=value=>{if(value===form.payment)return;setForm(current=>({...current,payment:value,paymentReference:''}));clearPaymentProof()};
-  const choosePaymentProof=async event=>{const input=event.currentTarget;const next=input.files?.[0]||null;if(!next)return;try{await validateImageFile(next,{label:'Payment proof'});if(paymentProofPreview)URL.revokeObjectURL(paymentProofPreview);setPaymentProof(next);setPaymentProofPreview(URL.createObjectURL(next));setPaymentProofError('')}catch(cause){input.value='';clearPaymentProof();setPaymentProofError(cause.message||'Could not use this image.')}}
+  const choosePaymentProof=async event=>{
+    const input=event.currentTarget
+    const next=input.files?.[0]||null
+    if(!next)return
+    const nextPreview=URL.createObjectURL(next)
+    if(paymentProofPreview)URL.revokeObjectURL(paymentProofPreview)
+    setPaymentProof(next)
+    setPaymentProofPreview(nextPreview)
+    setPaymentProofError('')
+    setValidatingPaymentProof(true)
+    try{
+      await validateImageFile(next,{label:'Payment proof'})
+    }catch(cause){
+      input.value=''
+      URL.revokeObjectURL(nextPreview)
+      setPaymentProof(null)
+      setPaymentProofPreview('')
+      setPaymentProofError(cause.message||'Could not use this image.')
+    }finally{
+      setValidatingPaymentProof(false)
+    }
+  }
   const submit=async event=>{
     event.preventDefault();setSubmitError('');if(systemSettings.ordering.storeStatus!=='open'){setSubmitError(systemSettings.ordering.closureMessage);return}if(subtotal<Number(systemSettings.ordering.minimumOrder||0)){setSubmitError(`A minimum order of ${money(systemSettings.ordering.minimumOrder)} is required.`);return}if(!isValidPhone(form.contact)){setSubmitError('Contact number must contain 11 digits and start with 09.');return}if(form.fulfillment==='delivery'&&!selectedArea)return;if(form.payment!=='cod'&&!paymentProof){setPaymentProofError('Upload your payment proof before reviewing the order.');return}
     const availability=await cart.refreshAvailability();if(!availability.ok){setSubmitError('We could not verify current stock. Please try again.');return}if(!availability.available){setSubmitError('One or more cart items are now unavailable. Review your cart before continuing.');return}
@@ -146,13 +166,14 @@ export function CheckoutPage(){
     <CheckoutSection n="1" title="Customer information"><div className="form-grid"><Field label="Full name" value={form.fullName} onChange={value=>set('fullName',sanitizePersonName(value,60))} maxLength={60}/><Field label="Contact number" type="tel" value={form.contact} onChange={value=>set('contact',normalizePhone(value))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Contact number must contain 11 digits and start with 09."/></div>{submitError&&<p className="field-hint error">{submitError}</p>}</CheckoutSection>
     <CheckoutSection n="2" title="Fulfillment"><div className="fulfillment-controls"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/><SelectField label="Time" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={slots} placeholder={slots.length?'Select time':'No slots available today'} disabled={!slots.length}/></div>
     {form.fulfillment==='delivery'?<><fieldset className="address-source-picker"><legend>Delivery address</legend><div><button type="button" className={addressMode==='saved'?'active':''} onClick={()=>chooseAddressMode('saved')} disabled={!defaultAddress} aria-pressed={addressMode==='saved'}><span><MapPin size={19}/></span><b>Use default address</b><small>{defaultAddress?(defaultAddress.label||'Saved address'):'No default address saved'}</small></button><button type="button" className={addressMode==='new'?'active':''} onClick={()=>chooseAddressMode('new')} aria-pressed={addressMode==='new'}><span><Pencil size={19}/></span><b>Enter a new address</b><small>Use a different delivery location</small></button></div></fieldset>{addressMode==='saved'&&defaultAddress?<div className="saved-address-summary"><span>Default address</span><strong>{defaultAddress.label||'Saved address'}</strong><p>{[defaultAddress.address_line,defaultAddress.barangay&&`Brgy. ${defaultAddress.barangay}`,defaultAddress.city,defaultAddress.province].filter(Boolean).join(', ')}</p></div>:<div className="form-grid"><Field label="House no. / Bldg. / Street / Village" value={form.address} onChange={value=>set('address',value)} maxLength={200}/><BarangayField areas={availableAreas} value={form.barangay} onChange={value=>set('barangay',value)} selectedArea={selectedArea}/><Field label="City" value={form.city} readOnly maxLength={60}/><Field label="Province" value={form.province} readOnly maxLength={60}/></div>}{form.barangay&&!selectedArea&&<p className="field-hint error">Please select a Barangay from the delivery list.</p>}</>:<div className="pickup-note"><MapPin/>Lot 1 Block 210 Mark Street corner Dollar Street, North Fairview</div>}<Field label={form.fulfillment==='delivery'?'Delivery instructions':'Pickup note (optional)'} value={form.instructions} onChange={value=>set('instructions',value)} maxLength={300} required={false}/></CheckoutSection>
-    <CheckoutSection n="3" title="Payment"><Choice title="Payment method" options={(systemSettings.payments.enabledMethods||[]).filter(method=>form.fulfillment==='delivery'||method!=='cod').map(method=>({id:method,name:method==='cod'?'Cash on delivery':method==='bank_transfer'?'Bank':'GCash'}))} value={form.payment} onChange={setPayment}/><CheckoutPaymentDetails payment={form.payment} paymentConfig={systemSettings.payments} total={total} referenceNumber={form.paymentReference} onReferenceChange={value=>set('paymentReference',value)} proof={paymentProof} previewUrl={paymentProofPreview} proofError={paymentProofError} onProofChange={choosePaymentProof}/></CheckoutSection>
+    <CheckoutSection n="3" title="Payment"><Choice title="Payment method" options={(systemSettings.payments.enabledMethods||[]).filter(method=>form.fulfillment==='delivery'||method!=='cod').map(method=>({id:method,name:method==='cod'?'Cash on delivery':method==='bank_transfer'?'Bank':'GCash'}))} value={form.payment} onChange={setPayment}/><CheckoutPaymentDetails payment={form.payment} paymentConfig={systemSettings.payments} total={total} referenceNumber={form.paymentReference} onReferenceChange={value=>set('paymentReference',value)} proof={paymentProof} previewUrl={paymentProofPreview} proofError={paymentProofError} validatingProof={validatingPaymentProof} onProofChange={choosePaymentProof} onProofClear={clearPaymentProof}/></CheckoutSection>
     {systemSettings.ordering.storeStatus!=='open'&&<p className="field-hint error">{systemSettings.ordering.closureMessage}</p>}
-    <button className="primary-button checkout-submit" disabled={systemSettings.ordering.storeStatus!=='open'||!form.payment||!form.scheduleDate||!form.scheduleTime||(form.fulfillment==='delivery'&&!selectedArea)}>Review order · {money(total)} <ArrowRight/></button>
+    {cart.checkingAvailability?<p className="checkout-stock-refresh" role="status">Checking current item availability…</p>:null}
+    <button type="submit" className="primary-button checkout-submit" disabled={cart.checkingAvailability||validatingPaymentProof||systemSettings.ordering.storeStatus!=='open'||!form.payment||!form.scheduleDate||!form.scheduleTime||(form.fulfillment==='delivery'&&!selectedArea)}>Review order · {money(total)} <ArrowRight/></button>
   </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} benefit={eligibleBenefit} benefitEligible={benefitEligible} applyBenefitDiscount={Boolean(form.applyBenefitDiscount)} onBenefitChange={value=>set('applyBenefitDiscount',value)} fulfillment={form.fulfillment} selectedArea={selectedArea} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div></main>
 }
 function CheckoutSection({n,title,children}){return <section className="checkout-section"><header><b>{n}</b><h2>{title}</h2></header>{children}</section>}
-function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onReferenceChange,proof,previewUrl,proofError,onProofChange}){
+function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onReferenceChange,proof,previewUrl,proofError,validatingProof,onProofChange,onProofClear}){
   const proofInputRef=useRef(null)
   if(payment==='cod')return <div className="checkout-payment-cod"><Info size={18}/><p><b>Pay when your order arrives.</b><span>Please prepare the exact amount whenever possible. Cash on delivery is available up to {money(Number(paymentConfig.codMaximum||1000))}.</span></p></div>
   if(!['gcash','bank_transfer'].includes(payment))return null
@@ -176,7 +197,7 @@ function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onR
       </div>
     </div>
     <label className="field checkout-reference-field"><span>{label} reference number</span><input required type="text" value={referenceNumber} onChange={event=>changeReference(event.target.value)} inputMode={isGcash?'numeric':'text'} autoComplete="off" maxLength={isGcash?13:30} minLength={isGcash?13:6} pattern={isGcash?'[0-9]{13}':'[A-Za-z0-9-]{6,30}'} placeholder={isGcash?'Enter the 13-digit GCash reference':'Enter the bank transaction reference'} title={isGcash?'Enter exactly 13 digits from your GCash receipt.':'Enter 6 to 30 letters, numbers, or hyphens from your bank receipt.'}/><small>{isGcash?'Enter the 13-digit reference shown on your successful GCash receipt.':'Use 6-30 letters, numbers, or hyphens from the successful transfer receipt.'}</small></label>
-    <div className="checkout-proof-field"><span>Proof of payment</span><input ref={proofInputRef} id="checkout-proof-upload" className="proof-file-input" type="file" accept={IMAGE_UPLOAD_ACCEPT} tabIndex={-1} aria-hidden="true" onClick={event=>{event.currentTarget.value=''}} onChange={onProofChange}/><button type="button" className={`proof-dropzone${previewUrl?' has-preview':''}`} aria-describedby={previewUrl?undefined:'checkout-proof-help'} onClick={()=>proofInputRef.current?.click()}>{previewUrl?<><img className="proof-preview-image" src={previewUrl} alt="Selected payment proof preview"/><span className="proof-preview-action"><Camera size={17}/>Choose a different screenshot</span></>:<><ShoppingBag/><strong>Choose payment screenshot</strong><small id="checkout-proof-help">JPG, PNG, or WEBP only · Maximum 5 MB</small></>}</button>{proof&&<div className="proof-file" aria-live="polite"><span>{proof.name}</span><b>{(proof.size/1024/1024).toFixed(2)} MB</b></div>}{proofError&&<p className="field-hint error" role="alert">{proofError}</p>}</div>
+    <div className="checkout-proof-field"><span>Proof of payment</span><input ref={proofInputRef} id="checkout-proof-upload" className="proof-file-input" type="file" accept={IMAGE_UPLOAD_ACCEPT} tabIndex={-1} aria-hidden="true" onClick={event=>{event.currentTarget.value=''}} onChange={onProofChange}/><button type="button" className={`proof-dropzone${previewUrl?' has-preview':''}`} aria-describedby={previewUrl?undefined:'checkout-proof-help'} onClick={()=>proofInputRef.current?.click()}>{previewUrl?<><img className="proof-preview-image" src={previewUrl} alt="Selected payment proof preview"/><span className="proof-preview-action"><Camera size={17}/>{validatingProof?'Checking image…':'Choose a different screenshot'}</span></>:<><ShoppingBag/><strong>Choose payment screenshot</strong><small id="checkout-proof-help">JPG, PNG, or WEBP only · Maximum 5 MB</small></>}</button>{proof&&<div className="proof-file" aria-live="polite"><span>{proof.name}</span><span><b>{validatingProof?'Checking…':`${(proof.size/1024/1024).toFixed(2)} MB`}</b><button type="button" onClick={onProofClear} disabled={validatingProof}>Remove</button></span></div>}{proofError&&<p className="field-hint error" role="alert">{proofError}</p>}</div>
   </section>
 }
 function Field({label,type='text',value,onChange=()=>{},readOnly=false,required=true,inputMode,pattern,minLength,maxLength,title,autoComplete,autoCapitalize,spellCheck}){const labelText=String(label||'').toLowerCase();const resolvedMaxLength=maxLength??(labelText.includes('email')?EMAIL_MAX_LENGTH:labelText.includes('address')?200:labelText.includes('instruction')||labelText.includes('note')||labelText.includes('comment')||labelText.includes('explain')?300:labelText.includes('name')||labelText.includes('label')||labelText.includes('city')||labelText.includes('province')?60:80);return <label className={`field ${readOnly?'locked-field':''}`}><span>{label}</span><input required={required} readOnly={readOnly} aria-readonly={readOnly} value={value} type={type} inputMode={inputMode} pattern={pattern} minLength={minLength} maxLength={resolvedMaxLength} title={title} autoComplete={autoComplete} autoCapitalize={autoCapitalize} spellCheck={spellCheck} onChange={event=>onChange(event.target.value)}/></label>}
@@ -882,6 +903,7 @@ function TrackOrderModal({order,onClose,onReceive,receiving}){
 
 export function ProfilePage(){
   const {profile,user,updateProfile}=useAuth()
+  const navigate=useNavigate()
   const [values,setValues]=useState({full_name:'',username:'',email:'',phone:''})
   const [status,setStatus]=useState('')
   const [statusTone,setStatusTone]=useState('')
@@ -890,7 +912,20 @@ export function ProfilePage(){
   const [avatarPreview,setAvatarPreview]=useState('')
   const [avatarError,setAvatarError]=useState('')
   const avatarInputRef=useRef(null)
+  const [googleIdentity,setGoogleIdentity]=useState(()=>user?.identities?.find(identity=>identity.provider==='google')||null)
+  const [googleBusy,setGoogleBusy]=useState(false)
+  const [googleStatus,setGoogleStatus]=useState('')
+  const [googleStatusTone,setGoogleStatusTone]=useState('')
+  const [unlinkGoogleOpen,setUnlinkGoogleOpen]=useState(false)
   useEffect(()=>{setValues({full_name:profile?.full_name||'',username:profile?.username||user?.user_metadata?.username||'',email:profile?.email||user?.email||'',phone:normalizePhone(profile?.phone||'')})},[profile,user])
+  useEffect(()=>{setGoogleIdentity(user?.identities?.find(identity=>identity.provider==='google')||null)},[user])
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search)
+    if(params.get('google')!=='linked')return
+    setGoogleStatusTone('success')
+    setGoogleStatus('Google account linked successfully.')
+    window.history.replaceState({},'',window.location.pathname)
+  },[])
   useEffect(()=>()=>{if(avatarPreview)URL.revokeObjectURL(avatarPreview)},[avatarPreview])
   const set=(key,value)=>setValues(current=>({...current,[key]:value}))
   const avatarUrl=avatarPreview||profile?.avatar_url||''
@@ -936,6 +971,57 @@ export function ProfilePage(){
       setStatusTone('error')
       setStatus(error.message||'Could not save profile.')
     }finally{setSavingProfile(false)}
+  }
+
+  const googleCallbackUrl=()=>{
+    const isLocal=['localhost','127.0.0.1'].includes(window.location.hostname)
+    const productionUrl=String(import.meta.env.VITE_PUBLIC_SITE_URL||'https://thecoffeerealm.store').replace(/\/$/,'')
+    return `${isLocal?window.location.origin:productionUrl}/auth/callback`
+  }
+  const linkGoogle=async()=>{
+    if(googleBusy)return
+    setGoogleBusy(true)
+    setGoogleStatus('')
+    setGoogleStatusTone('')
+    window.sessionStorage.setItem('tcr.oauth.mode','link-google')
+    window.sessionStorage.setItem('tcr.oauth.returnTo','/profile')
+    const {error}=await supabase.auth.linkIdentity({provider:'google',options:{redirectTo:googleCallbackUrl(),queryParams:{prompt:'select_account'}}})
+    if(error){
+      window.sessionStorage.removeItem('tcr.oauth.mode')
+      window.sessionStorage.removeItem('tcr.oauth.returnTo')
+      setGoogleBusy(false)
+      setGoogleStatusTone('error')
+      setGoogleStatus(error.message||'Unable to link your Google account.')
+    }
+  }
+  const unlinkGoogle=async()=>{
+    if(googleBusy||!googleIdentity)return false
+    const otherIdentities=(user?.identities||[]).filter(identity=>identity.id!==googleIdentity.id)
+    if(otherIdentities.length===0){
+      setGoogleStatusTone('error')
+      setGoogleStatus('Google is your only sign-in method, so it cannot be unlinked yet.')
+      return false
+    }
+    setGoogleBusy(true)
+    setGoogleStatus('')
+    setGoogleStatusTone('')
+    const {error}=await supabase.auth.unlinkIdentity(googleIdentity)
+    if(error){
+      setGoogleStatusTone('error')
+      setGoogleStatus(error.message||'Unable to unlink your Google account.')
+      setGoogleBusy(false)
+      return false
+    }
+    const {data}=await supabase.auth.getUser()
+    setGoogleIdentity(data.user?.identities?.find(identity=>identity.provider==='google')||null)
+    setGoogleStatusTone('success')
+    setGoogleStatus('Google account unlinked.')
+    setGoogleBusy(false)
+    return true
+  }
+  const confirmUnlinkGoogle=async()=>{
+    const unlinked=await unlinkGoogle()
+    if(unlinked)setUnlinkGoogleOpen(false)
   }
 
   const [changePasswordOpen,setChangePasswordOpen]=useState(false)
@@ -995,6 +1081,10 @@ export function ProfilePage(){
   const [deletingId,setDeletingId]=useState('')
   const [busyId,setBusyId]=useState('')
   const [recentlySavedAddressId,setRecentlySavedAddressId]=useState('')
+  const [deleteAccountOpen,setDeleteAccountOpen]=useState(false)
+  const [deleteAccountBusy,setDeleteAccountBusy]=useState(false)
+  const [deleteAccountError,setDeleteAccountError]=useState('')
+  const [deleteEligibility,setDeleteEligibility]=useState({loading:true,allowed:false,blockingCount:0,reason:''})
 
   const loadAddresses=async()=>{
     if(!user?.id)return
@@ -1004,6 +1094,15 @@ export function ProfilePage(){
     finally{setAddressesLoading(false)}
   }
   useEffect(()=>{loadAddresses()},[user?.id])
+  useEffect(()=>{
+    let active=true
+    if(!user?.id){setDeleteEligibility({loading:false,allowed:false,blockingCount:0,reason:'Sign in again to check your account.'});return()=>{active=false}}
+    setDeleteEligibility({loading:true,allowed:false,blockingCount:0,reason:''})
+    fetchCustomerAccountDeletionEligibility(user.id)
+      .then(result=>{if(active)setDeleteEligibility({loading:false,...result})})
+      .catch(()=>{if(active)setDeleteEligibility({loading:false,allowed:false,blockingCount:0,reason:'We could not check your open transactions. Please try again later.'})})
+    return()=>{active=false}
+  },[user?.id])
   useEffect(()=>{
     if(!recentlySavedAddressId)return undefined
     const timer=window.setTimeout(()=>setRecentlySavedAddressId(''),2200)
@@ -1035,6 +1134,19 @@ export function ProfilePage(){
     finally{setBusyId('')}
   }
 
+  const removeAccount=async confirmation=>{
+    setDeleteAccountBusy(true)
+    setDeleteAccountError('')
+    try{
+      await deleteCustomerAccount(confirmation)
+      await supabase.auth.signOut({scope:'local'})
+      navigate('/login',{replace:true,state:{authMessage:'Your account has been deleted.'}})
+    }catch(cause){
+      setDeleteAccountError(describeError(cause,'Could not delete your account.'))
+      setDeleteAccountBusy(false)
+    }
+  }
+
   return <main className="customer-main narrow">
     <section className="page-title"><span>Your account</span><h1>Profile</h1><p>Manage your picture, personal information, account security, and delivery addresses in one place.</p></section>
     <section className="settings-stack">
@@ -1062,6 +1174,17 @@ export function ProfilePage(){
         </div>
         <div className="profile-benefit-actions"><button className="primary-button" type="submit" disabled={savingProfile}>{savingProfile?'Saving…':'Save profile'}</button><BenefitProfileLink/></div>
         {status&&<p className={`settings-status${statusTone?` is-${statusTone}`:''}`} role={statusTone==='error'?'alert':'status'}>{status}</p>}
+        <div className="account-link-row">
+          <div className="account-link-copy">
+            <span className="account-link-icon" aria-hidden="true">G</span>
+            <div><h3>Google account</h3><p>{googleIdentity?'Linked to your account.':'Link Google for another way to sign in.'}</p></div>
+          </div>
+          <button className="secondary-button" type="button" onClick={googleIdentity?()=>setUnlinkGoogleOpen(true):linkGoogle} disabled={googleBusy}>
+            {googleIdentity?<Unlink size={17}/>:<Link2 size={17}/>}
+            {googleBusy?'Please wait…':googleIdentity?'Unlink':'Link Google'}
+          </button>
+        </div>
+        {googleStatus&&<p className={`settings-status account-link-status${googleStatusTone?` is-${googleStatusTone}`:''}`} role={googleStatusTone==='error'?'alert':'status'}>{googleStatus}</p>}
         <div className="security-row">
           <div><h3>Password and security</h3><p>Update your password by confirming your current password.</p></div>
           <button className="secondary-button" type="button" onClick={openChangePassword}>Change password</button>
@@ -1091,6 +1214,16 @@ export function ProfilePage(){
           </article>)}
         </div>}
       </section>
+      <section className="account-card settings-section delete-account-section">
+        <div>
+          <span className="settings-kicker">Account removal</span>
+          <h2>Delete account</h2>
+          <p>{deleteEligibility.loading?'Checking your orders and transaction history…':deleteEligibility.allowed?'Your sign-in and personal account information will be removed. Past orders and account activity will remain in store records.':deleteEligibility.reason}</p>
+          {!deleteEligibility.loading&&!deleteEligibility.allowed&&deleteEligibility.blockingCount>0?<Link className="delete-account-orders-link" to="/orders">View your orders</Link>:null}
+        </div>
+        <button className="delete-account-button" type="button" disabled={deleteEligibility.loading||!deleteEligibility.allowed} aria-describedby={!deleteEligibility.allowed?'delete-account-blocked-reason':undefined} onClick={()=>{setDeleteAccountError('');setDeleteAccountOpen(true)}}><Trash2 size={17}/>{deleteEligibility.loading?'Checking…':'Delete account'}</button>
+        {!deleteEligibility.loading&&!deleteEligibility.allowed?<span className="sr-only" id="delete-account-blocked-reason">{deleteEligibility.reason}</span>:null}
+      </section>
     </section>
 
     {changePasswordOpen&&<ChangePasswordModal
@@ -1108,6 +1241,8 @@ export function ProfilePage(){
     />}
     {formOpen&&<AddressFormModal address={editingAddress} onClose={closeForm} onSave={saveAddress}/>}
     {deletingId&&<ConfirmDeleteAddressModal onCancel={()=>setDeletingId('')} onConfirm={()=>removeAddress(deletingId)} busy={busyId===deletingId}/>}
+    {deleteAccountOpen&&<DeleteAccountModal busy={deleteAccountBusy} error={deleteAccountError} onCancel={()=>{if(!deleteAccountBusy)setDeleteAccountOpen(false)}} onConfirm={removeAccount}/>}
+    {unlinkGoogleOpen&&<UnlinkGoogleModal busy={googleBusy} canUnlink={(user?.identities||[]).some(identity=>identity.id!==googleIdentity?.id)} onCancel={()=>{if(!googleBusy)setUnlinkGoogleOpen(false)}} onConfirm={confirmUnlinkGoogle}/>}
   </main>
 }
 
@@ -1196,6 +1331,38 @@ function ConfirmDeleteAddressModal({onCancel,onConfirm,busy}){
   </div>
 }
 
+function DeleteAccountModal({onCancel,onConfirm,busy,error}){
+  const [confirmation,setConfirmation]=useState('')
+  const ready=confirmation==='DELETE'
+  return <div className="payment-modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)onCancel()}}>
+    <section className="payment-modal delete-account-modal" role="alertdialog" aria-modal="true" aria-labelledby="delete-account-title" aria-describedby="delete-account-description">
+      <span className="payment-modal-kicker">Delete account</span>
+      <h2 id="delete-account-title">Permanently remove your account?</h2>
+      <p id="delete-account-description">You will lose access immediately. Your personal profile, saved addresses, and verification documents will be removed. Past orders and store activity will remain for business records.</p>
+      <label className="field"><span>Type DELETE to confirm</span><input value={confirmation} onChange={event=>setConfirmation(event.target.value.toUpperCase().slice(0,6))} autoComplete="off" disabled={busy}/></label>
+      {error?<p className="form-error" role="alert">{error}</p>:null}
+      <div className="payment-modal-actions">
+        <button className="secondary-button" type="button" onClick={onCancel} disabled={busy}>Keep account</button>
+        <button className="danger-button" type="button" onClick={()=>onConfirm(confirmation)} disabled={busy||!ready}>{busy?'Deleting…':'Delete my account'}</button>
+      </div>
+    </section>
+  </div>
+}
+
+function UnlinkGoogleModal({onCancel,onConfirm,busy,canUnlink}){
+  return <div className="payment-modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)onCancel()}}>
+    <section className="payment-modal" role="alertdialog" aria-modal="true" aria-labelledby="unlink-google-title" aria-describedby="unlink-google-description">
+      <span className="payment-modal-kicker">Google sign-in</span>
+      <h2 id="unlink-google-title">Unlink your Google account?</h2>
+      <p id="unlink-google-description">{canUnlink?'You will no longer be able to sign in with Google. You can still use your other sign-in method.':'Google is your only sign-in method. Add another sign-in method before unlinking it.'}</p>
+      <div className="payment-modal-actions">
+        <button className="secondary-button" type="button" onClick={onCancel} disabled={busy}>{canUnlink?'Keep linked':'Close'}</button>
+        {canUnlink?<button className="danger-button" type="button" onClick={onConfirm} disabled={busy}>{busy?'Unlinking…':'Unlink Google'}</button>:null}
+      </div>
+    </section>
+  </div>
+}
+
 export function AboutPage(){return <main className="customer-main"><section className="editorial-page"><img src="/images/craft.JPG" alt="Coffee being prepared at The Coffee Realm"/><div><span>Our story</span><h1>A neighborhood cafÃ© made for slow moments.</h1><p>The Coffee Realm began with a love for the daily ritual of coffee. In North Fairview, we pair thoughtfully brewed drinks with homemade cakes, cookies, and comforting meals.</p><p>Our aim is simple: make every visit feel warm, personal, and worth returning to.</p></div></section></main>}
 const helpGroups=[
  {title:'Ordering guide',items:[['How do I browse the menu?','Explore the full selection of drinks, cakes, meals, and handcrafted treats from the Menu tab.'],['Can I customize a product?','Yes. Select the available size, add-ons, sugar level, temperature, and special instructions before adding an item to your cart.'],['How do I place an order?','Review your cart, proceed to checkout, then confirm your delivery or pickup details and payment method.']]},
@@ -1207,7 +1374,7 @@ const helpGroups=[
 
 export function HelpPage(){return <main className="customer-main"><section className="page-hero help-hero"><span>Support center Â· North Fairview</span><h1>How can we help?</h1><p>Find quick answers about ordering, fulfillment, payments, cancellations, and refunds.</p></section><section className="help-layout"><div className="faq-column"><div className="section-heading"><div><span className="eyebrow">Frequently asked questions</span><h2>Everything you need to order smoothly.</h2></div></div><div className="faq-groups">{helpGroups.map((group,groupIndex)=><section className="faq-group" key={group.title}><h3>{group.title}</h3>{group.items.map(([question,answer],itemIndex)=><details key={question} open={groupIndex===0&&itemIndex===0}><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}</section>)}</div></div><aside className="help-contact"><span className="settings-kicker">Contact us</span><h2>Still need a hand?</h2><p>Send the store a message and include your order number when your question is about an existing order.</p><div className="contact-details"><p><b>Phone</b><a href="tel:+639975337958">+63 997 533 7958</a></p><p><b>Email</b><a href="mailto:main.thecoffeerealm@gmail.com">main.thecoffeerealm@gmail.com</a></p><p><b>Location</b><span>North Fairview, Quezon City</span></p></div><form onSubmit={e=>e.preventDefault()}><label className="field"><span>Your name</span><input required/></label><label className="field"><span>Email address</span><input required type="email"/></label><label className="field"><span>Subject</span><input required/></label><label className="field"><span>How can we help?</span><textarea required placeholder="Tell us what happened or what you need help with."/></label><button className="primary-button full" type="submit">Send message</button></form></aside></section></main>}
 export function ContactPage(){return <main className="customer-main"><section className="editorial-page"><div><span>Visit or say hello</span><h1>Find us in North Fairview.</h1><p>Lot 1 Block 210 Mark Street corner Dollar Street, Quezon City</p><p>Open daily, 10:00 AMâ€“12:00 MN</p><p>main.thecoffeerealm@gmail.com Â· +63 997 533 7958</p></div><form className="account-card" onSubmit={e=>e.preventDefault()}><label className="field"><span>Name</span><input required/></label><label className="field"><span>Email</span><input required type="email"/></label><label className="field"><span>Message</span><textarea required/></label><button className="primary-button">Send message</button></form></section></main>}
-export function NotFoundPage(){return <main className="customer-main"><Empty title="This page wandered off" body="The link may be old, but the coffee is still fresh." action="Return home" to="/"/></main>}
+export function NotFoundPage(){return <main className="customer-main not-found-page"><section className="not-found-state" aria-labelledby="not-found-title"><header className="not-found-header"><span className="not-found-brand">The Coffee Realm</span><span className="not-found-route">lost in the realm</span></header><div className="not-found-layout"><div className="not-found-visual" aria-label="404"><span className="not-found-number">404</span><span className="not-found-doodle not-found-doodle-one" aria-hidden="true">+</span><span className="not-found-doodle not-found-doodle-two" aria-hidden="true">·</span><span className="not-found-doodle not-found-doodle-three" aria-hidden="true">+</span></div><div className="not-found-copy"><span className="not-found-eyebrow">A tiny detour</span><h1 id="not-found-title">Page Not Found</h1><p>The page you're looking for doesn't exist.</p><p className="not-found-aside">Maybe this page took a coffee break.</p><Link className="primary-button not-found-action" to="/">Return to Home<ArrowRight size={18} aria-hidden="true"/></Link></div></div><footer className="not-found-footer"><span>Keep wandering. Stay curious.</span><span>404 / 01</span></footer></section></main>}
 function Empty({title,body,action,to}){return <section className="empty-state"><ShoppingBag/><h1>{title}</h1><p>{body}</p><Link className="primary-button" to={to}>{action}</Link></section>}
 
 

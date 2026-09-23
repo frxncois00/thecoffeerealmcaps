@@ -6,6 +6,8 @@ import CustomerProtectedRoute from './routes/CustomerProtectedRoute'
 import AdminDashboard from './pages/AdminDashboard'
 import CashierPage from './pages/CashierPage'
 import CustomerLoginPage from './pages/CustomerLoginPage'
+import CustomerOAuthCallbackPage from './pages/CustomerOAuthCallbackPage'
+import CustomerOnboardingPage from './pages/CustomerOnboardingPage'
 import HomePage from './pages/HomePage'
 import LegalPage from './pages/LegalPage'
 import HelpPage from './pages/customer/HelpPage'
@@ -53,6 +55,7 @@ export default function App() {
           <Route path="/orders/:id/confirmation" element={protect(<OrderConfirmationPage />)} />
           <Route path="/orders/:id/track" element={protect(<Navigate to="/orders" replace />)} />
           <Route path="/profile" element={protect(<ProfilePage />)} />
+          <Route path="/complete-profile" element={protect(<CustomerOnboardingPage />)} />
           <Route path="/profile/benefits" element={protect(<BenefitsPage />)} />
           <Route path="/addresses" element={<Navigate to="/profile" replace />} />
           <Route path="/settings" element={<Navigate to="/profile" replace />} />
@@ -60,6 +63,7 @@ export default function App() {
 
         <Route path="/login" element={<CustomerLoginPage />} />
         <Route path="/register" element={<CustomerLoginPage initialMode="register" />} />
+        <Route path="/auth/callback" element={<CustomerOAuthCallbackPage />} />
         <Route path="/portal" element={<PortalLoginPage />} />
 
         <Route

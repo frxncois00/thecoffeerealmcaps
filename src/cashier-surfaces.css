@@ -50,7 +50,7 @@ html[data-theme] .cashier-v2.cashier-refined .checkout-quantity { background: va
 html[data-theme] .cashier-v2.cashier-refined .checkout-totals { background: var(--cafe-inset) !important; border-color: var(--cafe-line) !important; border-radius: 12px; box-shadow: none !important; }
 html[data-theme] .cashier-v2.cashier-refined .checkout-totals :is(p, span, b, strong) { color: var(--cafe-ink) !important; }
 html[data-theme] .cashier-v2.cashier-refined .checkout-totals p:last-child { border-color: var(--cafe-line) !important; }
-html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-choice-grid button, .customize-choice-button, .customize-addon-button, .customize-stepper) {
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-choice-grid button, .customize-choice-button, .customize-addon-button) {
   background: var(--cafe-paper) !important; color: var(--cafe-ink) !important; border: 1px solid var(--cafe-line) !important; border-radius: 9px !important; box-shadow: none !important;
 }
 html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-choice-grid button.active, .customize-choice-button.active, .customize-addon-button.active) {
@@ -107,4 +107,118 @@ html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.c
   html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal-head, .customize-modal-header, .checkout-actions, .customize-modal-footer, .cashier-receipt-actions) { padding: 16px; }
   html[data-theme] .cashier-v2.cashier-refined .transaction-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
   html[data-theme] .cashier-v2.cashier-refined .transaction-filters select { min-width: 0; width: 100%; }
+}
+/* Final customization geometry and states, shared by both portal themes. */
+html[data-theme] .cashier-v2.cashier-refined-modal .cashier-custom-modal.customize-modal {
+  border: 0 !important;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-choice-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  background: #fcfaf6 !important;
+  color: #263529 !important;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-choice-button.active {
+  background: #1b2f22 !important;
+  color: #fff !important;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-choice-button::before,
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-choice-button::after,
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-choice-label::before,
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-choice-label::after {
+  content: none !important;
+  display: none !important;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-choice-button :is(span, small, svg) {
+  color: inherit !important;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-addon-button,
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-addon-button.active {
+  background: #fcfaf6 !important;
+  color: #263529 !important;
+  border: 1px solid #e3ded2 !important;
+  box-shadow: none !important;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-addon-button span { color: #263529 !important; }
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-addon-button b { color: #596159 !important; }
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-addon-button::before,
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-addon-button::after { content: none !important; }
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-modal-footer {
+  grid-template-columns: minmax(0, 1fr) 128px minmax(110px, 160px) !important;
+  gap: 16px !important;
+  border: 0 !important;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-quantity { width: 128px !important; }
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-stepper {
+  display: grid !important;
+  grid-template-columns: 40px 40px 40px !important;
+  gap: 0 !important;
+  width: 128px !important;
+  max-width: 128px !important;
+  min-height: 48px !important;
+  padding: 4px !important;
+  border: 0 !important;
+  background: #364a3c !important;
+  box-shadow: none !important;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-stepper :is(button, strong) {
+  display: grid !important;
+  place-items: center !important;
+  width: 40px !important;
+  min-width: 40px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #fff !important;
+  font-size: 15px !important;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-stepper button:hover { background: rgba(255,255,255,.1) !important; }
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-add-button {
+  grid-column: auto !important;
+  grid-row: auto !important;
+  min-width: 0 !important;
+  padding: 0 12px !important;
+  height: 48px !important;
+}
+@media(max-width:480px) {
+  html[data-theme] .cashier-v2.cashier-refined-modal .customize-modal-footer {
+    grid-template-columns: minmax(0,1fr) 128px !important;
+    gap: 12px !important;
+  }
+  html[data-theme] .cashier-v2.cashier-refined-modal .customize-add-button {
+    grid-column: 1 / -1 !important;
+    justify-self: end;
+    max-width: 160px;
+  }
+}
+/* Add-ons use the whole row as the toggle, without checkbox squares. */
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-addon-button {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-addon-button.active {
+  background: #1b2f22 !important;
+  border-color: #1b2f22 !important;
+  color: #fff !important;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-addon-button.active :is(span, b) {
+  color: #fff !important;
+}
+/* Solid header actions with readable forest-green labels in every state. */
+html[data-theme] .cashier-v2.cashier-refined .legacy-cashier-top nav button:is(.cashier-transactions-button, .cashier-signout-button) {
+  background: #e8dcc4 !important;
+  color: #1b2f22 !important;
+  border: 1px solid #e8dcc4 !important;
+  box-shadow: none !important;
+}
+html[data-theme] .cashier-v2.cashier-refined .legacy-cashier-top nav button:is(.cashier-transactions-button, .cashier-signout-button) :is(span, svg) {
+  color: #1b2f22 !important;
+}
+html[data-theme] .cashier-v2.cashier-refined .legacy-cashier-top nav button:is(.cashier-transactions-button, .cashier-signout-button):hover {
+  background: #f3ead9 !important;
+  border-color: #f3ead9 !important;
 }

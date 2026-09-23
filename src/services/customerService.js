@@ -56,23 +56,54 @@ export async function createAddress(userId,values){const phone=sanitizePhone(val
 export async function updateAddress(addressId,values){const phone=sanitizePhone(values.phone||'');const recipientName=sanitizePersonName(values.recipientName||'',60).trim();if(phone&&!isValidPhone(phone))throw new Error('Contact number must contain 11 digits and start with 09.');if(recipientName!==String(values.recipientName||'').trim())throw new Error('Enter a valid recipient name using letters only.');const {data,error}=await supabase.from('customer_addresses').update({label:values.label||null,recipient_name:recipientName||null,phone:phone||null,address_line:values.addressLine,barangay:values.barangay||null,city:values.city||'Quezon City',province:values.province||'Metro Manila',postal_code:values.postalCode||null,delivery_notes:values.deliveryNotes||null,is_default:Boolean(values.isDefault),updated_at:new Date().toISOString()}).eq('id',addressId).select().single();if(error)throw error;return data}
 export async function deleteAddress(addressId){const {error}=await supabase.from('customer_addresses').delete().eq('id',addressId);if(error)throw error}
 export async function setDefaultAddress(addressId){const {data,error}=await supabase.from('customer_addresses').update({is_default:true,updated_at:new Date().toISOString()}).eq('id',addressId).select().single();if(error)throw error;return data}
+export async function deleteCustomerAccount(confirmation){
+  if(!isSupabaseConfigured)throw new Error('Supabase is not configured.')
+  const {data,error}=await supabase.functions.invoke('delete-customer-account',{body:{confirmation}})
+  if(error){
+    let message=error.message||'Unable to delete your account.'
+    try{const body=await error.context?.json();message=body?.error||message}catch{/* Keep the original function error. */}
+    throw new Error(message)
+  }
+  if(!data?.success)throw new Error(data?.error||'Unable to delete your account.')
+  return data
+}
+export async function fetchCustomerAccountDeletionEligibility(userId){
+  if(!userId)return{allowed:false,blockingCount:0,reason:'Sign in again to check your account.'}
+  const {data,error}=await supabase.from('orders').select('id,status,cancellation_status,fulfillment_hold,refund_status').eq('customer_id',userId)
+  if(error)throw error
+  const terminalOrderStatuses=new Set(['completed','received','cancelled'])
+  const unresolvedRefundStatuses=new Set(['pending_review','pending','approved','processing','failed'])
+  const blockingOrders=(data||[]).filter(order=>{
+    const status=String(order.status||'').trim().toLowerCase()
+    const cancellationStatus=String(order.cancellation_status||'none').trim().toLowerCase()
+    const refundStatus=String(order.refund_status||'not_applicable').trim().toLowerCase()
+    return !terminalOrderStatuses.has(status)
+      || Boolean(order.fulfillment_hold)
+      || cancellationStatus==='requested'
+      || unresolvedRefundStatuses.has(refundStatus)
+  })
+  return{allowed:blockingOrders.length===0,blockingCount:blockingOrders.length,reason:blockingOrders.length?`You have ${blockingOrders.length} ongoing order${blockingOrders.length===1?'':'s'}, cancellation review, or refund issue to resolve first.`:''}
+}
 export async function createCustomerOrder(payload){if(!isSupabaseConfigured)throw new Error('Supabase is not configured.');const {data,error}=await supabase.rpc('create_customer_order',{request_payload:payload});if(error)throw error;return data}
 export async function createCustomerOrderWithBenefitDiscount(payload){if(!isSupabaseConfigured)throw new Error('Supabase is not configured.');const {data,error}=await supabase.rpc('create_customer_order_with_benefit_discount',{request_payload:payload});if(error)throw error;return data}
 export async function fetchCustomerBenefitApplication(customerId){if(!customerId)return null;const {data,error}=await supabase.from('benefit_applications').select('status,kind').eq('customer_id',customerId).maybeSingle();if(error)throw error;return data}
 
 export async function uploadPaymentProof({orderId,userId,file,referenceNumber}){
-  const {extension}=await validateImageFile(file,{label:'Payment proof'})
+  const {extension,mimeType}=await validateImageFile(file,{label:'Payment proof'})
   // The existing database policy accepts an eight-digit suffix. A timestamp
   // suffix makes retries unique without overwriting an earlier proof upload.
   const uploadToken=String(Date.now()).slice(-8)
   const filename=`${orderId}_${uploadToken}.${extension}`
   const path=`${userId}/${filename}`
-  const {error:uploadError}=await supabase.storage.from('payment-proofs').upload(path,file,{contentType:file.type,upsert:false})
-  if(uploadError)throw uploadError
+  const {error:uploadError}=await supabase.storage.from('payment-proofs').upload(path,file,{contentType:mimeType,upsert:false})
+  if(uploadError){
+    if(/bucket not found/i.test(uploadError.message||''))throw new Error('Payment proof storage is not set up yet. An administrator must apply the latest Supabase migrations.')
+    throw uploadError
+  }
   const {error:attachError}=await supabase.rpc('attach_customer_payment_proof',{p_order_id:orderId,p_path:path,p_reference_number:referenceNumber})
   if(attachError){
     const {error:cleanupError}=await supabase.storage.from('payment-proofs').remove([path])
-    if(cleanupError)throw new Error(attachError.message+' The uploaded file could not be cleaned up: '+cleanupError.message)
+    if(cleanupError)console.warn('[checkout] payment proof cleanup failed',cleanupError)
     throw attachError
   }
   return {path,filename}

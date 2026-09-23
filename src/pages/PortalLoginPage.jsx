@@ -45,9 +45,9 @@ export default function PortalLoginPage() {
   }
 
   return <div className="legacy-portal">
-    <header className="legacy-portal-header"><div className="legacy-portal-brand"><span className="legacy-portal-brand-icon"><Coffee size={16}/></span><span>The Coffee Realm</span></div><button className="legacy-portal-lock" type="button" aria-label="Secure internal portal"><Lock size={16}/></button></header>
+    <header className="legacy-portal-header"><div className="legacy-portal-brand"><img className="portal-official-logo portal-official-logo-small" src="/images/coffeerealmlogo.png" alt="" width="30" height="30"/><span>The Coffee Realm</span></div><button className="legacy-portal-lock" type="button" aria-label="Secure internal portal"><Lock size={16}/></button></header>
     <main className="legacy-login-card">
-      <div className="legacy-login-heading"><span className="legacy-login-icon"><ShieldCheck size={24}/></span><h1>Internal Portal Login</h1><p>Private access for admin, staff, and cashier</p></div>
+      <div className="legacy-login-heading"><img className="portal-official-logo portal-official-logo-large" src="/images/coffeerealmlogo.png" alt="The Coffee Realm logo" width="64" height="64"/><h1>Internal Portal Login</h1><p>Private access for admin, staff, and cashier</p></div>
       <form onSubmit={submit} autoComplete="off">
         <label>Role</label><div className="legacy-role-picker" role="group" aria-label="Choose portal role">
           {[['admin', 'Admin'], ['staff', 'Staff'], ['cashier', 'Cashier']].map(([value, label]) => <button key={value} type="button" className={role === value ? 'active' : ''} aria-pressed={role === value} onClick={() => setRole(value)}>{label}</button>)}

@@ -86,6 +86,16 @@ with check (bucket_id='payment-proofs' and (storage.foldername(name))[1]=auth.ui
 drop policy if exists "Customers view their payment proofs" on storage.objects;
 create policy "Customers view their payment proofs" on storage.objects for select to authenticated
 using (bucket_id='payment-proofs' and (storage.foldername(name))[1]=auth.uid()::text);
+drop policy if exists "Customers delete unreferenced payment proofs" on storage.objects;
+create policy "Customers delete unreferenced payment proofs" on storage.objects for delete to authenticated
+using (
+  bucket_id='payment-proofs'
+  and (storage.foldername(name))[1]=auth.uid()::text
+  and not exists (
+    select 1 from public.orders o
+    where o.customer_id=auth.uid() and o.payment_proof_path=name
+  )
+);
 
 alter table public.orders add column if not exists request_key uuid;
 create unique index if not exists orders_customer_request_key_uidx on public.orders(customer_id,request_key) where request_key is not null;
@@ -186,13 +196,36 @@ begin
   return jsonb_build_object('id',oid,'order_id',oid,'order_number',ono,'subtotal',sub,'delivery_fee',fee,'total',grand,'status',order_status);
 end; $$;
 
-create or replace function public.attach_customer_payment_proof(p_order_id uuid,p_path text) returns void
-language plpgsql security definer set search_path=public as $$ begin
+drop function if exists public.attach_customer_payment_proof(uuid,text);
+create or replace function public.attach_customer_payment_proof(
+  p_order_id uuid,
+  p_path text,
+  p_reference_number text
+) returns void
+language plpgsql security definer set search_path=public as $$
+declare
+  v_status text;
+  v_method text;
+  v_reference text:=btrim(coalesce(p_reference_number,''));
+begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
-  perform 1 from public.orders o join public.payments p on p.order_id=o.id
-  where o.id=p_order_id and o.customer_id=auth.uid() and p.method in ('gcash','bank_transfer')
-    and o.status='Pending Confirmation' and not coalesce(o.payment_confirmed,false) and o.payment_proof_path is null;
-  if not found then raise exception 'Eligible order not found or not owned by the signed-in customer'; end if;
+
+  select o.status,p.method into v_status,v_method
+  from public.orders o
+  join public.payments p on p.order_id=o.id
+  where o.id=p_order_id and o.customer_id=auth.uid()
+    and p.method in ('gcash','bank_transfer')
+  limit 1;
+  if not found then raise exception 'Payment order not found or not owned by the signed-in customer'; end if;
+  if lower(btrim(coalesce(v_status,''))) not in ('awaiting payment verification','pending confirmation','order received') then
+    raise exception 'This order no longer accepts payment proofs';
+  end if;
+  if v_method='gcash' and v_reference !~ '^[0-9]{13}$' then
+    raise exception 'GCash reference number must be exactly 13 digits';
+  end if;
+  if v_method='bank_transfer' and v_reference !~ '^[A-Za-z0-9-]{6,30}$' then
+    raise exception 'Bank reference must be 6 to 30 letters, numbers, or hyphens';
+  end if;
   if p_path is null or p_path !~ ('^'||auth.uid()::text||'/'||p_order_id::text||'_[0-9]{8}[.](jpg|png|webp)$') then
     raise exception 'Invalid payment proof path';
   end if;
@@ -201,15 +234,16 @@ language plpgsql security definer set search_path=public as $$ begin
   if not found then raise exception 'Payment proof object was not found'; end if;
   update public.orders set payment_proof_path=p_path,payment_status='pending',payment_confirmed=false,updated_at=now()
   where id=p_order_id and customer_id=auth.uid();
-  if not found then raise exception 'Order not found or not owned by the signed-in customer'; end if;
+  update public.payments set reference_number=v_reference,status='pending'
+  where order_id=p_order_id and method=v_method;
 end; $$;
 
 drop function if exists public.set_customer_order_status(uuid,text);
 
 revoke all on function public.create_customer_order(jsonb) from public;
-revoke all on function public.attach_customer_payment_proof(uuid,text) from public;
+revoke all on function public.attach_customer_payment_proof(uuid,text,text) from public;
 grant execute on function public.create_customer_order(jsonb) to authenticated;
-grant execute on function public.attach_customer_payment_proof(uuid,text) to authenticated;
+grant execute on function public.attach_customer_payment_proof(uuid,text,text) to authenticated;
 
 -- Customer order privacy and internal operational access.
 alter table public.orders enable row level security;

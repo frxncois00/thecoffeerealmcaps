@@ -225,3 +225,27 @@ export async function adjustStock({ itemType, itemId, delta, movementType, reaso
   if (error) throw error
   return data
 }
+
+export async function fetchDailyOpeningStockPlan() {
+  const [{ data: settings, error: settingsError }, { data: lines, error: linesError }] = await Promise.all([
+    supabase.from('daily_opening_stock_settings').select('opening_time,is_active,last_run_date').eq('id', true).maybeSingle(),
+    supabase.from('daily_opening_stock_items').select('finished_product_id,opening_quantity,unit').order('created_at'),
+  ])
+  if (settingsError) throw settingsError
+  if (linesError) throw linesError
+  return {
+    openingTime: String(settings?.opening_time || '09:00').slice(0, 5),
+    isActive: Boolean(settings?.is_active),
+    lastRunDate: settings?.last_run_date || null,
+    items: (lines || []).map((line) => ({ productId: line.finished_product_id, quantity: Number(line.opening_quantity), unit: line.unit })),
+  }
+}
+
+export async function saveDailyOpeningStockPlan({ openingTime, isActive, items }) {
+  const { error } = await supabase.rpc('staff_save_daily_opening_stock_plan', {
+    p_opening_time: openingTime,
+    p_is_active: isActive,
+    p_items: items.map((item) => ({ product_id: item.productId, opening_quantity: Number(item.quantity), unit: item.unit })),
+  })
+  if (error) throw error
+}

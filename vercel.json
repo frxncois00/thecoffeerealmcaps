@@ -1,7 +1,30 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "thecoffeerealmcaps.vercel.app"
+        }
+      ],
+      "destination": "https://thecoffeerealm.store/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
-    { "source": "/preview/realm-tour", "destination": "/preview/realm-tour/index.html" },
-    { "source": "/preview/realm-tour/", "destination": "/preview/realm-tour/index.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/preview/realm-tour",
+      "destination": "/preview/realm-tour/index.html"
+    },
+    {
+      "source": "/preview/realm-tour/",
+      "destination": "/preview/realm-tour/index.html"
+    },
+    {
+      "source": "/((?!api(?:/|$)|_next(?:/|$)|assets(?:/|$)|images(?:/|$)|preview/realm-tour(?:/|$)|.*\\.[^/]+$).*)",
+      "destination": "/index.html"
+    }
   ]
 }

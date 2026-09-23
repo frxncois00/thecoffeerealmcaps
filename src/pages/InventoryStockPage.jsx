@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle, Archive, Bell, Box, Check,
-  Package, PackageMinus, PackagePlus, PackageX, Pencil, Plus, RefreshCw, Search, X,
+  Clock3, Package, PackageMinus, PackagePlus, PackageX, Pencil, Plus, RefreshCw, Search, X,
 } from 'lucide-react'
 import AppShell from '../components/AppShell'
 import { describeError } from '../utils/describeError'
@@ -9,6 +9,7 @@ import {
   fetchIngredients, fetchFinishedProducts, fetchMenuItemOptions,
   fetchMovements, fetchRecipeUsage, fetchIngredientMenuLinks, setIngredientMenuLinks,
   upsertIngredient, archiveIngredient, upsertFinishedProduct, archiveFinishedProduct, adjustStock,
+  fetchDailyOpeningStockPlan, saveDailyOpeningStockPlan,
 } from '../services/opsInventoryService'
 import { getCurrentPortalSession } from '../lib/auth'
 import { fetchStaffPreferences, getRememberedStaffFilters, rememberStaffFilters, shouldShowSystemNotification } from '../services/staffSettingsService'
@@ -75,6 +76,7 @@ export default function InventoryStockPage() {
   const [drawerItem, setDrawerItem] = useManagementSessionState('staff:inventory:drawer', null)
   const [adjustTarget, setAdjustTarget] = useManagementSessionState('staff:inventory:adjustment', null)
   const [archiveTarget, setArchiveTarget] = useManagementSessionState('staff:inventory:archive-confirmation', null)
+  const [openingStockOpen, setOpeningStockOpen] = useState(false)
 
   const config = ENTITY_CONFIGS[activeEntity]
 
@@ -199,6 +201,13 @@ export default function InventoryStockPage() {
     }
   }
 
+  const runSaveOpeningStock = async (payload) => {
+    await saveDailyOpeningStockPlan(payload)
+    await load('finished_product')
+    pushToast('success', 'Daily opening stock was saved.')
+    setOpeningStockOpen(false)
+  }
+
   const attentionCount = outCount + lowCount
 
   return (
@@ -251,9 +260,14 @@ export default function InventoryStockPage() {
         <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} aria-label="Sort">
           <option value="name">Name: A to Z</option><option value="quantity">Quantity: lowest first</option><option value="updated">Recently updated</option>
         </select>
-        <button type="button" className="ops-main-action inv-record-btn" onClick={() => setFormTarget({ item: null })}>
-          <Plus size={16} /> Record New {config.singular}
-        </button>
+        <div className={`inv-toolbar-actions${activeEntity === 'finished_product' ? ' has-opening-stock' : ''}`}>
+          {activeEntity === 'finished_product' && <button type="button" className="ops-secondary-action inv-opening-stock-btn" onClick={() => setOpeningStockOpen(true)}>
+            <Clock3 size={16} /> Daily Opening Stock
+          </button>}
+          <button type="button" className="ops-main-action inv-record-btn" onClick={() => setFormTarget({ item: null })}>
+            <Plus size={16} /> Record New {config.singular}
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -339,12 +353,72 @@ export default function InventoryStockPage() {
       {archiveTarget && (
         <ArchiveConfirmModal item={archiveTarget} busy={busyId === archiveTarget.id} onClose={() => setArchiveTarget(null)} onConfirm={() => runArchive(archiveTarget)} />
       )}
+      {openingStockOpen && <DailyOpeningStockModal products={items.filter((item) => !item.isArchived)} onClose={() => setOpeningStockOpen(false)} onSave={runSaveOpeningStock} />}
 
       <div className="ops-toasts" role="status" aria-live="polite">
         {toasts.map((t) => <div className={`ops-toast ops-toast-${t.type}`} key={t.id}>{t.type === 'success' ? <Check size={15} /> : <AlertTriangle size={15} />} {t.message}</div>)}
       </div>
     </AppShell>
   )
+}
+
+function DailyOpeningStockModal({ products, onClose, onSave }) {
+  const [openingTime, setOpeningTime] = useState('09:00')
+  const [isActive, setIsActive] = useState(true)
+  const [rows, setRows] = useState({})
+  const [search, setSearch] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let active = true
+    fetchDailyOpeningStockPlan().then((plan) => {
+      if (!active) return
+      setOpeningTime(plan.openingTime)
+      setIsActive(plan.isActive || plan.items.length === 0)
+      setRows(Object.fromEntries(plan.items.map((item) => [item.productId, { selected: true, quantity: String(item.quantity), unit: item.unit }])))
+    }).catch((cause) => { if (active) setError(describeError(cause, 'Could not load the opening stock plan.')) }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [])
+  const visible = products.filter((product) => !search.trim() || product.name.toLowerCase().includes(search.trim().toLowerCase()))
+  const selectedCount = Object.values(rows).filter((row) => row.selected).length
+  const allVisibleSelected = visible.length > 0 && visible.every((product) => rows[product.id]?.selected)
+  const update = (product, key, value) => setRows((current) => ({ ...current, [product.id]: { selected: false, quantity: '', unit: product.unit || 'piece', ...current[product.id], [key]: value } }))
+  const toggleVisible = () => setRows((current) => Object.fromEntries([
+    ...Object.entries(current),
+    ...visible.map((product) => [product.id, { selected: !allVisibleSelected, quantity: current[product.id]?.quantity || '', unit: current[product.id]?.unit || product.unit || 'piece' }]),
+  ]))
+  async function submit(event) {
+    event.preventDefault()
+    setError('')
+    const selected = products.filter((product) => rows[product.id]?.selected).map((product) => ({ productId: product.id, quantity: rows[product.id]?.quantity, unit: rows[product.id]?.unit?.trim() }))
+    if (!selected.length) return setError('Select at least one product.')
+    if (selected.some((item) => item.quantity === '' || Number(item.quantity) < 0)) return setError('Enter a valid starting quantity for every selected product.')
+    if (selected.some((item) => !item.unit)) return setError('Enter a unit for every selected product.')
+    setSaving(true)
+    try { await onSave({ openingTime, isActive, items: selected }) } catch (cause) { setError(describeError(cause, 'Could not save the opening stock plan.')); setSaving(false) }
+  }
+  return <div className="payment-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose() }}>
+    <section className="payment-modal inv-opening-stock-modal" role="dialog" aria-modal="true" aria-labelledby="opening-stock-title">
+      <header className="inv-opening-stock-header"><span><Clock3 size={18} /></span><div><h2 id="opening-stock-title">Daily Opening Stock</h2><p>Set each product's quantity when the store opens.</p></div><button type="button" onClick={onClose} aria-label="Close"><X size={19} /></button></header>
+      <form onSubmit={submit}>
+        <div className="inv-opening-settings"><div className="inv-opening-schedule-title"><Clock3 size={17} /><span><b>Daily reset</b><small>Asia/Manila</small></span></div><label className="inv-opening-time"><span>Time</span><input type="time" step="60" value={openingTime} onChange={(event) => setOpeningTime(event.target.value)} aria-label="Daily reset time" required /></label><label className="inv-opening-toggle"><input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} /><span className="inv-opening-toggle-copy"><b>{isActive ? 'On' : 'Off'}</b></span><span className="inv-opening-switch" aria-hidden="true"><i /></span></label></div>
+        <label className="inv-opening-search"><Search size={16} /><span className="sr-only">Search products</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search products" /></label>
+        <div className="inv-opening-list-head"><span>Products</span><div><b>{selectedCount} selected</b><button type="button" onClick={toggleVisible} disabled={!visible.length}>{allVisibleSelected ? 'Deselect all' : 'Select all'}</button></div></div>
+        <div className="inv-opening-list">
+          {loading ? <p className="inv-opening-state">Loading…</p> : visible.length ? visible.map((product) => {
+            const row = rows[product.id] || { selected: false, quantity: '', unit: product.unit || 'piece' }
+            return <div className={`inv-opening-row${row.selected ? ' is-selected' : ''}`} key={product.id}>
+              <label className="inv-opening-product"><input type="checkbox" checked={row.selected} onChange={(event) => update(product, 'selected', event.target.checked)} /><span><b>{product.name}</b><small>Current: {formatQty(product.quantity)} {product.unit}</small></span></label>
+              {row.selected && <><label><span>Starting quantity</span><input type="number" min="0" step="any" value={row.quantity} onChange={(event) => update(product, 'quantity', event.target.value)} required /></label><label><span>Unit</span><input value={row.unit} onChange={(event) => update(product, 'unit', sanitizeCatalogText(event.target.value, 24))} maxLength={24} required /></label></>}
+            </div>
+          }) : <p className="inv-opening-state">No products found.</p>}
+        </div>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-main-action" disabled={saving || loading}>{saving ? 'Saving…' : 'Save'}</button></footer>
+      </form>
+    </section>
+  </div>
 }
 
 function InventorySkeleton() {

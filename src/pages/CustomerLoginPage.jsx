@@ -7,6 +7,13 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { EMAIL_MAX_LENGTH, isValidEmail, isValidPassword, sanitizeUsername } from '../utils/inputValidation'
 
 const otpDigits = 6
+const productionSiteUrl = String(import.meta.env.VITE_PUBLIC_SITE_URL || 'https://thecoffeerealm.store').replace(/\/$/, '')
+
+function googleCallbackUrl() {
+  const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  const siteUrl = isLocal ? window.location.origin : productionSiteUrl
+  return `${siteUrl}/auth/callback`
+}
 
 export default function CustomerLoginPage({ initialMode = 'login' }) {
   const navigate = useNavigate()
@@ -26,9 +33,32 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
   const [pendingUsername, setPendingUsername] = useState('')
   const [otpCode, setOtpCode] = useState(Array(otpDigits).fill(''))
   const [authMessage, setAuthMessage] = useState(location.state?.authMessage || '')
-  const [authError, setAuthError] = useState('')
+  const [authError, setAuthError] = useState(location.state?.authError || '')
   const [loading, setLoading] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
+
+  async function continueWithGoogle() {
+    setAuthError('')
+    setAuthMessage('')
+    if (!isSupabaseConfigured) return setAuthError('Supabase is not configured yet.')
+
+    window.sessionStorage.setItem('tcr.oauth.returnTo', '/menu')
+    window.sessionStorage.setItem('tcr.oauth.mode', mode)
+    setLoading(true)
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: googleCallbackUrl(),
+        queryParams: { prompt: 'select_account' },
+      },
+    })
+
+    if (error) {
+      setLoading(false)
+      setAuthError(error.message || 'Unable to continue with Google. Please try again.')
+    }
+  }
 
   useEffect(() => {
     if (!location.state?.openForgotPassword) return
@@ -118,7 +148,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
     }
 
     queueAuthWelcome(authData?.user?.user_metadata)
-    navigate(location.state?.from || '/menu')
+    navigate('/menu', { replace: true })
   }
 
   async function submitRegister(event) {
@@ -143,7 +173,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
     if (error) return setAuthError(error.message || 'Unable to send OTP right now.')
     if (signupData.session) {
       queueAuthWelcome(signupData.user?.user_metadata, username)
-      return navigate(location.state?.from || '/menu')
+      return navigate('/menu', { replace: true })
     }
     setRegisteredEmail(email)
     setPendingUsername(username)
@@ -168,7 +198,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
     setOtpOpen(false)
     setAuthMessage(`Account verified. Welcome, ${pendingUsername || 'customer'}!`)
     queueAuthWelcome(pendingUsername)
-    navigate(location.state?.from || '/menu')
+    navigate('/menu', { replace: true })
   }
 
   async function resendOtp() {
@@ -279,6 +309,8 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
               <div><Lock size={19} /><input name="password" type={showLoginPassword ? 'text' : 'password'} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" placeholder="Enter your password" /><button type="button" aria-label="Toggle password visibility" onClick={() => setShowLoginPassword((value) => !value)}>{showLoginPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
             </label>
             <button type="submit" className="legacy-auth-submit" disabled={loading}>{loading ? 'PLEASE WAIT...' : 'LOGIN'}</button>
+            <AuthDivider />
+            <GoogleAuthButton onClick={continueWithGoogle} disabled={loading} />
           </form>
         </div>
 
@@ -300,6 +332,8 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
               <div><Lock size={19} /><input name="password" type={showRegisterPassword ? 'text' : 'password'} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" placeholder="Create a password" /><button type="button" aria-label="Toggle password visibility" onClick={() => setShowRegisterPassword((value) => !value)}>{showRegisterPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
             </label>
             <button type="submit" className="legacy-auth-submit" disabled={loading}><UserPlus size={18} /> {loading ? 'SENDING...' : 'CREATE ACCOUNT'}</button>
+            <AuthDivider />
+            <GoogleAuthButton onClick={continueWithGoogle} disabled={loading} />
           </form>
         </div>
 
@@ -359,6 +393,26 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
 
 function AuthNotice({ variant, message }) {
   return <div className={`legacy-auth-notice ${variant}`}>{message}</div>
+}
+
+function AuthDivider() {
+  return <div className="legacy-auth-divider" role="separator"><span>or</span></div>
+}
+
+function GoogleAuthButton({ onClick, disabled }) {
+  return <button type="button" className="legacy-google-auth-button" onClick={onClick} disabled={disabled}>
+    <GoogleMark />
+    <span>{disabled ? 'Connecting…' : 'Continue with Google'}</span>
+  </button>
+}
+
+function GoogleMark() {
+  return <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+    <path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.55h3.24c1.9-1.75 2.98-4.33 2.98-7.42Z" />
+    <path fill="#34A853" d="M12 22c2.7 0 4.98-.9 6.63-2.35l-3.24-2.55c-.9.6-2.05.96-3.39.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.62A10 10 0 0 0 12 22Z" />
+    <path fill="#FBBC05" d="M6.39 13.93A6 6 0 0 1 6.08 12c0-.67.12-1.32.31-1.93V7.45H3.04A10 10 0 0 0 2 12c0 1.64.39 3.19 1.04 4.55l3.35-2.62Z" />
+    <path fill="#EA4335" d="M12 5.94c1.47 0 2.79.5 3.83 1.5l2.87-2.88A9.63 9.63 0 0 0 12 2a10 10 0 0 0-8.96 5.45l3.35 2.62C7.18 7.7 9.39 5.94 12 5.94Z" />
+  </svg>
 }
 
 function AuthModal({ title, children, onClose }) {

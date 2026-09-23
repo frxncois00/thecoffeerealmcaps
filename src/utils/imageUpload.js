@@ -76,7 +76,10 @@ export async function validateImageFile(file, { label = 'Image', maxBytes = IMAG
   const detectedType = detectedMimeType(bytes)
   const declaredType = MIME_ALIASES[file.type] || file.type
   if (!CANONICAL_EXTENSIONS[detectedType]) {
-    throw new Error(`${label} must be a JPG/JPEG, PNG, or WEBP image. GIFs, videos, and documents are not allowed.`)
+    if (CANONICAL_EXTENSIONS[declaredType]) {
+      throw new Error(`${label} content does not match its file type. Renamed GIFs, videos, and other files are not allowed.`)
+    }
+    throw new Error(`${label} must be a JPG, PNG, or WEBP image. GIFs, videos, and documents are not allowed.`)
   }
   if (declaredType && declaredType !== 'application/octet-stream' && declaredType !== detectedType) {
     throw new Error(`${label} content does not match its file type. Renamed GIFs, videos, and other files are not allowed.`)
