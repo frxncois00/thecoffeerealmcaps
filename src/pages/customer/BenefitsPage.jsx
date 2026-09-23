@@ -30,7 +30,7 @@ export default function BenefitsPage() {
           {current.status === 'pending' && <p>Your application is awaiting admin review. Check back here for the decision.</p>}
           {current.status === 'resubmission' && <p>Please update the information requested below, then resubmit using the form above.</p>}
           {current.review_note && <div className="benefit-review-note"><b>Message from the reviewer</b><p>{current.review_note}</p></div>}
-          {current.status !== 'resubmission' && <details className="benefit-submitted-details"><summary>View submitted information</summary><ApplicationDetails values={current}/><BenefitDocument path={current.document_path}/></details>}
+          {current.status !== 'resubmission' && <details className="benefit-submitted-details"><summary>View submitted information</summary><div className="benefit-submitted-grid"><div className="benefit-submitted-info"><ApplicationDetails values={current}/></div><div className="benefit-submitted-document"><BenefitDocument path={current.document_path}/></div></div></details>}
         </>}
       </section>
     </>}

@@ -454,10 +454,13 @@ export default function SalesReportPage() {
                   <SummaryCard icon={ShoppingBag} label="Completed Paid Orders" value={<AnimatedValue value={report.summary.totalOrders} />} pct={report.comparison.ordersPct} hint={comparisonHint} tone="cream" />
                   <SummaryCard icon={PhilippinePeso} label="Average Order Value" value={<AnimatedValue value={report.summary.averageOrderValue} format={money} />} pct={comparisonPct(report.summary.averageOrderValue, report.previousSummary.averageOrderValue)} hint={comparisonHint} tone="gold" />
                   <SummaryCard icon={Boxes} label="Items Sold" value={<AnimatedValue value={report.summary.totalItems} />} pct={report.comparison.itemsPct} hint={comparisonHint} tone="blue" />
-                  <SummaryCard icon={RotateCcw} label="Refund Rate" value={`${report.summary.refundRate.toFixed(1)}%`} detail={`${report.summary.refundedOrders.toLocaleString('en-PH')} of ${report.summary.totalOrdersInRange.toLocaleString('en-PH')} total orders`} tone="blue" />
-                  <SummaryCard icon={Ban} label="Cancellation Rate" value={`${report.summary.cancellationRate.toFixed(1)}%`} detail={`${report.summary.cancelledOrders.toLocaleString('en-PH')} of ${report.summary.totalOrdersInRange.toLocaleString('en-PH')} total orders`} tone="gold" />
                 </div>
               </section>
+
+              <div className="srp-rate-grid" role="group" aria-label="Refund and cancellation rates">
+                <SummaryCard icon={RotateCcw} label="Refund Rate" value={`${report.summary.refundRate.toFixed(1)}%`} detail={`${report.summary.refundedOrders.toLocaleString('en-PH')} of ${report.summary.totalOrdersInRange.toLocaleString('en-PH')} total orders`} tone="blue" />
+                <SummaryCard icon={Ban} label="Cancellation Rate" value={`${report.summary.cancellationRate.toFixed(1)}%`} detail={`${report.summary.cancelledOrders.toLocaleString('en-PH')} of ${report.summary.totalOrdersInRange.toLocaleString('en-PH')} total orders`} tone="gold" />
+              </div>
 
               <RevenueReconciliation summary={report.summary} />
 
@@ -941,9 +944,14 @@ function RevenueReconciliation({ summary }) {
       <div><span>Discounts</span><b>- {money(summary.discounts)}</b><small>Applied discounts</small></div>
       <div><span>Refunds</span><b>- {money(summary.refunds)}</b><small>Processed refunds</small></div>
       <div><span>Delivery Fees</span><b>{money(summary.deliveryFees)}</b><small>Excluded from revenue</small></div>
-      <div><span>Cancelled</span><b>{summary.cancelledOrders.toLocaleString('en-PH')}</b><small>Excluded from revenue</small></div>
     </section>
   )
+}
+
+function productCategoryLabel(product) {
+  const group = product.categoryGroup || 'Other'
+  const subcategory = product.category || 'Other'
+  return group === subcategory ? group : `${group} · ${subcategory}`
 }
 
 const PRODUCT_SORT_LABELS = {
@@ -994,7 +1002,7 @@ function SalesProductTable({ products }) {
     <section className="panel dash-panel srp-products-panel srp-report-products" aria-labelledby="sales-products-title">
       <div className="panel-head srp-products-head">
         <div><span id="sales-products-title">Top / Bottom Products</span><small>Actual quantities and line-item revenue from completed paid orders</small></div>
-        <div className="srp-product-mode" role="group" aria-label="Product ranking direction">
+        <div className="srp-product-mode srp-granularity" role="group" aria-label="Product ranking direction">
           <button type="button" className={mode === 'top' ? 'active' : ''} aria-pressed={mode === 'top'} onClick={() => chooseMode('top')}>Top</button>
           <button type="button" className={mode === 'bottom' ? 'active' : ''} aria-pressed={mode === 'bottom'} onClick={() => chooseMode('bottom')}>Bottom</button>
         </div>
@@ -1007,7 +1015,7 @@ function SalesProductTable({ products }) {
               <tbody>
                 {rows.map((product) => (
                   <tr key={product.id || product.name}>
-                    <td><b>{product.name}</b><small>{product.category}</small></td>
+                    <td><b>{product.name}</b><small>{productCategoryLabel(product)}</small></td>
                     <td className="srp-num">{product.qty.toLocaleString('en-PH')}</td>
                     <td className="srp-num"><b>{money(product.revenue)}</b></td>
                     <td className="srp-num">{product.pct.toFixed(1)}%</td>
@@ -1019,7 +1027,7 @@ function SalesProductTable({ products }) {
           <div className="srp-product-cards" aria-label={`${mode === 'top' ? 'Top' : 'Bottom'} products`}>
             {rows.map((product, index) => (
               <article className="srp-product-card" key={`${product.id || product.name}-report-card`}>
-                <header><span className="srp-rank">{index + 1}</span><div><b>{product.name}</b><small>{product.category}</small></div><strong>{money(product.revenue)}</strong></header>
+                <header><span className="srp-rank">{index + 1}</span><div><b>{product.name}</b><small>{productCategoryLabel(product)}</small></div><strong>{money(product.revenue)}</strong></header>
                 <dl>
                   <div><dt>Qty sold</dt><dd>{product.qty.toLocaleString('en-PH')}</dd></div>
                   <div><dt>% of total sales</dt><dd>{product.pct.toFixed(1)}%</dd></div>

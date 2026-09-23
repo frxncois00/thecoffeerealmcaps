@@ -24,7 +24,7 @@ import { menuItems, store } from '../data/mockData'
 import { getCurrentPortalSession, signOutPortal } from '../lib/auth'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { sanitizePersonName, sanitizePhone } from '../utils/inputValidation'
-import { buildVatExemptOrderBreakdown, formatVatRate } from '../utils/pricing'
+import { buildVatExemptOrderBreakdown, formatVatRate, vatExemptDiscountBreakdown } from '../utils/pricing'
 
 const paymentMethods = [
   { value: 'Cash', label: 'Cash', icon: Banknote },
@@ -53,7 +53,7 @@ const addonTotal = (addons = []) => addons.reduce((sum, addon) => sum + Number(a
 const baseUnitPrice = (item) => Number(item.customizations?.variantPrice ?? item.price ?? 0)
 const roundMoney = (value) => Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
 const itemBaseTotal = (item) => baseUnitPrice(item) * Number(item.qty || item.quantity || 0)
-const itemDiscountAmount = (item) => roundMoney(itemBaseTotal(item) * 0.2)
+const itemDiscountAmount = (item, vatRate, pricesIncludeVat) => vatExemptDiscountBreakdown(itemBaseTotal(item), vatRate, 0.2, pricesIncludeVat).discountAmount
 const lineUnitPrice = (item) => baseUnitPrice(item) + addonTotal(item.addons)
 const itemLineTotal = (item) => lineUnitPrice(item) * Number(item.qty || item.quantity || 0)
 const emptyDiscount = () => ({ enabled: false, type: '', customerName: '', idNumber: '', discountedLineKeys: [] })
@@ -229,6 +229,7 @@ function normalizeOrder(row) {
     customerName: row.customer_name || row.full_name || 'Walk-in Customer',
     subtotal: Number(row.subtotal || row.discount_subtotal || row.final_total || 0),
     discountAmount: Number(row.discount_amount || 0),
+    vatExemptAmount: Number(row.vat_exempt_amount || 0),
     discountType: row.discount_type || '',
     discountSubtotal: Number(row.discount_subtotal || 0),
     total: Number(row.final_total || row.subtotal || 0),
@@ -352,7 +353,7 @@ export default function CashierPage() {
         const [productResult, addonResult, orderResult] = await Promise.all([
           loadMenuItems(),
           supabase.from('addons').select('id,name,price,applies_to,is_available,sort_order,addon_subcategories(subcategory_id)').eq('is_available', true).order('sort_order', { ascending: true }),
-          supabase.from('orders').select('id,order_number,receipt_number,customer_name,subtotal,discount_subtotal,discount_amount,final_total,vat_rate,prices_include_vat,payment_status,payment_confirmed,discount_type,discount_customer_name,discount_id_number,created_at,order_items(*),payments(*)').eq('order_type', 'walk-in').order('created_at', { ascending: false }).limit(30),
+          supabase.from('orders').select('id,order_number,receipt_number,customer_name,subtotal,discount_subtotal,discount_amount,vat_exempt_amount,final_total,vat_rate,prices_include_vat,payment_status,payment_confirmed,discount_type,discount_customer_name,discount_id_number,created_at,order_items(*),payments(*)').eq('order_type', 'walk-in').order('created_at', { ascending: false }).limit(30),
         ])
         if (ignore) return
         if (!productResult.error) {
@@ -479,11 +480,14 @@ export default function CashierPage() {
   const discountSubtotal = discount.enabled
     ? cart.filter((item) => discountedLineKeys.includes(item.lineKey)).reduce((sum, item) => sum + itemBaseTotal(item), 0)
     : 0
-  const discountAmount = discount.enabled ? roundMoney(discountSubtotal * 0.2) : 0
+  const selectedBenefit = discount.enabled
+    ? vatExemptDiscountBreakdown(discountSubtotal, pricing.vatRate, 0.2, pricing.pricesIncludeVat)
+    : { discountAmount: 0, vatAmount: 0, benefitAmount: 0 }
+  const discountAmount = selectedBenefit.discountAmount
   const discountBreakdown = {
     discountSubtotal,
-    totalBenefitAmount: discountAmount,
-    vatExemptAmount: 0,
+    totalBenefitAmount: selectedBenefit.benefitAmount,
+    vatExemptAmount: selectedBenefit.vatAmount,
   }
   const priceBreakdown = cartVatBreakdown({
     subtotal,
@@ -607,6 +611,7 @@ export default function CashierPage() {
         customerName: customerName.trim() || 'Walk-in Customer',
         subtotal,
         discountAmount,
+        vatExemptAmount: selectedBenefit.vatAmount,
         paymentMethod: payment.method,
         paymentReference: payment.method !== 'Cash' ? payment.referenceNumber : '',
         accountNumber: '',
@@ -624,7 +629,7 @@ export default function CashierPage() {
         createdAt: new Date().toISOString(),
         items: cart.map((item) => {
           const isDiscounted = discount.enabled && discountedLineKeys.includes(item.lineKey)
-          return { ...item, isDiscounted, discount_amount: isDiscounted ? itemDiscountAmount(item) : 0, unitPrice: lineUnitPrice(item), line_total: itemLineTotal(item) }
+          return { ...item, isDiscounted, discount_amount: isDiscounted ? itemDiscountAmount(item, pricing.vatRate, pricing.pricesIncludeVat) : 0, unitPrice: lineUnitPrice(item), line_total: itemLineTotal(item) }
         }),
       }
 
@@ -652,6 +657,7 @@ export default function CashierPage() {
         discount_id_number: discount.enabled ? discount.idNumber : null,
         discount_subtotal: discount.enabled ? discountSubtotal : 0,
         discount_amount: discountAmount,
+        vat_exempt_amount: selectedBenefit.vatAmount,
         final_total: total,
         payment_status: 'paid',
         payment_confirmed: true,
@@ -666,7 +672,7 @@ export default function CashierPage() {
           quantity: item.qty,
           line_total: itemLineTotal(item),
           is_discounted: isDiscounted,
-          discount_amount: isDiscounted ? itemDiscountAmount(item) : 0,
+          discount_amount: isDiscounted ? itemDiscountAmount(item, pricing.vatRate, pricing.pricesIncludeVat) : 0,
           customizations: item.customizations || {},
           addons: item.addons || [],
         }
@@ -1050,8 +1056,8 @@ function CashierBreakdownRows({ breakdown, vatRate, pricesIncludeVat }) {
   }
 
   return <>
-    <p><span>Subtotal</span><b>{peso(breakdown?.baseAmount || 0)}</b></p>
-    <p className="cashier-vat-indicator"><span>{pricesIncludeVat ? `VAT included (${formatVatRate(vatRate)})` : 'VAT calculated at checkout'}</span><b>{peso(breakdown?.vatAmount || 0)}</b></p>
+    <p><span>VATable Sale</span><b>{peso(breakdown?.baseAmount || 0)}</b></p>
+    <p className="cashier-vat-indicator"><span>{formatVatRate(vatRate)} VAT</span><b>{peso(breakdown?.vatAmount || 0)}</b></p>
   </>
 }
 
@@ -1271,7 +1277,7 @@ function CashierReceipt({ order, onClose }) {
             })}
           </div>
           <div className="receipt-line" />
-          {breakdown.isVatExemptDiscount ? <>{breakdown.regularBaseAmount > 0 ? <div className="receipt-total-row"><span>VATable Sale:</span><span>{breakdown.regularBaseAmount.toFixed(2)}</span></div> : null}<div className="receipt-total-row"><span>VAT-Exempt Sale:</span><span>{breakdown.vatExemptSale.toFixed(2)}</span></div><div className="receipt-total-row"><span>{formatVatRate(vatRate)} VAT:</span><span>{breakdown.regularVatAmount.toFixed(2)}</span></div><div className="receipt-total-row"><span>Less 20% SC/PWD Disc.:</span><span>-{breakdown.discountAmount.toFixed(2)}</span></div></> : <><div className="receipt-total-row"><span>Subtotal:</span><span>{breakdown.baseAmount.toFixed(2)}</span></div><div className="receipt-total-row"><span>VAT ({formatVatRate(vatRate)}):</span><span>{breakdown.vatAmount.toFixed(2)}</span></div></>}
+          {breakdown.isVatExemptDiscount ? <>{breakdown.regularBaseAmount > 0 ? <div className="receipt-total-row"><span>VATable Sale:</span><span>{breakdown.regularBaseAmount.toFixed(2)}</span></div> : null}<div className="receipt-total-row"><span>VAT-Exempt Sale:</span><span>{breakdown.vatExemptSale.toFixed(2)}</span></div><div className="receipt-total-row"><span>{formatVatRate(vatRate)} VAT:</span><span>{breakdown.regularVatAmount.toFixed(2)}</span></div><div className="receipt-total-row"><span>Less 20% SC/PWD Disc.:</span><span>-{breakdown.discountAmount.toFixed(2)}</span></div></> : <><div className="receipt-total-row"><span>VATable Sale:</span><span>{breakdown.baseAmount.toFixed(2)}</span></div><div className="receipt-total-row"><span>{formatVatRate(vatRate)} VAT:</span><span>{breakdown.vatAmount.toFixed(2)}</span></div></>}
           <div className="receipt-total-row"><span>TOTAL:</span><span className="receipt-grand-total">{Number(order.total || 0).toFixed(2)}</span></div>
           <div className="receipt-line" />
           <div className="receipt-row"><span className="receipt-label">Payment Method:</span><span className="receipt-value">{order.paymentMethod}</span></div>

@@ -31,7 +31,7 @@ export default function RaimuWidget() {
   const { user, profile, loading } = useAuth()
   const role = normalizeRole(profile?.role)
   const [open, setOpen] = useState(false)
-  const [closed, setClosed] = useState(() => window.localStorage.getItem('raimu-visible') === 'false')
+  const [closed, setClosed] = useState(() => window.localStorage.getItem('raimu-visible') !== 'true')
   const [draft, setDraft] = useState('')
   const [messages, setMessages] = useState([])
   const [typing, setTyping] = useState(false)

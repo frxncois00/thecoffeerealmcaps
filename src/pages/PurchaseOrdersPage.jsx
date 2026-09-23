@@ -277,9 +277,58 @@ function IssueReportModal({ order, onClose, onSave }) {
   const [reason, setReason] = useState('Damaged items')
   const [resolution, setResolution] = useState('Return affected items')
   const [note, setNote] = useState('')
+  const [otherReason, setOtherReason] = useState('')
+  const [replacementDate, setReplacementDate] = useState('')
+  const [affected, setAffected] = useState({})
+  const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  async function submit(event) { event.preventDefault(); setSaving(true); try { await onSave({ reason, resolution, note }) } finally { setSaving(false) } }
-  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal" role="dialog" aria-modal="true" aria-label="Report receiving issue"><header><div><span>{order.po_number}</span><h2>Report to Admin</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><form onSubmit={submit}><Field label="Reason" required><select value={reason} onChange={(event) => setReason(event.target.value)}><option>All items damaged</option><option>Damaged items</option><option>Missing items</option><option>Wrong items</option><option>Quantity mismatch</option><option>Quality issue</option><option>Expired items</option><option>Other</option></select></Field><Field label="Request approval to" required><select value={resolution} onChange={(event) => setResolution(event.target.value)}><option>Return all items</option><option>Return affected items</option><option>Request replacement</option><option>Accept partial delivery</option><option>Hold delivery</option></select></Field><Field label="Note"><textarea rows="3" value={note} onChange={(event) => setNote(event.target.value)} /></Field><footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-destructive-action" disabled={saving}>{saving ? 'Sending…' : 'Send report'}</button></footer></form></section></div>
+  const itemSpecific = reason !== 'All items damaged'
+  const selectedItems = order.items.filter((item) => affected[item.id]?.selected)
+  const updateAffected = (id, key, value) => setAffected((current) => ({ ...current, [id]: { ...current[id], [key]: value } }))
+  async function submit(event) {
+    event.preventDefault()
+    setError('')
+    if (reason === 'Other' && !otherReason.trim()) { setError('Enter the issue.'); return }
+    if (itemSpecific && !selectedItems.length) { setError('Select at least one affected item.'); return }
+    const invalidQuantity = selectedItems.some((item) => {
+      const value = Number(affected[item.id]?.quantity)
+      return !value || value < 0 || value > item.quantityOrdered
+    })
+    if (invalidQuantity) { setError('Enter a valid affected quantity.'); return }
+    if (reason === 'Wrong items' && selectedItems.some((item) => !affected[item.id]?.detail?.trim())) { setError('Enter the wrong item received.'); return }
+    if (resolution === 'Accept partial delivery' && selectedItems.some((item) => affected[item.id]?.accepted === '' || Number(affected[item.id]?.accepted) < 0 || Number(affected[item.id]?.accepted) > item.quantityOrdered)) { setError('Enter a valid accepted quantity.'); return }
+    if (resolution === 'Request replacement' && !replacementDate) { setError('Select the replacement date.'); return }
+
+    const details = []
+    if (otherReason.trim()) details.push(`Issue: ${otherReason.trim()}`)
+    if (reason === 'All items damaged') details.push(`Affected: all order lines`)
+    else details.push(`Affected: ${selectedItems.map((item) => {
+      const entry = affected[item.id]
+      const parts = [`${item.item_name}: ${qty(entry.quantity)} ${item.unit}`]
+      if (reason === 'Wrong items') parts.push(`received ${entry.detail.trim()}`)
+      if (resolution === 'Accept partial delivery') parts.push(`accept ${qty(entry.accepted)} ${item.unit}`)
+      return parts.join(', ')
+    }).join('; ')}`)
+    if (replacementDate) details.push(`Replacement date: ${replacementDate}`)
+    if (note.trim()) details.push(`Note: ${note.trim()}`)
+    setSaving(true)
+    try { await onSave({ reason, resolution, note: details.join(' | ') }) } finally { setSaving(false) }
+  }
+  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal po-issue-modal" role="dialog" aria-modal="true" aria-label="Report receiving issue"><header><div><span>{order.po_number}</span><h2>Report to Admin</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><form onSubmit={submit}>
+    <div className="po-issue-selects"><Field label="Reason" required><select value={reason} onChange={(event) => { setReason(event.target.value); setError('') }}><option>All items damaged</option><option>Damaged items</option><option>Missing items</option><option>Wrong items</option><option>Quantity mismatch</option><option>Quality issue</option><option>Expired items</option><option>Other</option></select></Field><Field label="Request approval to" required><select value={resolution} onChange={(event) => { setResolution(event.target.value); setError('') }}><option>Return all items</option><option>Return affected items</option><option>Request replacement</option><option>Accept partial delivery</option><option>Hold delivery</option></select></Field></div>
+    {reason === 'Other' ? <Field label="Issue" required><input value={otherReason} onChange={(event) => setOtherReason(event.target.value)} required /></Field> : null}
+    {itemSpecific ? <fieldset className="po-issue-items"><legend>Affected items</legend>{order.items.map((item) => {
+      const entry = affected[item.id] || {}
+      return <div className={`po-issue-line ${entry.selected ? 'is-selected' : ''}`} key={item.id}>
+        <label className="po-issue-check"><input type="checkbox" checked={Boolean(entry.selected)} onChange={(event) => updateAffected(item.id, 'selected', event.target.checked)} /><span><b>{item.item_name}</b><small>{qty(item.quantityOrdered)} {item.unit} ordered</small></span></label>
+        {entry.selected ? <div className="po-issue-fields"><label>Affected quantity<input type="number" min="0.01" max={item.quantityOrdered} step="0.01" value={entry.quantity || ''} onChange={(event) => updateAffected(item.id, 'quantity', event.target.value)} required /></label>{reason === 'Wrong items' ? <label>Item received<input value={entry.detail || ''} onChange={(event) => updateAffected(item.id, 'detail', event.target.value)} required /></label> : null}{resolution === 'Accept partial delivery' ? <label>Accepted quantity<input type="number" min="0" max={item.quantityOrdered} step="0.01" value={entry.accepted ?? ''} onChange={(event) => updateAffected(item.id, 'accepted', event.target.value)} required /></label> : null}</div> : null}
+      </div>
+    })}</fieldset> : <div className="po-issue-all"><b>All order lines</b><span>{order.items.length} {order.items.length === 1 ? 'item' : 'items'}</span></div>}
+    {resolution === 'Request replacement' ? <Field label="Replacement needed by" required><input type="date" value={replacementDate} onChange={(event) => setReplacementDate(event.target.value)} required /></Field> : null}
+    <Field label="Note"><textarea rows="2" value={note} onChange={(event) => setNote(event.target.value)} /></Field>
+    {error ? <p className="po-inline-error" role="alert">{error}</p> : null}
+    <footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-destructive-action" disabled={saving}>{saving ? 'Sending…' : 'Send report'}</button></footer>
+  </form></section></div>
 }
 
 function DocumentLink({ document }) {

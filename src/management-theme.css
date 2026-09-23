@@ -576,6 +576,7 @@ html[data-staff-motion="reduce"] .app-layout:is(.legacy-staff,.legacy-admin) *,h
 .app-layout[data-theme="dark"] :is(.status-chip--delivery){background:#12332e;border-color:#29685d;color:#7fd5c6}
 .app-layout[data-theme="dark"] :is(.status-chip--pickup){background:#2a2340;border-color:#51457c;color:#b8a8ee}
 .app-layout[data-theme="dark"] :is(.status-chip--cancelled,.inv-status.tone-red,.inv-connection.tone-offline){background:#3a2022;border-color:#704045;color:#ffaaaa}
+.app-layout[data-theme="dark"] .inv-status.tone-neutral{background:#27322c;border-color:#46564d;color:#bec9c2}
 .app-layout[data-theme="dark"] :is(.status-chip--neutral){background:#202e26;border-color:#3b4e42;color:#b7c6bc}
 .app-layout[data-theme="dark"] .inv-connection.tone-reconnecting{background:#3a2d16;color:#f1c56d}
 .app-layout .sidebar-theme-switcher button:focus-visible{outline:2px solid var(--mgmt-primary);outline-offset:2px}
@@ -1167,6 +1168,28 @@ html[data-staff-motion="reduce"] .app-layout.legacy-admin .cancel-animated-path,
 .ad-dashboard-v2 .ad-welcome-section .ad-welcome-kicker{font-size:.64rem;letter-spacing:.065em}
 .ad-dashboard-v2 .ad-welcome-section .ad-welcome-copy h2{font-size:1.1rem;line-height:1.16}
 .ad-dashboard-v2 .ad-welcome-section .ad-welcome-copy p{font-size:.68rem;line-height:1.45}
+
+/* Compact dashboard welcome and operational summaries. */
+.ad-dashboard-v2 .ad-reference-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}
+.ad-dashboard-v2 .ad-welcome-section .ad-welcome-card{grid-template-columns:44px minmax(210px,1fr) auto;grid-template-rows:auto;gap:12px;min-height:76px;height:auto;padding:12px 16px}
+.ad-dashboard-v2 .ad-welcome-section .ad-welcome-icon{width:44px;height:44px;grid-column:1;grid-row:1}
+.ad-dashboard-v2 .ad-welcome-section .ad-welcome-icon svg{width:23px;height:23px}
+.ad-dashboard-v2 .ad-welcome-section .ad-welcome-copy{grid-column:2;grid-row:1}
+.ad-dashboard-v2 .ad-welcome-section .ad-welcome-summary{min-width:0;grid-column:3;grid-row:1;display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+.ad-dashboard-v2 .ad-welcome-summary-item{min-height:34px;display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--mgmt-border);border-radius:9px;background:var(--mgmt-surface);color:var(--mgmt-muted);font-size:.65rem;white-space:nowrap}
+.ad-dashboard-v2 .ad-welcome-summary-item>svg{flex:none;color:var(--mgmt-primary)}
+.ad-dashboard-v2 .ad-welcome-summary-item>i{width:7px;height:7px;flex:none;border-radius:50%;background:var(--mgmt-success)}
+.ad-dashboard-v2 .ad-welcome-summary-item b{color:var(--mgmt-heading);font-size:.7rem;font-weight:850;font-variant-numeric:tabular-nums}
+.ad-dashboard-v2 .ad-welcome-summary-item.is-store-closed>i{background:var(--mgmt-danger)}
+.ad-dashboard-v2 .ad-welcome-summary-item.is-store-closed b{color:var(--mgmt-danger)}
+.ad-dashboard-v2 .ad-dashboard-operations-row{grid-template-columns:minmax(0,1fr)}
+.ad-dashboard-v2 .ad-dashboard-operations-row .ad-queue-list{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ad-dashboard-v2 .ad-dashboard-secondary-grid.is-no-stock{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:1280px){.ad-dashboard-v2 .ad-reference-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1100px){.ad-dashboard-v2 .ad-welcome-section .ad-welcome-card{grid-template-columns:44px minmax(0,1fr);grid-template-rows:auto auto}.ad-dashboard-v2 .ad-welcome-section .ad-welcome-summary{grid-column:1/-1;grid-row:2;justify-content:flex-start}}
+@media(max-width:720px){.ad-dashboard-v2 .ad-dashboard-operations-row .ad-queue-list,.ad-dashboard-v2 .ad-dashboard-secondary-grid.is-no-stock{grid-template-columns:1fr}}
+@media(max-width:430px){.ad-dashboard-v2 .ad-welcome-section .ad-welcome-card{grid-template-columns:40px minmax(0,1fr);gap:10px}.ad-dashboard-v2 .ad-welcome-section .ad-welcome-icon{width:40px;height:40px;grid-column:1;grid-row:1}.ad-dashboard-v2 .ad-welcome-section .ad-welcome-copy{grid-column:2;grid-row:1}.ad-dashboard-v2 .ad-welcome-section .ad-welcome-summary{grid-column:1/-1;grid-row:2}.ad-dashboard-v2 .ad-welcome-summary-item{flex:1;justify-content:center}}
+@media(max-width:430px){.ad-dashboard-v2 .ad-reference-kpis{grid-template-columns:1fr}}
 
 /* Shared reporting filter surface: the Sales Reports range bar is the reference layout. */
 .app-layout.legacy-admin .report-filter-bar{width:100%;min-height:58px;display:flex;align-items:center;gap:10px;margin-bottom:10px;padding:8px 10px;border:1px solid var(--mgmt-border);border-radius:14px;background:var(--mgmt-surface);box-shadow:0 8px 24px rgba(31,65,45,.045)}

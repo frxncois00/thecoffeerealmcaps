@@ -1,6 +1,6 @@
 import {
-  Activity, AlertTriangle, ArrowRight, CheckCircle2, CircleDollarSign, Clock3,
-  Coffee, PackageCheck, PackageX, ReceiptText, RefreshCw,
+  Activity, AlertTriangle, ArrowRight, Boxes, CheckCircle2, CircleDollarSign, Clock3,
+  Coffee, PackageX, ReceiptText, RefreshCw,
   ShoppingBag, Store, TrendingDown, TrendingUp, Users, WalletCards,
 } from 'lucide-react'
 import { animate, motion, MotionConfig, useMotionValue, useReducedMotion, useTransform } from 'framer-motion'
@@ -321,15 +321,10 @@ function AdminDashboardHome() {
 }
 
 function DashboardContent({ metrics }) {
+  const customersToday = metrics.newCustomers + metrics.returningCustomers
   const actionCards = [
     { label: 'Low Stock Items', value: metrics.lowStockItems.length, detail: `${metrics.lowStockItems.length} items running low`, icon: PackageX, tone: 'rose', to: '/admin/inventory' },
     { label: 'Pending Issues', value: metrics.attentionOrders.length + metrics.pendingRefunds.length, detail: `${metrics.attentionOrders.length + metrics.pendingRefunds.length} items need review`, icon: Clock3, tone: 'amber', to: '/admin/cancellations' },
-  ]
-
-  const quickLinks = [
-    { label: 'Transactions', detail: 'View all transactions', icon: ReceiptText, to: '/admin/transactions' },
-    { label: 'Sales Report', detail: 'View sales performance', icon: CircleDollarSign, to: '/admin/reports' },
-    { label: 'Inventory', detail: 'Check inventory levels', icon: PackageCheck, to: '/admin/inventory' },
   ]
 
   return <MotionConfig reducedMotion="user">
@@ -340,15 +335,12 @@ function DashboardContent({ metrics }) {
         <div className="ad-welcome-copy">
           <span className="ad-welcome-kicker">Store operations</span>
           <h2 id="welcome-heading">Welcome back, Admin!</h2>
-          <p>Keep today’s sales and operations moving from one place.</p>
         </div>
-        <motion.nav className="ad-quick-nav" aria-label="Dashboard shortcuts" variants={microContainerVariants}>
-          {quickLinks.map(({ label, detail, icon: Icon, to }) => <MotionLink to={to} key={label} variants={microItemVariants}>
-            <span className="ad-quick-icon" aria-hidden="true"><Icon size={19} /></span>
-            <span className="ad-quick-copy"><b>{label}</b><small>{detail}</small></span>
-            <ArrowRight size={13} aria-hidden="true" />
-          </MotionLink>)}
-        </motion.nav>
+        <div className="ad-welcome-summary" aria-label="Today's store snapshot">
+          <span className={`ad-welcome-summary-item is-store-${metrics.storeStatus}`}><i aria-hidden="true" /><span>Store</span><b>{metrics.storeStatus === 'closed' ? 'Paused' : 'Open'}</b></span>
+          <span className="ad-welcome-summary-item"><CheckCircle2 size={15} aria-hidden="true" /><span>Completion</span><b>{formatPercentValue(metrics.completionRate)}</b></span>
+          <span className="ad-welcome-summary-item"><Users size={15} aria-hidden="true" /><span>Customers today</span><b>{formatCount(customersToday)}</b></span>
+        </div>
       </div>
     </motion.section>
 
@@ -358,6 +350,7 @@ function DashboardContent({ metrics }) {
         <KpiCard icon={CircleDollarSign} label="Net sales" value={metrics.totalSales} valueFormat={money} comparison={metrics.salesChangePct} detail="vs yesterday" tone="green" trend={metrics.salesTrend} trendLabel="Net sales trend for the last 14 days" />
         <KpiCard icon={ShoppingBag} label="Orders" value={metrics.totalOrders} valueFormat={formatCount} detail={`${metrics.completedOrders} completed`} tone="cream" trend={metrics.ordersTrend} trendLabel="Orders trend for the last 14 days" />
         <KpiCard icon={WalletCards} label="Average order" value={metrics.avgOrderValue} valueFormat={money} detail="Paid completed orders" tone="blue" trend={metrics.averageOrderTrend} trendLabel="Average order trend for the last 14 days" />
+        <KpiCard icon={Boxes} label="Items sold" value={metrics.itemsSold} valueFormat={formatCount} detail="Completed paid orders" tone="blue" trend={metrics.itemsTrend} trendLabel="Items sold trend for the last 14 days" />
       </motion.div>
     </motion.section>
 
@@ -370,15 +363,14 @@ function DashboardContent({ metrics }) {
       </Panel>
     </motion.section>
 
-    <motion.section className="ad-dashboard-operations-row" aria-label="Today's performance and items needing attention" variants={itemVariants}>
-      <PerformanceSnapshot metrics={metrics} />
+    <motion.section className="ad-dashboard-operations-row" aria-label="Items needing attention" variants={itemVariants}>
       <OperationalQueue items={actionCards} />
     </motion.section>
 
     <RecentTransactions orders={metrics.recentOrders} />
 
-    <motion.section className="ad-dashboard-secondary-grid" aria-label="Additional dashboard summaries" variants={itemVariants}>
-      <LowStockAlerts items={metrics.lowStockItems} />
+    <motion.section className={`ad-dashboard-secondary-grid${metrics.lowStockItems.length ? '' : ' is-no-stock'}`} aria-label="Additional dashboard summaries" variants={itemVariants}>
+      {metrics.lowStockItems.length > 0 && <LowStockAlerts items={metrics.lowStockItems} />}
       <Panel title="Top selling items" detail="Last 14 days" action={<Link to="/admin/analytics">View all <ArrowRight size={14} /></Link>} className="ad-rail-panel ad-rail-sellers">
         <RankedProducts products={metrics.bestSellers} />
       </Panel>
@@ -386,21 +378,6 @@ function DashboardContent({ metrics }) {
     </motion.section>
   </motion.div>
   </MotionConfig>
-}
-
-function PerformanceSnapshot({ metrics }) {
-  const up = metrics.salesChangePct >= 0
-  const customersToday = metrics.newCustomers + metrics.returningCustomers
-  return <Panel title="Today's Performance" detail="Live store health" className="ad-rail-panel ad-performance-panel" motionVariants={simpleDashboardPanelVariants}>
-    <motion.div className="ad-performance-value" variants={microItemVariants}><span className="ad-performance-label is-green"><CircleDollarSign size={12} />Net sales</span><strong><AnimatedMetric value={metrics.totalSales} format={money} /></strong><small className={up ? 'is-up' : 'is-down'}>{up ? <TrendingUp size={14} /> : <TrendingDown size={14} />}{percentage(metrics.salesChangePct)} <em>vs yesterday</em></small></motion.div>
-    <motion.div className="ad-performance-grid" variants={microContainerVariants}>
-      <motion.span variants={microItemVariants}><span className="ad-performance-label is-amber"><ShoppingBag size={12} />Orders today</span><b><AnimatedMetric value={metrics.totalOrders} format={formatCount} /></b><small>{metrics.completedOrders} completed</small></motion.span>
-      <motion.span variants={microItemVariants}><span className="ad-performance-label is-green"><CheckCircle2 size={12} />Completion</span><b><AnimatedMetric value={metrics.completionRate} format={formatPercentValue} /></b><small>{metrics.completedOrders} completed</small></motion.span>
-      <motion.span variants={microItemVariants}><span className="ad-performance-label is-blue"><Users size={12} />Active customers</span><b><AnimatedMetric value={customersToday} format={formatCount} /></b><small>New + {metrics.returningCustomers}</small></motion.span>
-      <motion.span variants={microItemVariants}><span className="ad-performance-label is-blue"><WalletCards size={12} />Average order</span><b><AnimatedMetric value={metrics.avgOrderValue} format={money} /></b><small>Paid completed orders</small></motion.span>
-    </motion.div>
-    <motion.div className={`ad-performance-store is-${metrics.storeStatus}`} variants={microItemVariants}><span><span className="ad-performance-label is-green"><Store size={12} />Store status</span><b>{metrics.storeStatus === 'closed' ? 'Paused' : 'Open'}</b><small>{metrics.storeStatus === 'closed' ? 'Ordering paused' : 'Accepting orders'}</small></span></motion.div>
-  </Panel>
 }
 
 function OperationalQueue({ items }) {
@@ -416,13 +393,28 @@ function LowStockAlerts({ items }) {
     <motion.div className="ad-low-stock-list" variants={microContainerVariants}>{items.slice(0, 4).map((item) => {
       const out = item.quantity <= 0
       return <MotionLink to="/admin/inventory" key={item.id} variants={microItemVariants}><span className={out ? 'is-out' : ''}><PackageX size={16} /></span><div><b>{item.name}</b><small>{item.quantity} {item.unit} left</small></div><em className={out ? 'is-out' : ''}>{out ? 'Out' : 'Low'}</em></MotionLink>
-    })}{!items.length && <EmptyState icon={PackageCheck} text="Inventory levels are healthy." />}</motion.div>
+    })}</motion.div>
   </Panel>
 }
 
+function dashboardActivity(events) {
+  const seen = new Set()
+  return events.filter((event) => {
+    const routineSelfEdit = event.action === 'profiles.updated'
+      && event.actor_id && event.actor_id === event.entity_id
+      && event.severity !== 'critical' && event.result !== 'failed'
+    if (routineSelfEdit) return false
+    const key = [event.module, event.action, event.entity_id || event.summary, event.severity, event.result].join('|')
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).slice(0, 4)
+}
+
 function RecentActivity({ events }) {
+  const recentEvents = dashboardActivity(events)
   return <Panel title="Recent activity" detail="Latest administrative changes" action={<Link to="/admin/users-access/activity">View all <ArrowRight size={14} /></Link>} className="ad-rail-panel ad-activity-panel">
-    <motion.div className="ad-activity-list" variants={microContainerVariants}>{events.slice(0, 4).map((event) => <motion.div key={event.id} variants={microItemVariants}><i className={`is-${event.severity || event.result}`} /><span><b>{event.summary || 'System activity recorded'}</b><small>{event.actor_name_snapshot || 'System'} - {timeAgo(event.occurred_at)}</small></span><em>{(event.module || 'System').replaceAll('_', ' ')}</em></motion.div>)}{!events.length && <EmptyState icon={Activity} text="No recent administrative activity." />}</motion.div>
+    <motion.div className="ad-activity-list" variants={microContainerVariants}>{recentEvents.map((event) => <motion.div key={event.id} variants={microItemVariants}><i className={`is-${event.severity || event.result}`} /><span><b>{event.summary || 'System activity recorded'}</b><small>{event.actor_name_snapshot || 'System'} - {timeAgo(event.occurred_at)}</small></span><em>{(event.module || 'System').replaceAll('_', ' ')}</em></motion.div>)}{!recentEvents.length && <EmptyState icon={Activity} text="No notable changes recently." />}</motion.div>
   </Panel>
 }
 

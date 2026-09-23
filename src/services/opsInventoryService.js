@@ -46,11 +46,12 @@ export async function fetchIngredients() {
   }))
 }
 
-export async function fetchFinishedProducts() {
-  const { data, error } = await supabase
+export async function fetchFinishedProducts({ includeArchived = false } = {}) {
+  let query = supabase
     .from('finished_products')
     .select('id,name,category,menu_item_id,unit,quantity,min_stock_level,high_stock_level,supplier,notes,is_archived,updated_at,finished_product_sale_mappings(menu_item_id,variant_key,units_per_sale)')
-    .eq('is_archived', false)
+  if (!includeArchived) query = query.eq('is_archived', false)
+  const { data, error } = await query.order('name')
   if (error) throw error
   return (data || []).map((row) => ({
     id: row.id,
@@ -59,6 +60,7 @@ export async function fetchFinishedProducts() {
     unit: row.unit,
     supplier: row.supplier,
     notes: row.notes,
+    isArchived: Boolean(row.is_archived),
     menuItemId: row.menu_item_id,
     saleMappings: (row.finished_product_sale_mappings || []).map((mapping) => ({ menuItemId: mapping.menu_item_id, variantKey: mapping.variant_key || '', unitsPerSale: Number(mapping.units_per_sale) })),
     quantity: Number(row.quantity),

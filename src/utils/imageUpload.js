@@ -1,5 +1,5 @@
 export const IMAGE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024
-export const IMAGE_UPLOAD_ACCEPT = 'image/jpeg,image/png,image/webp'
+export const IMAGE_UPLOAD_ACCEPT = '.jpg,.jpeg,image/jpeg,image/jpg,image/png,image/webp'
 
 const MIME_EXTENSIONS = {
   'image/jpeg': ['jpg', 'jpeg'],
@@ -37,20 +37,21 @@ async function verifyImageCanBeDecoded(file, label) {
 
 export async function validateImageFile(file, { label = 'Image', maxBytes = IMAGE_UPLOAD_MAX_BYTES } = {}) {
   if (!file) throw new Error(`Choose a ${label.toLowerCase()} to upload.`)
-  if (!CANONICAL_EXTENSIONS[file.type]) throw new Error(`${label} must be a JPG, PNG, or WEBP image. GIFs, videos, and documents are not allowed.`)
+  const mimeType = file.type === 'image/jpg' ? 'image/jpeg' : file.type
+  if (!CANONICAL_EXTENSIONS[mimeType]) throw new Error(`${label} must be a JPG/JPEG, PNG, or WEBP image. GIFs, videos, and documents are not allowed.`)
   if (!file.size) throw new Error(`${label} cannot be empty.`)
   if (file.size > maxBytes) throw new Error(`${label} must be 5 MB or smaller.`)
 
   const filenameExtension = String(file.name || '').split('.').pop()?.toLowerCase()
-  if (!filenameExtension || !MIME_EXTENSIONS[file.type].includes(filenameExtension)) {
-    throw new Error(`${label} filename and file type do not match. Use an original JPG, PNG, or WEBP image.`)
+  if (!filenameExtension || !MIME_EXTENSIONS[mimeType].includes(filenameExtension)) {
+    throw new Error(`${label} filename and file type do not match. Use an original JPG/JPEG, PNG, or WEBP image.`)
   }
 
   const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer())
-  if (detectedMimeType(bytes) !== file.type) {
+  if (detectedMimeType(bytes) !== mimeType) {
     throw new Error(`${label} content does not match its file type. Renamed GIFs, videos, and other files are not allowed.`)
   }
 
   await verifyImageCanBeDecoded(file, label)
-  return { extension: CANONICAL_EXTENSIONS[file.type], mimeType: file.type }
+  return { extension: CANONICAL_EXTENSIONS[mimeType], mimeType }
 }
