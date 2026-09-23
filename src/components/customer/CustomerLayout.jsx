@@ -118,9 +118,25 @@ export default function CustomerLayout() {
 
 function CartDrawer({ cart, user }) {
   const [confirmClear, setConfirmClear] = useState(false)
+  const [proceeding, setProceeding] = useState(false)
   const { pricing } = usePricing()
+  const navigate = useNavigate()
   const { baseAmount, vatAmount } = vatBreakdownFromInclusiveAmount(cart.subtotal, pricing.vatRate, pricing.pricesIncludeVat)
   const clear = () => { cart.clearCart(); setConfirmClear(false) }
+  const proceedToCheckout = async () => {
+    if (proceeding) return
+    if (!user) {
+      cart.closeCart()
+      navigate('/login', { state: { from: '/checkout' } })
+      return
+    }
+    setProceeding(true)
+    const result = await cart.refreshAvailability()
+    setProceeding(false)
+    if (!result.ok || !result.available) return
+    cart.closeCart()
+    navigate('/checkout')
+  }
 
   return (
     <>
@@ -175,7 +191,8 @@ function CartDrawer({ cart, user }) {
             <div className="customer-vat-row"><span>{formatVatRate(pricing.vatRate)} VAT</span><b>{money(vatAmount)}</b></div>
             <p>Delivery fees and discounts are calculated during checkout.</p>
             {cart.hasUnavailableItems&&<p className="drawer-availability-warning" role="alert">Remove {cart.unavailableItems.length} unavailable item{cart.unavailableItems.length===1?'':'s'} before checkout.</p>}
-            {cart.hasUnavailableItems||cart.checkingAvailability?<button className="primary-button" type="button" disabled>{cart.checkingAvailability?'Checking availability…':'Checkout unavailable'}</button>:<Link className="primary-button" to={user ? '/checkout' : '/login'} state={user ? undefined : { from: '/checkout' }} onClick={cart.closeCart}>Proceed to checkout</Link>}
+            {cart.availabilityError&&<p className="drawer-availability-warning" role="alert">{cart.availabilityError}</p>}
+            <button className="primary-button" type="button" disabled={cart.hasUnavailableItems||cart.checkingAvailability||proceeding} onClick={proceedToCheckout}>{cart.checkingAvailability||proceeding?'Checking availability…':cart.hasUnavailableItems?'Checkout unavailable':'Proceed to checkout'}</button>
             <button className="drawer-clear" type="button" onClick={() => setConfirmClear(true)}><Trash2 />Clear cart</button>
           </footer>
         )}
