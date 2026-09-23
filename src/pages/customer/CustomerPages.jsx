@@ -139,6 +139,7 @@ export function CheckoutPage(){
   const choosePaymentProof=async event=>{const next=event.target.files?.[0]||null;event.target.value='';if(!next)return;try{await validateImageFile(next,{label:'Payment proof'});if(paymentProofPreview)URL.revokeObjectURL(paymentProofPreview);setPaymentProof(next);setPaymentProofPreview(URL.createObjectURL(next));setPaymentProofError('')}catch(cause){clearPaymentProof();setPaymentProofError(cause.message||'Could not use this image.')}}
   const submit=async event=>{
     event.preventDefault();setSubmitError('');if(systemSettings.ordering.storeStatus!=='open'){setSubmitError(systemSettings.ordering.closureMessage);return}if(subtotal<Number(systemSettings.ordering.minimumOrder||0)){setSubmitError(`A minimum order of ${money(systemSettings.ordering.minimumOrder)} is required.`);return}if(!isValidPhone(form.contact)){setSubmitError('Contact number must contain 11 digits and start with 09.');return}if(form.fulfillment==='delivery'&&!selectedArea)return;if(form.payment!=='cod'&&!paymentProof){setPaymentProofError('Upload your payment proof before reviewing the order.');return}
+    const availability=await cart.refreshAvailability();if(!availability.ok){setSubmitError('We could not verify current stock. Please try again.');return}if(!availability.available){setSubmitError('One or more cart items are now unavailable. Review your cart before continuing.');return}
     const checkout={...form,deliveryFee:fee,deliveryZone:selectedArea?.zone||'',estimatedDeliveryTime:selectedArea?.estimatedTime||''};writeCheckoutDraft(user.id,{form:checkout,addressMode,selectedAddress,requestKey});navigate('/checkout/review',{state:{checkout,paymentProof}})
   };
   return <main className="customer-main checkout-page"><section className="page-title"><span>Secure checkout</span><h1>How should we prepare your order?</h1></section><div className="checkout-layout"><form className="checkout-form" onSubmit={submit}>
@@ -316,6 +317,9 @@ export function OrderReviewPage(){
     if(busy)return
     setBusy(true);setError('')
     try{
+      const availability=await cart.refreshAvailability()
+      if(!availability.ok)throw new Error('We could not verify current stock. Please try again.')
+      if(!availability.available){setModal(null);return}
       // Confirm Supabase has a genuinely valid session for THIS attempt before
       // touching the database. getUser() (unlike getSession()) revalidates
       // against the Auth server, so this is the only trustworthy signal for
@@ -342,6 +346,7 @@ export function OrderReviewPage(){
       clearCheckoutDraft(sessionCheck.user.id)
       setModal('complete')
     }catch(cause){
+      await cart.refreshAvailability()
       setError(describeError(cause,'Could not place the order. Please try again.'))
     }finally{
       setBusy(false)
