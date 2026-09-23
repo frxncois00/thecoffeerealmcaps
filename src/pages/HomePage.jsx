@@ -8,7 +8,6 @@ import HowOrderingWorks from '../components/HowOrderingWorks'
 import GuestAuthPrompt from '../components/customer/GuestAuthPrompt'
 import { useAuth } from '../context/AuthContext'
 import { store } from '../data/mockData'
-import { bestSellerItems } from '../data/bestSellers'
 import { useProductCustomization } from '../hooks/useProductCustomization'
 import { isCustomerRole } from '../lib/auth'
 import { CONTENT_DEFAULTS, DEFAULT_TESTIMONIALS, SYSTEM_DEFAULTS, fetchPublicPortalData } from '../services/adminPortalConfigurationService'
@@ -37,7 +36,7 @@ export default function HomePage() {
   const publicStore = { ...store, ...portalData.system.store }
   const featuredItems = useMemo(() => {
     const selected = (content.featured.itemIds || []).map(String)
-    if (!selected.length || !menuCatalog.length) return bestSellerItems
+    if (!selected.length) return menuCatalog.slice(0, 6)
     const byId = new Map(menuCatalog.map((item) => [String(item.id), item]))
     return selected.map((id) => byId.get(id)).filter(Boolean)
   }, [content.featured.itemIds, menuCatalog])
@@ -47,7 +46,7 @@ export default function HomePage() {
     Promise.all([fetchPublicPortalData(), fetchMenuCatalog()]).then(([configuration, catalog]) => {
       if (!active) return
       setPortalData(configuration)
-      setMenuCatalog(catalog.products || [])
+      setMenuCatalog((catalog.products || []).filter((product) => product.available))
     }).catch(() => {})
     return () => { active = false }
   }, [])
