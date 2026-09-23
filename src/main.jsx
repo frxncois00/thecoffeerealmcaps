@@ -11,4 +11,6 @@ import './management-theme.css'
 import './cashier-polish.css'
 import './pricing.css'
 import './purchase-orders.css'
+import './cashier-refined.css'
+import './cashier-surfaces.css'
 createRoot(document.getElementById('root')).render(<StrictMode><BrowserRouter><ThemeProvider><PricingProvider><AuthProvider><CartProvider><App /></CartProvider></AuthProvider></PricingProvider></ThemeProvider></BrowserRouter></StrictMode>)

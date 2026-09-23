@@ -1,0 +1,110 @@
+/* Cashier dialogs and records share the matte café palette, including portals. */
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) {
+  --cafe-forest: #1b2f22;
+  --cafe-cream: #e8dcc4;
+  --cafe-paper: #fcfaf6;
+  --cafe-inset: #f3f0e9;
+  --cafe-ink: #263529;
+  --cafe-muted: #726f63;
+  --cafe-line: #e3ded2;
+}
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-backdrop, .cashier-custom-backdrop, .cashier-receipt-backdrop, .auth-confirm-backdrop) {
+  background: rgb(15 27 19 / 65%) !important;
+  backdrop-filter: none !important;
+  padding: 20px;
+}
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal, .cashier-custom-modal, .cashier-receipt-modal, .auth-confirm-modal) {
+  background: var(--cafe-paper) !important;
+  color: var(--cafe-ink) !important;
+  border: 1px solid var(--cafe-line) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 20px 60px rgb(15 27 19 / 22%) !important;
+  max-height: calc(100dvh - 40px);
+  max-width: calc(100vw - 40px);
+}
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal-head, .customize-modal-header, .cashier-receipt-modal-head) {
+  background: var(--cafe-forest) !important;
+  border: 0 !important;
+  padding: 20px 24px;
+  box-shadow: none !important;
+}
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal-head, .customize-modal-header, .cashier-receipt-modal-head) :is(h2, h3) {
+  color: var(--cafe-paper) !important;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: -.02em;
+}
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal-head, .customize-modal-header, .cashier-receipt-modal-head) :is(span, p) { color: var(--cafe-cream) !important; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal-head > button, .customize-close, .cashier-receipt-modal-head > button, .checkout-modal-icon) {
+  background: #2c4030 !important; color: var(--cafe-cream) !important; border-color: #63705a !important; box-shadow: none !important;
+}
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal-body, .customize-modal-body, .checkout-review-list, .checkout-section, .customize-choice-section, .customize-addons-section) {
+  background: var(--cafe-paper) !important; color: var(--cafe-ink) !important; border-color: var(--cafe-line) !important; box-shadow: none !important;
+}
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal-body, .customize-modal-body) { overflow-y: auto; min-height: 0; scrollbar-color: #b7ad98 transparent; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-section h3, .customize-section-head h3, .checkout-item-details b, .checkout-item-meta strong, .checkout-field-grid label, .customize-total b) { color: var(--cafe-ink) !important; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-item-details span, .customize-section-head span, .customize-standard-note, .customize-quantity > span, .customize-total > span) { color: var(--cafe-muted) !important; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-review-item { background: transparent !important; border-color: var(--cafe-line) !important; box-shadow: none !important; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-review-item.is-discounted { background: var(--cafe-inset) !important; border-color: #b99650 !important; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-quantity { background: var(--cafe-inset) !important; color: var(--cafe-muted) !important; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-totals { background: var(--cafe-inset) !important; border-color: var(--cafe-line) !important; border-radius: 12px; box-shadow: none !important; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-totals :is(p, span, b, strong) { color: var(--cafe-ink) !important; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-totals p:last-child { border-color: var(--cafe-line) !important; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-choice-grid button, .customize-choice-button, .customize-addon-button, .customize-stepper) {
+  background: var(--cafe-paper) !important; color: var(--cafe-ink) !important; border: 1px solid var(--cafe-line) !important; border-radius: 9px !important; box-shadow: none !important;
+}
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-choice-grid button.active, .customize-choice-button.active, .customize-addon-button.active) {
+  background: var(--cafe-forest) !important; color: var(--cafe-cream) !important; border-color: var(--cafe-forest) !important;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal :is(.customize-choice-button, .customize-addon-button) :is(span, small, b) { color: inherit !important; }
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-stepper :is(button, strong) { background: transparent !important; color: var(--cafe-ink) !important; border-color: var(--cafe-line) !important; box-shadow: none !important; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-field-grid input { background: var(--cafe-paper) !important; color: var(--cafe-ink) !important; border: 1px solid #b7ad98 !important; border-radius: 8px; box-shadow: none !important; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-field-grid input[readonly] { background: var(--cafe-inset) !important; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-item-checkbox { accent-color: var(--cafe-forest); }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-actions, .customize-modal-footer, .cashier-receipt-actions) {
+  background: var(--cafe-forest) !important; border: 0 !important; box-shadow: none !important; padding: 18px 24px;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-modal-footer :is(.customize-total b, .customize-total > span, .customize-quantity > span) { color: var(--cafe-cream) !important; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-actions button, .customize-add-button, .cashier-receipt-actions button) { min-height: 44px; border-radius: 9px !important; background: var(--cafe-cream) !important; color: var(--cafe-forest) !important; border: 1px solid var(--cafe-cream) !important; box-shadow: none !important; }
+html[data-theme] .cashier-v2.cashier-refined :is(.checkout-actions button:first-child, .cashier-receipt-actions button:last-child) { background: transparent !important; color: var(--cafe-cream) !important; border-color: #63705a !important; }
+html[data-theme] .cashier-v2.cashier-refined .receipt-preview-shell { background: var(--cafe-inset) !important; }
+/* Receipt paper intentionally keeps its existing black-on-white print styling. */
+html[data-theme] .cashier-v2.cashier-refined .auth-confirm-modal :is(.auth-confirm-scene, .auth-confirm-divider, .auth-confirm-landscape) { display: none; }
+html[data-theme] .cashier-v2.cashier-refined .auth-confirm-modal { padding: 32px; }
+html[data-theme] .cashier-v2.cashier-refined .auth-confirm-modal :is(h2, .auth-confirm-kicker) { color: var(--cafe-ink) !important; }
+html[data-theme] .cashier-v2.cashier-refined .auth-confirm-modal p { color: var(--cafe-muted) !important; }
+html[data-theme] .cashier-v2.cashier-refined .auth-confirm-modal :is(.auth-confirm-close, .secondary-button) { background: var(--cafe-inset) !important; color: var(--cafe-ink) !important; border-color: var(--cafe-line) !important; box-shadow: none !important; }
+html[data-theme] .cashier-v2.cashier-refined .auth-confirm-modal .primary-button { background: var(--cafe-forest) !important; color: var(--cafe-cream) !important; border: 0 !important; box-shadow: none !important; }
+
+/* Transaction list and detail panel. */
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-transactions-panel, .cashier-transactions-view, .cashier-transaction-detail-panel, .cashier-transaction-details-view) { background: var(--cafe-paper) !important; color: var(--cafe-ink) !important; border-color: var(--cafe-line) !important; border-radius: 14px; box-shadow: none !important; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-transactions-panel { padding: 0; overflow: hidden; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-transactions-view > header, .cashier-transaction-details-view > header, .cashier-transaction-placeholder-header) { background: var(--cafe-forest) !important; color: var(--cafe-cream) !important; border: 0 !important; padding: 22px; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-transactions-view > header, .cashier-transaction-details-view > header, .cashier-transaction-placeholder-header) :is(h1, h2, b) { color: var(--cafe-paper) !important; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-transactions-view > header h1, .cashier-transaction-details-view > header h2) { font-family: Georgia, 'Times New Roman', serif; font-weight: 500; letter-spacing: -.02em; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-transactions-view > header, .cashier-transaction-details-view > header, .cashier-transaction-placeholder-header) :is(span, p, small) { color: var(--cafe-cream) !important; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-transactions-view > header > button, .transaction-details-head-actions button) { background: transparent !important; color: var(--cafe-cream) !important; border: 1px solid #63705a !important; border-radius: 8px; box-shadow: none !important; }
+html[data-theme] .cashier-v2.cashier-refined :is(.transaction-toolbar, .transaction-pagination, .transaction-details-body, .detail-items, .detail-items article, .detail-summary > div, .detail-summary p, .cashier-transaction-empty-state) { background: var(--cafe-paper) !important; color: var(--cafe-ink) !important; border-color: var(--cafe-line) !important; box-shadow: none !important; }
+html[data-theme] .cashier-v2.cashier-refined :is(.transaction-search, .transaction-filters select) { background: var(--cafe-inset) !important; color: var(--cafe-ink) !important; border: 1px solid var(--cafe-line) !important; border-radius: 8px; box-shadow: none !important; min-height: 44px; }
+html[data-theme] .cashier-v2.cashier-refined .transaction-search input { background: transparent !important; color: var(--cafe-ink) !important; }
+html[data-theme] .cashier-v2.cashier-refined .transaction-list-heading { background: var(--cafe-inset) !important; color: var(--cafe-muted) !important; border-color: var(--cafe-line) !important; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-transactions-list article { background: var(--cafe-paper) !important; border-color: var(--cafe-line) !important; box-shadow: none !important; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-transactions-list article:hover { background: var(--cafe-inset) !important; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-transactions-list article.is-selected { background: #eee5d2 !important; box-shadow: inset 3px 0 #b99650 !important; }
+html[data-theme] .cashier-v2.cashier-refined :is(.transaction-order b, .cashier-transactions-list strong, .detail-items b, .detail-items strong, .detail-summary p b, .detail-meta b, .transaction-details-body h3, .cashier-transaction-empty-state b) { color: var(--cafe-ink) !important; }
+html[data-theme] .cashier-v2.cashier-refined :is(.transaction-order span, .transaction-payment, .transaction-pagination > span, .detail-items article span, .detail-summary p span, .detail-meta span, .cashier-transaction-empty-state span) { color: var(--cafe-muted) !important; }
+html[data-theme] .cashier-v2.cashier-refined :is(.transaction-actions button, .transaction-pagination button) { background: var(--cafe-paper) !important; color: var(--cafe-ink) !important; border: 1px solid #c8bfad !important; border-radius: 8px; box-shadow: none !important; min-height: 40px; }
+html[data-theme] .cashier-v2.cashier-refined .transaction-actions button:first-child { background: var(--cafe-cream) !important; border-color: var(--cafe-cream) !important; }
+html[data-theme] .cashier-v2.cashier-refined .transaction-pagination button.active { background: var(--cafe-forest) !important; color: var(--cafe-cream) !important; border-color: var(--cafe-forest) !important; }
+html[data-theme] .cashier-v2.cashier-refined .detail-meta > div { background: var(--cafe-inset) !important; border-color: var(--cafe-line) !important; }
+html[data-theme] .cashier-v2.cashier-refined .detail-total { background: var(--cafe-forest) !important; color: var(--cafe-cream) !important; border: 0 !important; border-radius: 10px; padding: 16px; }
+html[data-theme] .cashier-v2.cashier-refined .detail-total strong { color: var(--cafe-cream) !important; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(button, input, select):focus-visible { outline: 3px solid #b99650 !important; outline-offset: 3px; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal, .cashier-custom-modal, .cashier-transactions-view, .cashier-transaction-details-view) button:disabled { opacity: .5; cursor: not-allowed; }
+@media (max-width: 600px) {
+  html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-backdrop, .cashier-custom-backdrop, .cashier-receipt-backdrop, .auth-confirm-backdrop) { padding: 10px; }
+  html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal, .cashier-custom-modal, .cashier-receipt-modal, .auth-confirm-modal) { max-height: calc(100dvh - 20px); max-width: calc(100vw - 20px); }
+  html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal-head, .customize-modal-header, .checkout-actions, .customize-modal-footer, .cashier-receipt-actions) { padding: 16px; }
+  html[data-theme] .cashier-v2.cashier-refined .transaction-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
+  html[data-theme] .cashier-v2.cashier-refined .transaction-filters select { min-width: 0; width: 100%; }
+}

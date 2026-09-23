@@ -5,13 +5,13 @@ import {
   Landmark,
   LogOut,
   Minus,
-  Moon,
+  Pause,
   Pencil,
   Plus,
   ReceiptText,
   Search,
+  SlidersHorizontal,
   ShoppingBag,
-  Sun,
   Wallet,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
@@ -19,7 +19,6 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import LogoutConfirmModal from '../components/auth/LogoutConfirmModal'
 import { usePricing } from '../context/usePricing'
-import { useTheme } from '../context/ThemeContext'
 import { menuItems, store } from '../data/mockData'
 import { getCurrentPortalSession, signOutPortal } from '../lib/auth'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
@@ -173,6 +172,44 @@ function productOptionDefaults(product) {
     variantOptions,
   }
 }
+function stockForMenuItem(item, recipes, ingredientStock, mappings, finishedProducts) {
+  const productMappings = mappings.filter((row) => row.menu_item_id === item.id)
+  if (productMappings.length) {
+    const variantKey = item.variantOptions?.[0]?.key || null
+    const exact = productMappings.filter((row) => row.variant_key === variantKey)
+    const selected = exact.length ? exact : productMappings.filter((row) => !row.variant_key)
+    if (!selected.length) return null
+    return { type: 'product', quantity: Math.min(...selected.map((row) => {
+      const product = finishedProducts.get(row.finished_product_id)
+      const units = Number(row.units_per_sale)
+      return product && !product.is_archived && units > 0 ? Math.floor(Number(product.quantity) / units) : 0
+    })) }
+  }
+  const directProduct = [...finishedProducts.values()].find((row) => row.menu_item_id === item.id && !row.is_archived)
+  if (directProduct) return { type: 'product', quantity: Math.floor(Number(directProduct.quantity)) }
+  const recipe = recipes.filter((row) => row.menu_item_id === item.id)
+  if (!recipe.length) return null
+  return { type: 'ingredients', quantity: Math.min(...recipe.map((row) => {
+    const perItem = Number(row.quantity_per_serving)
+    return perItem > 0 ? Math.floor((ingredientStock.get(row.ingredient_id) || 0) / perItem) : 0
+  })) }
+}
+function addsDirectlyToCart(product) {
+  const category = String(product.category || '').toLowerCase()
+  if (/\bcookies?\b/.test(category)) return (product.variantOptions?.length || 0) <= 1
+  return /\b(breads?|sandwich(?:es)?|cakes?|meals?|pasta|snacks?|add[\s-]*ons?)\b/.test(category)
+}
+
+function hasCustomizationChoices(product) {
+  if (addsDirectlyToCart(product)) return false
+  return Boolean(
+    product.variantOptions?.length > 1 ||
+    product.temperatureType === 'both' ||
+    product.allowSugar ||
+    (product.allowIce && ['cold', 'both'].includes(product.temperatureType)) ||
+    (product.allowAddons && product.addons?.length > 0)
+  )
+}
 function normalizeAddon(row) {
   return {
     id: row.id,
@@ -195,6 +232,7 @@ function normalizeProduct(row, addonRows = []) {
     name: row.name || row.product_name || 'Menu item',
     category: row.subcategories?.display_name || row.subcategories?.name || row.category_name || row.subcategory || row.main_categories?.display_name || row.main_categories?.name || row.main_category || 'Menu',
     description: row.description || '',
+    isFeatured: Boolean(row.is_featured || row.is_bestseller),
     price: Number(row.price || row.unit_price || 0),
     image: resolveImagePath(row.image_url || row.image_path || row.image),
     isAvailable: row.is_available ?? row.available ?? row.status !== 'unavailable',
@@ -299,8 +337,6 @@ function validatePayment(payment, total) {
 export default function CashierPage() {
   const navigate = useNavigate()
   const { pricing } = usePricing()
-  const { resolvedTheme, setPreference } = useTheme()
-  const isDarkMode = resolvedTheme === 'dark'
   const fallbackProducts = useMemo(() => menuItems.map((item) => ({
     ...item,
     price: Number(item.price || 0),
@@ -317,6 +353,11 @@ export default function CashierPage() {
   const [loggingOut, setLoggingOut] = useState(false)
   const [category, setCategory] = useState('All')
   const [search, setSearch] = useState('')
+  const [menuFilter, setMenuFilter] = useState('all')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [minimumPrice, setMinimumPrice] = useState('')
+  const [maximumPrice, setMaximumPrice] = useState('')
+  const [customizableOnly, setCustomizableOnly] = useState(false)
   const [orderTabs, setOrderTabs] = useState(savedWorkspace.orderTabs)
   const [activeOrderId, setActiveOrderId] = useState(savedWorkspace.activeOrderId)
   const [receipt, setReceipt] = useState(null)
@@ -350,14 +391,24 @@ export default function CashierPage() {
           setLastSyncedAt(new Date())
           return
         }
-        const [productResult, addonResult, orderResult] = await Promise.all([
+        const [productResult, addonResult, orderResult, recipeResult, ingredientStockResult, mappingResult, finishedProductResult] = await Promise.all([
           loadMenuItems(),
           supabase.from('addons').select('id,name,price,applies_to,is_available,sort_order,addon_subcategories(subcategory_id)').eq('is_available', true).order('sort_order', { ascending: true }),
           supabase.from('orders').select('id,order_number,receipt_number,customer_name,subtotal,discount_subtotal,discount_amount,vat_exempt_amount,final_total,vat_rate,prices_include_vat,payment_status,payment_confirmed,discount_type,discount_customer_name,discount_id_number,created_at,order_items(*),payments(*)').eq('order_type', 'walk-in').order('created_at', { ascending: false }).limit(30),
+          supabase.from('menu_item_ingredients').select('menu_item_id,ingredient_id,quantity_per_serving'),
+          supabase.from('inventory_stock').select('ingredient_id,quantity'),
+          supabase.from('finished_product_sale_mappings').select('menu_item_id,finished_product_id,variant_key,units_per_sale'),
+          supabase.from('finished_products').select('id,menu_item_id,quantity,is_archived'),
         ])
         if (ignore) return
         if (!productResult.error) {
-          const liveProducts = (productResult.data || []).map((row) => normalizeProduct(row, addonResult.error ? [] : (addonResult.data || [])))
+          const stockReadable = !recipeResult.error && !ingredientStockResult.error && !mappingResult.error && !finishedProductResult.error
+          const ingredientStock = new Map((ingredientStockResult.data || []).map((row) => [row.ingredient_id, Number(row.quantity)]))
+          const finishedProducts = new Map((finishedProductResult.data || []).map((row) => [row.id, row]))
+          const liveProducts = (productResult.data || []).map((row) => {
+            const item = normalizeProduct(row, addonResult.error ? [] : (addonResult.data || []))
+            return { ...item, stockInfo: stockReadable ? stockForMenuItem(item, recipeResult.data || [], ingredientStock, mappingResult.data || [], finishedProducts) : null }
+          })
           setProducts(liveProducts)
           setNotice(liveProducts.length ? '' : 'No active menu items are currently available in the POS.')
         } else {
@@ -365,7 +416,7 @@ export default function CashierPage() {
           setNotice(`The current menu could not load: ${productResult.error.message}`)
         }
         if (!orderResult.error && orderResult.data) setTransactions(orderResult.data.map(normalizeOrder))
-        const syncError = productResult.error || addonResult.error || orderResult.error
+        const syncError = productResult.error || addonResult.error || orderResult.error || recipeResult.error || ingredientStockResult.error || mappingResult.error || finishedProductResult.error
         if (syncError) setDataSyncError(syncError.message || 'Live data could not be refreshed.')
         else {
           setDataSyncError('')
@@ -392,6 +443,10 @@ export default function CashierPage() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, refreshLiveData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, refreshLiveData)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, refreshLiveData)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_stock' }, refreshLiveData)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'finished_products' }, refreshLiveData)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_item_ingredients' }, refreshLiveData)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'finished_product_sale_mappings' }, refreshLiveData)
         .subscribe((status) => {
           if (ignore) return
           if (status === 'SUBSCRIBED') setRealtimeState('live')
@@ -473,8 +528,17 @@ export default function CashierPage() {
   const filteredProducts = useMemo(() => products.filter((item) => {
     const matchesCategory = category === 'All' || item.category === category
     const haystack = `${item.name} ${item.description} ${item.category}`.toLowerCase()
-    return matchesCategory && haystack.includes(search.trim().toLowerCase())
-  }), [category, products, search])
+    const available = Boolean(item.isAvailable && item.price > 0)
+    const matchesFilter = menuFilter === 'all' ||
+      (menuFilter === 'available' && available) ||
+      (menuFilter === 'unavailable' && !available) ||
+      (menuFilter === 'customizable' && hasCustomizationChoices(item)) ||
+      (menuFilter === 'standard' && !hasCustomizationChoices(item))
+    return matchesCategory && matchesFilter && haystack.includes(search.trim().toLowerCase()) &&
+      (!customizableOnly || hasCustomizationChoices(item)) &&
+      (minimumPrice === '' || item.price >= Number(minimumPrice)) &&
+      (maximumPrice === '' || item.price <= Number(maximumPrice))
+  }), [category, products, search, menuFilter, minimumPrice, maximumPrice, customizableOnly])
   const subtotal = cart.reduce((sum, item) => sum + itemLineTotal(item), 0)
   const discountedLineKeys = Array.isArray(discount.discountedLineKeys) ? discount.discountedLineKeys : []
   const discountSubtotal = discount.enabled
@@ -497,6 +561,13 @@ export default function CashierPage() {
     pricesIncludeVat: pricing.pricesIncludeVat,
   })
   const total = Math.max(0, priceBreakdown.totalAmount)
+  const cartPreviewBreakdown = cartVatBreakdown({
+    subtotal,
+    discount: { enabled: false },
+    discountBreakdown: {},
+    vatRate: pricing.vatRate,
+    pricesIncludeVat: pricing.pricesIncludeVat,
+  })
   const change = payment.method === 'Cash' ? Math.max(0, Number(payment.cashReceived || 0) - total) : 0
   const cashierName = cashierProfile?.full_name || cashierProfile?.username || cashierProfile?.email || 'Cashier'
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0)
@@ -544,7 +615,21 @@ export default function CashierPage() {
     })
   }
 
+  function holdOrder() {
+    if (!cart.length) return
+    const emptyTab = orderTabs.find((tab) => tab.id !== activeOrder.id && !tab.cart.length)
+    if (!emptyTab && orderTabs.length >= MAX_OPEN_ORDER_TABS) {
+      setError('Close an empty order before holding this order.')
+      return
+    }
+    updateActiveOrder(() => ({ held: true }))
+    if (emptyTab) setActiveOrderId(emptyTab.id)
+    else openNewOrderTab()
+    setError('')
+  }
+
   function shouldCustomize(product) {
+    if (addsDirectlyToCart(product)) return false
     return Boolean(
       product.variantOptions?.length ||
       product.temperatureType ||
@@ -570,14 +655,20 @@ export default function CashierPage() {
       setCustomizingProduct(product)
       return
     }
-    addConfiguredItem(product)
+    const defaultVariant = product.variantOptions?.[0]
+    addConfiguredItem(product, defaultVariant ? {
+      variantKey: defaultVariant.key,
+      variantLabel: defaultVariant.label,
+      variantPrice: defaultVariant.price,
+    } : {})
   }
   function changeQty(lineKey, delta) {
     setCart((current) => current.map((item) => item.lineKey === lineKey ? { ...item, qty: item.qty + delta } : item).filter((item) => item.qty > 0))
   }
 
   function editCartItem(item) {
-    setCustomizingProduct(item)
+    const product = products.find((entry) => entry.id === item.id)
+    setCustomizingProduct({ ...item, addons: product?.addons || [], selectedAddons: item.addons || [] })
   }
 
   function updateConfiguredItem(item, customizations, addons, quantity) {
@@ -756,7 +847,7 @@ export default function CashierPage() {
   }
 
   return (
-    <div className={`cashier-v2 legacy-cashier ${isFullscreen ? 'cashier-is-fullscreen' : ''}`}>
+    <div className={`cashier-v2 cashier-refined legacy-cashier ${isFullscreen ? 'cashier-is-fullscreen' : ''}`}>
       <header className="legacy-cashier-top">
         <div className="cashier-top-left">
           <span className="cashier-brand-mark" aria-hidden="true">
@@ -785,22 +876,11 @@ export default function CashierPage() {
           </div>
         </div>
         <nav>
-          <button type="button" className={showTransactions ? 'is-active' : ''} onClick={showTransactions ? returnToPos : openTransactions} aria-pressed={showTransactions}>
+          <button type="button" className={`cashier-transactions-button ${showTransactions ? 'is-active' : ''}`} onClick={showTransactions ? returnToPos : openTransactions} aria-pressed={showTransactions}>
             {showTransactions ? <ShoppingBag size={21} /> : <ReceiptText size={21} />}
             <span>{showTransactions ? 'Back to POS' : 'Transactions'}</span>
           </button>
-          <button
-            type="button"
-            className="cashier-theme-toggle"
-            onClick={() => setPreference(isDarkMode ? 'light' : 'dark')}
-            aria-pressed={isDarkMode}
-            aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {isDarkMode ? <Sun size={21} /> : <Moon size={21} />}
-            <span>{isDarkMode ? 'Light mode' : 'Dark mode'}</span>
-          </button>
-          <button type="button" onClick={() => setLogoutOpen(true)}><LogOut size={21} /><span>Sign out</span></button>
+          <button type="button" className="cashier-signout-button" onClick={() => setLogoutOpen(true)}><LogOut size={21} /><span>Sign out</span></button>
         </nav>
       </header>
 
@@ -839,9 +919,9 @@ export default function CashierPage() {
         </> : <>
           <section className="legacy-pos-menu">
             <div className="cashier-workspace-tabs">
-              <div className="cashier-order-tabs-list">
+              <div className="cashier-order-tabs-list" role="group" aria-label="Open orders">
                 {orderTabs.map((tab) => <div className={`cashier-order-tab ${tab.id === activeOrderId ? 'active' : ''}`} key={tab.id}>
-                  <button type="button" className="cashier-tab-select" onClick={() => setActiveOrderId(tab.id)}>{tab.id}</button>
+                  <button type="button" className="cashier-tab-select" aria-pressed={tab.id === activeOrderId} aria-controls="cashier-current-order" onClick={() => { setActiveOrderId(tab.id); setOrderTabs((current) => current.map((entry) => entry.id === tab.id ? { ...entry, held: false } : entry)) }}>{tab.id}{tab.held ? <Pause size={12} aria-label="Held order" /> : null}</button>
                   <button type="button" className="cashier-tab-close" onClick={() => closeOrderTab(tab.id)} aria-label={`Close ${tab.id}`}>&times;</button>
                 </div>)}
               </div>
@@ -852,20 +932,35 @@ export default function CashierPage() {
               </div>
             </div>
             {notice ? <div className="cashier-sync-note">{notice}</div> : null}
-            <div className="cashier-menu-controls"><label><Search size={18} /><input inputMode="search" enterKeyHint="search" value={search} onChange={(event) => setSearch(event.target.value.slice(0, 100))} maxLength={100} placeholder="Search menu items" /></label><CategoryTabs categories={categories} active={category} onChange={setCategory} /></div>
+            <div className="cashier-menu-controls">
+              <div className="cashier-search-toolbar">
+                <label className="cashier-search-field"><Search size={18} aria-hidden="true" /><input type="search" aria-label="Search menu items" inputMode="search" enterKeyHint="search" value={search} onChange={(event) => setSearch(event.target.value.slice(0, 100))} maxLength={100} placeholder="Search menu items" /></label>
+                <button type="button" className="cashier-filter-trigger" aria-expanded={filtersOpen} aria-controls="cashier-filters" onClick={() => setFiltersOpen(!filtersOpen)}><SlidersHorizontal size={17} /> Filter{menuFilter !== 'all' || minimumPrice || maximumPrice || customizableOnly ? ' •' : ''}</button>
+              </div>
+              {filtersOpen ? <div className="cashier-filter-panel" id="cashier-filters">
+                <label>Stock<select value={menuFilter} onChange={(event) => setMenuFilter(event.target.value)}><option value="all">All items</option><option value="available">In stock</option><option value="unavailable">Sold out</option></select></label>
+                <label>Min price<input type="number" min="0" value={minimumPrice} onChange={(event) => setMinimumPrice(event.target.value)} placeholder="₱ 0" /></label>
+                <label>Max price<input type="number" min="0" value={maximumPrice} onChange={(event) => setMaximumPrice(event.target.value)} placeholder="No limit" /></label>
+                <label className="cashier-filter-check"><input type="checkbox" checked={customizableOnly} onChange={(event) => setCustomizableOnly(event.target.checked)} /> Customizable only</label>
+                <button type="button" onClick={() => { setMenuFilter('all'); setMinimumPrice(''); setMaximumPrice(''); setCustomizableOnly(false) }}>Reset</button>
+              </div> : null}
+              <CategoryTabs categories={categories} active={category} onChange={setCategory} />
+            </div>
             {loading ? <div className="cashier-empty-state cashier-menu-loading" role="status" aria-live="polite"><ShoppingBag size={28} /><b>Loading latest menu</b><span>Syncing current items, prices, and images.</span></div> : <ProductGrid products={filteredProducts} onAdd={addToCart} />}
-            {!loading && filteredProducts.length === 0 ? <div className="cashier-empty-state"><Search size={28} /><b>No menu items found</b><span>Try another category or search term.</span></div> : null}
+            {!loading && filteredProducts.length === 0 ? <div className="cashier-empty-state"><Search size={28} /><b>No menu items found</b><span>Try another filter or search.</span></div> : null}
           </section>
 
           <aside className="legacy-ticket" id="cashier-current-order">
             <header>
-              <div><span className="cashier-order-icon"><ShoppingBag size={18} /></span><span><small>Current order</small><b>{activeOrder.id}</b></span></div>
-              <button type="button" className="cashier-clear-cart" onClick={() => setCart([])}>Clear Cart</button>
+              <div className="cashier-order-heading"><span className="cashier-order-icon"><ShoppingBag size={16} /></span><span className="cashier-order-heading-text"><b>{activeOrder.id}</b><small>{cartCount} {cartCount === 1 ? 'item' : 'items'}</small></span></div>
+              <div className="cashier-cart-actions">
+                <button type="button" className="cashier-hold-order" onClick={holdOrder} disabled={!cart.length}><Pause size={15} /> Hold order</button>
+                <button type="button" className="cashier-clear-cart" onClick={() => setCart([])} disabled={!cart.length}>Clear cart</button>
+              </div>
             </header>
-            <div className="cashier-cart-count"><span>Items</span><b>{cartCount}</b></div>
-            <POSCart cart={cart} onQty={changeQty} onEdit={editCartItem} />
+            <POSCart cart={cart} products={products} onQty={changeQty} onEdit={editCartItem} />
             <div className="cashier-checkout-block">
-              <OrderSummary subtotal={subtotal} total={total} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat} breakdown={priceBreakdown} />
+              <OrderSummary vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat} breakdown={cartPreviewBreakdown} />
               {error ? <div className="cashier-error">{error}</div> : null}
               <button type="button" className="legacy-charge" onClick={() => setShowCheckout(true)} disabled={!cart.length}>Checkout</button>
             </div>
@@ -873,7 +968,7 @@ export default function CashierPage() {
         </>}
       </main>
       {!showTransactions ? <div className="cashier-mobile-summary" aria-live="polite">
-        <div><span>{cartCount} {cartCount === 1 ? 'item' : 'items'}</span><strong>{peso(total)}</strong></div>
+        <div><span>{cartCount} {cartCount === 1 ? 'item' : 'items'}</span><strong>{peso(cartPreviewBreakdown.totalAmount)}</strong></div>
         <button type="button" onClick={() => document.getElementById('cashier-current-order')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} disabled={!cart.length}>View order</button>
       </div> : null}
       <LogoutConfirmModal open={logoutOpen} busy={loggingOut} onCancel={() => setLogoutOpen(false)} onConfirm={logout} />
@@ -891,38 +986,39 @@ function CategoryTabs({ categories, active, onChange }) {
 
 function ProductGrid({ products, onAdd }) {
   return <div className="legacy-pos-products">{products.map((item) => {
-    const hasOptions = Boolean(item.allowSugar || item.allowIce || item.allowAddons || item.temperatureType || item.variantOptions?.length)
-    return <article key={item.id} className={!item.price || !item.isAvailable ? 'unpriced' : 'cashier-product-card'} role={!item.price || !item.isAvailable ? undefined : 'button'} tabIndex={!item.price || !item.isAvailable ? undefined : 0} onClick={() => { if (item.price && item.isAvailable) onAdd(item) }} onKeyDown={(event) => { if (item.price && item.isAvailable && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onAdd(item) } }}>
+    const hasOptions = hasCustomizationChoices(item)
+    const soldOut = !item.isAvailable
+    const disabled = !item.price || soldOut
+    const stockTone = soldOut ? 'is-empty' : item.stockInfo?.quantity <= 5 ? 'is-low' : ''
+    return <article key={item.id} className={`cashier-product-card ${disabled ? 'unpriced' : ''} ${item.isFeatured ? 'is-featured' : ''}`} onClick={() => { if (!disabled) onAdd(item) }}>
       <img src={item.image} alt={item.name} />
       <div className="cashier-product-body">
         <small>{item.category}{hasOptions ? ' / Customizable' : ''}</small>
         <h3>{item.name}</h3>        <footer>
+          <span className={`cashier-stock-indicator ${stockTone}`}><i aria-hidden="true" />{soldOut ? <span className="cashier-sold-out">Sold out</span> : item.stockInfo ? `${item.stockInfo.type === 'product' ? 'In stock' : 'Can make'}${item.variantOptions?.length > 1 && item.stockInfo.type === 'product' ? ` (${item.variantOptions[0].label})` : ''}: ${item.stockInfo.quantity}${stockTone === 'is-low' ? ' · Low stock' : ''}` : 'Stock unconfirmed'}</span>
           <strong>{item.price ? peso(item.price) : 'No price set'}</strong>
-          <button type="button" disabled={!item.price || !item.isAvailable} onClick={(event) => { event.stopPropagation(); onAdd(item) }} aria-label={`Add ${item.name}`}><Plus size={18} /></button>
+          <button type="button" disabled={disabled} onClick={(event) => { event.stopPropagation(); onAdd(item) }} aria-label={`Add ${item.name}`}><Plus size={18} /></button>
         </footer>
       </div>
     </article>
   })}</div>
 }
 
-function POSCart({ cart, onQty, onEdit }) {
+function POSCart({ cart, products, onQty, onEdit }) {
   return <div className="legacy-ticket-items">{cart.length === 0 ? <div className="cashier-empty-cart"><ShoppingBag size={58} strokeWidth={1.15} /><p>No items added yet.</p></div> : cart.map((item) => {
-    const editable = Boolean(item.allowSugar || item.allowIce || item.allowAddons || item.temperatureType || item.variantOptions?.length)
-    return <article key={item.lineKey}>
-      <img src={item.image} alt={item.name} />
+    const product = products.find((entry) => entry.id === item.id) || item
+    const editable = hasCustomizationChoices(product)
+    return <article className="cashier-cart-line" key={item.lineKey}>
       <div className="cashier-line-body">
         <div className="cashier-line-top">
           <div>
             <b>{item.name}</b>
-            <small>{item.category}</small>
             <CustomizationSummary item={item} />
           </div>
-          <div className="cashier-line-price-actions">
-            <strong>{peso(itemLineTotal(item))}</strong>
-            {editable ? <button type="button" className="cashier-edit-line" onClick={() => onEdit(item)}><Pencil size={14} /> Edit</button> : null}
-          </div>
+          {editable ? <button type="button" className="cashier-edit-line" onClick={() => onEdit(item)} aria-label={`Edit ${item.name}`}><Pencil size={15} /></button> : null}
         </div>
         <div className="cashier-line-bottom">
+          <strong className="cashier-cart-line-total">{peso(itemLineTotal(item))}</strong>
           <span className="cashier-qty-stepper">
             <button type="button" onClick={() => onQty(item.lineKey, -1)} aria-label={`Decrease ${item.name} quantity`}><Minus size={14} /></button>
             <strong className="cashier-qty-value" aria-label={`Quantity ${item.qty}`}>{item.qty}</strong>
@@ -953,7 +1049,7 @@ function ItemCustomizationModal({ product, onClose, onAdd }) {
   const isCold = temperature === 'Cold'
   const [sugarLevel, setSugarLevel] = useState(product.customizations?.sugarLevel || (product.allowSugar ? '100% Sugar' : ''))
   const [iceLevel, setIceLevel] = useState(product.customizations?.iceLevel || (product.allowIce && isCold ? 'Default Ice' : ''))
-  const [addons, setAddons] = useState(product.customizations?.addons || [])
+  const [addons, setAddons] = useState(product.selectedAddons || product.customizations?.addons || [])
   const [quantity, setQuantity] = useState(Number(product.qty || 1))
   const unitTotal = Number(selectedVariant?.price ?? product.price ?? 0) + addonTotal(addons)
   const modalTotal = unitTotal * quantity
@@ -985,7 +1081,7 @@ function ItemCustomizationModal({ product, onClose, onAdd }) {
     }, addons, quantity)
   }
 
-  return createPortal(<div className="cashier-v2 cashier-modal-portal">
+  return createPortal(<div className="cashier-v2 cashier-modal-portal cashier-refined-modal">
     <div className="cashier-custom-backdrop customize-backdrop" role="dialog" aria-modal="true" aria-labelledby="customize-modal-title">
       <section className="cashier-custom-modal customize-modal">
       <header className="customize-modal-header">
@@ -1061,15 +1157,8 @@ function CashierBreakdownRows({ breakdown, vatRate, pricesIncludeVat }) {
   </>
 }
 
-function OrderSummary({ subtotal, total, vatRate, pricesIncludeVat, breakdown }) {
-  const summary = breakdown || cartVatBreakdown({
-    subtotal,
-    discount: { enabled: false },
-    discountBreakdown: {},
-    vatRate,
-    pricesIncludeVat,
-  })
-  return <div className="legacy-ticket-total"><CashierBreakdownRows breakdown={summary} vatRate={vatRate} pricesIncludeVat={pricesIncludeVat} /><hr /><p><strong>Total</strong><strong>{peso(total)}</strong></p></div>
+function OrderSummary({ vatRate, pricesIncludeVat, breakdown }) {
+  return <div className="legacy-ticket-total"><CashierBreakdownRows breakdown={breakdown} vatRate={vatRate} pricesIncludeVat={pricesIncludeVat} /><hr /><p><strong>Total</strong><strong>{peso(breakdown.totalAmount)}</strong></p></div>
 }
 
 
