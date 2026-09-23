@@ -576,6 +576,7 @@ html[data-staff-motion="reduce"] .app-layout:is(.legacy-staff,.legacy-admin) *,h
 .app-layout[data-theme="dark"] :is(.status-chip--delivery){background:#12332e;border-color:#29685d;color:#7fd5c6}
 .app-layout[data-theme="dark"] :is(.status-chip--pickup){background:#2a2340;border-color:#51457c;color:#b8a8ee}
 .app-layout[data-theme="dark"] :is(.status-chip--cancelled,.inv-status.tone-red,.inv-connection.tone-offline){background:#3a2022;border-color:#704045;color:#ffaaaa}
+.app-layout[data-theme="dark"] .inv-status.tone-neutral{background:#27322c;border-color:#46564d;color:#bec9c2}
 .app-layout[data-theme="dark"] :is(.status-chip--neutral){background:#202e26;border-color:#3b4e42;color:#b7c6bc}
 .app-layout[data-theme="dark"] .inv-connection.tone-reconnecting{background:#3a2d16;color:#f1c56d}
 .app-layout .sidebar-theme-switcher button:focus-visible{outline:2px solid var(--mgmt-primary);outline-offset:2px}

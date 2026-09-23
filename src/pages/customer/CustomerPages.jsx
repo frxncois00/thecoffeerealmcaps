@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronLeft, Coffee, CreditCard, Info, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Trash2, X, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Coffee, CreditCard, Info, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Trash2, X, XCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -18,7 +18,7 @@ import { isCustomerRole } from '../../lib/auth'
 import { isSupabaseConfigured, supabase } from '../../lib/supabase'
 import { SYSTEM_DEFAULTS, fetchPublicDeliveryAreas, fetchPublicPortalData } from '../../services/adminPortalConfigurationService'
 import { normalizeOrderTemperature } from '../../utils/temperature'
-import { buildVatExemptOrderBreakdown, formatVatRate, vatBreakdownFromInclusiveAmount } from '../../utils/pricing'
+import { buildVatExemptOrderBreakdown, formatVatRate, vatExemptDiscountBreakdown } from '../../utils/pricing'
 import { IMAGE_UPLOAD_ACCEPT, validateImageFile } from '../../utils/imageUpload'
 import { clearCheckoutDraft, readCheckoutDraft, writeCheckoutDraft } from '../../utils/checkoutDraft'
 import { EMAIL_MAX_LENGTH, isValidEmail, isValidPassword, isValidPhone, sanitizePersonName, sanitizePhone, sanitizeUsername } from '../../utils/inputValidation'
@@ -32,7 +32,6 @@ export function ProductPage(){const {slug}=useParams();const {products,loading,e
 const STORE_OPEN_MINUTES=10*60
 const STORE_CLOSE_MINUTES=23*60+59
 const manilaDate=(offset=0)=>{const date=new Date(Date.now()+offset*86400000);const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);const map=Object.fromEntries(parts.map(part=>[part.type,part.value]));return `${map.year}-${map.month}-${map.day}`}
-const scheduleDates=[{id:manilaDate(),name:'Today'},{id:manilaDate(1),name:'Tomorrow'}]
 const timeLabel=minutes=>{const hour=Math.floor(minutes/60);const minute=minutes%60;return `${hour%12||12}:${String(minute).padStart(2,'0')} ${hour>=12?'PM':'AM'}`}
 const normalizePhone=value=>sanitizePhone(value)
 const normalizePostal=value=>String(value||'').replace(/\D/g,'').slice(0,6)
@@ -78,11 +77,11 @@ const shortenAddress=value=>{const clean=String(value||'').replace(/\s+/g,' ').t
 const completionMessage=order=>orderPaymentMethod(order)==='cod'?'Your order has been received and will be prepared shortly.':'Your payment proof has been submitted for verification.'
 const completionNote=order=>{const notes=[];if(orderPaymentMethod(order)==='cod')notes.push('Please prepare the exact amount. Payment will be collected upon delivery.');else notes.push('Your order will be processed after the payment proof is verified.');if((order?.order_type||order?.fulfillment)==='pickup')notes.push('You will be notified when your order is ready for pickup.');return notes.join(' ')}
 const estimatedTimeLabel=order=>((order?.order_type||order?.fulfillment)==='pickup'?'Estimated ready time':'Estimated delivery time')
-const mergePlacedOrderData=({order,form,items,total})=>{const payment=orderPaymentMethod(order)||form.payment;const fulfillment=order?.order_type||order?.fulfillment||form.fulfillment;return {...order,payment_method:payment,payment_status:order?.payment_status||'pending',payments:order?.payments?.length?order.payments:[{method:payment,status:order?.payment_status||'pending'}],order_type:fulfillment,schedule_date:order?.schedule_date||form.scheduleDate,schedule_time:order?.schedule_time||form.scheduleTime,delivery_address:order?.delivery_address||(fulfillment==='delivery'?`${form.address}, Brgy. ${form.barangay}, ${form.city}, ${form.province} ${form.postal}`:''),final_total:Number(order?.final_total??order?.total??total??0),total:Number(order?.total??order?.final_total??total??0),order_items:order?.order_items?.length?order.order_items:items.map(item=>({id:item.lineId,quantity:item.quantity}))}}
+const mergePlacedOrderData=({order,form,items,total})=>{const payment=orderPaymentMethod(order)||form.payment;const fulfillment=order?.order_type||order?.fulfillment||form.fulfillment;return {...order,payment_method:payment,payment_status:order?.payment_status||'pending',payments:order?.payments?.length?order.payments:[{method:payment,status:order?.payment_status||'pending'}],order_type:fulfillment,schedule_date:order?.schedule_date||form.scheduleDate,schedule_time:order?.schedule_time||form.scheduleTime,delivery_address:order?.delivery_address||(fulfillment==='delivery'?`${form.address}, Brgy. ${form.barangay}, ${form.city}, ${form.province}`:''),final_total:Number(order?.final_total??order?.total??total??0),total:Number(order?.total??order?.final_total??total??0),order_items:order?.order_items?.length?order.order_items:items.map(item=>({id:item.lineId,quantity:item.quantity}))}}
 const trackingSteps=order=>((order?.order_type||order?.fulfillment)==='pickup'?[initialOrderStatusLabel(orderPaymentMethod(order)),'Confirmed','Preparing','Ready for Pickup','Completed']:[initialOrderStatusLabel(orderPaymentMethod(order)),'Confirmed','Preparing','Out for Delivery','Received'])
 const trackingStatusCopy=(order,status)=>status==='Awaiting Payment Verification'?'Your payment proof is waiting for review.':status==='Order Received'?'Your order is waiting for store confirmation.':status==='Confirmed'?`Scheduled for ${orderScheduleLabel(order)}`:status==='Preparing'?'The kitchen and bar are preparing your order.':status==='Out for Delivery'?'Your order is on the way. Confirm once it arrives.':status==='Ready for Pickup'?'Your order is ready at the store.':status==='Received'?'You confirmed that this delivery was received.':status==='Completed'?'This order has been completed.':'Waiting for update'
 const clockMinutes=(value,fallback)=>{const [hour,minute]=String(value||'').split(':').map(Number);return Number.isFinite(hour)&&Number.isFinite(minute)?hour*60+minute:fallback}
-const emptyCheckoutForm=()=>({fullName:'',email:'',contact:'',fulfillment:'delivery',address:'',barangay:'',city:'Quezon City',province:'Metro Manila',postal:'',instructions:'',payment:'cod',paymentReference:'',scheduleDate:'',scheduleTime:'',deliveryFee:0,deliveryZone:'',estimatedDeliveryTime:'',applyBenefitDiscount:false})
+const emptyCheckoutForm=()=>({fullName:'',email:'',contact:'',fulfillment:'delivery',address:'',barangay:'',city:'Quezon City',province:'Metro Manila',postal:'',instructions:'',payment:'cod',paymentReference:'',scheduleDate:manilaDate(),scheduleTime:'',deliveryFee:0,deliveryZone:'',estimatedDeliveryTime:'',applyBenefitDiscount:false})
 function scheduleSlots(date,fulfillment,ordering=SYSTEM_DEFAULTS.ordering){if(!date)return[];const nowParts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());const nowMap=Object.fromEntries(nowParts.map(part=>[part.type,part.value]));const nowMinutes=(Number(nowMap.hour)%24)*60+Number(nowMap.minute);const buffer=fulfillment==='delivery'?60:30;const earliest=date===manilaDate()?nowMinutes+buffer:-1;const open=clockMinutes(ordering.openTime,STORE_OPEN_MINUTES);const close=clockMinutes(ordering.closeTime,STORE_CLOSE_MINUTES);const slots=[];for(let time=open;time<=close;time+=30){if(date===manilaDate()&&time<=earliest)continue;slots.push({id:`${String(Math.floor(time/60)).padStart(2,'0')}:${String(time%60).padStart(2,'0')}`,name:timeLabel(time)})}return slots}
 export function CheckoutPage(){
   const cart=useCart();const {items,subtotal}=cart;const {user,profile}=useAuth();const {pricing}=usePricing();const navigate=useNavigate();
@@ -93,7 +92,7 @@ export function CheckoutPage(){
   const [addresses,setAddresses]=useState([]);const [selectedAddress,setSelectedAddress]=useState('');const [addressMode,setAddressMode]=useState('loading');const [draftReady,setDraftReady]=useState(false);const [requestKey,setRequestKey]=useState(()=>crypto.randomUUID());
   const [form,setForm]=useState(emptyCheckoutForm);const [benefitApplication,setBenefitApplication]=useState(null);
   useEffect(()=>{if(!user?.id)return;const draft=readCheckoutDraft(user.id);if(draft){setForm({...emptyCheckoutForm(),...draft.form});setAddressMode(['saved','new'].includes(draft.addressMode)?draft.addressMode:'new');setSelectedAddress(String(draft.selectedAddress||''));setRequestKey(draft.requestKey||crypto.randomUUID())}else{setAddressMode('loading')}setDraftReady(true)},[user?.id]);
-  useEffect(()=>{if(!draftReady)return;setForm(current=>current.scheduleDate&&current.scheduleDate!==manilaDate()?{...current,scheduleDate:'',scheduleTime:''}:current)},[draftReady,form.fulfillment]);
+  useEffect(()=>{if(!draftReady)return;setForm(current=>current.scheduleDate!==manilaDate()||current.postal?{...current,scheduleDate:manilaDate(),scheduleTime:current.scheduleDate===manilaDate()?current.scheduleTime:'',postal:''}:current)},[draftReady,form.fulfillment]);
   useEffect(()=>{if(!draftReady||!user?.id||addressMode==='loading')return undefined;const timeout=window.setTimeout(()=>writeCheckoutDraft(user.id,{form,addressMode,selectedAddress,requestKey}),120);return()=>window.clearTimeout(timeout)},[addressMode,draftReady,form,requestKey,selectedAddress,user?.id]);
   useEffect(()=>{setForm(current=>({...current,fullName:current.fullName||profile?.full_name||profile?.name||'',email:current.email||profile?.email||user?.email||'',contact:current.contact||normalizePhone(profile?.contact_number||profile?.phone||'')}))},[profile,user]);
   useEffect(()=>{let active=true;fetchPublicPortalData().then(data=>{if(!active)return;setSystemSettings(data.system);setForm(current=>{const delivery=data.system.ordering.deliveryEnabled;const pickup=data.system.ordering.pickupEnabled;const fulfillment=current.fulfillment==='delivery'&&!delivery&&pickup?'pickup':current.fulfillment==='pickup'&&!pickup&&delivery?'delivery':current.fulfillment;const methods=data.system.payments.enabledMethods||[];const allowed=fulfillment==='delivery'?methods:methods.filter(method=>method!=='cod');const payment=allowed.includes(current.payment)?current.payment:(allowed[0]||'');return {...current,fulfillment,payment,paymentReference:payment===current.payment?current.paymentReference:''}})}).catch(()=>{});return()=>{active=false}},[]);
@@ -109,7 +108,7 @@ export function CheckoutPage(){
     setAddressMode(currentMode=>{
       if(defaultAddress&&currentMode!=='new'){
         setSelectedAddress(String(defaultAddress.id))
-        setForm(current=>({...current,address:defaultAddress.address_line||'',barangay:defaultAddress.barangay||'',city:defaultAddress.city||'Quezon City',province:defaultAddress.province||'Metro Manila',postal:defaultAddress.postal_code||''}))
+        setForm(current=>({...current,address:defaultAddress.address_line||'',barangay:defaultAddress.barangay||'',city:defaultAddress.city||'Quezon City',province:defaultAddress.province||'Metro Manila',postal:''}))
         return 'saved'
       }
       return currentMode==='loading'||currentMode==='saved'?'new':currentMode
@@ -120,7 +119,7 @@ export function CheckoutPage(){
   const applyAddress=address=>{
     setSelectedAddress(String(address.id))
     setAddressMode('saved')
-    setForm(current=>({...current,address:address.address_line||'',barangay:address.barangay||'',city:address.city||'Quezon City',province:address.province||'Metro Manila',postal:address.postal_code||''}))
+    setForm(current=>({...current,address:address.address_line||'',barangay:address.barangay||'',city:address.city||'Quezon City',province:address.province||'Metro Manila',postal:''}))
   }
   const defaultAddress=addresses.find(address=>address.is_default)||null
   const chooseAddressMode=mode=>{
@@ -129,27 +128,27 @@ export function CheckoutPage(){
     setSelectedAddress('')
     setForm(current=>({...current,address:'',barangay:'',city:'Quezon City',province:'Metro Manila',postal:''}))
   }
-  const selectedArea=availableAreas.find(area=>area.barangay.toLowerCase()===form.barangay.trim().toLowerCase());const fee=form.fulfillment==='delivery'?(selectedArea?.fee||0):0;const benefitEligible=benefitApplication?.status==='approved';const eligibleItemDiscount=mostExpensiveEligibleItemDiscount(items);const benefitDiscount=benefitEligible&&form.applyBenefitDiscount?eligibleItemDiscount:0;const total=subtotal+fee-benefitDiscount;const slots=useMemo(()=>scheduleSlots(form.scheduleDate,form.fulfillment,systemSettings.ordering),[form.scheduleDate,form.fulfillment,systemSettings.ordering]);
+  const selectedArea=availableAreas.find(area=>area.barangay.toLowerCase()===form.barangay.trim().toLowerCase());const fee=form.fulfillment==='delivery'?(selectedArea?.fee||0):0;const benefitEligible=benefitApplication?.status==='approved';const eligibleBenefit=mostExpensiveEligibleItemBenefit(items,pricing.vatRate,pricing.pricesIncludeVat);const benefitDiscount=benefitEligible&&form.applyBenefitDiscount?eligibleBenefit.benefitAmount:0;const total=subtotal+fee-benefitDiscount;const slots=useMemo(()=>scheduleSlots(form.scheduleDate,form.fulfillment,systemSettings.ordering),[form.scheduleDate,form.fulfillment,systemSettings.ordering]);
   if(!items.length)return <Empty title="Nothing to checkout" body="Your cart needs at least one item." action="Browse menu" to="/menu"/>;
   if(cart.checkingAvailability)return <main className="customer-main"><section className="customer-state">Checking your cart against today’s availability…</section></main>;
   if(cart.hasUnavailableItems)return <main className="customer-main"><section className="empty-state"><AlertTriangle/><h1>Update your cart</h1><p>Remove unavailable items before continuing to checkout.</p><button className="primary-button" type="button" onClick={cart.openCart}>Review cart</button></section></main>;
   const set=(key,value)=>setForm(current=>({...current,[key]:value}));
-  const setFulfillment=value=>setForm(current=>{const allowed=(systemSettings.payments.enabledMethods||[]).filter(method=>value==='delivery'||method!=='cod');const payment=allowed.includes(current.payment)?current.payment:(allowed[0]||'');return {...current,fulfillment:value,payment,paymentReference:payment===current.payment?current.paymentReference:'',scheduleDate:'',scheduleTime:''}});
+  const setFulfillment=value=>setForm(current=>{const allowed=(systemSettings.payments.enabledMethods||[]).filter(method=>value==='delivery'||method!=='cod');const payment=allowed.includes(current.payment)?current.payment:(allowed[0]||'');return {...current,fulfillment:value,payment,paymentReference:payment===current.payment?current.paymentReference:'',scheduleDate:manilaDate(),scheduleTime:''}});
   const clearPaymentProof=()=>{if(paymentProofPreview)URL.revokeObjectURL(paymentProofPreview);setPaymentProof(null);setPaymentProofPreview('');setPaymentProofError('')}
   const setPayment=value=>{if(value===form.payment)return;setForm(current=>({...current,payment:value,paymentReference:''}));clearPaymentProof()};
   const choosePaymentProof=async event=>{const next=event.target.files?.[0]||null;event.target.value='';if(!next)return;try{await validateImageFile(next,{label:'Payment proof'});if(paymentProofPreview)URL.revokeObjectURL(paymentProofPreview);setPaymentProof(next);setPaymentProofPreview(URL.createObjectURL(next));setPaymentProofError('')}catch(cause){clearPaymentProof();setPaymentProofError(cause.message||'Could not use this image.')}}
   const submit=async event=>{
-    event.preventDefault();setSubmitError('');if(systemSettings.ordering.storeStatus!=='open'){setSubmitError(systemSettings.ordering.closureMessage);return}if(subtotal<Number(systemSettings.ordering.minimumOrder||0)){setSubmitError(`A minimum order of ${money(systemSettings.ordering.minimumOrder)} is required.`);return}if(!isValidPhone(form.contact)){setSubmitError('Contact number must contain 11 digits and start with 09.');return}if(form.fulfillment==='delivery'&&!/^\d{4,6}$/.test(form.postal)){setSubmitError('Postal code must contain 4 to 6 digits only.');return}if(form.fulfillment==='delivery'&&!selectedArea)return;if(form.payment!=='cod'&&!paymentProof){setPaymentProofError('Upload your payment proof before reviewing the order.');return}
+    event.preventDefault();setSubmitError('');if(systemSettings.ordering.storeStatus!=='open'){setSubmitError(systemSettings.ordering.closureMessage);return}if(subtotal<Number(systemSettings.ordering.minimumOrder||0)){setSubmitError(`A minimum order of ${money(systemSettings.ordering.minimumOrder)} is required.`);return}if(!isValidPhone(form.contact)){setSubmitError('Contact number must contain 11 digits and start with 09.');return}if(form.fulfillment==='delivery'&&!selectedArea)return;if(form.payment!=='cod'&&!paymentProof){setPaymentProofError('Upload your payment proof before reviewing the order.');return}
     const checkout={...form,deliveryFee:fee,deliveryZone:selectedArea?.zone||'',estimatedDeliveryTime:selectedArea?.estimatedTime||''};writeCheckoutDraft(user.id,{form:checkout,addressMode,selectedAddress,requestKey});navigate('/checkout/review',{state:{checkout,paymentProof}})
   };
   return <main className="customer-main checkout-page"><section className="page-title"><span>Secure checkout</span><h1>How should we prepare your order?</h1></section><div className="checkout-layout"><form className="checkout-form" onSubmit={submit}>
     <CheckoutSection n="1" title="Customer information"><div className="form-grid"><Field label="Full name" value={form.fullName} onChange={value=>set('fullName',sanitizePersonName(value,60))} maxLength={60}/><Field label="Contact number" type="tel" value={form.contact} onChange={value=>set('contact',normalizePhone(value))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Contact number must contain 11 digits and start with 09."/></div>{submitError&&<p className="field-hint error">{submitError}</p>}</CheckoutSection>
-    <CheckoutSection n="2" title="Fulfillment"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/><div className="schedule-fields"><Choice title={`${form.fulfillment==='delivery'?'Delivery':'Pickup'} day`} options={scheduleDates.slice(0,1)} value={form.scheduleDate} onChange={value=>setForm(current=>({...current,scheduleDate:value,scheduleTime:''}))}/><SelectField label="Time" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={slots} placeholder={form.scheduleDate?(slots.length?'Select time':'No slots available today'):'Select a day first'} disabled={!form.scheduleDate||!slots.length}/></div>
-    {form.fulfillment==='delivery'?<><fieldset className="address-source-picker"><legend>Delivery address</legend><div><button type="button" className={addressMode==='saved'?'active':''} onClick={()=>chooseAddressMode('saved')} disabled={!defaultAddress} aria-pressed={addressMode==='saved'}><span><MapPin size={19}/></span><b>Use default address</b><small>{defaultAddress?(defaultAddress.label||'Saved address'):'No default address saved'}</small></button><button type="button" className={addressMode==='new'?'active':''} onClick={()=>chooseAddressMode('new')} aria-pressed={addressMode==='new'}><span><Pencil size={19}/></span><b>Enter a new address</b><small>Use a different delivery location</small></button></div></fieldset>{addressMode==='saved'&&defaultAddress?<div className="saved-address-summary"><span>Default address</span><strong>{defaultAddress.label||'Saved address'}</strong><p>{[defaultAddress.address_line,defaultAddress.barangay&&`Brgy. ${defaultAddress.barangay}`,defaultAddress.city,defaultAddress.province,defaultAddress.postal_code].filter(Boolean).join(', ')}</p></div>:<div className="form-grid"><Field label="House no. / Bldg. / Street / Village" value={form.address} onChange={value=>set('address',value)} maxLength={200}/><BarangayField areas={availableAreas} value={form.barangay} onChange={value=>set('barangay',value)} selectedArea={selectedArea}/><Field label="City" value={form.city} readOnly maxLength={60}/><Field label="Province" value={form.province} readOnly maxLength={60}/><Field label="Postal code" type="tel" value={form.postal} onChange={value=>set('postal',normalizePostal(value))} inputMode="numeric" maxLength={6} pattern="[0-9]{4,6}" title="Postal code must contain 4 to 6 digits only."/></div>}{form.barangay&&!selectedArea&&<p className="field-hint error">Please select a Barangay from the delivery list.</p>}</>:<div className="pickup-note"><MapPin/>Lot 1 Block 210 Mark Street corner Dollar Street, North Fairview</div>}<Field label={form.fulfillment==='delivery'?'Delivery instructions':'Pickup note (optional)'} value={form.instructions} onChange={value=>set('instructions',value)} maxLength={300} required={false}/></CheckoutSection>
+    <CheckoutSection n="2" title="Fulfillment"><div className="fulfillment-controls"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/><SelectField label="Time" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={slots} placeholder={slots.length?'Select time':'No slots available today'} disabled={!slots.length}/></div>
+    {form.fulfillment==='delivery'?<><fieldset className="address-source-picker"><legend>Delivery address</legend><div><button type="button" className={addressMode==='saved'?'active':''} onClick={()=>chooseAddressMode('saved')} disabled={!defaultAddress} aria-pressed={addressMode==='saved'}><span><MapPin size={19}/></span><b>Use default address</b><small>{defaultAddress?(defaultAddress.label||'Saved address'):'No default address saved'}</small></button><button type="button" className={addressMode==='new'?'active':''} onClick={()=>chooseAddressMode('new')} aria-pressed={addressMode==='new'}><span><Pencil size={19}/></span><b>Enter a new address</b><small>Use a different delivery location</small></button></div></fieldset>{addressMode==='saved'&&defaultAddress?<div className="saved-address-summary"><span>Default address</span><strong>{defaultAddress.label||'Saved address'}</strong><p>{[defaultAddress.address_line,defaultAddress.barangay&&`Brgy. ${defaultAddress.barangay}`,defaultAddress.city,defaultAddress.province].filter(Boolean).join(', ')}</p></div>:<div className="form-grid"><Field label="House no. / Bldg. / Street / Village" value={form.address} onChange={value=>set('address',value)} maxLength={200}/><BarangayField areas={availableAreas} value={form.barangay} onChange={value=>set('barangay',value)} selectedArea={selectedArea}/><Field label="City" value={form.city} readOnly maxLength={60}/><Field label="Province" value={form.province} readOnly maxLength={60}/></div>}{form.barangay&&!selectedArea&&<p className="field-hint error">Please select a Barangay from the delivery list.</p>}</>:<div className="pickup-note"><MapPin/>Lot 1 Block 210 Mark Street corner Dollar Street, North Fairview</div>}<Field label={form.fulfillment==='delivery'?'Delivery instructions':'Pickup note (optional)'} value={form.instructions} onChange={value=>set('instructions',value)} maxLength={300} required={false}/></CheckoutSection>
     <CheckoutSection n="3" title="Payment"><Choice title="Payment method" options={(systemSettings.payments.enabledMethods||[]).filter(method=>form.fulfillment==='delivery'||method!=='cod').map(method=>({id:method,name:method==='cod'?'Cash on delivery':method==='bank_transfer'?'Bank':'GCash'}))} value={form.payment} onChange={setPayment}/><CheckoutPaymentDetails payment={form.payment} paymentConfig={systemSettings.payments} total={total} referenceNumber={form.paymentReference} onReferenceChange={value=>set('paymentReference',value)} proof={paymentProof} previewUrl={paymentProofPreview} proofError={paymentProofError} onProofChange={choosePaymentProof}/></CheckoutSection>
     {systemSettings.ordering.storeStatus!=='open'&&<p className="field-hint error">{systemSettings.ordering.closureMessage}</p>}
     <button className="primary-button checkout-submit" disabled={systemSettings.ordering.storeStatus!=='open'||!form.payment||!form.scheduleDate||!form.scheduleTime||(form.fulfillment==='delivery'&&!selectedArea)}>Review order · {money(total)} <ArrowRight/></button>
-  </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} discount={benefitDiscount} benefitEligible={benefitEligible} eligibleItemDiscount={eligibleItemDiscount} applyBenefitDiscount={Boolean(form.applyBenefitDiscount)} onBenefitChange={value=>set('applyBenefitDiscount',value)} fulfillment={form.fulfillment} selectedArea={selectedArea} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div></main>
+  </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} benefit={eligibleBenefit} benefitEligible={benefitEligible} applyBenefitDiscount={Boolean(form.applyBenefitDiscount)} onBenefitChange={value=>set('applyBenefitDiscount',value)} fulfillment={form.fulfillment} selectedArea={selectedArea} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div></main>
 }
 function CheckoutSection({n,title,children}){return <section className="checkout-section"><header><b>{n}</b><h2>{title}</h2></header>{children}</section>}
 function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onReferenceChange,proof,previewUrl,proofError,onProofChange}){
@@ -180,9 +179,72 @@ function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onR
 }
 function Field({label,type='text',value,onChange=()=>{},readOnly=false,required=true,inputMode,pattern,minLength,maxLength,title,autoComplete,autoCapitalize,spellCheck}){const labelText=String(label||'').toLowerCase();const resolvedMaxLength=maxLength??(labelText.includes('email')?EMAIL_MAX_LENGTH:labelText.includes('address')?200:labelText.includes('instruction')||labelText.includes('note')||labelText.includes('comment')||labelText.includes('explain')?300:labelText.includes('name')||labelText.includes('label')||labelText.includes('city')||labelText.includes('province')?60:80);return <label className={`field ${readOnly?'locked-field':''}`}><span>{label}</span><input required={required} readOnly={readOnly} aria-readonly={readOnly} value={value} type={type} inputMode={inputMode} pattern={pattern} minLength={minLength} maxLength={resolvedMaxLength} title={title} autoComplete={autoComplete} autoCapitalize={autoCapitalize} spellCheck={spellCheck} onChange={event=>onChange(event.target.value)}/></label>}
 function SelectField({label,value,onChange,options,placeholder,disabled=false}){return <label className="field"><span>{label}</span><select required value={value} onChange={event=>onChange(event.target.value)} disabled={disabled}><option value="">{placeholder}</option>{options.map(option=><option key={option.id} value={option.id}>{option.name}</option>)}</select></label>}
-function BarangayField({areas=deliveryAreas,value,onChange,selectedArea}){return <label className="field barangay-field"><span>Barangay</span><input required list="delivery-barangays" autoComplete="off" maxLength={60} value={value} onChange={event=>onChange(event.target.value)} placeholder="Type or search Barangay"/><datalist id="delivery-barangays">{areas.map(area=><option key={area.barangay} value={area.barangay}/>)}</datalist>{selectedArea&&<small>Delivery is available in this Barangay.</small>}</label>}
-function mostExpensiveEligibleItemDiscount(items=[]){const target=items.filter(item=>item.onlineBenefitEligible).sort((a,b)=>(b.unitPrice+(b.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0))-(a.unitPrice+(a.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0)))[0];if(!target)return 0;const menuPrice=Number(target.unitPrice)+(target.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0);const basePrice=menuPrice/1.12;const discount=basePrice*0.2;return Math.round((menuPrice-(basePrice-discount))*100)/100}
-function CheckoutPreview({items,subtotal,fee,total,discount=0,benefitEligible=false,eligibleItemDiscount=0,applyBenefitDiscount=false,onBenefitChange=()=>{},fulfillment,selectedArea,vatRate,pricesIncludeVat}){const {baseAmount,vatAmount}=vatBreakdownFromInclusiveAmount(subtotal,vatRate,pricesIncludeVat);return <aside className="checkout-preview"><header><span>Order preview</span><h2>Your order</h2></header><div className="checkout-preview-items">{items.map(item=><article key={item.lineId}><img src={item.image} alt=""/><div><h3>{item.quantity}× {item.name}</h3><p>{[item.variation?.name,item.temperature,item.ice,item.sugar].filter(Boolean).join(' · ')}</p>{item.addons?.length>0&&<small>{item.addons.map(addon=>addon.name).join(', ')}</small>}</div><b>{money((item.unitPrice+(item.addons||[]).reduce((sum,addon)=>sum+addon.price,0))*item.quantity)}</b></article>)}</div><div className="checkout-totals"><p><span>Subtotal</span><b>{money(baseAmount)}</b></p>{discount>0&&<p className="checkout-discount-row"><span>Senior Citizen / PWD discount</span><b>-{money(discount)}</b></p>}<p><span>{pricesIncludeVat?`VAT included (${formatVatRate(vatRate)})`:'VAT calculated at checkout'}</span><b>{money(vatAmount)}</b></p>{fulfillment==='delivery'&&<p><span>Delivery fee</span><b>{selectedArea?money(fee):'Select Barangay'}</b></p>}<p className="grand"><span>Total</span><b>{money(total)}</b></p></div>{benefitEligible&&<label className="checkout-benefit-option"><input type="checkbox" disabled={!eligibleItemDiscount} checked={applyBenefitDiscount} onChange={event=>onBenefitChange(event.target.checked)}/><span><b>Apply Senior Citizen / PWD discount</b><small>{eligibleItemDiscount?'20% off one eligible item only, applied to the most expensive eligible item.':'No eligible item is currently in your cart.'}</small></span></label>}{benefitEligible&&applyBenefitDiscount&&discount>0&&<p className="checkout-benefit-reminder">Please present your original Senior Citizen/PWD ID upon {fulfillment==='delivery'?'delivery':'pickup'}.</p>}</aside>}
+function BarangayField({areas=deliveryAreas,value,onChange,selectedArea}){
+  const [open,setOpen]=useState(false)
+  const [activeIndex,setActiveIndex]=useState(-1)
+  const matches=useMemo(()=>{const query=value.trim().toLowerCase();return areas.filter(area=>!query||area.barangay.toLowerCase().includes(query))},[areas,value])
+  const choose=area=>{onChange(area.barangay);setOpen(false);setActiveIndex(-1)}
+  const handleKeyDown=event=>{
+    if(event.key==='Escape'){setOpen(false);return}
+    if(event.key==='ArrowDown'||event.key==='ArrowUp'){
+      event.preventDefault();setOpen(true)
+      setActiveIndex(index=>event.key==='ArrowDown'?Math.min(index+1,Math.max(0,matches.length-1)):index<0?Math.max(0,matches.length-1):Math.max(index-1,0))
+      return
+    }
+    if(event.key==='Enter'&&open&&matches[activeIndex]){event.preventDefault();choose(matches[activeIndex])}
+  }
+  return <div className="field barangay-field">
+    <label htmlFor="checkout-barangay">Barangay</label>
+    <div className={`barangay-combobox${open?' is-open':''}`}>
+      <input id="checkout-barangay" required autoComplete="off" maxLength={60} value={value} onChange={event=>{onChange(event.target.value);setOpen(true);setActiveIndex(-1)}} onFocus={()=>setOpen(true)} onBlur={()=>window.setTimeout(()=>setOpen(false),120)} onKeyDown={handleKeyDown} placeholder="Search Barangay" role="combobox" aria-autocomplete="list" aria-expanded={open} aria-controls="checkout-barangay-options" aria-activedescendant={open&&matches[activeIndex]?`barangay-option-${activeIndex}`:undefined}/>
+      <ChevronDown aria-hidden="true"/>
+      {open&&<div className="barangay-options" id="checkout-barangay-options" role="listbox">
+        {matches.length?matches.map((area,index)=><button id={`barangay-option-${index}`} type="button" role="option" aria-selected={selectedArea?.barangay===area.barangay} className={index===activeIndex?'is-active':''} key={area.barangay} onMouseDown={event=>event.preventDefault()} onMouseEnter={()=>setActiveIndex(index)} onClick={()=>choose(area)}><span>{area.barangay}</span>{selectedArea?.barangay===area.barangay&&<Check aria-hidden="true"/>}</button>):<p>No matching Barangay</p>}
+      </div>}
+    </div>
+    {selectedArea&&<small>Delivery is available in this Barangay.</small>}
+  </div>
+}
+function mostExpensiveEligibleItemBenefit(items=[],vatRate=0.12,pricesIncludeVat=true){const target=items.filter(item=>item.onlineBenefitEligible).sort((a,b)=>(b.unitPrice+(b.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0))-(a.unitPrice+(a.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0)))[0];if(!target)return{eligibleGrossAmount:0,vatAmount:0,discountAmount:0,benefitAmount:0};const eligibleGrossAmount=Number(target.unitPrice)+(target.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0);return{eligibleGrossAmount,...vatExemptDiscountBreakdown(eligibleGrossAmount,vatRate,0.2,pricesIncludeVat)}}
+function CheckoutPreview({items,subtotal,fee,total,benefit,benefitEligible=false,applyBenefitDiscount=false,onBenefitChange=()=>{},fulfillment,selectedArea,vatRate,pricesIncludeVat}){
+  const breakdown=buildVatExemptOrderBreakdown({subtotal,discountSubtotal:applyBenefitDiscount?benefit.eligibleGrossAmount:0,discountType:applyBenefitDiscount?'PWD':'',discountAmount:applyBenefitDiscount?benefit.discountAmount:0,vatExemptAmount:applyBenefitDiscount?benefit.vatAmount:0,vatRate,pricesIncludeVat})
+  return <aside className="checkout-preview">
+    <header><span>Order preview</span><h2>Your order</h2></header>
+    <div className="checkout-preview-items">
+      {items.map(item=><article key={item.lineId}>
+        <img src={item.image} alt=""/>
+        <div className="checkout-preview-item-copy">
+          <h3><span>{item.quantity}×</span>{item.name}</h3>
+          <p>{[item.variation?.name,item.temperature,item.ice,item.sugar].filter(Boolean).join(' · ')}</p>
+          {item.addons?.length>0&&<small>{item.addons.map(addon=>addon.name).join(', ')}</small>}
+        </div>
+        <b className="checkout-preview-item-price">{money((item.unitPrice+(item.addons||[]).reduce((sum,addon)=>sum+addon.price,0))*item.quantity)}</b>
+      </article>)}
+    </div>
+    <div className="checkout-preview-footer">
+      <div className="checkout-totals" aria-label="Order totals">
+        {breakdown.isVatExemptDiscount?<>
+          {breakdown.regularBaseAmount>0&&<p><span>VATable Sale</span><b>{money(breakdown.regularBaseAmount)}</b></p>}
+          <p><span>VAT-Exempt Sale</span><b>{money(breakdown.vatExemptSale)}</b></p>
+          <p><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.regularVatAmount)}</b></p>
+          <p className="checkout-discount-row"><span>SC/PWD discount</span><b>-{money(breakdown.discountAmount)}</b></p>
+        </>:<>
+          <p><span>VATable Sale</span><b>{money(breakdown.baseAmount)}</b></p>
+          <p><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.vatAmount)}</b></p>
+        </>}
+        {fulfillment==='delivery'&&<p><span>Delivery fee</span><b>{selectedArea?money(fee):'Select Barangay'}</b></p>}
+        <p className="grand"><span>Total</span><b>{money(total)}</b></p>
+      </div>
+      {benefitEligible&&<div className={`checkout-benefit-panel${applyBenefitDiscount?' is-active':''}`}>
+        <label className="checkout-benefit-option">
+          <input type="checkbox" disabled={!benefit.benefitAmount} checked={applyBenefitDiscount} onChange={event=>onBenefitChange(event.target.checked)}/>
+          <span><b>Senior Citizen / PWD discount</b><small>{benefit.benefitAmount?'20% off the most expensive eligible item.':'No eligible item in your cart.'}</small></span>
+        </label>
+        {applyBenefitDiscount&&benefit.benefitAmount>0&&<p className="checkout-benefit-reminder">Original SC/PWD ID required upon {fulfillment==='delivery'?'delivery':'pickup'}.</p>}
+      </div>}
+    </div>
+  </aside>
+}
 function CodConfirmationModal({total,paymentConfig=SYSTEM_DEFAULTS.payments,busy,onClose,onConfirm}){
   const codMaximum=Number(paymentConfig.codMaximum||1000)
   return <div className="payment-modal-backdrop" onMouseDown={event=>{if(event.target===event.currentTarget&&!busy)onClose()}}><section className="payment-modal order-flow-modal" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title"><button className="payment-modal-close" type="button" onClick={onClose} disabled={busy} aria-label="Close payment dialog">×</button><span className="payment-modal-kicker">Before placing your order</span><h2 id="payment-modal-title">Confirm Cash on Delivery</h2><div className="payment-modal-total"><span>Amount due</span><strong>{money(total)}</strong></div><p>Your order will be paid when it arrives. Please confirm that you understand these rules:</p><ul><li>Cash on Delivery is available for delivery orders only.</li><li>COD is available for orders up to {money(codMaximum)}.</li><li>Please prepare the exact amount whenever possible.</li><li>The order is still subject to store confirmation and availability.</li></ul>{total>codMaximum&&<p className="payment-modal-warning">This order exceeds the COD limit. Go back and select GCash or Bank.</p>}<div className="payment-modal-actions"><button className="secondary-button" type="button" onClick={onClose} disabled={busy}>Go back</button><button className="primary-button" type="button" onClick={onConfirm} disabled={busy||total>codMaximum}>{busy?'Placing order…':'Confirm COD order'}</button></div></section></div>
@@ -249,7 +311,7 @@ export function OrderReviewPage(){
   if(cart.checkingAvailability)return <main className="customer-main"><section className="customer-state">Checking your cart against today’s availability…</section></main>;
   if(cart.hasUnavailableItems)return <main className="customer-main"><section className="empty-state"><AlertTriangle/><h1>Update your cart</h1><p>One or more items became unavailable. Remove them before placing the order.</p><button className="primary-button" type="button" onClick={()=>{cart.openCart();navigate('/menu',{replace:true})}}>Review cart</button></section></main>;
   if(!form||!items.length)return <NotFoundPage/>;
-  const fee=form.fulfillment==='delivery'?Number(form.deliveryFee||0):0;const discount=form.applyBenefitDiscount?mostExpensiveEligibleItemDiscount(items):0;const total=subtotal+fee-discount;const {baseAmount,vatAmount}=vatBreakdownFromInclusiveAmount(subtotal,pricing.vatRate,pricing.pricesIncludeVat);
+  const fee=form.fulfillment==='delivery'?Number(form.deliveryFee||0):0;const eligibleBenefit=mostExpensiveEligibleItemBenefit(items,pricing.vatRate,pricing.pricesIncludeVat);const discount=form.applyBenefitDiscount?eligibleBenefit.benefitAmount:0;const total=subtotal+fee-discount;const breakdown=buildVatExemptOrderBreakdown({subtotal,discountSubtotal:form.applyBenefitDiscount?eligibleBenefit.eligibleGrossAmount:0,discountType:form.applyBenefitDiscount?'PWD':'',discountAmount:form.applyBenefitDiscount?eligibleBenefit.discountAmount:0,vatExemptAmount:form.applyBenefitDiscount?eligibleBenefit.vatAmount:0,vatRate:pricing.vatRate,pricesIncludeVat:pricing.pricesIncludeVat});
   const place=async(proof,referenceNumber='')=>{
     if(busy)return
     setBusy(true);setError('')
@@ -288,10 +350,10 @@ export function OrderReviewPage(){
   const finish=destination=>{const orderId=createdOrder?.order_id||createdOrder?.id;if(!orderId)return;clearCart();if(destination==='menu'){navigate('/menu',{replace:true});return}navigate('/orders',{replace:true,state:{trackOrderId:orderId,order:{...createdOrder,id:createdOrder?.id||orderId}}})};
   const placeReviewedOrder=()=>{if(form.payment==='cod'){setModal('cod-confirm');return}if(!paymentProof){setError('Payment proof is missing. Return to checkout and upload it again.');return}place(paymentProof,form.paymentReference)}
   const itemCount=items.reduce((sum,item)=>sum+Number(item.quantity||0),0)
-  const scheduledDay=scheduleDates.find(option=>option.id===form.scheduleDate)?.name||form.scheduleDate
+  const scheduledDay=form.scheduleDate===manilaDate()?'Today':form.scheduleDate
   const scheduledTime=timeLabel(Number(form.scheduleTime?.slice(0,2))*60+Number(form.scheduleTime?.slice(3,5)))
   const editCheckout=()=>navigate('/checkout')
-  const deliveryAddress=form.fulfillment==='delivery'?[form.address,form.barangay&&`Brgy. ${form.barangay}`,form.city,form.province,form.postal].filter(Boolean).join(', '):'The Coffee Realm, North Fairview'
+  const deliveryAddress=form.fulfillment==='delivery'?[form.address,form.barangay&&`Brgy. ${form.barangay}`,form.city,form.province].filter(Boolean).join(', '):'The Coffee Realm, North Fairview'
   return <main className="customer-main review-order-page">
     <button className="back-link review-back" type="button" onClick={editCheckout}><ChevronLeft/>Back to checkout</button>
     <section className="page-title review-order-hero"><span>Final check</span><h1>Review your order</h1><p>Please double-check your items and {form.fulfillment==='delivery'?'delivery':'pickup'} details before placing your order.</p></section>
@@ -305,9 +367,7 @@ export function OrderReviewPage(){
           return <article key={item.lineId}><img src={item.image} alt=""/><div><h3>{item.name}</h3>{options&&<p>{options}</p>}<small>Quantity: {item.quantity}</small></div><b>{money(lineTotal)}</b></article>
         })}</div>
         <div className="review-order-totals">
-          <p><span>Subtotal</span><b>{money(baseAmount)}</b></p>
-          {discount>0&&<p className="checkout-discount-row"><span>Senior Citizen / PWD discount</span><b>-{money(discount)}</b></p>}
-          <p><span>{pricing.pricesIncludeVat?`VAT included (${formatVatRate(pricing.vatRate)})`:'VAT calculated at checkout'}</span><b>{money(vatAmount)}</b></p>
+          {breakdown.isVatExemptDiscount?<>{breakdown.regularBaseAmount>0&&<p><span>VATable Sale</span><b>{money(breakdown.regularBaseAmount)}</b></p>}<p><span>VAT-Exempt Sale</span><b>{money(breakdown.vatExemptSale)}</b></p><p><span>{formatVatRate(pricing.vatRate)} VAT</span><b>{money(breakdown.regularVatAmount)}</b></p><p className="checkout-discount-row"><span>Less 20% SC/PWD Discount</span><b>-{money(breakdown.discountAmount)}</b></p></>:<><p><span>VATable Sale</span><b>{money(breakdown.baseAmount)}</b></p><p><span>{formatVatRate(pricing.vatRate)} VAT</span><b>{money(breakdown.vatAmount)}</b></p></>}
           {form.fulfillment==='delivery'&&<p><span>Delivery{form.deliveryZone?` · ${form.deliveryZone}`:''}</span><b>{money(fee)}</b></p>}
           <p className="review-order-total"><span>Total</span><b>{money(total)}</b></p>
         </div>
@@ -624,7 +684,7 @@ function OrderDetailsDrawer({order,addonNames,onClose}){
         <section><h3>Payment</h3><p>{paymentMethodLabel(method)} · {orderPaymentStatus(order)}</p>
           {(method==='gcash'||method==='bank_transfer')&&(proofUrl?<a href={proofUrl} target="_blank" rel="noreferrer"><img className="ops-proof-image" src={proofUrl} alt="Payment proof"/></a>:<p className="ops-proof-pending">No payment proof on file.</p>)}
         </section>
-         <section><h3>Price breakdown</h3><div className="ops-price-rows">{breakdown.isVatExemptDiscount?<>{breakdown.regularBaseAmount>0&&<p><span>VATable Sale</span><b>{money(breakdown.regularBaseAmount)}</b></p>}<p><span>VAT-Exempt Sale</span><b>{money(breakdown.vatExemptSale)}</b></p><p><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.regularVatAmount)}</b></p><p><span>Less 20% SC/PWD Disc.</span><b>-{money(breakdown.discountAmount)}</b></p></>:<><p><span>Subtotal</span><b>{money(breakdown.baseAmount)}</b></p><p><span>{pricesIncludeVat?`VAT included (${formatVatRate(vatRate)})`:'VAT calculated at checkout'}</span><b>{money(breakdown.vatAmount)}</b></p></>}{order.order_type==='delivery'&&<p><span>Delivery fee</span><b>{money(order.delivery_fee||0)}</b></p>}<p className="ops-price-total"><span>Total</span><b>{money(order.final_total)}</b></p></div></section>
+         <section><h3>Price breakdown</h3><div className="ops-price-rows">{breakdown.isVatExemptDiscount?<>{breakdown.regularBaseAmount>0&&<p><span>VATable Sale</span><b>{money(breakdown.regularBaseAmount)}</b></p>}<p><span>VAT-Exempt Sale</span><b>{money(breakdown.vatExemptSale)}</b></p><p><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.regularVatAmount)}</b></p><p><span>Less 20% SC/PWD Disc.</span><b>-{money(breakdown.discountAmount)}</b></p></>:<><p><span>VATable Sale</span><b>{money(breakdown.baseAmount)}</b></p><p><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.vatAmount)}</b></p></>}{order.order_type==='delivery'&&<p><span>Delivery fee</span><b>{money(order.delivery_fee||0)}</b></p>}<p className="ops-price-total"><span>Total</span><b>{money(order.final_total)}</b></p></div></section>
         <section><h3>Order timeline</h3><ul className="ops-timeline">{trackingSteps(order).map((step,index)=>{const currentIndex=Math.max(trackingSteps(order).indexOf(status),0);return <li key={step} className={index<=currentIndex?'done':''}>{index<currentIndex?<Check size={13}/>:<StatusIcon status={step} size={13}/>} {step}</li>})}</ul></section>
         <section><h3>Need help?</h3><a className="secondary-button" href="/help">Contact support</a></section>
       </div>
@@ -723,7 +783,7 @@ function ReceiptModal({order,addonNames,onClose}){
             </div>})}
           </div>
           <div className="receipt-line" />
-           {breakdown.isVatExemptDiscount?<>{breakdown.regularBaseAmount>0&&<div className="receipt-total-row"><span>VATable Sale</span><span>{receiptMoney(breakdown.regularBaseAmount)}</span></div>}<div className="receipt-total-row"><span>VAT-Exempt Sale</span><span>{receiptMoney(breakdown.vatExemptSale)}</span></div><div className="receipt-total-row"><span>{formatVatRate(vatRate)} VAT</span><span>{receiptMoney(breakdown.regularVatAmount)}</span></div><div className="receipt-total-row"><span>Less 20% SC/PWD Disc.</span><span>-{receiptMoney(breakdown.discountAmount)}</span></div></>:<><div className="receipt-total-row"><span>Subtotal</span><span>{receiptMoney(breakdown.baseAmount)}</span></div><div className="receipt-total-row"><span>VAT ({formatVatRate(vatRate)})</span><span>{receiptMoney(breakdown.vatAmount)}</span></div></>}
+           {breakdown.isVatExemptDiscount?<>{breakdown.regularBaseAmount>0&&<div className="receipt-total-row"><span>VATable Sale</span><span>{receiptMoney(breakdown.regularBaseAmount)}</span></div>}<div className="receipt-total-row"><span>VAT-Exempt Sale</span><span>{receiptMoney(breakdown.vatExemptSale)}</span></div><div className="receipt-total-row"><span>{formatVatRate(vatRate)} VAT</span><span>{receiptMoney(breakdown.regularVatAmount)}</span></div><div className="receipt-total-row"><span>Less 20% SC/PWD Disc.</span><span>-{receiptMoney(breakdown.discountAmount)}</span></div></>:<><div className="receipt-total-row"><span>VATable Sale</span><span>{receiptMoney(breakdown.baseAmount)}</span></div><div className="receipt-total-row"><span>{formatVatRate(vatRate)} VAT</span><span>{receiptMoney(breakdown.vatAmount)}</span></div></>}
            {isDelivery&&Number(order.delivery_fee||0)>0&&<div className="receipt-total-row"><span>Delivery Fee</span><span>{receiptMoney(order.delivery_fee)}</span></div>}
            <div className="receipt-total-row"><span>Total</span><span className="receipt-grand-total">{receiptMoney(order.final_total)}</span></div>
           <div className="receipt-row"><span className="receipt-label">Item Count</span><span className="receipt-value">{orderCount(order)}</span></div>
@@ -1020,8 +1080,7 @@ export function ProfilePage(){
                 <button type="button" className="round-action ghost danger" aria-label={`Delete ${address.label||'address'}`} onClick={()=>setDeletingId(address.id)}><Trash2 size={16}/></button>
               </div>
             </div>
-            {address.recipient_name&&<p>{address.recipient_name}{address.phone?` · ${address.phone}`:''}</p>}
-            <p>{address.address_line}{address.barangay?`, Brgy. ${address.barangay}`:''}, {address.city}, {address.province} {address.postal_code||''}</p>
+            <p>{address.address_line}{address.barangay?`, Brgy. ${address.barangay}`:''}, {address.city}, {address.province}</p>
             {address.delivery_notes&&<small>{address.delivery_notes}</small>}
           </article>)}
         </div>}
@@ -1071,13 +1130,10 @@ function ResetNotice({variant,message}){
 function AddressFormModal({address,onClose,onSave}){
   const [values,setValues]=useState({
     label:address?.label||'',
-    recipientName:address?.recipient_name||'',
-     phone:address?.phone?normalizePhone(address.phone):'',
     addressLine:address?.address_line||'',
     barangay:address?.barangay||'',
     city:address?.city||'Quezon City',
     province:address?.province||'Metro Manila',
-    postalCode:address?.postal_code||'',
     deliveryNotes:address?.delivery_notes||'',
     isDefault:Boolean(address?.is_default),
   })
@@ -1088,8 +1144,6 @@ function AddressFormModal({address,onClose,onSave}){
   const submit=async event=>{
     event.preventDefault()
     if(!values.addressLine.trim())return setError('Enter a complete address.')
-    if(values.phone&&!isValidPhone(values.phone))return setError('Contact number must contain 11 digits and start with 09.')
-    if(values.postalCode&&!/^\d{4,6}$/.test(values.postalCode))return setError('Postal code must contain 4 to 6 digits only.')
     setSaving(true);setError('')
     try{await onSave(values)}
     catch(cause){setError(describeError(cause,'Could not save this address.'));setSaving(false)}
@@ -1102,13 +1156,10 @@ function AddressFormModal({address,onClose,onSave}){
       <form onSubmit={submit}>
         <div className="form-grid">
            <Field label="Label (e.g. Home, Office)" value={values.label} onChange={value=>set('label',value.slice(0,40))} maxLength={40} required={false}/>
-           <Field label="Recipient name" value={values.recipientName} onChange={value=>set('recipientName',sanitizePersonName(value,60))} maxLength={60} required={false}/>
-           <Field label="Contact number" type="tel" value={values.phone} onChange={value=>set('phone',normalizePhone(value))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Contact number must contain 11 digits and start with 09." required={false}/>
            <Field label="House no. / Bldg. / Street / Village" value={values.addressLine} onChange={value=>set('addressLine',value.slice(0,200))} maxLength={200}/>
           <BarangayField value={values.barangay} onChange={value=>set('barangay',value)} selectedArea={selectedArea}/>
-          <Field label="City" value={values.city} readOnly/>
           <Field label="Province" value={values.province} readOnly/>
-           <Field label="Postal code" type="tel" value={values.postalCode} onChange={value=>set('postalCode',normalizePostal(value))} inputMode="numeric" pattern="[0-9]{4,6}" maxLength={6} title="Postal code must contain 4 to 6 digits only." required={false}/>
+          <Field label="City" value={values.city} readOnly/>
         </div>
          <Field label="Delivery instructions" value={values.deliveryNotes} onChange={value=>set('deliveryNotes',value.slice(0,300))} maxLength={300} required={false}/>
         <label className="check-choice">

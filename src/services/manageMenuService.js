@@ -207,9 +207,9 @@ export async function setMenuItemConfiguration(menuItemId, source, ingredients, 
 }
 
 export async function uploadMenuItemImage(file) {
-  const { extension } = await validateImageFile(file, { label: 'Menu photo' })
+  const { extension, mimeType } = await validateImageFile(file, { label: 'Menu photo' })
   const path = `${crypto.randomUUID()}.${extension}`
-  const { error: uploadError } = await supabase.storage.from('menu-images').upload(path, file, { contentType: file.type, upsert: false })
+  const { error: uploadError } = await supabase.storage.from('menu-images').upload(path, file, { contentType: mimeType, upsert: false })
   if (uploadError) throw uploadError
   const { data } = supabase.storage.from('menu-images').getPublicUrl(path)
   return data.publicUrl

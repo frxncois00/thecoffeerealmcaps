@@ -8,6 +8,7 @@ import '../menu-discount.css'
 import { money } from '../utils/money'
 import { describeError } from '../utils/describeError'
 import { sanitizeCatalogText } from '../utils/inputValidation'
+import { IMAGE_UPLOAD_ACCEPT } from '../utils/imageUpload'
 import { supabase } from '../lib/supabase'
 import {
   fetchMainCategories, fetchSubcategories, fetchManageMenuItems, fetchIngredientOptions, fetchFinishedProductOptions, fetchAddonOptions, fetchMenuItemRecipe, fetchMenuItemProductLinks,
@@ -649,7 +650,7 @@ function ItemFormModal({ item, mainCategories, subcategories, onClose, onDelete,
                   <header className="menu-basics-discount-header"><div><h3>Basic details</h3><p>The information customers use to identify this item.</p></div><div className="menu-online-discount-control"><span id="menu-online-discount-label">Online SC/PWD discount</span><button type="button" role="switch" aria-checked={values.onlineBenefitEligible ?? item?.onlineBenefitEligible ?? false} aria-labelledby="menu-online-discount-label" aria-describedby="menu-online-discount-hint" className="menu-online-discount-switch" onClick={() => set('onlineBenefitEligible', !(values.onlineBenefitEligible ?? item?.onlineBenefitEligible ?? false))} disabled={saving}><i aria-hidden="true"/><span>{(values.onlineBenefitEligible ?? item?.onlineBenefitEligible ?? false) ? 'On' : 'Off'}</span></button><small id="menu-online-discount-hint">Save changes to request approval.</small></div></header>
                   <div className="menu-image-upload menu-image-upload-card">
                     {imagePreview ? <img src={imagePreview} alt={`${values.name || 'Menu item'} preview`} /> : <div className="menu-image-placeholder"><ImagePlus size={24} /></div>}
-                    <div><b>Menu photo</b><p>Use a clear square image. JPG, PNG, or WEBP up to 5MB.</p><button type="button" className="ops-secondary-action compact" onClick={() => fileRef.current?.click()} disabled={uploading}>{uploading ? 'Uploading…' : imagePreview ? 'Replace image' : 'Upload image'}</button><input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={handleFile} /></div>
+                    <div><b>Menu photo</b><p>Use a clear square image. JPG, JPEG, PNG, or WEBP up to 5MB.</p><button type="button" className="ops-secondary-action compact" onClick={() => fileRef.current?.click()} disabled={uploading}>{uploading ? 'Uploading…' : imagePreview ? 'Replace image' : 'Upload image'}</button><input ref={fileRef} type="file" accept={IMAGE_UPLOAD_ACCEPT} hidden onChange={handleFile} /></div>
                   </div>
                   <div className="form-grid menu-form-grid">
                     <label className="field"><span>Item name</span><input autoFocus value={values.name} maxLength={80} onChange={(e) => set('name', sanitizeCatalogText(e.target.value, 80))} placeholder="e.g. Spanish Latte" required /></label>

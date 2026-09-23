@@ -93,8 +93,8 @@ export function vatExemptDiscountBreakdown(
 /**
  * Builds the order-level breakdown used by cashier, staff, and customer
  * receipts. discountSubtotal is the gross VAT-inclusive amount of the
- * selected eligible base items; discountAmount is the stored total benefit
- * (VAT removed plus the 20% discount).
+ * selected eligible VAT-inclusive items. discountAmount stores only the
+ * statutory 20% discount; vatExemptAmount stores the VAT removed.
  */
 export function buildVatExemptOrderBreakdown({
   subtotal = 0,
@@ -132,13 +132,13 @@ export function buildVatExemptOrderBreakdown({
   const exemptVatAmount = storedVatExemptAmount > 0
     ? roundMoney(Math.min(storedVatExemptAmount, eligibleGrossAmount))
     : computedEligible.vatAmount
-  const storedTotalBenefit = Number(discountAmount || 0)
-  const totalBenefitAmount = storedTotalBenefit > 0
-    ? roundMoney(storedTotalBenefit)
-    : computedEligible.benefitAmount
-  const actualDiscountAmount = roundMoney(Math.max(0, totalBenefitAmount - exemptVatAmount))
   const vatExemptSale = roundMoney(eligibleGrossAmount - exemptVatAmount)
-  const totalAmount = roundMoney(regularGrossAmount + regularBreakdown.vatAmount + vatExemptSale - actualDiscountAmount)
+  const storedDiscountAmount = Number(discountAmount || 0)
+  const actualDiscountAmount = storedDiscountAmount > 0
+    ? roundMoney(Math.min(storedDiscountAmount, vatExemptSale))
+    : computedEligible.discountAmount
+  const totalBenefitAmount = roundMoney(exemptVatAmount + actualDiscountAmount)
+  const totalAmount = roundMoney(regularGrossAmount + vatExemptSale - actualDiscountAmount)
 
   return {
     isVatExemptDiscount: true,

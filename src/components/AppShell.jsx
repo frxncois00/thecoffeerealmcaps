@@ -40,7 +40,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   const [now, setNow] = useState(() => new Date())
   const [notificationsOpen, setNotificationsOpen] = useManagementSessionState(`${role}:shell:notifications-open`, false)
   const [refreshing, setRefreshing] = useState(false)
-  const [raimuVisible, setRaimuVisible] = useState(() => window.localStorage.getItem('raimu-visible') !== 'false')
+  const [raimuVisible, setRaimuVisible] = useState(() => window.localStorage.getItem('raimu-visible') === 'true')
   const [notifications, setNotifications] = useState([])
   const [staffPreferences, setStaffPreferences] = useState(getCachedStaffPreferences)
   const notificationAnchorRef = useRef(null)
