@@ -17,11 +17,12 @@ import { sanitizeCatalogText } from '../utils/inputValidation'
 
 const ENTITY_CONFIGS = {
   ingredient: { key: 'ingredient', label: 'Ingredients', singular: 'Ingredient', fetch: fetchIngredients, upsert: upsertIngredient, archive: archiveIngredient, hasType: true, hasMenuLink: true },
-  finished_product: { key: 'finished_product', label: 'Products', singular: 'Product', fetch: fetchFinishedProducts, upsert: upsertFinishedProduct, archive: archiveFinishedProduct, hasType: false, hasMenuLink: true },
+  finished_product: { key: 'finished_product', label: 'Products', singular: 'Product', fetch: () => fetchFinishedProducts({ includeArchived: true }), upsert: upsertFinishedProduct, archive: archiveFinishedProduct, hasType: false, hasMenuLink: true },
 }
 const PAGE_SIZE = 25
 
 function stockStatus(item) {
+  if (item.isArchived) return 'archived'
   if (item.quantity <= 0) return 'out'
   if (item.quantity <= item.minStockLevel) return 'low'
   if (item.highStockLevel > 0 && item.quantity > item.highStockLevel) return 'over'
@@ -32,6 +33,7 @@ const STATUS_META = {
   low: { label: 'Low Stock', tone: 'amber' },
   healthy: { label: 'Healthy', tone: 'green' },
   over: { label: 'Over Stock', tone: 'blue' },
+  archived: { label: 'Archived', tone: 'neutral' },
 }
 function formatQty(value) {
   const n = Number(value)
@@ -120,6 +122,7 @@ export default function InventoryStockPage() {
     }
   }
   useEffect(() => { setPage(1); load(activeEntity) }, [activeEntity])
+  useEffect(() => { if (activeEntity !== 'finished_product' && statusFilter === 'archived') setStatusFilter('all') }, [activeEntity, statusFilter])
 
   const pushToast = (type, message) => {
     if (!shouldShowSystemNotification(type)) return
@@ -152,8 +155,9 @@ export default function InventoryStockPage() {
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
   const pageItems = sorted.slice((page - 1) * pageSize, page * pageSize)
 
-  const outCount = items.filter((i) => stockStatus(i) === 'out').length
-  const lowCount = items.filter((i) => stockStatus(i) === 'low').length
+  const activeItems = items.filter((item) => !item.isArchived)
+  const outCount = activeItems.filter((i) => stockStatus(i) === 'out').length
+  const lowCount = activeItems.filter((i) => stockStatus(i) === 'low').length
 
   const runArchive = async (item) => {
     setBusyId(item.id)
@@ -237,7 +241,7 @@ export default function InventoryStockPage() {
         </select>
         <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }} aria-label="Filter by stock status">
           <option value="all">All statuses</option>
-          {Object.entries(STATUS_META).map(([key, meta]) => <option key={key} value={key}>{meta.label}</option>)}
+          {Object.entries(STATUS_META).filter(([key]) => key !== 'archived' || activeEntity === 'finished_product').map(([key, meta]) => <option key={key} value={key}>{meta.label}</option>)}
         </select>
         {config.hasType && (
           <select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setPage(1) }} aria-label="Filter by type">
@@ -270,7 +274,7 @@ export default function InventoryStockPage() {
                 {pageItems.map((item) => {
                   const status = stockStatus(item)
                   return (
-                    <tr key={item.id}>
+                    <tr className={item.isArchived ? 'is-archived' : ''} key={item.id}>
                       <td><b>{item.name}</b></td>
                       <td>{item.category || '—'}</td>
                       {config.hasType && <td className="inv-capitalize">{item.type}</td>}
@@ -296,14 +300,14 @@ export default function InventoryStockPage() {
             {pageItems.map((item) => {
               const status = stockStatus(item)
               return (
-                <article className="inv-card" key={item.id}>
+                <article className={`inv-card${item.isArchived ? ' is-archived' : ''}`} key={item.id}>
                   <div className="inv-card-top"><b>{item.name}</b><span className={`inv-status tone-${STATUS_META[status].tone}`}>{STATUS_META[status].label}</span></div>
                   <p className="inv-card-meta">{item.category || 'Uncategorized'}{config.hasType ? ` · ${item.type}` : ''}</p>
                   <p className="inv-card-qty">{formatQty(item.quantity)} {item.unit}</p>
                   <p className="inv-card-thresholds">Low: {formatQty(item.minStockLevel)} · Healthy: {formatQty(item.highStockLevel)} · Updated {timeAgo(item.updatedAt)}</p>
                   <div className="inv-card-actions">
                     <button type="button" className="ops-secondary-action" onClick={() => setDrawerItem(item)}>View</button>
-                    <button type="button" className="ops-secondary-action" onClick={() => setFormTarget({ item })}><Pencil size={14} /> Edit</button>
+                    {!item.isArchived && <button type="button" className="ops-secondary-action" onClick={() => setFormTarget({ item })}><Pencil size={14} /> Edit</button>}
                   </div>
                 </article>
               )
@@ -351,7 +355,7 @@ function RowActions({ item, busy, onView, onEdit }) {
   return (
     <div className="inv-row-actions">
       <button type="button" className="ops-secondary-action compact" onClick={onView}>View</button>
-      <button type="button" className="ops-secondary-action compact inv-action-edit" onClick={onEdit} disabled={busy}><Pencil size={14} /> Edit</button>
+      {!item.isArchived && <button type="button" className="ops-secondary-action compact inv-action-edit" onClick={onEdit} disabled={busy}><Pencil size={14} /> Edit</button>}
     </div>
   )
 }
@@ -648,8 +652,7 @@ function ItemDrawer({ config, item, onClose, onAdjust, onEdit }) {
         </div>
 
         <footer className="ops-drawer-footer inv-view-footer">
-          <button type="button" className="ops-secondary-action inv-view-adjust" onClick={onAdjust}><PackagePlus size={16} /> Restock / Deduct</button>
-          <button type="button" className="ops-main-action inv-view-edit" onClick={onEdit}><Pencil size={16} /> Edit item</button>
+          {item.isArchived ? <span className="inv-archived-note"><Archive size={16} /> Archived record</span> : <><button type="button" className="ops-secondary-action inv-view-adjust" onClick={onAdjust}><PackagePlus size={16} /> Restock / Deduct</button><button type="button" className="ops-main-action inv-view-edit" onClick={onEdit}><Pencil size={16} /> Edit item</button></>}
         </footer>
       </aside>
     </div>

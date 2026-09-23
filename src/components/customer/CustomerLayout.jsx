@@ -171,8 +171,8 @@ function CartDrawer({ cart, user }) {
         </div>
         {cart.items.length > 0 && (
           <footer>
-            <div><span>Subtotal</span><b>{money(baseAmount)}</b></div>
-            <div className="customer-vat-row"><span>{pricing.pricesIncludeVat ? `VAT included (${formatVatRate(pricing.vatRate)})` : 'VAT calculated at checkout'}</span><b>{money(vatAmount)}</b></div>
+            <div><span>VATable Sale</span><b>{money(baseAmount)}</b></div>
+            <div className="customer-vat-row"><span>{formatVatRate(pricing.vatRate)} VAT</span><b>{money(vatAmount)}</b></div>
             <p>Delivery fees and discounts are calculated during checkout.</p>
             {cart.hasUnavailableItems&&<p className="drawer-availability-warning" role="alert">Remove {cart.unavailableItems.length} unavailable item{cart.unavailableItems.length===1?'':'s'} before checkout.</p>}
             {cart.hasUnavailableItems||cart.checkingAvailability?<button className="primary-button" type="button" disabled>{cart.checkingAvailability?'Checking availability…':'Checkout unavailable'}</button>:<Link className="primary-button" to={user ? '/checkout' : '/login'} state={user ? undefined : { from: '/checkout' }} onClick={cart.closeCart}>Proceed to checkout</Link>}

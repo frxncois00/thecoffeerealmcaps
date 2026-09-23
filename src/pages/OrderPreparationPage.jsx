@@ -960,8 +960,8 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
                 <div><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.regularVatAmount)}</b></div>
                 <div><span>Less 20% SC/PWD Disc.</span><b>- {money(breakdown.discountAmount)}</b></div>
               </> : <>
-                <div><span>Subtotal</span><b>{money(breakdown.baseAmount)}</b></div>
-                <div><span>{pricesIncludeVat ? `VAT included (${formatVatRate(vatRate)})` : 'VAT calculated at checkout'}</span><b>{money(breakdown.vatAmount)}</b></div>
+                <div><span>VATable Sale</span><b>{money(breakdown.baseAmount)}</b></div>
+                <div><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.vatAmount)}</b></div>
                 <div><span>Discounts</span><b>{order.discount_amount > 0 ? `- ${money(order.discount_amount)}` : '-'}</b></div>
               </>}
               <div><span>Delivery fee</span><b>{order.delivery_fee > 0 ? money(order.delivery_fee) : '-'}</b></div>

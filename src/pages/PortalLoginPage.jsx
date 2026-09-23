@@ -33,6 +33,8 @@ export default function PortalLoginPage() {
           target = workspaceRoutes[preferences.landing_view] || target
         } catch { /* The standard staff landing page remains available before the preference migration is deployed. */ }
       }
+      window.localStorage.setItem('raimu-visible', 'false')
+      window.dispatchEvent(new CustomEvent('raimu-visibility-change', { detail: { visible: false } }))
       queueAuthWelcome(profile)
       navigate(target, { replace: true })
     } catch (error) {

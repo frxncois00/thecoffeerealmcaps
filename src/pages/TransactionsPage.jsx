@@ -245,9 +245,9 @@ function buildReceiptHtml(transaction, pricing) {
             <div class="total"><span>VAT-Exempt Sale</span><span>${receiptMoney(breakdown.vatExemptSale)}</span></div>
             <div class="total"><span>${formatVatRate(vatRate)} VAT</span><span>${receiptMoney(breakdown.regularVatAmount)}</span></div>
             <div class="total"><span>Less 20% SC/PWD Disc.</span><span>- ${receiptMoney(breakdown.discountAmount)}</span></div>`
-         : `<div class="total"><span>Subtotal</span><span>${receiptMoney(breakdown.baseAmount)}</span></div>
+         : `<div class="total"><span>VATable Sale</span><span>${receiptMoney(breakdown.baseAmount)}</span></div>
             ${transaction.discountAmount > 0 ? `<div class="total"><span>Discount</span><span>- ${receiptMoney(transaction.discountAmount)}</span></div>` : ''}
-            <div class="total"><span>VAT (${formatVatRate(vatRate)})</span><span>${receiptMoney(breakdown.vatAmount)}</span></div>`}
+            <div class="total"><span>${formatVatRate(vatRate)} VAT</span><span>${receiptMoney(breakdown.vatAmount)}</span></div>`}
        ${transaction.deliveryFee > 0 ? `<div class="total"><span>Delivery Fee</span><span>${receiptMoney(transaction.deliveryFee)}</span></div>` : ''}
        <div class="total grand"><span>Total</span><span>${receiptMoney(transaction.finalTotal)}</span></div>
       <div class="total"><span>Item Count</span><span>${transaction.itemCount}</span></div>
@@ -1201,8 +1201,8 @@ function TransactionDrawer({
                 <div><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.regularVatAmount)}</b></div>
                 <div><span>Less 20% SC/PWD Disc.</span><b>- {money(breakdown.discountAmount)}</b></div>
               </> : <>
-                <div><span>Subtotal</span><b>{money(breakdown.baseAmount)}</b></div>
-                <div><span>{pricesIncludeVat ? `VAT included (${formatVatRate(vatRate)})` : 'VAT calculated at checkout'}</span><b>{money(breakdown.vatAmount)}</b></div>
+                <div><span>VATable Sale</span><b>{money(breakdown.baseAmount)}</b></div>
+                <div><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.vatAmount)}</b></div>
                 <div><span>Discounts</span><b>{transaction.discountAmount > 0 ? `- ${money(transaction.discountAmount)}` : '—'}</b></div>
               </>}
               <div><span>Delivery fee</span><b>{transaction.deliveryFee > 0 ? money(transaction.deliveryFee) : '—'}</b></div>
