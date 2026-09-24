@@ -7117,11 +7117,40 @@
 }
 
 @media(max-width:700px){
-  .legacy-customer-auth-page{min-height:100dvh;padding:68px 10px 16px}
-  .legacy-auth-container{width:100%;min-height:calc(100dvh - 84px);border-radius:20px}
-  .legacy-auth-form,.legacy-auth-container.active .legacy-auth-form.register,.legacy-auth-container.active .legacy-auth-form.login{padding:24px 18px}
-  .legacy-auth-form h1{font-size:2.2rem}.legacy-auth-input input{font-size:16px}
-  .legacy-auth-toggle{min-height:230px}.legacy-auth-panel{padding:22px 18px}.legacy-auth-panel h2{font-size:1.8rem}
+  .legacy-customer-auth-page{width:100%;min-height:100dvh;place-items:start stretch;padding:68px 12px 20px;overflow-x:clip}
+  .legacy-auth-home{left:12px;right:auto;top:12px;min-height:44px}
+  .legacy-auth-container{width:100%;min-height:860px;margin:0;border-radius:22px}
+  .legacy-auth-container.active{min-height:1020px}
+  .legacy-auth-form,.legacy-auth-container.active .legacy-auth-form.register,.legacy-auth-container.active .legacy-auth-form.login{top:230px;right:0;width:100%;height:calc(100% - 230px);align-items:flex-start;padding:34px 22px 28px}
+  .legacy-auth-form form{max-width:none}
+  .legacy-auth-form h1{margin-bottom:24px;font-size:clamp(2rem,10vw,2.55rem);line-height:1}.legacy-auth-input input{font-size:16px}
+  .legacy-auth-toggle,.legacy-auth-toggle::before,.legacy-auth-container.active .legacy-auth-toggle::before{height:230px;min-height:230px}
+  .legacy-auth-panel{height:230px;padding:20px 18px}.legacy-auth-panel h2{font-size:1.8rem}
+  .legacy-auth-panel img{width:58px;height:58px;margin-bottom:8px}
+  .legacy-auth-panel p{margin-bottom:16px}
+  .legacy-auth-panel button{min-height:46px}
+}
+
+/* Keep public customer pages attached to the physical mobile viewport. */
+@media(max-width:700px){
+  .customer-app{width:100dvw;min-width:0;max-width:none}
+  .customer-app .customer-header,
+  .customer-app .customer-route-shell,
+  .customer-app .customer-landing,
+  .customer-app .storefront{width:100%;min-width:0;max-width:none}
+  .customer-app .customer-route-shell,
+  .customer-app .customer-landing{overflow-x:clip}
+  .customer-app .landing-hero,
+  .customer-app .marquee,
+  .customer-app .landing-menu-preview,
+  .customer-app .landing-about,
+  .customer-app .landing-reviews,
+  .customer-app .landing-map-section,
+  .customer-app .landing-footer-react{width:100%;max-width:none}
+  .customer-app .checkout-page{width:100%;max-width:none;margin:0;padding:20px 12px calc(56px + env(safe-area-inset-bottom))}
+  .customer-app .checkout-layout,
+  .customer-app .checkout-preview,
+  .customer-app .checkout-form{width:100%;min-width:0;max-width:none;margin-inline:0}
 }
 
 @media(orientation:landscape) and (max-height:520px) and (max-width:980px){
