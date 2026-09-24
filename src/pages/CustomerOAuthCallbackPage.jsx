@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isCustomerRole, normalizeRole, roleRoutes } from '../lib/auth'
 import { queueAuthWelcome } from '../lib/authFeedback'
-import { supabase } from '../lib/supabase'
+import { customerSupabase as supabase } from '../lib/supabase'
 
 const pause = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds))
 

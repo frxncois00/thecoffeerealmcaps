@@ -1,4 +1,4 @@
-import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { customerSupabase, isSupabaseConfigured, portalSupabase } from '../lib/supabase'
 import { isValidEmail, isValidPhone, sanitizePersonName, sanitizePhone } from '../utils/inputValidation'
 
 export async function submitCustomerMessage(payload) {
@@ -15,7 +15,7 @@ export async function submitCustomerMessage(payload) {
   if(!subject||subject.length>100)throw new Error('Enter a subject of up to 100 characters.')
   if(!message||message.length>2000)throw new Error('Enter a message of up to 2,000 characters.')
   if(quantity.length>60)throw new Error('Quantity details must be 60 characters or fewer.')
-  const { data, error } = await supabase.rpc('submit_customer_message', {
+  const { data, error } = await customerSupabase.rpc('submit_customer_message', {
     p_category: payload.category,
     p_source: payload.source,
     p_name: name,
@@ -33,7 +33,7 @@ export async function submitCustomerMessage(payload) {
 
 export async function fetchCustomerMessages() {
   if (!isSupabaseConfigured) return []
-  const { data, error } = await supabase
+  const { data, error } = await portalSupabase
     .from('customer_messages')
     .select('*')
     .order('created_at', { ascending: false })
@@ -43,7 +43,7 @@ export async function fetchCustomerMessages() {
 
 export async function replyToCustomerMessage(messageId, reply) {
   if (!isSupabaseConfigured) throw new Error('Messaging is unavailable because Supabase is not configured.')
-  const { data, error } = await supabase.functions.invoke('reply-customer-message', {
+  const { data, error } = await portalSupabase.functions.invoke('reply-customer-message', {
     body: { message_id: messageId, reply },
   })
   if (error) throw error

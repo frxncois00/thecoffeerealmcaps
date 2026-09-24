@@ -15,7 +15,7 @@ import Choice from '../../components/Choice'
 import BenefitProfileLink from '../../components/customer/BenefitProfileLink'
 import GuestAuthPrompt from '../../components/customer/GuestAuthPrompt'
 import { isCustomerRole } from '../../lib/auth'
-import { isSupabaseConfigured, supabase } from '../../lib/supabase'
+import { customerSupabase as supabase, isSupabaseConfigured } from '../../lib/supabase'
 import { SYSTEM_DEFAULTS, fetchPublicDeliveryAreas, fetchPublicPortalData } from '../../services/adminPortalConfigurationService'
 import { normalizeOrderTemperature } from '../../utils/temperature'
 import { buildVatExemptOrderBreakdown, formatVatRate, vatExemptDiscountBreakdown } from '../../utils/pricing'
@@ -230,6 +230,12 @@ function BarangayField({areas=deliveryAreas,value,onChange,selectedArea}){
 }
 function mostExpensiveEligibleItemBenefit(items=[],vatRate=0.12,pricesIncludeVat=true){const target=items.filter(item=>item.onlineBenefitEligible).sort((a,b)=>(b.unitPrice+(b.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0))-(a.unitPrice+(a.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0)))[0];if(!target)return{eligibleGrossAmount:0,vatAmount:0,discountAmount:0,benefitAmount:0};const eligibleGrossAmount=Number(target.unitPrice)+(target.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0);return{eligibleGrossAmount,...vatExemptDiscountBreakdown(eligibleGrossAmount,vatRate,0.2,pricesIncludeVat)}}
 function CheckoutPreview({items,subtotal,fee,total,benefit,benefitEligible=false,applyBenefitDiscount=false,onBenefitChange=()=>{},fulfillment,selectedArea,vatRate,pricesIncludeVat}){
+  const [voucherCode,setVoucherCode]=useState('')
+  const [voucherState,setVoucherState]=useState('idle')
+  const voucherTimerRef=useRef(null)
+  useEffect(()=>()=>{if(voucherTimerRef.current)window.clearTimeout(voucherTimerRef.current)},[])
+  const updateVoucherCode=value=>{if(voucherTimerRef.current)window.clearTimeout(voucherTimerRef.current);setVoucherCode(value.slice(0,40));setVoucherState('idle')}
+  const applyVoucher=event=>{event.preventDefault();if(!voucherCode.trim())return;if(voucherTimerRef.current)window.clearTimeout(voucherTimerRef.current);setVoucherState('checking');voucherTimerRef.current=window.setTimeout(()=>{setVoucherState('invalid');voucherTimerRef.current=null},700)}
   const breakdown=buildVatExemptOrderBreakdown({subtotal,discountSubtotal:applyBenefitDiscount?benefit.eligibleGrossAmount:0,discountType:applyBenefitDiscount?'PWD':'',discountAmount:applyBenefitDiscount?benefit.discountAmount:0,vatExemptAmount:applyBenefitDiscount?benefit.vatAmount:0,vatRate,pricesIncludeVat})
   return <aside className="checkout-preview">
     <header><span>Order preview</span><h2>Your order</h2></header>
@@ -264,6 +270,14 @@ function CheckoutPreview({items,subtotal,fee,total,benefit,benefitEligible=false
           <span><b>Senior Citizen / PWD discount</b><small>{benefit.benefitAmount?'20% off the most expensive eligible item.':'No eligible item in your cart.'}</small></span>
         </label>
         {applyBenefitDiscount&&benefit.benefitAmount>0&&<p className="checkout-benefit-reminder">Original SC/PWD ID required upon {fulfillment==='delivery'?'delivery':'pickup'}.</p>}
+        <form className="checkout-voucher" onSubmit={applyVoucher}>
+          <label htmlFor="checkout-voucher-code">Voucher code</label>
+          <div className="checkout-voucher-control">
+            <input id="checkout-voucher-code" value={voucherCode} onChange={event=>updateVoucherCode(event.target.value)} maxLength={40} placeholder="Enter code" autoComplete="off" aria-invalid={voucherState==='invalid'} aria-describedby="checkout-voucher-feedback" />
+            <button className={voucherState==='checking'?'is-checking':''} type="submit" disabled={!voucherCode.trim()||voucherState==='checking'}>{voucherState==='checking'?'Checking…':'Apply'}</button>
+          </div>
+          <p className={`checkout-voucher-feedback${voucherState==='invalid'?' is-visible':''}`} id="checkout-voucher-feedback" role={voucherState==='invalid'?'alert':undefined} aria-live="polite">{voucherState==='invalid'?'Invalid voucher code. Please check the code and try again.':''}</p>
+        </form>
       </div>}
     </div>
   </aside>
@@ -476,8 +490,7 @@ export function MyOrdersPage(){
   useEffect(()=>{if(!toast)return undefined;const t=setTimeout(()=>setToast(''),4000);return()=>clearTimeout(t)},[toast])
 
   const currentOrders=orders.filter(o=>!['Completed','Received','Cancelled'].includes(o.status))
-  const pastOrders=orders.filter(o=>['Completed','Received'].includes(o.status))
-  const cancelledOrders=orders.filter(o=>o.status==='Cancelled')
+  const pastOrders=orders.filter(o=>['Completed','Received','Cancelled'].includes(o.status))
   const visiblePast=pastOrders.slice(0,pastPage*6)
 
   useEffect(()=>{
@@ -552,7 +565,6 @@ export function MyOrdersPage(){
     <div className="order-tabs">
       <button className={tab==='current'?'active':''} onClick={()=>setTab('current')}>Current Orders{currentOrders.length>0&&<b className="order-tab-count">{currentOrders.length}</b>}</button>
       <button className={tab==='past'?'active':''} onClick={()=>setTab('past')}>Past Orders</button>
-      <button className={tab==='cancelled'?'active':''} onClick={()=>setTab('cancelled')}>Cancelled Orders</button>
     </div>
     {toast&&<p className="settings-status" role="status">{toast}</p>}
     {receiveError&&<p className="form-error" role="alert">{receiveError}</p>}
@@ -561,14 +573,14 @@ export function MyOrdersPage(){
         <section className="current-orders-list">{currentOrders.map((order,index)=><CurrentOrderCard key={order.id} order={order} addonNames={addonNames} index={index}
           onView={()=>setDetailOrder(order)} onCancel={()=>setCancelOrderTarget(order)} onTrack={()=>setTrackOrder(order)} onReceive={()=>runReceive(order)} receiving={receivingId===order.id}/>)}</section>)}
       {tab==='past'&&(pastOrders.length===0?<EmptyOrders hasAny={orders.length>0} label="past orders"/>:<>
-        <section className="orders-grid">{visiblePast.map((order,index)=><PastOrderCard key={order.id} order={order} index={index}
-          onView={()=>setDetailOrder(order)} onReceipt={()=>setReceiptOrder(order)}
-          onReorder={()=>runReorder(order)} onFeedback={()=>{setFeedbackThankYou(false);setFeedbackOrder(order)}}
-          reordering={reorderState?.orderId===order.id&&reorderState.busy}/>)}</section>
+        <section className="orders-grid">{visiblePast.map((order,index)=>order.status==='Cancelled'
+          ?<CancelledOrderCard key={order.id} order={order} index={index} onView={()=>setDetailOrder(order)}/>
+          :<PastOrderCard key={order.id} order={order} index={index}
+            onView={()=>setDetailOrder(order)} onReceipt={()=>setReceiptOrder(order)}
+            onReorder={()=>runReorder(order)} onFeedback={()=>{setFeedbackThankYou(false);setFeedbackOrder(order)}}
+            reordering={reorderState?.orderId===order.id&&reorderState.busy}/>)}</section>
         {visiblePast.length<pastOrders.length&&<button className="secondary-button full" type="button" onClick={()=>setPastPage(p=>p+1)}>Load more</button>}
       </>)}
-      {tab==='cancelled'&&(cancelledOrders.length===0?<EmptyOrders hasAny={orders.length>0} label="cancelled orders"/>:
-        <section className="orders-grid">{cancelledOrders.map((order,index)=><CancelledOrderCard key={order.id} order={order} index={index} onView={()=>setDetailOrder(order)}/>)}</section>)}
     </>}
     <AnimatePresence>{detailOrder&&<OrderDetailsDrawer order={orders.find(o=>o.id===detailOrder.id)||detailOrder} addonNames={addonNames} onClose={()=>setDetailOrder(null)}/>}</AnimatePresence>
     <AnimatePresence>{trackOrder&&<TrackOrderModal order={orders.find(o=>o.id===trackOrder.id)||trackOrder} onClose={()=>setTrackOrder(null)} onReceive={()=>runReceive(orders.find(o=>o.id===trackOrder.id)||trackOrder)} receiving={receivingId===trackOrder.id}/>}</AnimatePresence>

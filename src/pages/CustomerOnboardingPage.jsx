@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { queueAuthWelcome } from '../lib/authFeedback'
-import { supabase } from '../lib/supabase'
+import { customerSupabase as supabase } from '../lib/supabase'
 import { saveProfile } from '../services/customerService'
 import { EMAIL_MAX_LENGTH, isValidPassword, isValidPhone, sanitizePersonName, sanitizeUsername } from '../utils/inputValidation'
 

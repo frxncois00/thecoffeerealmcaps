@@ -63,7 +63,7 @@ export default function ProductCustomizationModal({ product, onClose, onAdd, var
 
   return (
     <div
-      className="payment-modal-backdrop"
+      className="payment-modal-backdrop customize-backdrop"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}

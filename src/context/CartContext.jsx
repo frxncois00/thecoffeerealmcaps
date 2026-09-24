@@ -2,7 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { useAuth } from './AuthContext'
 import { fetchMenuCatalog } from '../services/menuService'
-import { supabase } from '../lib/supabase'
+import { customerSupabase as supabase } from '../lib/supabase'
 
 const CartContext = createContext(null)
 const LEGACY_GUEST_KEY = 'coffee-realm-guest-cart-v1'

@@ -1,28 +1,89 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { useLocation } from 'react-router-dom'
+import { customerSupabase, isSupabaseConfigured, portalSupabase } from '../lib/supabase'
+import { closePortalSession } from '../services/portalSessionService'
 
 const AuthContext = createContext(null)
+const emptyAuthState = { session: null, profile: null, loading: true }
+const isPortalPath = (pathname) => pathname === '/portal' || /^\/(admin|staff|cashier)(\/|$)/.test(pathname)
+
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null)
-  const [profile, setProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const { pathname } = useLocation()
+  const [customerState, setCustomerState] = useState(emptyAuthState)
+  const [portalState, setPortalState] = useState(emptyAuthState)
+
   useEffect(() => {
     let active = true
-    async function hydrate(nextSession) {
-      if (!active) return
-      setSession(nextSession)
-      if (!nextSession) { setProfile(null); setLoading(false); return }
-      const { data } = await supabase.from('profiles').select('*').eq('id', nextSession.user.id).maybeSingle()
-      if (active) { setProfile({ id: nextSession.user.id, email: nextSession.user.email, ...nextSession.user.user_metadata, ...(data || {}) }); setLoading(false) }
+    const subscriptions = []
+
+    const bindClient = (client, setState, scope) => {
+      async function hydrate(nextSession) {
+        if (!active) return
+        if (!nextSession) {
+          setState({ session: null, profile: null, loading: false })
+          return
+        }
+        const { data } = await client.from('profiles').select('*').eq('id', nextSession.user.id).maybeSingle()
+        if (!active) return
+        const role = String(data?.role || nextSession.user.user_metadata?.role || '').trim().toLowerCase().replace(/[ -]+/g, '_')
+        const roleAllowed = scope === 'customer'
+          ? role === 'customer'
+          : ['admin', 'staff', 'operational_staff', 'cashier'].includes(role)
+        if (!roleAllowed) {
+          window.setTimeout(() => client.auth.signOut({ scope: 'local' }), 0)
+          if (active) setState({ session: null, profile: null, loading: false })
+          return
+        }
+        setState({
+          session: nextSession,
+          profile: { id: nextSession.user.id, email: nextSession.user.email, ...nextSession.user.user_metadata, ...(data || {}) },
+          loading: false,
+        })
+      }
+
+      client.auth.getSession().then(({ data }) => hydrate(data.session))
+      const { data: listener } = client.auth.onAuthStateChange((_event, nextSession) => hydrate(nextSession))
+      subscriptions.push(listener.subscription)
     }
-    if (!isSupabaseConfigured) { setLoading(false); return undefined }
-    supabase.auth.getSession().then(({ data }) => hydrate(data.session))
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, next) => hydrate(next))
-    return () => { active = false; listener.subscription.unsubscribe() }
+
+    if (!isSupabaseConfigured) {
+      setCustomerState({ session: null, profile: null, loading: false })
+      setPortalState({ session: null, profile: null, loading: false })
+      return undefined
+    }
+
+    bindClient(customerSupabase, setCustomerState, 'customer')
+    bindClient(portalSupabase, setPortalState, 'portal')
+    return () => {
+      active = false
+      subscriptions.forEach((subscription) => subscription.unsubscribe())
+    }
   }, [])
-  const value = useMemo(() => ({ session, user: session?.user || null, profile, loading, updateProfile: setProfile, signOut: () => supabase?.auth.signOut() }), [session, profile, loading])
+
+  const portal = isPortalPath(pathname)
+  const activeState = portal ? portalState : customerState
+  const activeClient = portal ? portalSupabase : customerSupabase
+  const updateProfile = portal
+    ? (update) => setPortalState((current) => ({ ...current, profile: typeof update === 'function' ? update(current.profile) : update }))
+    : (update) => setCustomerState((current) => ({ ...current, profile: typeof update === 'function' ? update(current.profile) : update }))
+  const value = useMemo(() => ({
+    session: activeState.session,
+    user: activeState.session?.user || null,
+    profile: activeState.profile,
+    loading: activeState.loading,
+    updateProfile,
+    signOut: async () => {
+      if (portal) {
+        try { await closePortalSession() } catch { /* Authentication sign-out must continue if session history is unavailable. */ }
+      }
+      return activeClient?.auth.signOut({ scope: 'local' })
+    },
+    authScope: portal ? 'portal' : 'customer',
+  }), [activeClient, activeState, portal])
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
+
 export const useAuth = () => useContext(AuthContext)
 

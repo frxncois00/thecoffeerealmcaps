@@ -17,7 +17,8 @@ export default function RealmProductTour() {
   const container = useRef(null)
   const systemReduced = useReducedMotion()
   const [paused, setPaused] = useState(false)
-  const reduced = Boolean(systemReduced || paused)
+  const [motionOverride, setMotionOverride] = useState(false)
+  const reduced = Boolean(paused || (systemReduced && !motionOverride))
   const [active, setActive] = useState(0)
   const [notice, setNotice] = useState('')
   const { scrollYProgress } = useScroll({ container })
@@ -44,12 +45,20 @@ export default function RealmProductTour() {
     setNotice(`${action}: preview only. Destination has not been configured yet.`)
   }
 
+  function toggleMotion() {
+    if (systemReduced && !motionOverride) {
+      setMotionOverride(true)
+      return
+    }
+    setPaused(value => !value)
+  }
+
   return <div className={`realm-product-tour ${reduced ? 'is-reduced' : ''}`}>
     <header className="tour-hud fixed inset-x-0 top-0 z-50 grid items-center px-5 md:px-10">
       <a className="tour-exit inline-flex items-center gap-2 justify-self-start" href="/"><ArrowLeft size={16} /><span>Exit Tour</span></a>
       <a href="#welcome" onClick={event => { event.preventDefault(); goTo(0) }} className="tour-wordmark justify-self-center">The Coffee Realm<span>THE REALM TOUR</span></a>
       <div className="tour-hud-right flex items-center justify-end gap-4">
-        <button className="tour-motion inline-flex items-center justify-center" onClick={() => setPaused(value => !value)} disabled={Boolean(systemReduced)} aria-pressed={reduced} aria-label={systemReduced ? 'Reduced motion enabled by your device' : paused ? 'Resume animations' : 'Pause animations'} title={reduced ? 'Motion reduced' : 'Pause animations'}>{reduced ? <Play size={15} /> : <Pause size={15} />}</button>
+        <button className="tour-motion inline-flex items-center justify-center" onClick={toggleMotion} aria-pressed={reduced} aria-label={reduced ? 'Play animations' : 'Pause animations'} title={systemReduced && !motionOverride ? 'Play animations (device motion setting is on)' : reduced ? 'Resume animations' : 'Pause animations'}>{reduced ? <Play size={15} /> : <Pause size={15} />}</button>
         <div className="tour-counter"><span>{active === 0 ? 'WELCOME' : active === galleryIndex ? 'THE SPACE' : active === closingIndex ? 'UNTIL NEXT TIME' : tourStops[active - 1]?.id === 'flavor-play' ? 'FLAVORS' : `${number(tourStops[active - 1]?.productNumber)} / ${number(products.length)}`}</span><b>{chapters[active]}</b></div>
       </div>
       <motion.div aria-hidden="true" className="tour-progress absolute bottom-0 left-0 h-px w-full origin-left" style={{ scaleX: scrollYProgress }} />

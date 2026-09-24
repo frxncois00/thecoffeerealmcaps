@@ -1,4 +1,4 @@
-﻿import { supabase } from '../lib/supabase'
+﻿import { customerSupabase as supabase } from '../lib/supabase'
 
 const fallbackImage='/images/coffeerealmlogo.png'
 const imagePath=value=>{if(!value)return fallbackImage;if(/^https?:\/\//i.test(String(value)))return String(value);const clean=String(value).replace(/^\/+/, '');if(clean.startsWith('assets/'))return `/${clean}`;return value.startsWith('/')?value:`/${value}`}

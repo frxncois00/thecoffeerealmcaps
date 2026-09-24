@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { customerSupabase as supabase } from '../lib/supabase'
 import { fetchMenuCatalog } from '../services/menuService'
 
 export function useMenuCatalog() {
