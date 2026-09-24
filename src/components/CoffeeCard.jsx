@@ -59,9 +59,6 @@ export default function CoffeeCard({ item, offset, isActive, revealed, onSelect,
       <div className="coffee-card-body">
         <h3>{item.name}</h3>
         {item.description && <p>{item.description}</p>}
-        <div className="coffee-card-footer">
-          <b>PHP {Number(item.price).toFixed(2)}</b>
-        </div>
       </div>
     </motion.article>
   )

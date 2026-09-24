@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle, Bell, Bike, Check, Clock, Coffee,
   ExternalLink, Grid2X2, List, Package, RefreshCw, Search, ShoppingBag, X,
@@ -9,10 +9,11 @@ import { money } from '../utils/money'
 import { describeError } from '../utils/describeError'
 import { buildVatExemptOrderBreakdown, formatVatRate } from '../utils/pricing'
 import {
-  fetchOpsOrders, fetchAddonNameMap, confirmOrder, advanceOrderStatus, saveOrderTrackingLink,
+  fetchOpsOrders, fetchOpsOrdersByIds, fetchAddonNameMap, confirmOrder, advanceOrderStatus, saveOrderTrackingLink,
   cancelOrder, reviewCancellation, resolveCancellation, completeCancellationRefund, getPaymentProofUrl,
 } from '../services/opsOrderService'
 import { getCurrentPortalSession } from '../lib/auth'
+import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { fetchStaffPreferences, getRememberedStaffFilters, rememberStaffFilters, shouldShowSystemNotification } from '../services/staffSettingsService'
 import { useManagementSessionState } from '../hooks/useManagementSessionState'
 
@@ -179,6 +180,7 @@ function mainActionFor(order) {
 
 export default function OrderPreparationPage() {
   const [orders, setOrders] = useState([])
+  const [newOrderIds, setNewOrderIds] = useState(() => new Set())
   const [addonNames, setAddonNames] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -204,6 +206,10 @@ export default function OrderPreparationPage() {
   const [filtersReady, setFiltersReady] = useState(false)
 
   const columnRefs = useRef({})
+  const ordersRef = useRef([])
+  const hasLoadedOrdersRef = useRef(false)
+  const loadSequenceRef = useRef(0)
+  const newOrderTimersRef = useRef(new Map())
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(timer) }, [])
   useEffect(() => {
     let active = true
@@ -233,20 +239,129 @@ export default function OrderPreparationPage() {
     rememberStaffFilters('orders', { activeTab, search, fulfillmentFilter, paymentFilter, dateFilter, sortBy })
   }, [activeTab, dateFilter, filtersReady, fulfillmentFilter, paymentFilter, search, sortBy])
 
-  const load = async () => {
-    setLoading(true)
+  const flagNewOrder = useCallback((order) => {
+    if (!order?.id) return
+    const id = order.id
+    setNewOrderIds((current) => new Set(current).add(id))
+    const previousTimer = newOrderTimersRef.current.get(id)
+    if (previousTimer) clearTimeout(previousTimer)
+    const timer = setTimeout(() => {
+      setNewOrderIds((current) => {
+        const next = new Set(current)
+        next.delete(id)
+        return next
+      })
+      newOrderTimersRef.current.delete(id)
+    }, 6500)
+    newOrderTimersRef.current.set(id, timer)
+  }, [])
+
+  const load = useCallback(async ({ quiet = false, newOrderId = null, detectNew = false, source = 'initial' } = {}) => {
+    const sequence = ++loadSequenceRef.current
+    if (!quiet) setLoading(true)
     try {
-      const [orderData, addonMap] = await Promise.all([fetchOpsOrders(), fetchAddonNameMap()])
+      const [orderData, addonMap] = await Promise.all([fetchOpsOrders(), quiet ? Promise.resolve(null) : fetchAddonNameMap()])
+      if (sequence !== loadSequenceRef.current) {
+        console.info('[Staff orders] refetch ignored ' + JSON.stringify({ source, sequence, reason: 'newer request started' }))
+        return
+      }
+      const existingIds = new Set(ordersRef.current.map((order) => order.id))
+      const arrivals = newOrderId
+        ? orderData.filter((order) => order.id === newOrderId && !existingIds.has(order.id))
+        : detectNew && hasLoadedOrdersRef.current
+          ? orderData.filter((order) => !existingIds.has(order.id))
+          : []
+      ordersRef.current = orderData
+      hasLoadedOrdersRef.current = true
       setOrders(orderData)
-      setAddonNames(addonMap)
+      console.info('[Staff orders] refetch applied ' + JSON.stringify({ source, sequence, orderCount: orderData.length, arrivalIds: arrivals.map((order) => order.id) }))
+      if (addonMap) setAddonNames(addonMap)
       setError('')
+      arrivals.forEach(flagNewOrder)
+      if (arrivals.length) setTablePage(1)
     } catch (cause) {
-      setError(describeError(cause, 'Could not load orders.'))
+      if (sequence === loadSequenceRef.current) {
+        console.error('[Staff orders] refetch failed ' + JSON.stringify({ source, sequence, message: cause?.message || String(cause) }))
+        setError(describeError(cause, 'Could not load orders.'))
+      }
     } finally {
-      setLoading(false)
+      if (sequence === loadSequenceRef.current) setLoading(false)
     }
-  }
-  useEffect(() => { load() }, [])
+  }, [flagNewOrder])
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return undefined
+    let active = true
+    let fallbackPoll = null
+    const refreshInsertedOrder = async (id) => {
+      if (!hasLoadedOrdersRef.current) {
+        load({ newOrderId: id, source: 'postgres_changes initial' })
+        return
+      }
+      try {
+        const newOrders = await fetchOpsOrdersByIds([id])
+        if (!active) return
+        const arrivals = newOrders.filter((order) => !ordersRef.current.some((known) => known.id === order.id))
+        if (!arrivals.length) return
+        // Do not let an older full refetch replace a newly delivered row.
+        loadSequenceRef.current += 1
+        const nextOrders = [...ordersRef.current, ...arrivals]
+          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        ordersRef.current = nextOrders
+        setOrders(nextOrders)
+        arrivals.forEach(flagNewOrder)
+        setTablePage(1)
+        console.info('[Staff orders] postgres_changes order applied ' + JSON.stringify({ arrivalIds: arrivals.map((order) => order.id), orderCount: nextOrders.length }))
+      } catch (cause) {
+        console.warn('[Staff orders] postgres_changes order fetch failed ' + JSON.stringify({ message: cause?.message || String(cause) }))
+        if (active) load({ quiet: true, newOrderId: id, source: 'postgres_changes recovery' })
+      }
+    }
+    const startFallbackPoll = () => {
+      if (!active || fallbackPoll) return
+      fallbackPoll = window.setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          console.info('[Staff orders] fallback poll fired')
+          load({ quiet: true, detectNew: true, source: 'fallback poll' })
+        }
+      }, 5000)
+    }
+    const stopFallbackPoll = () => {
+      if (fallbackPoll) window.clearInterval(fallbackPoll)
+      fallbackPoll = null
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.info('[Staff orders] visibility refetch fired')
+        load({ quiet: true, detectNew: true, source: 'visibility refetch' })
+      }
+    }
+    const channel = supabase.channel(`staff-order-preparation-${crypto.randomUUID()}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+        console.info('[Staff orders] postgres_changes received ' + JSON.stringify(payload))
+        const { new: order } = payload
+        if (order?.order_source && !['customer_pos', 'cashier_pos'].includes(order.order_source)) return
+        if (order?.id) refreshInsertedOrder(order.id)
+      })
+      .subscribe((status, error) => {
+        console.info('[Staff orders] channel status ' + JSON.stringify({ status, error: error ? { message: error.message, name: error.name } : null }))
+        if (status === 'SUBSCRIBED') stopFallbackPoll()
+        else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) startFallbackPoll()
+      })
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      active = false
+      stopFallbackPoll()
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+      supabase.removeChannel(channel)
+    }
+  }, [flagNewOrder, load])
+
+  useEffect(() => () => {
+    newOrderTimersRef.current.forEach((timer) => clearTimeout(timer))
+    newOrderTimersRef.current.clear()
+  }, [])
 
   const pushToast = (type, message) => {
     if (!shouldShowSystemNotification(type)) return
@@ -255,7 +370,11 @@ export default function OrderPreparationPage() {
     setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), 4500)
   }
 
-  const patchOrder = (id, patch) => setOrders((current) => current.map((o) => (o.id === id ? { ...o, ...patch } : o)))
+  const patchOrder = (id, patch) => {
+    const nextOrders = ordersRef.current.map((order) => order.id === id ? { ...order, ...patch } : order)
+    ordersRef.current = nextOrders
+    setOrders(nextOrders)
+  }
 
   const runAction = async (order, kind, next, trackingUrl) => {
     if (busyId) return
@@ -266,7 +385,12 @@ export default function OrderPreparationPage() {
         patchOrder(order.id, { status: 'Preparing', payment_confirmed: paymentMethod(order) !== 'cod' ? true : order.payment_confirmed, payment_status: paymentMethod(order) !== 'cod' ? 'paid' : order.payment_status })
         pushToast('success', `${order.order_number} moved to Preparing.`)
       } else if (kind === 'advance') {
-        if (next === 'Out for Delivery' && trackingUrl && !/^https?:\/\/\S+$/i.test(trackingUrl)) throw new Error('Enter a valid HTTP or HTTPS tracking link.')
+        if (next === 'Out for Delivery') {
+          const cleanTrackingUrl = String(trackingUrl || '').trim()
+          if (!cleanTrackingUrl) throw new Error('Enter a tracking link before confirming.')
+          if (!/^https?:\/\/\S+$/i.test(cleanTrackingUrl)) throw new Error('Enter a valid HTTP or HTTPS tracking link.')
+          trackingUrl = cleanTrackingUrl
+        }
         await advanceOrderStatus(order.id, next)
         if (next === 'Out for Delivery') await saveOrderTrackingLink(order.id, trackingUrl)
         patchOrder(order.id, { status: next, ...(next === 'Out for Delivery' ? { tracking_url: trackingUrl || null } : {}) })
@@ -498,13 +622,13 @@ export default function OrderPreparationPage() {
         <p className="customer-state">Loading orders…</p>
       ) : (
         <>
-          {layoutView === 'table' ? <><OrderTable orders={tableOrders} busyId={busyId} onView={setDrawerOrder} onMain={(order, action) => setConfirmAction({ order, ...action })} onCancel={setCancelTarget} /><footer className="ops-order-pagination"><span>Showing {sorted.length ? (tablePage - 1) * rowsPerPage + 1 : 0}–{Math.min(tablePage * rowsPerPage, sorted.length)} of {sorted.length} orders</span><b>Page {tablePage} of {tablePages}</b><div><button type="button" aria-label="Previous page" disabled={tablePage <= 1} onClick={() => setTablePage((page) => page - 1)}>‹</button><button type="button" aria-label="Next page" disabled={tablePage >= tablePages} onClick={() => setTablePage((page) => page + 1)}>›</button></div></footer></> : <div className="ops-kanban">
+          {layoutView === 'table' ? <><OrderTable orders={tableOrders} newOrderIds={newOrderIds} busyId={busyId} onView={setDrawerOrder} onMain={(order, action) => setConfirmAction({ order, ...action })} onCancel={setCancelTarget} /><footer className="ops-order-pagination"><span>Showing {sorted.length ? (tablePage - 1) * rowsPerPage + 1 : 0}–{Math.min(tablePage * rowsPerPage, sorted.length)} of {sorted.length} orders</span><b>Page {tablePage} of {tablePages}</b><div><button type="button" aria-label="Previous page" disabled={tablePage <= 1} onClick={() => setTablePage((page) => page - 1)}>‹</button><button type="button" aria-label="Next page" disabled={tablePage >= tablePages} onClick={() => setTablePage((page) => page + 1)}>›</button></div></footer></> : <div className="ops-kanban">
             {activeColumns.map((col) => (
               <div className={`ops-column tone-${col.tone}`} key={col.key} ref={(el) => { columnRefs.current[col.key] = el }}>
                 <header><span className="ops-column-dot" /><div><h3>{col.title}</h3>{col.subtitle&&<p>{col.subtitle}</p>}</div><span className="ops-column-count" aria-label={`${col.orders.length} orders`}>{col.orders.length}</span></header>
                 <div className="ops-column-body">
                   {col.orders.length === 0 ? <EmptyColumn /> : col.orders.map((order) => (
-                    <OrderCard key={order.id} order={order} busy={busyId === order.id} onView={() => setDrawerOrder(order)}
+                    <OrderCard key={order.id} order={order} isNew={newOrderIds.has(order.id)} busy={busyId === order.id} onView={() => setDrawerOrder(order)}
                       onMain={(action) => setConfirmAction({ order, ...action })}
                       onCancel={() => setCancelTarget(order)} />
                   ))}
@@ -525,7 +649,7 @@ export default function OrderPreparationPage() {
               {(activeColumns.find((c) => c.key === selectedMobileStage)?.orders || []).length === 0
                 ? <EmptyColumn />
                 : activeColumns.find((c) => c.key === selectedMobileStage).orders.map((order) => (
-                  <OrderCard key={order.id} order={order} busy={busyId === order.id} onView={() => setDrawerOrder(order)}
+                  <OrderCard key={order.id} order={order} isNew={newOrderIds.has(order.id)} busy={busyId === order.id} onView={() => setDrawerOrder(order)}
                     onMain={(action) => setConfirmAction({ order, ...action })}
                     onCancel={() => setCancelTarget(order)} />
                 ))}
@@ -541,8 +665,8 @@ export default function OrderPreparationPage() {
             <div><h2>Completed Orders</h2><p>Finished orders are kept here for quick review and reference.</p></div>
             <span>{completedOrderCount} total</span>
           </div>
-          {loading ? <p className="customer-state">Loading completed orders…</p> : layoutView === 'table' ? <><OrderTable orders={tableOrders} busyId={busyId} onView={setDrawerOrder} onMain={(order, action) => setConfirmAction({ order, ...action })} onCancel={setCancelTarget} /><OrderTablePagination total={sorted.length} page={tablePage} pages={tablePages} rowsPerPage={rowsPerPage} onPage={setTablePage} /></> : sorted.length === 0 ? <div className="ops-empty"><ShoppingBag size={22} /><span>No completed orders match these filters.</span></div> : <div className="ops-completed-grid">
-            {sorted.map((order) => <OrderCard key={order.id} order={order} busy={busyId === order.id} onView={() => setDrawerOrder(order)}
+          {loading ? <p className="customer-state">Loading completed orders…</p> : layoutView === 'table' ? <><OrderTable orders={tableOrders} newOrderIds={newOrderIds} busyId={busyId} onView={setDrawerOrder} onMain={(order, action) => setConfirmAction({ order, ...action })} onCancel={setCancelTarget} /><OrderTablePagination total={sorted.length} page={tablePage} pages={tablePages} rowsPerPage={rowsPerPage} onPage={setTablePage} /></> : sorted.length === 0 ? <div className="ops-empty"><ShoppingBag size={22} /><span>No completed orders match these filters.</span></div> : <div className="ops-completed-grid">
+            {sorted.map((order) => <OrderCard key={order.id} order={order} isNew={newOrderIds.has(order.id)} busy={busyId === order.id} onView={() => setDrawerOrder(order)}
               onMain={(action) => setConfirmAction({ order, ...action })}
               onCancel={() => setCancelTarget(order)} />)}
           </div>}
@@ -605,14 +729,14 @@ function EmptyColumn() {
   return <div className="ops-empty"><ShoppingBag size={20} /><span>No orders in this column.</span></div>
 }
 
-function OrderCard({ order, busy, onView, onMain, onCancel }) {
+function OrderCard({ order, isNew = false, busy, onView, onMain, onCancel }) {
   const stage = stageOf(order)
   const overdue = isOverdue(order)
   const main = mainActionFor(order)
   const method = paymentMethod(order)
   const canCancel = stage !== 'completed' && stage !== 'cancelled' && !cancellationRequested(order)
   return (
-    <article className={`ops-card${overdue ? ' is-overdue' : ''}`}>
+    <article className={`ops-card${overdue ? ' is-overdue' : ''}${isNew ? ' is-new-order' : ''}`}>
       <div className="ops-card-top">
         <span className={`ops-type-badge ${order.order_type}`}>{order.order_type === 'delivery' ? <Bike size={13} /> : <Package size={13} />} {order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</span>
         <span className="ops-time">{timeAgo(order.created_at)}</span>
@@ -639,9 +763,9 @@ function OrderCard({ order, busy, onView, onMain, onCancel }) {
   )
 }
 
-function OrderTable({ orders, busyId, onView, onMain, onCancel }) {
+function OrderTable({ orders, newOrderIds = new Set(), busyId, onView, onMain, onCancel }) {
   if (!orders.length) return <div className="ops-empty"><ShoppingBag size={20} /><span>No orders match these filters.</span></div>
-  return <div className="ops-order-table-wrap"><table className="ops-order-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th>Main action</th><th>Others</th></tr></thead><tbody>{orders.map((order) => { const main = mainActionFor(order); const canCancel = stageOf(order) !== 'completed' && stageOf(order) !== 'cancelled' && !cancellationRequested(order); return <tr key={order.id}><td><b>{order.order_number}</b><small>{timeAgo(order.created_at)}</small></td><td>{order.customer_name}</td><td>{order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</td><td>{itemCount(order)}</td><td>{paymentMethodLabel(paymentMethod(order))}</td><td><span className={`ops-table-status ops-table-status--${orderStatusTone(order.status)}`}>{order.status}</span></td><td><b>{money(order.final_total)}</b></td><td>{main && <button type="button" className="ops-main-action compact" disabled={busyId === order.id || main.disabled} onClick={() => onMain(order, main)}>{busyId === order.id ? 'Please wait…' : main.label}</button>}</td><td><div className="ops-table-actions"><button type="button" className="ops-secondary-action compact" onClick={() => onView(order)}>View details</button>{canCancel && <button type="button" className="ops-destructive-action compact" disabled={busyId === order.id} onClick={() => onCancel(order)}>Cancel</button>}</div></td></tr>})}</tbody></table></div>
+  return <div className="ops-order-table-wrap"><table className="ops-order-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th>Main action</th><th>Others</th></tr></thead><tbody>{orders.map((order) => { const main = mainActionFor(order); const canCancel = stageOf(order) !== 'completed' && stageOf(order) !== 'cancelled' && !cancellationRequested(order); return <tr key={order.id} className={newOrderIds.has(order.id) ? 'is-new-order' : undefined}><td><b>{order.order_number}</b><small>{timeAgo(order.created_at)}</small></td><td>{order.customer_name}</td><td>{order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</td><td>{itemCount(order)}</td><td>{paymentMethodLabel(paymentMethod(order))}</td><td><span className={`ops-table-status ops-table-status--${orderStatusTone(order.status)}`}>{order.status}</span></td><td><b>{money(order.final_total)}</b></td><td>{main && <button type="button" className="ops-main-action compact" disabled={busyId === order.id || main.disabled} onClick={() => onMain(order, main)}>{busyId === order.id ? 'Please wait…' : main.label}</button>}</td><td><div className="ops-table-actions"><button type="button" className="ops-secondary-action compact" onClick={() => onView(order)}>View details</button>{canCancel && <button type="button" className="ops-destructive-action compact" disabled={busyId === order.id} onClick={() => onCancel(order)}>Cancel</button>}</div></td></tr>})}</tbody></table></div>
 }
 
 function OrderTablePagination({ total, page, pages, rowsPerPage, onPage }) {
@@ -734,17 +858,34 @@ function CancellationRequestGroup({ orders, onView, onReview, busyId }) {
 
 function ConfirmModal({ title, message, busy, onCancel, onConfirm }) {
   const [trackingUrl, setTrackingUrl] = useState('')
+  const [trackingError, setTrackingError] = useState('')
   const isDeliveryAction = title === 'Mark Out for Delivery'
+  const validateTrackingUrl = (value) => {
+    const cleanValue = value.trim()
+    if (!cleanValue) return 'Enter a tracking link before confirming.'
+    if (!/^https?:\/\/\S+$/i.test(cleanValue)) return 'Enter a valid HTTP or HTTPS tracking link.'
+    return ''
+  }
+  const submit = () => {
+    if (isDeliveryAction) {
+      const error = validateTrackingUrl(trackingUrl)
+      if (error) {
+        setTrackingError(error)
+        return
+      }
+    }
+    onConfirm(trackingUrl.trim())
+  }
   return (
     <div className="payment-modal-backdrop ops-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget && !busy) onCancel() }}>
       <section className="payment-modal ops-popup-modal" role="alertdialog" aria-modal="true" aria-labelledby="ops-confirm-title">
         <span className="payment-modal-kicker">Confirm action</span>
         <h2 id="ops-confirm-title">{title}</h2>
         <p>{message}</p>
-        {isDeliveryAction && <label className="field"><span>Delivery tracking link (optional)</span><input type="url" value={trackingUrl} onChange={(event) => setTrackingUrl(event.target.value.slice(0, 500))} maxLength={500} placeholder="https://…" /></label>}
+        {isDeliveryAction && <label className="field"><span>Delivery tracking link</span><input type="url" value={trackingUrl} aria-invalid={Boolean(trackingError)} aria-describedby={trackingError ? 'ops-tracking-url-error' : undefined} onChange={(event) => { const value = event.target.value.slice(0, 500); setTrackingUrl(value); if (!validateTrackingUrl(value)) setTrackingError('') }} maxLength={500} placeholder="https://…" />{trackingError && <small id="ops-tracking-url-error" className="field-hint error" role="alert">{trackingError}</small>}</label>}
         <div className="payment-modal-actions">
           <button className="secondary-button" type="button" onClick={onCancel} disabled={busy}>Go back</button>
-          <button className="primary-button" type="button" onClick={() => onConfirm(trackingUrl.trim())} disabled={busy}>{busy ? 'Please wait…' : 'Confirm'}</button>
+          <button className="primary-button" type="button" onClick={submit} disabled={busy}>{busy ? 'Please wait…' : 'Confirm'}</button>
         </div>
       </section>
     </div>

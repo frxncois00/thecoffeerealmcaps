@@ -6,12 +6,15 @@ import LogoutConfirmModal from './auth/LogoutConfirmModal'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
-import { DEFAULT_STAFF_PREFERENCES, fetchStaffPreferences, getCachedStaffPreferences, subscribeToStaffPreferences } from '../services/staffSettingsService'
+import { fetchOpsOrdersByIds } from '../services/opsOrderService'
+import { fetchFinishedProducts, fetchIngredients } from '../services/opsInventoryService'
+import { money } from '../utils/money'
+import { DEFAULT_STAFF_PREFERENCES, fetchStaffPreferences, getCachedStaffPreferences, rememberStaffFilters, subscribeToStaffPreferences } from '../services/staffSettingsService'
 import {
   addStaffNotification, clearStaffNotifications, getStaffNotifications, markAllStaffNotificationsRead,
   markStaffNotificationRead, subscribeToStaffNotifications,
 } from '../services/notificationCenterService'
-import { clearManagementSessionState, requestManagementDataRefresh, useManagementSessionState } from '../hooks/useManagementSessionState'
+import { clearManagementSessionState, requestManagementDataRefresh, useManagementSessionState, writeManagementSessionState } from '../hooks/useManagementSessionState'
 
 const adminGroups = [
   { label: 'Main', links: [['Dashboard','/admin',LayoutDashboard]] },
@@ -29,6 +32,16 @@ function notificationTime(value) {
   if (elapsed < 3600000) return `${Math.floor(elapsed / 60000)}m ago`
   if (elapsed < 86400000) return `${Math.floor(elapsed / 3600000)}h ago`
   return new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric' }).format(new Date(value))
+}
+
+function submittedTime(value) {
+  return value ? new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(value)) : 'just now'
+}
+
+async function submitterName(id) {
+  if (!id) return 'a staff member'
+  const { data } = await supabase.from('profiles').select('full_name,username').eq('id', id).maybeSingle()
+  return data?.full_name || data?.username || 'a staff member'
 }
 
 export default function AppShell({ role, title, eyebrow, children, actions, titleActions, onRefresh, onNotifications, notificationCount = 0 }) {
@@ -55,7 +68,8 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join('') || 'ST'
-  const unreadNotificationCount = notifications.filter((item) => !item.read).length
+  const visibleNotifications = notifications.filter((item) => role === 'admin' ? item.category !== 'orders' : item.category !== 'approvals')
+  const unreadNotificationCount = visibleNotifications.filter((item) => !item.read).length
   const visibleNotificationCount = Math.max(notificationCount, unreadNotificationCount)
 
   useEffect(() => {
@@ -121,48 +135,128 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
 
   useEffect(() => {
     if (!['staff', 'admin'].includes(role) || !user?.id || !isSupabaseConfigured) return undefined
-    const add = (notification) => addStaffNotification(user.id, notification)
+    const add = (notification) => {
+      try { return addStaffNotification(user.id, notification) }
+      catch (error) { console.error('[Notification Center] Could not save alert:', error); return null }
+    }
     const channel = supabase.channel(`management-notification-center-${user.id}`)
+    let active = true
+    const stockByKey = new Map()
+    let stockReady = false
+    const pendingStockEvents = []
 
-    if (staffPreferences.notify_new_orders) channel.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, ({ new: order }) => add({
-      category: 'orders', title: 'New order received', message: order?.order_number ? `${order.order_number} entered the order queue.` : 'A new order entered the preparation queue.',
-    }))
-    if (staffPreferences.notify_payment_proofs) channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, ({ new: order, old }) => {
-      if (!order?.payment_proof_path || order.payment_proof_path === old?.payment_proof_path) return
-      add({ category: 'payments', title: 'Payment proof received', message: order.order_number ? `${order.order_number} needs payment verification.` : 'A payment proof needs verification.' })
-    })
-    if (staffPreferences.notify_customer_cancellations) channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, ({ new: order, old }) => {
-      const reviewRequested = order?.cancellation_status === 'requested'
-        && old?.cancellation_status !== 'requested'
-        && order.cancellation_requested_by_role === 'Customer'
-      const cancelled = order?.status === 'Cancelled'
-        && old?.status !== 'Cancelled'
-        && order.cancelled_by_role === 'Customer'
-      if (!reviewRequested && !cancelled) return
-      const orderLabel = order.order_number || 'An order'
-      const reason = order.cancellation_reason ? ` Reason: ${order.cancellation_reason}.` : ''
+    const handleStock = async (payload, itemType) => {
+      const stock = payload.new
+      if (!stock || payload.eventType === 'DELETE') return
+      const itemId = itemType === 'ingredient' ? stock.ingredient_id : stock.id
+      if (!itemId) return
+      const key = `${itemType}:${itemId}`
+      const saved = stockByKey.get(key)
+      const old = payload.old?.quantity == null ? saved : {
+        ...saved, quantity: Number(payload.old.quantity), minimum: Number(payload.old.min_stock_level ?? saved?.minimum ?? 0),
+      }
+      const quantity = Number(stock.quantity)
+      const minimum = Number(stock.min_stock_level)
+      if (!Number.isFinite(quantity) || !Number.isFinite(minimum)) return
+      let name = stock.name || saved?.name
+      let unit = stock.unit || saved?.unit
+      if (!name) {
+        const table = itemType === 'ingredient' ? 'ingredients' : 'finished_products'
+        const { data } = await supabase.from(table).select('name,unit,is_archived').eq('id', itemId).maybeSingle()
+        if (!active || data?.is_archived) return
+        name = data?.name || 'Inventory item'
+        unit = data?.unit || 'units'
+      }
+      stockByKey.set(key, { quantity, minimum, name, unit })
+      const wasLow = old && old.quantity <= old.minimum
+      if (!staffPreferences.notify_low_stock || quantity > minimum || wasLow || (payload.eventType !== 'INSERT' && !old)) return
       add({
-        category: 'cancellations',
-        title: reviewRequested ? 'Cancellation review requested' : 'Customer cancellation',
-        message: reviewRequested
-          ? `${orderLabel} is on hold while payment and refund requirements are reviewed.${reason}`
-          : `${orderLabel} was cancelled by the customer. No verified payment was recorded.${reason}`,
+        category: 'inventory', title: quantity <= 0 ? 'Out of stock' : 'Low stock',
+        message: `${name} running low — ${quantity} ${unit || 'units'} left`,
+        target: { kind: 'inventory', itemType, itemId, name },
+        eventKey: `stock:${key}:${payload.commit_timestamp || stock.updated_at || Date.now()}`,
+        createdAt: payload.commit_timestamp,
       })
-    })
-    if (staffPreferences.notify_low_stock) channel.on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_stock' }, ({ new: stock }) => {
-      const quantity = Number(stock?.quantity)
-      const minimum = Number(stock?.min_stock_level)
-      if (!Number.isFinite(quantity) || !Number.isFinite(minimum) || minimum <= 0 || quantity > minimum) return
-      add({ category: 'inventory', title: quantity <= 0 ? 'Item out of stock' : 'Low stock detected', message: `Stock is at ${quantity}; the reorder level is ${minimum}.` })
-    })
-    if (staffPreferences.notify_menu_changes) channel.on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, ({ eventType, new: item, old }) => {
-      const name = item?.name || old?.name || 'A menu item'
-      const action = eventType === 'INSERT' ? 'was added' : eventType === 'DELETE' ? 'was removed' : 'was updated'
-      add({ category: 'menu', title: 'Menu changed', message: `${name} ${action}.` })
+    }
+
+    const receiveStock = (payload, itemType) => {
+      if (!stockReady) pendingStockEvents.push([payload, itemType])
+      else void handleStock(payload, itemType)
+    }
+
+    Promise.all([fetchIngredients(), fetchFinishedProducts()]).then(([ingredients, products]) => {
+      if (!active) return
+      ingredients.forEach((item) => stockByKey.set(`ingredient:${item.id}`, { quantity: item.quantity, minimum: item.minStockLevel, name: item.name, unit: item.unit }))
+      products.forEach((item) => stockByKey.set(`finished_product:${item.id}`, { quantity: item.quantity, minimum: item.minStockLevel, name: item.name, unit: item.unit }))
+      stockReady = true
+      pendingStockEvents.splice(0).forEach(([payload, itemType]) => void handleStock(payload, itemType))
+    }).catch((error) => {
+      console.error('[Notification Center] Stock baseline failed:', error)
+      stockReady = true
+      pendingStockEvents.splice(0).forEach(([payload, itemType]) => void handleStock(payload, itemType))
     })
 
-    channel.subscribe()
-    return () => { supabase.removeChannel(channel) }
+    // A single wildcard binding receives the same postgres_changes stream as
+    // Order Preparation. Multiple table/event bindings on one channel were
+    // reporting SUBSCRIBED but did not deliver any events in the live project.
+    channel.on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
+      if (!active) return
+      const { table, eventType, new: row, old, commit_timestamp: createdAt } = payload
+      if (table === 'orders') {
+        if (eventType === 'INSERT' && role === 'staff' && staffPreferences.notify_new_orders && row?.order_source === 'customer_pos') {
+          add({
+            category: 'orders', title: 'New order',
+            message: `New order ${row.order_number || ''} from ${row.customer_name || 'Customer'} · ${money(Number(row.final_total || 0))}`,
+            target: { kind: 'order', id: row.id }, eventKey: `order:${row.id}`, createdAt,
+          })
+        }
+        if (eventType === 'UPDATE' && staffPreferences.notify_payment_proofs && row?.payment_proof_path && row.payment_proof_path !== old?.payment_proof_path) {
+          add({ category: 'payments', title: 'Payment proof received', message: row.order_number ? `${row.order_number} needs payment verification.` : 'A payment proof needs verification.' })
+        }
+        if (eventType === 'UPDATE' && staffPreferences.notify_customer_cancellations) {
+          const reviewRequested = row?.cancellation_status === 'requested' && old?.cancellation_status !== 'requested' && row.cancellation_requested_by_role === 'Customer'
+          const cancelled = row?.status === 'Cancelled' && old?.status !== 'Cancelled' && row.cancelled_by_role === 'Customer'
+          if (reviewRequested || cancelled) {
+            const label = row.order_number || 'An order'
+            const reason = row.cancellation_reason ? ` Reason: ${row.cancellation_reason}.` : ''
+            add({ category: 'cancellations', title: reviewRequested ? 'Cancellation review requested' : 'Customer cancellation',
+              message: reviewRequested ? `${label} is on hold while payment and refund requirements are reviewed.${reason}` : `${label} was cancelled by the customer. No verified payment was recorded.${reason}` })
+          }
+        }
+      } else if (staffPreferences.notify_low_stock && table === 'inventory_stock') receiveStock(payload, 'ingredient')
+      else if (staffPreferences.notify_low_stock && table === 'finished_products') receiveStock(payload, 'finished_product')
+      else if (role === 'admin' && table === 'purchase_orders' && eventType !== 'DELETE' && row) {
+        const status = row.status
+        if (!['pending_approval', 'pending_receiving_review', 'payment_review'].includes(status)) return
+        const when = status === 'pending_approval' ? row.submitted_at : status === 'pending_receiving_review' ? row.receiving_submitted_at : row.payment_submitted_at
+        if (!when) return
+        void submitterName(status === 'pending_approval' ? row.submitted_by : status === 'pending_receiving_review' ? row.receiving_submitted_by : row.payment_submitted_by).then((submitter) => {
+          if (!active) return
+          const label = status === 'pending_approval' ? 'Purchase Order' : status === 'pending_receiving_review' ? 'Inventory receiving' : 'Purchase Order payment'
+          add({ category: 'approvals', title: `${label} approval needed`,
+            message: `${label} ${row.po_number || ''} submitted by ${submitter} on ${submittedTime(when)}, needs approval`,
+            target: { kind: 'purchase-order', id: row.id }, eventKey: `approval:po:${row.id}:${status}:${when}`, createdAt: createdAt || when })
+        })
+      } else if (role === 'admin' && table === 'menu_change_approvals' && eventType === 'INSERT' && row?.state === 'pending' && !['set_availability', 'bulk_availability'].includes(row.operation)) {
+        void submitterName(row.submitted_by).then((submitter) => {
+          if (!active) return
+          add({ category: 'approvals', title: 'Menu approval needed',
+            message: `${row.item_name || 'Menu edit'} (${row.action || 'change'}) submitted by ${submitter} on ${submittedTime(row.created_at)}, needs approval`,
+            target: { kind: 'menu-approval', id: row.id }, eventKey: `approval:menu:${row.id}`, createdAt: createdAt || row.created_at })
+        })
+      } else if (table === 'menu_items' && staffPreferences.notify_menu_changes) {
+        const name = row?.name || old?.name || 'A menu item'
+        const action = eventType === 'INSERT' ? 'was added' : eventType === 'DELETE' ? 'was removed' : 'was updated'
+        add({ category: 'menu', title: 'Menu changed', message: `${name} ${action}.` })
+      }
+    })
+
+    channel.subscribe((status) => {
+      if (!active) return
+      if (status === 'SUBSCRIBED') console.info('[Notification Center] Realtime channel:', status)
+      else console.warn('[Notification Center] Realtime channel:', status)
+    })
+    return () => { active = false; supabase.removeChannel(channel) }
   }, [role, staffPreferences.notify_customer_cancellations, staffPreferences.notify_low_stock, staffPreferences.notify_menu_changes, staffPreferences.notify_new_orders, staffPreferences.notify_payment_proofs, user?.id])
 
   useEffect(() => {
@@ -190,6 +284,35 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   }
 
   const readNotification = (notificationId) => markStaffNotificationRead(user?.id, notificationId)
+  const openNotification = async (notification) => {
+    readNotification(notification.id)
+    const target = notification.target
+    if (!target) return
+    setNotificationsOpen(false)
+    writeManagementSessionState(`${role}:shell:notifications-open`, false)
+    if (target.kind === 'order' && role === 'staff') {
+      try {
+        const [order] = await fetchOpsOrdersByIds([target.id])
+        if (order) writeManagementSessionState('staff:orders:drawer', order)
+      } catch (error) { console.error('[Notification Center] Could not open order:', error) }
+      navigate('/staff')
+    } else if (target.kind === 'inventory') {
+      if (role === 'admin') {
+        writeManagementSessionState('admin:inventory:entity', target.itemType)
+        writeManagementSessionState('admin:inventory:search', target.name)
+        writeManagementSessionState('admin:inventory:category', 'all')
+        writeManagementSessionState('admin:inventory:status', 'all')
+        writeManagementSessionState('admin:inventory:type', 'all')
+        writeManagementSessionState('admin:inventory:page', 1)
+        navigate('/admin/inventory')
+      } else {
+        rememberStaffFilters('inventory', { activeEntity: target.itemType, search: target.name, categoryFilter: 'all', statusFilter: 'all', typeFilter: 'all', sortBy: 'name' })
+        if (pathname === '/staff/inventory') window.location.reload()
+        else navigate('/staff/inventory')
+      }
+    } else if (role === 'admin' && target.kind === 'purchase-order') navigate('/admin/purchase-orders')
+    else if (role === 'admin' && target.kind === 'menu-approval') navigate('/admin/menu-approvals')
+  }
   const readAllNotifications = () => markAllStaffNotificationsRead(user?.id)
   const clearNotifications = () => clearStaffNotifications(user?.id)
   const toggleRaimu = () => {
@@ -232,7 +355,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
         <button className="sidebar-exit" type="button" onClick={() => setLogoutOpen(true)}><LogOut size={19}/><span>Logout</span></button>
       </div>
     </aside>
-    <main className="app-main internal-main"><header className={`page-header internal-page-header${eyebrow ? '' : ' is-compact'}${role === 'admin' ? ' is-admin-surface-header' : ''}`}><div><div className={`internal-title-row${titleActions ? ' has-title-actions' : ''}`}><h1>{title}</h1>{titleActions}</div>{eyebrow && <span>{eyebrow}</span>}</div><div className="header-actions"><div className="internal-utility-bar" aria-label="Workspace utilities"><div className="internal-live-datetime">{role === 'admin' && title === 'Dashboard' && <CalendarDays size={16} aria-hidden="true" />}<div className="internal-live-datetime-copy"><span>{new Intl.DateTimeFormat('en-PH', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }).format(now)}</span><b>{new Intl.DateTimeFormat('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }).format(now)} PHT</b></div></div><button type="button" className={`internal-utility-button raimu-toggle${raimuVisible ? ' is-active' : ''}`} aria-label={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} aria-pressed={raimuVisible} title={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} onClick={toggleRaimu}><Bot size={18} aria-hidden="true" /></button><div className="internal-notification-anchor" ref={notificationAnchorRef}><button type="button" className="internal-utility-button" aria-label={`Open notifications${visibleNotificationCount ? `, ${visibleNotificationCount} unread` : ''}`} aria-expanded={['staff', 'admin'].includes(role) ? notificationsOpen : undefined} aria-controls={role === 'staff' ? 'staff-notification-center' : undefined} title="Notifications" onClick={openNotifications}><Bell size={18} />{visibleNotificationCount > 0 && <span className="internal-utility-badge">{visibleNotificationCount > 99 ? '99+' : visibleNotificationCount}</span>}</button>{['staff', 'admin'].includes(role) && notificationsOpen && <aside className="staff-notification-center" id="staff-notification-center" role="dialog" aria-modal="false" aria-labelledby="staff-notification-title"><header><div><span>Notification center</span><h2 id="staff-notification-title">Recent activity</h2></div><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={18} /></button></header><div className="staff-notification-actions"><button type="button" onClick={readAllNotifications} disabled={!unreadNotificationCount}><CheckCheck size={16} />Read all</button><button type="button" className="is-destructive" onClick={clearNotifications} disabled={!notifications.length}><Trash2 size={16} />Clear</button></div><div className="staff-notification-list">{notifications.length ? notifications.map((notification) => <button type="button" className={notification.read ? 'is-read' : 'is-unread'} data-category={notification.category} key={notification.id} onClick={() => readNotification(notification.id)}><i aria-hidden="true" /><span><b>{notification.title}</b><small>{notification.message}</small><time dateTime={notification.createdAt}>{notificationTime(notification.createdAt)}</time></span></button>) : <div className="staff-notification-empty"><Bell size={22} /><b>{role === 'admin' && notificationCount > 0 ? `${notificationCount} items need attention` : 'You’re all caught up'}</b><span>{role === 'admin' && notificationCount > 0 ? 'Review the dashboard attention cards for details.' : 'Operational alerts will stack here as they arrive.'}</span></div>}</div><footer><button type="button" onClick={() => { setNotificationsOpen(false); navigate(role === 'admin' ? '/admin/preferences' : '/staff/settings') }}>Notification settings</button></footer></aside>}</div><button type="button" className="internal-utility-button" aria-label={refreshing ? 'Refreshing current page data' : 'Refresh current page data'} aria-busy={refreshing} title={refreshing ? 'Refreshing data…' : 'Refresh data'} onClick={refreshPage} disabled={refreshing}><RefreshCw size={18} className={refreshing ? 'spin' : ''} /></button></div>{actions}</div></header>{children}</main>
+    <main className="app-main internal-main"><header className={`page-header internal-page-header${eyebrow ? '' : ' is-compact'}${role === 'admin' ? ' is-admin-surface-header' : ''}`}><div><div className={`internal-title-row${titleActions ? ' has-title-actions' : ''}`}><h1>{title}</h1>{titleActions}</div>{eyebrow && <span>{eyebrow}</span>}</div><div className="header-actions"><div className="internal-utility-bar" aria-label="Workspace utilities"><div className="internal-live-datetime">{role === 'admin' && title === 'Dashboard' && <CalendarDays size={16} aria-hidden="true" />}<div className="internal-live-datetime-copy"><span>{new Intl.DateTimeFormat('en-PH', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }).format(now)}</span><b>{new Intl.DateTimeFormat('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }).format(now)} PHT</b></div></div><button type="button" className={`internal-utility-button raimu-toggle${raimuVisible ? ' is-active' : ''}`} aria-label={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} aria-pressed={raimuVisible} title={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} onClick={toggleRaimu}><Bot size={18} aria-hidden="true" /></button><div className="internal-notification-anchor" ref={notificationAnchorRef}><button type="button" className="internal-utility-button" aria-label={`Open notifications${visibleNotificationCount ? `, ${visibleNotificationCount} unread` : ''}`} aria-expanded={['staff', 'admin'].includes(role) ? notificationsOpen : undefined} aria-controls={role === 'staff' ? 'staff-notification-center' : undefined} title="Notifications" onClick={openNotifications}><Bell size={18} />{visibleNotificationCount > 0 && <span className="internal-utility-badge">{visibleNotificationCount > 99 ? '99+' : visibleNotificationCount}</span>}</button>{['staff', 'admin'].includes(role) && notificationsOpen && <aside className="staff-notification-center" id="staff-notification-center" role="dialog" aria-modal="false" aria-labelledby="staff-notification-title"><header><div><span>Notification center</span><h2 id="staff-notification-title">Recent activity</h2></div><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={18} /></button></header><div className="staff-notification-actions"><button type="button" onClick={readAllNotifications} disabled={!unreadNotificationCount}><CheckCheck size={16} />Read all</button><button type="button" className="is-destructive" onClick={clearNotifications} disabled={!visibleNotifications.length}><Trash2 size={16} />Clear</button></div><div className="staff-notification-list">{visibleNotifications.length ? visibleNotifications.map((notification) => <button type="button" className={notification.read ? 'is-read' : 'is-unread'} data-category={notification.category} key={notification.id} onClick={() => void openNotification(notification)}><i aria-hidden="true" /><span><b>{notification.title}</b><small>{notification.message}</small><time dateTime={notification.createdAt}>{notificationTime(notification.createdAt)}</time></span></button>) : <div className="staff-notification-empty"><Bell size={22} /><b>{role === 'admin' && notificationCount > 0 ? `${notificationCount} items need attention` : 'You’re all caught up'}</b><span>{role === 'admin' && notificationCount > 0 ? 'Review the dashboard attention cards for details.' : 'Operational alerts will stack here as they arrive.'}</span></div>}</div><footer><button type="button" onClick={() => { setNotificationsOpen(false); navigate(role === 'admin' ? '/admin/preferences' : '/staff/settings') }}>Notification settings</button></footer></aside>}</div><button type="button" className="internal-utility-button" aria-label={refreshing ? 'Refreshing current page data' : 'Refresh current page data'} aria-busy={refreshing} title={refreshing ? 'Refreshing data…' : 'Refresh data'} onClick={refreshPage} disabled={refreshing}><RefreshCw size={18} className={refreshing ? 'spin' : ''} /></button></div>{actions}</div></header>{children}</main>
     <LogoutConfirmModal open={logoutOpen} busy={loggingOut} onCancel={() => setLogoutOpen(false)} onConfirm={confirmLogout} />
   </div>
 }

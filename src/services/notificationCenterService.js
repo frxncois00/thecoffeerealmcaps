@@ -1,8 +1,13 @@
 const CENTER_EVENT = 'tcr:notification-center-changed'
 const MAX_NOTIFICATIONS = 50
+const MAX_SEEN_EVENTS = 500
 
 function storageKey(userId) {
   return `tcr:staff-notifications:${userId || 'anonymous'}`
+}
+
+function seenKey(userId) {
+  return `tcr:staff-notification-events:${userId || 'anonymous'}`
 }
 
 function readStored(userId) {
@@ -27,15 +32,24 @@ export function getStaffNotifications(userId) {
 }
 
 export function addStaffNotification(userId, notification) {
+  const existing = readStored(userId)
+  if (notification.eventKey) {
+    let seen = []
+    try { seen = JSON.parse(window.localStorage.getItem(seenKey(userId)) || '[]') } catch { /* Ignore corrupt browser storage. */ }
+    if (seen.includes(notification.eventKey)) return existing
+    window.localStorage.setItem(seenKey(userId), JSON.stringify([notification.eventKey, ...seen].slice(0, MAX_SEEN_EVENTS)))
+  }
   const item = {
     id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     title: notification.title,
     message: notification.message,
     category: notification.category || 'general',
+    target: notification.target || null,
+    eventKey: notification.eventKey || null,
     createdAt: notification.createdAt || new Date().toISOString(),
     read: false,
   }
-  return writeStored(userId, [item, ...readStored(userId)].slice(0, MAX_NOTIFICATIONS))
+  return writeStored(userId, [item, ...existing].slice(0, MAX_NOTIFICATIONS))
 }
 
 export function markStaffNotificationRead(userId, notificationId) {

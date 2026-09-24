@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 const STORAGE_PREFIX = 'tcr:management-session:v1:'
 export const MANAGEMENT_REFRESH_EVENT = 'tcr:management-data-refresh'
+const MANAGEMENT_STATE_EVENT = 'tcr:management-session-state-written'
 
 const storageKey = (scope) => `${STORAGE_PREFIX}${scope}`
 
@@ -29,6 +30,7 @@ export function writeManagementSessionState(scope, value) {
   if (typeof window === 'undefined') return
   try {
     window.sessionStorage.setItem(storageKey(scope), JSON.stringify(value))
+    window.dispatchEvent(new CustomEvent(MANAGEMENT_STATE_EVENT, { detail: { scope, value } }))
   } catch {
     // Draft persistence is best-effort when browser storage is restricted.
   }
@@ -51,11 +53,22 @@ export function requestManagementDataRefresh(pathname) {
 }
 
 export function useManagementSessionState(scope, initialValue, options = {}) {
+  const deserialize = options.deserialize
   const [value, setValue] = useState(() => {
     const saved = readManagementSessionState(scope, initialValue)
-    return options.deserialize ? options.deserialize(saved) : saved
+    return deserialize ? deserialize(saved) : saved
   })
   const saveTimerRef = useRef(0)
+
+  useEffect(() => {
+    const receive = (event) => {
+      if (event.detail?.scope !== scope) return
+      const incoming = event.detail.value
+      setValue(deserialize ? deserialize(incoming) : incoming)
+    }
+    window.addEventListener(MANAGEMENT_STATE_EVENT, receive)
+    return () => window.removeEventListener(MANAGEMENT_STATE_EVENT, receive)
+  }, [scope, deserialize])
 
   useEffect(() => {
     saveTimerRef.current = window.setTimeout(() => {

@@ -13,6 +13,18 @@ export async function fetchOpsOrders() {
   return data || []
 }
 
+export async function fetchOpsOrdersByIds(ids) {
+  if (!ids.length) return []
+  const { data, error } = await supabase
+    .from('orders')
+    .select(ACTIVE_SELECT)
+    .in('order_source', ['customer_pos', 'cashier_pos'])
+    .in('id', ids)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
 export async function fetchAddonNameMap() {
   const { data, error } = await supabase.from('addons').select('id,name')
   if (error) throw error

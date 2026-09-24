@@ -168,6 +168,8 @@ export default function HomePage() {
           </Reveal>
         </section>}
 
+        <HowOrderingWorks />
+
         <section className="landing-about" id="about" aria-labelledby="about-title">
           <div className="landing-about-intro">
             <Reveal tag="div" className="landing-about-image-wrap">
@@ -197,8 +199,6 @@ export default function HomePage() {
           </Reveal>
 
         </section>
-
-        <HowOrderingWorks />
 
         <section className="section landing-reviews" id="reviews">
           <Reveal tag="div" className="reviews-intro">
