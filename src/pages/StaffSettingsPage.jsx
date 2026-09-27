@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { BellRing, Inbox, LayoutPanelTop, LockKeyhole, Monitor, RotateCcw, Save, ShieldCheck, UserRound } from 'lucide-react'
+import { BellRing, Clock3, Inbox, KeyRound, LayoutPanelTop, LockKeyhole, Monitor, RotateCcw, Save, Shield, ShieldCheck, Smartphone, UserRound } from 'lucide-react'
 import { useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import { useAuth } from '../context/AuthContext'
@@ -7,7 +7,6 @@ import { describeError } from '../utils/describeError'
 import { isValidInternalPassword, sanitizePersonName, sanitizeUsername } from '../utils/inputValidation'
 import {
   changeStaffPassword, DEFAULT_STAFF_PREFERENCES, fetchStaffPreferences,
-  fetchPreciseStaffLocation, fetchStaffSessionInfo,
   MANAGEMENT_DISPLAY_PREFERENCE_KEYS, NOTIFICATION_STAFF_PREFERENCE_KEYS, previewStaffPreferences, saveStaffPreferences, saveStaffProfile,
   verifyStaffCurrentPassword, WORKSPACE_STAFF_PREFERENCE_KEYS,
 } from '../services/staffSettingsService'
@@ -15,6 +14,7 @@ import {
   clearManagementSessionState, hasManagementSessionState, readManagementSessionState,
   useManagementSessionState, writeManagementSessionState,
 } from '../hooks/useManagementSessionState'
+import { fetchPortalSessions } from '../services/portalSessionService'
 
 const roleLabel = (role) => String(role || 'staff').replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 const SETTINGS_TABS = [
@@ -57,8 +57,7 @@ export default function StaffSettingsPage({ role = 'staff' }) {
   const [saving, setSaving] = useState('')
   const [notice, setNotice] = useState('')
   const [noticeKind, setNoticeKind] = useState('success')
-  const [sessionInfo, setSessionInfo] = useState({ loading: true, ip: null, city: null, region: null, countryCode: null, source: null })
-  const preciseLocationRequested = useRef(false)
+  const [sessions, setSessions] = useState({ loading: true, records: [] })
 
   useEffect(() => {
     if (!user?.id) return
@@ -72,25 +71,12 @@ export default function StaffSettingsPage({ role = 'staff' }) {
   useEffect(() => {
     if (!user?.id) return
     let active = true
-    setSessionInfo({ loading: true, ip: null, city: null, region: null, countryCode: null, source: null })
-    fetchStaffSessionInfo()
-      .then((data) => { if (active) setSessionInfo((current) => current.source === 'device' ? { ...current, loading: false, ip: data.ip } : { loading: false, ...data, source: 'ip' }) })
-      .catch(() => { if (active) setSessionInfo((current) => current.source === 'device' ? { ...current, loading: false } : { loading: false, ip: null, city: null, region: null, countryCode: null, source: null }) })
+    setSessions({ loading: true, records: [] })
+    fetchPortalSessions(user.id)
+      .then((records) => { if (active) setSessions({ loading: false, records }) })
+      .catch(() => { if (active) setSessions({ loading: false, records: [] }) })
     return () => { active = false }
   }, [user?.id])
-
-  useEffect(() => {
-    if (!user?.id || activeSection !== 'security' || preciseLocationRequested.current) return
-    preciseLocationRequested.current = true
-    let active = true
-    fetchPreciseStaffLocation()
-      .then((location) => {
-        if (!active || !location.city) return
-        setSessionInfo((current) => ({ ...current, city: location.city, region: location.region, source: 'device' }))
-      })
-      .catch(() => { /* Keep the IP-based fallback when device location is unavailable or denied. */ })
-    return () => { active = false }
-  }, [activeSection, user?.id])
 
   useEffect(() => {
     if (location.state?.section === 'notifications') setActiveSection('notifications')
@@ -168,9 +154,9 @@ export default function StaffSettingsPage({ role = 'staff' }) {
   const refreshSettings = async () => {
     if (!user?.id) return
     try {
-      const [savedPreferences, savedSession] = await Promise.all([fetchStaffPreferences(user.id), fetchStaffSessionInfo()])
+      const [savedPreferences, savedSessions] = await Promise.all([fetchStaffPreferences(user.id), fetchPortalSessions(user.id)])
       if (!hasManagementSessionState(preferencesDraftScope)) setPreferences(savedPreferences)
-      setSessionInfo((current) => current.source === 'device' ? { ...current, loading: false, ip: savedSession.ip } : { loading: false, ...savedSession, source: 'ip' })
+      setSessions({ loading: false, records: savedSessions })
     } catch (error) {
       showNotice('error', describeError(error, 'Could not refresh settings data.'))
     }
@@ -183,6 +169,9 @@ export default function StaffSettingsPage({ role = 'staff' }) {
       return next
     })
   }
+
+  const activeSessions = sessions.records.filter((item) => !item.signed_out_at)
+  const inactiveSessions = sessions.records.filter((item) => item.signed_out_at)
 
   return <AppShell role={role} title="Settings" onRefresh={refreshSettings}>
     {notice && <p className={`staff-settings-notice ${noticeKind}`} role="status">{notice}</p>}
@@ -236,13 +225,38 @@ export default function StaffSettingsPage({ role = 'staff' }) {
       </form>}
 
       {activeSection === 'security' && <form className="staff-settings-card staff-settings-security" onSubmit={submitPassword}>
-        <header className="staff-security-header"><span className="staff-settings-icon"><LockKeyhole size={19} /></span><div><h2>Security</h2><p>Use a strong, unique password for this internal account.</p></div><section className="staff-session-details" aria-labelledby="active-session-title"><div className="staff-session-current"><span className="staff-session-eyebrow">Active session</span><h3 className="staff-session-device-title" id="active-session-title">This device</h3><div className="staff-session-network" aria-label="Current IP address and approximate city and state or province" aria-live="polite">{sessionInfo.loading ? <span className="staff-session-loading">Checking…</span> : <><code title={sessionInfo.ip || 'Unavailable'}>{sessionInfo.ip || 'Unavailable'}</code><span className="staff-session-place" title={sessionInfo.city ? `${sessionInfo.city}${sessionInfo.region ? `, ${sessionInfo.region}` : ''}` : 'Unavailable'}>{sessionInfo.city ? `${sessionInfo.city}${sessionInfo.region ? `, ${sessionInfo.region}` : ''}` : 'Unavailable'}</span></>}</div></div><div className="staff-session-last"><span className="staff-session-eyebrow">Last sign-in</span><time dateTime={user?.last_sign_in_at || undefined}>{formatSignIn(user?.last_sign_in_at)}</time><p>Based on your account activity.</p></div></section></header>
-        <div className="staff-settings-grid">
-          <label className="staff-settings-field" htmlFor="current-password"><span>Current password</span><input id="current-password" type="password" value={passwords.current} onChange={(event) => setPasswords((current) => ({ ...current, current: event.target.value.slice(0, 32) }))} autoComplete="current-password" maxLength="32" required /></label>
-          <label className="staff-settings-field" htmlFor="new-password"><span>New password</span><input id="new-password" type="password" value={passwords.password} onChange={(event) => setPasswords((current) => ({ ...current, password: event.target.value.slice(0, 32) }))} autoComplete="new-password" minLength="8" maxLength="32" pattern=".{8,32}" required /><small>Use 8–32 characters.</small></label>
-          <label className="staff-settings-field" htmlFor="confirm-password"><span>Confirm new password</span><input id="confirm-password" type="password" value={passwords.confirm} onChange={(event) => setPasswords((current) => ({ ...current, confirm: event.target.value.slice(0, 32) }))} autoComplete="new-password" minLength="8" maxLength="32" pattern=".{8,32}" required /></label>
+        <header className="staff-security-header"><span className="staff-settings-icon"><LockKeyhole size={19} /></span><div><h2>Security</h2></div></header>
+        <div className={`staff-security-layout ${role === 'admin' ? 'is-admin' : 'is-staff'}`}>
+          {role === 'admin' && <section className="staff-security-mfa" aria-labelledby="admin-mfa-title">
+            <div className="staff-security-section-icon"><Shield size={21} /></div>
+            <div className="staff-security-section-copy"><div className="staff-security-title-row"><h3 id="admin-mfa-title">MFA for new devices</h3><span className="staff-security-status is-off">Off</span></div><div className="staff-security-meta"><span><Smartphone size={15} />Authenticator app</span><span><KeyRound size={15} />Recovery codes</span></div></div>
+            <button className="ops-main-action staff-security-preview-action" type="button" disabled title="MFA setup will be connected in a later update"><ShieldCheck size={16} />Set up MFA</button>
+          </section>}
+
+          <section className="staff-security-sessions" aria-labelledby="security-sessions-title">
+            <header><h3 id="security-sessions-title">Login sessions</h3><div className="staff-session-counts" aria-label="Session summary"><span><b>{activeSessions.length}</b> Active</span><span><b>{inactiveSessions.length}</b> Inactive</span></div></header>
+            <div className="staff-security-session-list">
+              {sessions.loading && <div className="staff-security-empty-session"><Clock3 size={17} /><b>Loading sessions…</b></div>}
+              {!sessions.loading && sessions.records.map((item) => <article className="staff-security-session-row" key={item.id}>
+                <span className="staff-security-device-icon"><Monitor size={19} /></span>
+                <div className="staff-security-session-main"><div><h4>{item.browser} · {item.operating_system}</h4><span className={`staff-security-status ${item.signed_out_at ? 'is-off' : 'is-active'}`}>{item.signed_out_at ? 'Inactive' : 'Active'}</span></div><p>{item.device_type}</p></div>
+                <div className="staff-security-session-facts"><span>IP {item.ip_address || 'Unavailable'}</span><span><Clock3 size={14} />Signed in {formatSignIn(item.signed_in_at)}</span></div>
+                {item.isCurrent && !item.signed_out_at && <span className="staff-security-current">Current</span>}
+              </article>)}
+              {!sessions.loading && sessions.records.length === 0 && <div className="staff-security-empty-session"><Clock3 size={17} /><b>No saved sessions</b></div>}
+            </div>
+          </section>
+
+          <section className="staff-security-password" aria-labelledby="security-password-title">
+            <header><span className="staff-security-section-icon"><KeyRound size={19} /></span><h3 id="security-password-title">Change password</h3></header>
+            <div className="staff-settings-grid">
+              <label className="staff-settings-field" htmlFor="current-password"><span>Current password</span><input id="current-password" type="password" value={passwords.current} onChange={(event) => setPasswords((current) => ({ ...current, current: event.target.value.slice(0, 32) }))} autoComplete="current-password" maxLength="32" required /></label>
+              <label className="staff-settings-field" htmlFor="new-password"><span>New password</span><input id="new-password" type="password" value={passwords.password} onChange={(event) => setPasswords((current) => ({ ...current, password: event.target.value.slice(0, 32) }))} autoComplete="new-password" minLength="8" maxLength="32" pattern=".{8,32}" required /><small>Use 8–32 characters.</small></label>
+              <label className="staff-settings-field" htmlFor="confirm-password"><span>Confirm new password</span><input id="confirm-password" type="password" value={passwords.confirm} onChange={(event) => setPasswords((current) => ({ ...current, confirm: event.target.value.slice(0, 32) }))} autoComplete="new-password" minLength="8" maxLength="32" pattern=".{8,32}" required /></label>
+            </div>
+            <footer className="staff-security-actions"><button className="ops-main-action" type="submit" disabled={saving === 'password'}><LockKeyhole size={16} />{saving === 'password' ? 'Updating…' : 'Update password'}</button></footer>
+          </section>
         </div>
-        <footer className="staff-security-actions"><p className="staff-security-help">{role === 'admin' ? 'Forgot your current password? Use account recovery or ask another administrator for help.' : 'Forgot your current password? Contact an administrator to reset your account access.'}</p><button className="ops-main-action" type="submit" disabled={saving === 'password'}><LockKeyhole size={16} />{saving === 'password' ? 'Updating…' : 'Update password'}</button></footer>
       </form>}
       </div>
     </section>}

@@ -558,6 +558,16 @@ html[data-staff-motion="reduce"] .app-layout:is(.legacy-staff,.legacy-admin) *,h
 .app-layout.legacy-admin[data-theme="dark"] :is(.staff-settings-card,.staff-workspace-group,.staff-session-details) :is(h2,h3,b,strong){color:var(--mgmt-heading)}
 .app-layout.legacy-admin[data-theme="dark"] :is(.staff-settings-card,.staff-workspace-group,.staff-session-details) :is(p,small,span){color:var(--mgmt-muted)}
 .app-layout.legacy-admin[data-theme="dark"] .staff-settings-field{color:var(--mgmt-text)}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .staff-security-layout{background:var(--mgmt-canvas)}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(.staff-security-mfa,.staff-security-sessions,.staff-security-password){border-color:var(--mgmt-border);background:var(--mgmt-surface);box-shadow:none}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(.staff-security-title-row h3,.staff-security-sessions h3,.staff-security-password h3,.staff-security-session-main h4){color:var(--mgmt-heading)}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(.staff-security-section-copy>p,.staff-security-sessions>header p,.staff-security-password>header p,.staff-security-session-main p,.staff-security-session-facts,.staff-security-meta span,.staff-security-empty-session small){color:var(--mgmt-muted)}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(.staff-security-section-icon,.staff-security-device-icon,.staff-session-counts span){background:var(--mgmt-hover);color:var(--mgmt-primary)}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .staff-session-counts b{color:var(--mgmt-heading)}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .staff-security-empty-session{border-color:var(--mgmt-border);background:var(--mgmt-subtle)}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .staff-security-empty-session b{color:var(--mgmt-text)}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .staff-security-status.is-off{border-color:#6f5b34;background:#342d20;color:#f0cf8c}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .staff-security-status.is-active{border-color:#315e43;background:#1c3828;color:#a9dfba}
 
 .app-layout.legacy-staff[data-theme="dark"] .ops-cancel-group.tone-gold{border-color:color-mix(in srgb,#d5af67 34%,var(--mgmt-border));background:linear-gradient(145deg,color-mix(in srgb,#d5af67 7%,var(--mgmt-surface)),var(--mgmt-elevated))}
 .app-layout.legacy-staff[data-theme="dark"] .ops-cancel-group.tone-gold:before{background:#d5af67}

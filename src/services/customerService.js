@@ -1,4 +1,4 @@
-import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { customerSupabase as supabase, isSupabaseConfigured } from '../lib/supabase'
 import { dispatchOrderEmails } from './orderEmailService'
 import { IMAGE_UPLOAD_ACCEPT, validateImageFile } from '../utils/imageUpload'
 import { isValidEmail, isValidPhone, sanitizePersonName, sanitizePhone, sanitizeUsername } from '../utils/inputValidation'

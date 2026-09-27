@@ -22,7 +22,14 @@ html,body,#realm-tour-root{height:100%;margin:0}body{background:#201e16}button,a
 @media(max-width:640px){.tour-hud{height:72px;padding-left:17px;padding-right:17px;grid-template-columns:1fr auto 1fr;gap:8px}.tour-exit{font-size:10px;gap:4px}.tour-exit svg{width:14px}.tour-wordmark{font-size:17px}.tour-wordmark span{font-size:7px;letter-spacing:.15em}.tour-hud-right{gap:4px}.tour-counter{min-width:0}.tour-counter span{font-size:8px}.tour-counter b{display:none}.tour-motion{width:34px;height:44px;border:0}.tour-rail{display:none}.tour-environment{padding:110px 25px 90px}.tour-environment h1{font-size:clamp(54px,13vw,80px);letter-spacing:-.06em}.tour-tagline{font-size:16px;margin-top:22px!important}.tour-kicker{font-size:8px;letter-spacing:.14em;margin-bottom:17px}.tour-tiny-line{width:22px}.tour-explore{margin-top:28px}.tour-scene-footer{padding:22px 25px 50px;font-size:8px}.tour-scene-footer b{font-size:7px}.tour-product-layout{grid-template-columns:1fr;grid-template-rows:auto 1fr;min-height:100svh;padding:99px 26px 67px;gap:7px}.tour-product-copy h2{font-size:clamp(45px,11.4vw,69px);max-width:95%;line-height:1}.tour-theme-oat h2{font-size:clamp(40px,10vw,58px)}.tour-product-copy .tour-kicker{margin-bottom:10px}.tour-product-details{margin-top:14px;padding-top:10px;max-width:calc(100% - 58px)}.tour-product-details p{font-size:12px;margin-top:4px}.tour-next{position:absolute;right:0;bottom:0;font-size:0;min-width:44px;min-height:44px;justify-content:center;margin:0;border:1px solid color-mix(in srgb,var(--ink) 30%,transparent);border-radius:50%}.tour-next svg{width:16px}.tour-product-stage{height:clamp(230px,43svh,410px);align-self:center;padding:8px 0}.tour-shape-drink .tour-cutout{max-width:70%}.tour-shape-plate .tour-cutout{max-width:90%}.tour-shape-cookie .tour-cutout{max-height:92%;max-width:85%}.tour-badge-anchor{right:0;top:12%}.tour-product:nth-of-type(even) .tour-badge-anchor{bottom:10%}.tour-floating-badge{font-size:9px;padding:10px 13px}.tour-product-footer{padding:20px 26px 47px;font-size:8px}.tour-watermark{font-size:78vw;top:53%;right:6%}.tour-preview-stamp{font-size:7px;bottom:10px;padding:5px 8px}.tour-closing-copy h2{font-size:clamp(60px,15vw,88px)}.tour-closing-copy>p{font-size:15px}.tour-cta{padding:0 18px;font-size:12px}.tour-closing-copy .tour-cta-notice{font-size:10px}}
 @media(max-width:640px) and (max-height:700px){.tour-product-layout{padding-top:88px;padding-bottom:62px;gap:0}.tour-product-copy h2{font-size:42px;max-width:90%}.tour-theme-oat h2{font-size:36px}.tour-product-copy .tour-kicker{margin-bottom:7px}.tour-product-stage{height:32svh;min-height:180px}.tour-product-details{margin-top:10px;padding-top:8px}.tour-product-footer{padding-bottom:42px}.tour-environment h1{font-size:54px}.tour-closing-copy h2{font-size:54px}.tour-closing-copy>p{margin-top:16px}.tour-closing-copy .tour-kicker{margin-bottom:12px}}
 @media(min-width:641px) and (max-height:600px){.tour-product-layout{padding-top:96px;padding-bottom:62px}.tour-product-copy h2{font-size:56px}.tour-theme-oat h2{font-size:48px}.tour-product-stage{height:58svh}.tour-product-details{margin-top:16px;padding-top:12px}.tour-next{margin-top:14px}.tour-environment{padding-top:102px;padding-bottom:72px}.tour-environment h1,.tour-closing-copy h2{font-size:62px}.tour-closing-copy>p{margin-top:12px}.tour-closing-copy .tour-kicker{margin-bottom:10px}}
-@media(prefers-reduced-motion:reduce){.realm-product-tour *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+/* Keep the tour within the layout viewport on mobile, including after pinch zoom. */
+html,body,#realm-tour-root{width:100%;height:100%;min-height:100%;max-width:100%;margin:0}
+html{background:#201e16;overflow:hidden;-webkit-text-size-adjust:100%}
+body{background:#201e16;overflow:hidden;overscroll-behavior:none}
+#realm-tour-root,.realm-product-tour{width:100%;max-width:100%;min-width:0;overflow:hidden}
+.realm-product-tour{height:100%;min-height:100%}
+.tour-scroll{width:100%;max-width:100%;height:100%;min-height:100%;max-height:100%;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.tour-section,.tour-environment,.tour-product-layout{width:100%;max-width:100%;min-height:100%}
 
 /* BEGIN TOUR POLISH — HUD actions and a once-per-mount hero reveal. */
 .tour-hud-start { display: flex; align-items: center; gap: 22px; }
@@ -48,12 +55,6 @@ html,body,#realm-tour-root{height:100%;margin:0}body{background:#201e16}button,a
 .is-reduced .tour-entry-veil { display: none; }
 .is-reduced .tour-hero-tilt { transform: none !important; will-change: auto; }
 .is-reduced .tour-mini-cta, .is-reduced .tour-rail-label { transition: none; }
-@media (prefers-reduced-motion: reduce) {
-  .tour-hero-reveal { animation: none !important; }
-  .tour-entry-veil { display: none !important; }
-  .tour-hero-tilt { transform: none !important; will-change: auto; }
-  .tour-mini-cta, .tour-rail-label { transition: none !important; }
-}
 @media (hover: none), (pointer: coarse) { .tour-hero-tilt { transform: none !important; will-change: auto; } }
 /* END TOUR POLISH */
 
@@ -153,10 +154,6 @@ html,body,#realm-tour-root{height:100%;margin:0}body{background:#201e16}button,a
 .is-reduced .tour-gallery .tour-gallery-print { transform: none; transition: none; }
 .is-reduced .tour-gallery-controls button { transition: none; }
 .is-reduced .tour-gallery :is(.tour-gallery-deal, .tour-gallery-intro > *) { opacity: 1 !important; transform: none !important; }
-@media (prefers-reduced-motion: reduce) {
-  .tour-gallery .tour-gallery-print { transform: none !important; }
-  .tour-gallery :is(.tour-gallery-deal, .tour-gallery-intro > *) { opacity: 1 !important; transform: none !important; }
-}
 /* END REALM GALLERY */
 
 /* BEGIN FLAVOR PLAY — all layout, color, and motion are scoped to this section. */
@@ -269,11 +266,6 @@ html,body,#realm-tour-root{height:100%;margin:0}body{background:#201e16}button,a
 .is-reduced .tour-flavor :is(.tour-flavor-bubble, .tour-flavor-cup-entry, .tour-flavor-depth, .tour-flavor-intro > *) { transform: none !important; opacity: 1 !important; }
 .is-reduced .tour-flavor-bubble button, .is-reduced .tour-flavor-bubble button::before { transition: none; }
 .is-reduced .tour-flavor-splash { display: none; }
-@media (prefers-reduced-motion: reduce) {
-  .tour-flavor :is(.tour-flavor-drift, .tour-flavor-bob), .tour-flavor-cup > img { animation: none !important; transform: none !important; }
-  .tour-flavor :is(.tour-flavor-bubble, .tour-flavor-cup-entry, .tour-flavor-depth, .tour-flavor-intro > *) { transform: none !important; opacity: 1 !important; }
-  .tour-flavor-splash { display: none; }
-}
 /* END FLAVOR PLAY */
 
 /* BEGIN CAKE WHEEL — isolated scene, including its mobile and motion fallbacks. */
@@ -381,12 +373,6 @@ html,body,#realm-tour-root{height:100%;margin:0}body{background:#201e16}button,a
 .is-reduced .tour-cake-wheel :is(.tour-cake-arrival, .tour-cake-swing, .tour-cake-atmosphere i) { animation: none !important; opacity: 1; transform: none !important; transition: none; }
 .is-reduced .tour-cake-wheel .tour-cake-marquee { animation: none; opacity: .65; }
 .is-reduced .tour-cake-wheel .tour-cake-window img { transform: scale(1.38) !important; transition: none; }
-@media (prefers-reduced-motion: reduce) {
-  .tour-cake-wheel :is(.tour-cake-rotor, .tour-cake-counterspin) { animation: none !important; transform: none !important; will-change: auto !important; }
-  .tour-cake-wheel :is(.tour-cake-arrival, .tour-cake-swing, .tour-cake-atmosphere i) { animation: none !important; opacity: 1 !important; transform: none !important; }
-  .tour-cake-wheel .tour-cake-marquee { animation: none !important; opacity: .65; }
-  .tour-cake-wheel .tour-cake-window img { transform: scale(1.38) !important; }
-}
 /* END CAKE WHEEL */
 
 /* BEGIN PASTA CHAPTER — isolated scene, motion and ingredient-card styles. */
@@ -499,14 +485,10 @@ html,body,#realm-tour-root{height:100%;margin:0}body{background:#201e16}button,a
   .tour-pasta-footer > span:first-child { display: none; }
   .tour-pasta-steam { filter: blur(1.5px); }
 }
-/* CSS also covers the first paint, before the system preference hook resolves. */
+/* React's motion state follows the device preference until the visitor opts in. */
 .is-reduced .tour-pasta :is(.tour-pasta-wisp, .tour-pasta-bulb, .tour-pasta-lamp, .tour-pasta-plate, .tour-pasta-badge, .tour-pasta-dish-name > span) { animation: none !important; transition: none !important; transform: none !important; }
 .is-reduced .tour-pasta .tour-pasta-wisp { opacity: .22; will-change: auto; }
 .is-reduced .tour-pasta .tour-pasta-lamp { opacity: 1; }
-@media (prefers-reduced-motion: reduce) {
-  .tour-pasta :is(.tour-pasta-wisp, .tour-pasta-bulb, .tour-pasta-lamp, .tour-pasta-plate, .tour-pasta-badge, .tour-pasta-dish-name > span) { animation: none !important; transition: none !important; transform: none !important; }
-  .tour-pasta .tour-pasta-wisp { opacity: .22; will-change: auto !important; }
-  .tour-pasta :is(.tour-pasta-lamp, .tour-pasta-intro > *, .tour-pasta-dish-entry, .tour-pasta-steam, .tour-pasta-profile) { opacity: 1 !important; transform: none !important; }
-  .tour-pasta-ribbon path { stroke-dasharray: none !important; stroke-dashoffset: 0 !important; }
-}
+.is-reduced .tour-pasta :is(.tour-pasta-intro > *, .tour-pasta-dish-entry, .tour-pasta-steam, .tour-pasta-profile) { opacity: 1 !important; transform: none !important; }
+.is-reduced .tour-pasta-ribbon path { stroke-dasharray: none !important; stroke-dashoffset: 0 !important; }
 /* END PASTA CHAPTER */

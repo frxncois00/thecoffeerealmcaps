@@ -13,5 +13,19 @@ console.info('[Supabase config] startup ' + JSON.stringify({
 const url = import.meta.env.VITE_SUPABASE_URL || fallbackUrl
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || fallbackAnonKey
 
-export const supabase = url && anonKey ? createClient(url, anonKey) : null
-export const isSupabaseConfigured = Boolean(supabase)
+const makeClient = (storageKey, detectSessionInUrl = false) => url && anonKey ? createClient(url, anonKey, {
+  auth: {
+    storageKey,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl,
+  },
+}) : null
+
+export const portalSupabase = makeClient('coffee-realm-portal-auth')
+export const customerSupabase = makeClient('coffee-realm-customer-auth', true)
+
+// Existing internal services keep using this export. Customer-facing modules
+// import customerSupabase explicitly so the two sessions cannot overwrite one another.
+export const supabase = portalSupabase
+export const isSupabaseConfigured = Boolean(portalSupabase && customerSupabase)

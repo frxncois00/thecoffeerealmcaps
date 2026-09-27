@@ -1,9 +1,9 @@
 import { ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck, User, UserPlus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { isCustomerRole, normalizeRole, roleRoutes } from '../lib/auth'
+import { isCustomerRole } from '../lib/auth'
 import { queueAuthWelcome } from '../lib/authFeedback'
-import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { customerSupabase as supabase, isSupabaseConfigured } from '../lib/supabase'
 import { EMAIL_MAX_LENGTH, isValidEmail, isValidPassword, sanitizeUsername } from '../utils/inputValidation'
 
 const otpDigits = 6
@@ -18,6 +18,7 @@ function googleCallbackUrl() {
 export default function CustomerLoginPage({ initialMode = 'login' }) {
   const navigate = useNavigate()
   const location = useLocation()
+  const authContainerRef = useRef(null)
   const verificationOtpRefs = useRef([])
   const forgotOtpRefs = useRef([])
   const [mode, setMode] = useState(initialMode)
@@ -36,6 +37,25 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
   const [authError, setAuthError] = useState(location.state?.authError || '')
   const [loading, setLoading] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
+
+  useEffect(() => {
+    let resizeTimer
+
+    const handleResize = () => {
+      const container = authContainerRef.current
+      if (!container) return
+
+      container.classList.add('is-resizing')
+      window.clearTimeout(resizeTimer)
+      resizeTimer = window.setTimeout(() => container.classList.remove('is-resizing'), 180)
+    }
+
+    window.addEventListener('resize', handleResize, { passive: true })
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      window.clearTimeout(resizeTimer)
+    }
+  }, [])
 
   async function continueWithGoogle() {
     setAuthError('')
@@ -137,14 +157,12 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
     const resolvedRole = profile?.role || (isUsernameLogin ? authData.user.user_metadata?.role : '')
     if (profileError || (!profile && !isCustomerRole(resolvedRole))) {
       await supabase.auth.signOut()
-      return setAuthError('We could not verify this customer account. Please try again or contact support.')
+      return setAuthError('Invalid username, email, or password.')
     }
 
     if (!isCustomerRole(resolvedRole)) {
-      const portalRoute = roleRoutes[normalizeRole(resolvedRole)]
-      if (portalRoute) return navigate(portalRoute, { replace: true })
       await supabase.auth.signOut()
-      return setAuthError('This account is not registered as a customer. Please use the correct sign-in portal.')
+      return setAuthError('Invalid username, email, or password.')
     }
 
     queueAuthWelcome(authData?.user?.user_metadata)
@@ -294,7 +312,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
     <main className="legacy-customer-auth-page">
       <Link className="legacy-auth-home" to="/"><ArrowLeft size={17} /> Back to Home</Link>
 
-      <section className={`legacy-auth-container ${mode === 'register' ? 'active' : ''}`}>
+      <section ref={authContainerRef} className={`legacy-auth-container ${mode === 'register' ? 'active' : ''}`}>
         <div className="legacy-auth-form login">
           <form onSubmit={submitLogin} autoComplete="off">
             <h1>Customer Login</h1>

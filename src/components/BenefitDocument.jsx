@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
 import { benefitDocumentUrl } from '../services/benefitsService'
 
 export default function BenefitDocument({ path }) {
+  const { authScope } = useAuth()
   const [url, setUrl] = useState('')
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)
   useEffect(() => {
     let active = true
     setUrl(''); setError('')
-    if (path) benefitDocumentUrl(path).then(value => { if (active) setUrl(value) }).catch(() => { if (active) setError('The ID image could not be loaded.') })
+    if (path) benefitDocumentUrl(path, authScope).then(value => { if (active) setUrl(value) }).catch(() => { if (active) setError('The ID image could not be loaded.') })
     return () => { active = false }
-  }, [path, retry])
+  }, [authScope, path, retry])
   if (!path) return null
   return <div className="benefit-document">
     {error ? <p role="alert">{error}</p> : url ? <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="Submitted verification ID" onError={() => setError('The image link has expired or could not load.')} /><span>Open full-size ID</span></a> : <p role="status">Loading ID image…</p>}

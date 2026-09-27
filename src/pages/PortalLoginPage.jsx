@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { normalizeRole, roleRoutes, signInPortal } from '../lib/auth'
 import { queueAuthWelcome } from '../lib/authFeedback'
 import { fetchStaffPreferences } from '../services/staffSettingsService'
+import { recordPortalSession } from '../services/portalSessionService'
 import { EMAIL_MAX_LENGTH } from '../utils/inputValidation'
 
 export default function PortalLoginPage() {
@@ -24,6 +25,7 @@ export default function PortalLoginPage() {
 
     try {
       const { profile } = await signInPortal({ identifier, password, role })
+      try { await recordPortalSession() } catch { /* Sign-in remains available if session logging is temporarily unavailable. */ }
       const normalizedRole = normalizeRole(profile.role || role)
       let target = location.state?.from || roleRoutes[normalizedRole] || roleRoutes[role] || '/portal'
       if (!location.state?.from && ['staff', 'operational_staff'].includes(normalizedRole)) {

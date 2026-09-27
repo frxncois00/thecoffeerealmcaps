@@ -50,6 +50,16 @@ export default function CustomerLayout() {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
+  useEffect(() => {
+    const resetHorizontalPageScroll = () => {
+      if (window.scrollX !== 0) window.scrollTo(0, window.scrollY)
+    }
+
+    resetHorizontalPageScroll()
+    window.addEventListener('resize', resetHorizontalPageScroll, { passive: true })
+    return () => window.removeEventListener('resize', resetHorizontalPageScroll)
+  }, [location.pathname])
+
   async function logout() {
     if (loggingOut) return
     setLoggingOut(true)
@@ -67,6 +77,10 @@ export default function CustomerLayout() {
     <div className="customer-app">
       <header className={`customer-header${scrolled ? ' is-scrolled' : ''}`}>
         <div className="customer-brand"><Brand /></div>
+        <button className="mobile-cart" type="button" onClick={cart.openCart} aria-label={`Open cart${cart.itemCount ? `, ${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}` : ''}`} aria-haspopup="dialog">
+          <ShoppingBag size={19} />
+          {cart.itemCount > 0 && <b aria-hidden="true">{cart.itemCount}</b>}
+        </button>
         <button
           className="mobile-menu"
           onClick={() => setOpen((value) => !value)}
