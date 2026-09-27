@@ -1,12 +1,24 @@
-// EDITORIAL TODO: replace every placeholder before publishing this preview.
-// No price, description, or availability here is connected to production data.
+// Price and description snapshot verified against non-archived public.menu_items
+// by exact name on 2026-09-27. Cake names below match whole-cake listings;
+// "Slice of ..." entries are separate menu items. Availability is not synchronized.
 export const products = [
-  { id: 'beef-tapa', name: 'Beef Tapa', category: 'Meals', badge: 'Comfort food', theme: 'clay', shape: 'plate', price: '\u20b1000', description: '[ADD DESCRIPTION]' },
-  { id: 'biscoff-latte', name: 'Biscoff Latte', category: 'Coffee', badge: 'From the bar', theme: 'caramel', shape: 'drink', word: 'sip', price: '\u20b1000', description: '[ADD DESCRIPTION]' },
-  { id: 'red-velvet-cake', name: 'Red Velvet Cake', category: 'Cakes', badge: 'Cake time', theme: 'wine', shape: 'cake', word: 'velvet', price: '\u20b1000', description: '[ADD DESCRIPTION]' },
-  { id: 'smores', name: 'Smores', category: 'Cookies', badge: 'A sweet pause', theme: 'cocoa', shape: 'cookie', word: 'pause', price: '\u20b1000', description: '[ADD DESCRIPTION]' },
-  { id: 'biscoff-burnt-cheesecake', name: 'Biscoff Burnt Cheesecake', category: 'Cakes', badge: 'One last slice', theme: 'oat', shape: 'cake', price: '\u20b1000', description: '[ADD DESCRIPTION]' },
+  { id: 'beef-tapa', name: 'Beef Tapa', category: 'Meals', badge: 'Comfort food', theme: 'clay', shape: 'plate', price: '\u20b1176', description: 'Plain rice, classic beef tapa, fried egg' },
+  { id: 'biscoff-latte', name: 'Biscoff Latte', category: 'Coffee', badge: 'From the bar', theme: 'caramel', shape: 'drink', word: 'sip', price: '\u20b1210', description: 'Biscoff spread, milk, espresso shot, biscoff foam, biscoff cookie' },
+  { id: 'red-velvet-cake', name: 'Red Velvet Cake', category: 'Cakes', badge: 'Cake time', theme: 'wine', shape: 'cake', word: 'velvet', price: '\u20b12,400', priceUnit: 'whole cake', description: 'Classic red velvet with smooth cream cheese frosting' },
+  { id: 'smores', name: 'Smores', category: 'Cookies', badge: 'A sweet pause', theme: 'cocoa', shape: 'cookie', word: 'pause', price: '\u20b1100', description: 'Chocolatey cookie with marshmallow filling' },
+  { id: 'biscoff-burnt-cheesecake', name: 'Biscoff Burnt Cheesecake', category: 'Cakes', badge: 'One last slice', theme: 'oat', shape: 'cake', price: '\u20b12,600', priceUnit: 'whole cake', description: 'Creamy burnt cheesecake topped with rich Biscoff spread and cookie crumbs' },
 ].map(product => ({ ...product, image: `/images/realm-tour/${product.id}.png` }))
+
+// BEGIN PASTA CHAPTER — public.menu_items.description snapshot, verified 2026-09-27.
+// Exact live names: Alfredo, Pesto, Spicy Peanut, Mac and Cheese. No ingredients
+// inferred from the photos or from a generic recipe; the public BOM relation is empty.
+export const pastaDishes = [
+  { id: 'alfredo', name: 'Alfredo', file: 'Alfredopasta.png', ingredients: ['Fettuccine pasta', 'toasted loaf', 'white sauce', 'chicken tenders'] },
+  { id: 'pesto', name: 'Pesto', file: 'Pestopasta.png', ingredients: ['Penne pasta', 'toasted loaf', 'pesto sauce (basil and pine nuts)'] },
+  { id: 'spicy-peanut', name: 'Spicy Peanut', file: 'SpicyPeanutpasta.png', ingredients: ['Knife-cut noodles', 'homemade chili peanut sauce'] },
+  { id: 'mac-and-cheese', name: 'Mac and Cheese', file: 'MacandCheesepasta.png', ingredients: ['Macaroni pasta', 'toasted loaf', 'cheesy sauce'] },
+]
+// END PASTA CHAPTER
 
 // Interactive flavor section only. Keep the transparent artwork as supplied.
 export const flavors = [
@@ -14,6 +26,20 @@ export const flavors = [
   { id: 'darkwhite-chocolate', name: 'Dark White Chocolate', word: 'chocolate', cup: 'darkwhite-chocolate-cup.png', bubble: 'darkwhite-chocolate-bubble.png', color: '#c1a087', mist: '#fbebd5', accent: '#69432e', width: 1122, height: 1402 },
   { id: 'strawberry-milk', name: 'Strawberry Milk', word: 'strawberry', cup: 'strawberry-milk-cup.png', bubble: 'strawberry-milk-bubble.png', color: '#d3a3a3', mist: '#f9e1d7', accent: '#8b414b', width: 1023, height: 1538 },
 ]
+
+// BEGIN CAKE WHEEL — explicit public assets, in gondola order.
+export const cakeSlices = [
+  { file: 'cake1.jpg', alt: 'Red velvet cake slice with layers of cream frosting' },
+  { file: 'cake2.jpg', alt: 'Creamy cheesecake slice with a golden burnt top' },
+  { file: 'cake3.jpg', alt: 'Cheesecake slice topped with biscuit crumbs and a Biscoff cookie' },
+  { file: 'cake4.jpg', alt: 'Cheesecake slice with a glossy caramel topping' },
+  { file: 'cake5.jpg', alt: 'Cheesecake slice with dark berry topping and cream' },
+  { file: 'cake6.jpg', alt: 'Layered carrot cake slice with cream frosting and a tiny carrot decoration' },
+  { file: 'cake7.jpg', alt: 'Green matcha cheesecake slice dusted with matcha powder' },
+  { file: 'cake8.jpg', alt: 'Cake slice with banana pieces, chocolate drizzle, and chopped nuts' },
+  { file: 'cake9.jpg', alt: 'Purple cheesecake slice with a caramelized top' },
+]
+// END CAKE WHEEL
 
 export const environment = {
   opening: '/images/realm-tour/storefront-facade.jpg',
