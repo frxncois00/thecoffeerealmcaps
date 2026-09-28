@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion, useInView, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion'
-import { ArrowDown, ArrowLeft, ArrowRight, ChefHat, Coffee, Flame, Leaf, MapPin, Pause, Play, UtensilsCrossed, X } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowRight, ChefHat, Coffee, Flame, Heart, Leaf, MapPin, Pause, Play, UtensilsCrossed, X } from 'lucide-react'
 import { cakeSlices, environment, flavors, galleryPhotos, pastaDishes, products } from './products'
+import { store } from '../../src/data/mockData'
 
 // Section order is separate from collection numbering: flavors are an interlude.
-const pastaAfterIndex = products.findIndex(product => product.id === 'smores')
+const pastaAfterIndex = products.findIndex(product => product.id === 'red-velvet-cake')
 const collectionCount = products.length + 1
 const tourStops = products.flatMap((product, index) => {
   const stop = { ...product, productNumber: index + 1 + Number(index > pastaAfterIndex) }
@@ -18,6 +19,83 @@ const closingIndex = galleryIndex + 1
 const chapters = ['Welcome', 'The Cake Wheel', ...tourStops.map(stop => stop.name), 'Around the Realm', 'See you soon']
 const number = value => String(value).padStart(2, '0')
 
+// BEGIN TOUR POLISH — shared local interactions; no menu mutations or persistence.
+function MagneticAction({ reduced, className = '', children, href, ...props }) {
+  const element = useRef(null)
+  const x = useSpring(0, { stiffness: 230, damping: 22, mass: .3 })
+  const y = useSpring(0, { stiffness: 230, damping: 22, mass: .3 })
+
+  useEffect(() => {
+    if (reduced) { x.jump(0); y.jump(0); return }
+    const button = element.current
+    const pointer = window.matchMedia('(hover: hover) and (pointer: fine)')
+    let bounds = null
+    const reset = () => { bounds = null; x.set(0); y.set(0) }
+    const move = event => {
+      if (!pointer.matches || event.pointerType !== 'mouse') return
+      // Cache the resting rect so following the cursor never feeds back on itself.
+      bounds ??= button.getBoundingClientRect()
+      x.set(Math.max(-5, Math.min(5, (event.clientX - bounds.left - bounds.width / 2) * .12)))
+      y.set(Math.max(-4, Math.min(4, (event.clientY - bounds.top - bounds.height / 2) * .16)))
+    }
+    button.addEventListener('pointermove', move, { passive: true })
+    button.addEventListener('pointerleave', reset)
+    button.addEventListener('pointercancel', reset)
+    button.addEventListener('blur', reset)
+    button.addEventListener('click', reset)
+    pointer.addEventListener('change', reset)
+    return () => {
+      button.removeEventListener('pointermove', move)
+      button.removeEventListener('pointerleave', reset)
+      button.removeEventListener('pointercancel', reset)
+      button.removeEventListener('blur', reset)
+      button.removeEventListener('click', reset)
+      pointer.removeEventListener('change', reset)
+      reset()
+    }
+  }, [reduced, x, y])
+
+  const Tag = href ? motion.a : motion.button
+  return <Tag ref={element} href={href} type={href ? undefined : 'button'} className={`tour-magnetic ${className}`} style={reduced ? { x: 0, y: 0 } : { x, y }} {...props}>{children}</Tag>
+}
+
+const saveParticles = Array.from({ length: 6 }, (_, index) => {
+  const angle = (index * 60 - 90) * Math.PI / 180
+  return { '--particle-x': `${Math.cos(angle) * 29}px`, '--particle-y': `${Math.sin(angle) * 29}px` }
+})
+
+function SaveToggle({ itemId, name, reduced, className = '' }) {
+  // A single flavor control remembers each cup independently when its itemId changes.
+  const [savedItems, setSavedItems] = useState({})
+  const [burst, setBurst] = useState(null)
+  const serial = useRef(0)
+  const saved = Boolean(savedItems[itemId])
+  const bursting = !reduced && burst?.itemId === itemId
+  useEffect(() => { setBurst(null) }, [itemId, reduced])
+
+  function toggle() {
+    setSavedItems(current => ({ ...current, [itemId]: !current[itemId] }))
+    if (!reduced) setBurst({ itemId, serial: ++serial.current })
+  }
+
+  return <button type="button" className={`tour-save ${className}`} aria-label={`Save ${name}`} aria-pressed={saved}
+    title={saved ? `Unsave ${name}` : `Save ${name}`} onClick={toggle}>
+    <Heart key={bursting ? `heart-${burst.serial}` : 'still'} className={bursting ? 'tour-save-pop' : undefined} size={18} strokeWidth={1.6} aria-hidden="true" />
+    {bursting && <span key={`burst-${burst.serial}`} className="tour-save-burst" aria-hidden="true" onAnimationEnd={event => {
+      if (event.animationName === 'tour-save-scatter') setBurst(null)
+    }}>{saveParticles.map((style, index) => <i key={index} style={style} />)}</span>}
+  </button>
+}
+
+function WordmarkCup() {
+  return <svg className="tour-wordmark-cup" width="26" height="32" viewBox="0 0 26 32" fill="none" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M4 17h15v7a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z M19 18h2a3 3 0 0 1 0 6h-2 M3 31h18" />
+    <g className="tour-wordmark-steam"><path d="M7 14c-4-3 4-5 0-8" /><path d="M12 13c-4-3 4-5 0-8" /><path d="M17 14c-4-3 4-5 0-8" /></g>
+  </svg>
+}
+
+// END TOUR POLISH
+
 export default function RealmProductTour() {
   const container = useRef(null)
   const systemReduced = useReducedMotion()
@@ -26,7 +104,6 @@ export default function RealmProductTour() {
   const reduced = Boolean(paused || (systemReduced && !motionOverride))
   const [active, setActive] = useState(0)
   const [heroVisible, setHeroVisible] = useState(true)
-  const [notice, setNotice] = useState('')
   const { scrollYProgress } = useScroll({ container })
 
   useEffect(() => {
@@ -82,12 +159,6 @@ export default function RealmProductTour() {
     }
   }, [goTo])
 
-  function placeholderAction(action) {
-    // TODO: supply the approved menu URL and location URL before publishing.
-    // These intentionally do not guess or navigate to production routes.
-    setNotice(`${action}: preview only. Destination has not been configured yet.`)
-  }
-
   function toggleMotion() {
     if (systemReduced && !motionOverride) {
       setMotionOverride(true)
@@ -103,7 +174,7 @@ export default function RealmProductTour() {
         <a className="tour-exit inline-flex items-center gap-2 justify-self-start" href="/"><ArrowLeft size={16} /><span>Exit Tour</span></a>
         <a className="tour-mini-cta" href="/menu" data-visible={!heroVisible} tabIndex={heroVisible ? -1 : undefined} aria-hidden={heroVisible}>View menu <ArrowRight size={13} /></a>
       </div>
-      <a href="#welcome" onClick={event => { event.preventDefault(); goTo(0) }} className="tour-wordmark justify-self-center">The Coffee Realm<span>THE REALM TOUR</span></a>
+      <a href="#welcome" onClick={event => { event.preventDefault(); goTo(0) }} className="tour-wordmark justify-self-center"><WordmarkCup />The Coffee Realm<span>THE REALM TOUR</span></a>
       <div className="tour-hud-right flex items-center justify-end gap-4">
         <button className="tour-motion inline-flex items-center justify-center" onClick={toggleMotion} aria-pressed={reduced} aria-label={reduced ? 'Play animations' : 'Pause animations'} title={systemReduced && !motionOverride ? 'Play animations (device motion setting is on)' : reduced ? 'Resume animations' : 'Pause animations'}>{reduced ? <Play size={15} /> : <Pause size={15} />}</button>
         <div className="tour-counter"><span>{active === 0 ? 'WELCOME' : active === cakeWheelIndex ? 'DESSERTS' : active === galleryIndex ? 'THE SPACE' : active === closingIndex ? 'UNTIL NEXT TIME' : tourStops[active - productStartIndex]?.id === 'flavor-play' ? 'FLAVORS' : `${number(tourStops[active - productStartIndex]?.productNumber)} / ${number(collectionCount)}`}</span><b>{chapters[active]}</b></div>
@@ -140,15 +211,11 @@ export default function RealmProductTour() {
         <div className="tour-closing-copy relative z-10 mx-auto flex h-full max-w-4xl flex-col items-center justify-center text-center">
           <Coffee size={30} strokeWidth={1.3} className="mb-6" />
           <span className="tour-kicker">SAME PLACE. A NEW LITTLE MOMENT.</span>
-          {/* Admin counts are private; the homepage's daily estimate is static copy, not a verified aggregate. */}
-          <div className="tour-social-proof"><span>SOCIAL PROOF / CONTENT PENDING</span>[ADD: verified order count or review stat]</div>
           <h2>See you<br /><em>in the Realm.</em></h2>
           <p>Pull up a chair. Make yourself at home.</p>
           <div className="tour-cta-row mt-7 flex flex-wrap justify-center gap-3">
-            <button className="tour-cta tour-cta-primary inline-flex items-center justify-center gap-5" onClick={() => placeholderAction('Explore Full Menu')}>Explore Full Menu <ArrowRight size={17} /></button>
-            <button className="tour-cta inline-flex items-center justify-center gap-3" onClick={() => placeholderAction('Find Us')}><MapPin size={17} /> Find Us</button>
+            <MagneticAction reduced={reduced} className="tour-cta inline-flex items-center justify-center gap-3" href={store.map} target="_blank" rel="noopener noreferrer"><MapPin size={17} /> Find Us</MagneticAction>
           </div>
-          <p className="tour-cta-notice" role="status">{notice || 'Preview buttons only. Destinations pending.'}</p>
           <button onClick={() => goTo(0)} className="tour-replay mt-4 inline-flex items-center gap-3">Back to the beginning <ArrowRight size={15} /></button>
         </div>
         <div className="tour-scene-footer absolute inset-x-0 bottom-0 flex justify-between"><span>THE COFFEE REALM</span><span>THANK YOU FOR WANDERING.</span></div>
@@ -236,7 +303,7 @@ function CakeWheelSection({ index, container, reduced, onNext }) {
       </div>
       <div className="tour-cake-ground" aria-hidden="true" />
     </div>
-    <div className="tour-cake-footer"><button type="button" onClick={onNext}>Keep exploring <ArrowDown size={16} /></button></div>
+    <div className="tour-cake-footer"><MagneticAction reduced={reduced} onClick={onNext}>Keep exploring <ArrowDown size={16} /></MagneticAction></div>
   </div>
 }
 // END CAKE WHEEL
@@ -352,7 +419,7 @@ function PastaChapterSection({ index, chapterNumber, container, reduced, onNext 
         </motion.aside>}
       </AnimatePresence>
     </div>
-    <div className="tour-pasta-footer"><span>THE COFFEE REALM / THE COLLECTION</span><button type="button" onClick={onNext}>Keep exploring <ArrowDown size={16} /></button><span>{number(chapterNumber)} / {number(collectionCount)}</span></div>
+    <div className="tour-pasta-footer"><span>THE COFFEE REALM / THE COLLECTION</span><MagneticAction reduced={reduced} onClick={onNext}>Keep exploring <ArrowDown size={16} /></MagneticAction><span>{number(chapterNumber)} / {number(collectionCount)}</span></div>
   </div>
 }
 // END PASTA CHAPTER
@@ -435,8 +502,11 @@ function FlavorSection({ index, container, reduced, onNext }) {
       </div>
     </div>
     <div className="tour-flavor-footer">
-      <div className="tour-flavor-selected" role="status" aria-live="polite" aria-atomic="true"><span>YOUR CURRENT CRAVING</span><strong>{flavor.name}</strong></div>
-      <button type="button" className="tour-flavor-next" onClick={onNext}>Keep exploring <ArrowDown size={17} /></button>
+      <div className="tour-flavor-selection">
+        <div className="tour-flavor-selected" role="status" aria-live="polite" aria-atomic="true"><span>YOUR CURRENT CRAVING</span><strong>{flavor.name}</strong></div>
+        <SaveToggle itemId={flavor.id} name={flavor.name} reduced={reduced} />
+      </div>
+      <MagneticAction reduced={reduced} className="tour-flavor-next" onClick={onNext}>Keep exploring <ArrowDown size={17} /></MagneticAction>
     </div>
   </section>
 }
@@ -570,8 +640,8 @@ function ProductSection({ product, index, sectionIndex, container, reduced, onNe
   const inView = useInView(ref, { root: container, amount: .2 })
   const { scrollYProgress } = useScroll({ container, target: ref, offset: ['start end', 'end start'] })
   const timeline = useSpring(scrollYProgress, { stiffness: 115, damping: 28, mass: .32 })
-  // Preserve each existing product's motion direction when a chapter is inserted.
-  const direction = (products.findIndex(item => item.id === product.id) + 1) % 2 ? 1 : -1
+  // Keep the existing motion directions independent of collection numbering.
+  const direction = product.id === 'biscoff-latte' ? -1 : 1
   const imageX = useTransform(timeline, [0, .18, .5, .82, 1], [direction * 125, direction * 45, 0, direction * -35, direction * -130])
   const imageY = useTransform(timeline, [0, .18, .5, .82, 1], [190, 75, 0, -55, -210])
   const imageScale = useTransform(timeline, [0, .2, .5, .82, 1], [.68, .88, 1.04, 1.08, .78])
@@ -602,8 +672,12 @@ function ProductSection({ product, index, sectionIndex, container, reduced, onNe
       <motion.div className="tour-product-copy" style={reduced ? undefined : { x: copyX, y: copyY, opacity: copyOpacity, scale: copyScale }}>
         <span className="tour-kicker flex items-center gap-3"><span className="tour-tiny-line" /> {product.category.toUpperCase()} / {number(index)}</span>
         <h2 id={`${product.id}-heading`}>{product.name}</h2>
-        <div className="tour-product-details"><p>{product.price}{product.priceUnit && ` (${product.priceUnit})`} <span aria-hidden="true">/</span> {product.description}</p></div>
-        <button onClick={onNext} className="tour-next inline-flex items-center gap-5">{index === collectionCount ? 'Find your corner' : 'Keep exploring'}<ArrowRight size={18} /></button>
+        <div className="tour-product-details"><p>{product.price}{product.priceUnit && ` (${product.priceUnit})`} <span aria-hidden="true">/</span> {product.description}</p>
+          {['beef-tapa', 'biscoff-latte', 'red-velvet-cake', 'biscoff-burnt-cheesecake'].includes(product.id) && <SaveToggle itemId={product.id} name={product.name} reduced={reduced} className="tour-product-save" />}
+        </div>
+        {index === collectionCount
+          ? <button onClick={onNext} className="tour-next inline-flex items-center gap-5">Find your corner<ArrowRight size={18} /></button>
+          : <MagneticAction reduced={reduced} onClick={onNext} className="tour-next inline-flex items-center gap-5">Keep exploring<ArrowRight size={18} /></MagneticAction>}
       </motion.div>
       <div className={`tour-product-stage tour-shape-${product.shape} relative flex items-center justify-center`}>
         <motion.span className="tour-product-orbit absolute" aria-hidden="true" style={reduced ? undefined : { scale: orbitScale, rotate: orbitRotate, opacity: orbitOpacity }} />

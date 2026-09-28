@@ -13,13 +13,13 @@ html,body,#realm-tour-root{height:100%;margin:0}body{background:#201e16}button,a
 .tour-theme-olive{--canvas:#778464;--glow:#afba8a;--ink:#1e2b19;--badge:#f9ecd2;--badge-text:#283618;--shadow:#2a391b}
 .tour-theme-cocoa{--canvas:#48352d;--glow:#755844;--ink:#f9ebd7;--badge:#d2b281;--badge-text:#34261e;--shadow:#190f0b}
 .tour-theme-oat{--canvas:#d5c8aa;--glow:#f2e6cd;--ink:#3c3927;--badge:#3a5a40;--badge-text:#fff0d8;--shadow:#7b6241}
-.tour-product-grain{z-index:-1;opacity:.15;background-image:radial-gradient(currentColor .6px,transparent .6px);background-size:6px 6px;mask-image:linear-gradient(transparent,#000)}.tour-product-layout{grid-template-columns:46% 54%;gap:0;min-height:100svh;padding:115px 8vw 90px}.tour-product-copy{position:relative;z-index:20;transform-origin:left center;will-change:transform,opacity}.tour-product-copy h2{font-size:clamp(66px,7.5vw,116px);max-width:640px;text-wrap:balance}.tour-theme-oat h2{font-size:clamp(58px,6.5vw,98px)}.tour-product-copy .tour-kicker{opacity:.85}.tour-product-details{margin-top:28px;display:inline-block;border-top:1px solid color-mix(in srgb,var(--ink) 30%,transparent);padding-top:18px}.tour-product-details p{font-size:14px;line-height:1.6;margin-top:6px;letter-spacing:.03em}.tour-product-details p>span{padding:0 10px;opacity:.5}.tour-next{min-height:44px;font-size:12px;margin-top:28px;display:flex;width:fit-content;border-bottom:1px solid color-mix(in srgb,var(--ink) 40%,transparent);transition:gap .2s}.tour-next:hover{gap:30px}.tour-product-stage{height:min(66svh,680px);padding:15px;min-width:0;perspective:1200px}.tour-cutout{max-width:100%;max-height:100%;filter:drop-shadow(0 25px 16px color-mix(in srgb,var(--shadow) 28%,transparent));user-select:none;will-change:transform,opacity;transform-origin:center 55%}.tour-shape-drink .tour-cutout{max-width:80%}.tour-shape-cookie .tour-cutout{max-height:88%;max-width:94%}.tour-ground-shadow{width:60%;height:7%;left:20%;bottom:2%;border-radius:50%;background:var(--shadow);filter:blur(17px);will-change:transform,opacity}.tour-product-orbit{width:92%;aspect-ratio:1;border:1px solid color-mix(in srgb,var(--ink) 22%,transparent);border-radius:50%;transform-origin:center;will-change:transform,opacity}.tour-product-orbit:after{content:'';position:absolute;inset:14%;border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);border-radius:50%}.tour-product-orbit:before{content:'';position:absolute;width:10px;height:10px;left:12%;top:18%;border-radius:50%;background:currentColor;box-shadow:0 0 0 8px color-mix(in srgb,currentColor 8%,transparent)}.tour-badge-anchor{top:18%;right:0;transform:rotate(7deg);will-change:transform}.tour-floating-badge{font-size:11px;letter-spacing:.04em;padding:13px 19px;border-radius:100px;background:var(--badge);color:var(--badge-text);box-shadow:0 8px 20px #221c1420;animation:tour-badge-drift 5.5s ease-in-out infinite;animation-play-state:paused}.tour-product[data-active=true] .tour-floating-badge{animation-play-state:running}.tour-floating-badge i{width:5px;height:5px;border-radius:50%;background:currentColor}.tour-product:nth-of-type(even) .tour-badge-anchor{top:auto;bottom:17%;left:0;right:auto}.tour-product:nth-of-type(3n) .tour-floating-badge{animation-duration:6.7s;animation-delay:-2s}.tour-watermark{font:italic clamp(220px,31vw,550px)/.7 Georgia,serif;letter-spacing:-.07em;opacity:.075;right:5%;top:25%;pointer-events:none;user-select:none;z-index:0;will-change:transform}.tour-ghost-index{font:clamp(260px,33vw,600px)/.7 Georgia,serif;letter-spacing:-.08em;opacity:.045;left:45%;top:27%;pointer-events:none;user-select:none;z-index:0;will-change:transform}.tour-scroll-stroke{z-index:2;left:8vw;right:8vw;bottom:76px;height:1px;background:color-mix(in srgb,var(--ink) 24%,transparent);transform-origin:left center;will-change:transform}.tour-product-footer{padding:25px 8vw 35px;font-size:9px;letter-spacing:.12em;opacity:.8}.tour-image-fallback{font-size:14px;border:1px dashed currentColor;padding:30px}
+.tour-product-grain{z-index:-1;opacity:.15;background-image:radial-gradient(currentColor .6px,transparent .6px);background-size:6px 6px;mask-image:linear-gradient(transparent,#000)}.tour-product-layout{grid-template-columns:46% 54%;gap:0;min-height:100svh;padding:115px 8vw 90px}.tour-product-copy{position:relative;z-index:20;transform-origin:left center;will-change:transform,opacity}.tour-product-copy h2{font-size:clamp(66px,7.5vw,116px);max-width:640px;text-wrap:balance}.tour-theme-oat h2{font-size:clamp(58px,6.5vw,98px)}.tour-product-copy .tour-kicker{opacity:.85}.tour-product-details{margin-top:28px;display:inline-block;border-top:1px solid color-mix(in srgb,var(--ink) 30%,transparent);padding-top:18px}.tour-product-details p{font-size:14px;line-height:1.6;margin-top:6px;letter-spacing:.03em}.tour-product-details p>span{padding:0 10px;opacity:.5}.tour-next{min-height:44px;font-size:12px;margin-top:28px;display:flex;width:fit-content;border-bottom:1px solid color-mix(in srgb,var(--ink) 40%,transparent);transition:gap .2s}.tour-next:hover{gap:30px}.tour-product-stage{height:min(66svh,680px);padding:15px;min-width:0;perspective:1200px}.tour-cutout{max-width:100%;max-height:100%;filter:drop-shadow(0 25px 16px color-mix(in srgb,var(--shadow) 28%,transparent));user-select:none;will-change:transform,opacity;transform-origin:center 55%}.tour-shape-drink .tour-cutout{max-width:80%}.tour-shape-cookie .tour-cutout{max-height:88%;max-width:94%}.tour-ground-shadow{width:60%;height:7%;left:20%;bottom:2%;border-radius:50%;background:var(--shadow);filter:blur(17px);will-change:transform,opacity}.tour-product-orbit{width:92%;aspect-ratio:1;border:1px solid color-mix(in srgb,var(--ink) 22%,transparent);border-radius:50%;transform-origin:center;will-change:transform,opacity}.tour-product-orbit:after{content:'';position:absolute;inset:14%;border:1px solid color-mix(in srgb,var(--ink) 14%,transparent);border-radius:50%}.tour-product-orbit:before{content:'';position:absolute;width:10px;height:10px;left:12%;top:18%;border-radius:50%;background:currentColor;box-shadow:0 0 0 8px color-mix(in srgb,currentColor 8%,transparent)}.tour-badge-anchor{top:18%;right:0;transform:rotate(7deg);will-change:transform}.tour-floating-badge{font-size:11px;letter-spacing:.04em;padding:13px 19px;border-radius:100px;background:var(--badge);color:var(--badge-text);box-shadow:0 8px 20px #221c1420;animation:tour-badge-drift 5.5s ease-in-out infinite;animation-play-state:paused}.tour-product[data-active=true] .tour-floating-badge{animation-play-state:running}.tour-floating-badge i{width:5px;height:5px;border-radius:50%;background:currentColor}.tour-product[id="beef-tapa"] .tour-badge-anchor{top:auto;bottom:17%;left:0;right:auto}.tour-product[id="biscoff-latte"] .tour-floating-badge{animation-duration:6.7s;animation-delay:-2s}.tour-watermark{font:italic clamp(220px,31vw,550px)/.7 Georgia,serif;letter-spacing:-.07em;opacity:.075;right:5%;top:25%;pointer-events:none;user-select:none;z-index:0;will-change:transform}.tour-ghost-index{font:clamp(260px,33vw,600px)/.7 Georgia,serif;letter-spacing:-.08em;opacity:.045;left:45%;top:27%;pointer-events:none;user-select:none;z-index:0;will-change:transform}.tour-scroll-stroke{z-index:2;left:8vw;right:8vw;bottom:76px;height:1px;background:color-mix(in srgb,var(--ink) 24%,transparent);transform-origin:left center;will-change:transform}.tour-product-footer{padding:25px 8vw 35px;font-size:9px;letter-spacing:.12em;opacity:.8}.tour-image-fallback{font-size:14px;border:1px dashed currentColor;padding:30px}
 .is-reduced .tour-scroll{scroll-behavior:auto}.is-reduced :is(.tour-floating-badge,.tour-backdrop img,.tour-explore svg){animation:none}.is-reduced :is(.tour-cutout,.tour-product-copy,.tour-product-orbit,.tour-ground-shadow,.tour-watermark,.tour-ghost-index,.tour-environment-content){transform:none!important;opacity:1!important}.is-reduced :is(.tour-cta,.tour-next,.tour-rail i){transition:none}
 @keyframes tour-badge-drift{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-12px) rotate(2deg)}}
 @keyframes tour-cue{50%{transform:translateY(4px)}}
 @media(min-width:1500px){.tour-product-layout{padding-left:10vw;padding-right:10vw}.tour-product-stage{height:70svh}.tour-product-copy h2{font-size:125px}.tour-theme-oat h2{font-size:108px}}
 @media(max-width:1000px){.tour-hud{height:76px}.tour-product-layout{padding-left:6vw;padding-right:7vw;grid-template-columns:47% 53%}.tour-product-copy h2{font-size:clamp(56px,7.8vw,86px)}.tour-theme-oat h2{font-size:clamp(48px,6.7vw,72px)}.tour-product-stage{height:58svh;padding:5px}.tour-badge-anchor{right:-5px}.tour-counter{min-width:105px}.tour-rail{right:5px}.tour-rail button{width:34px}.tour-floating-badge{padding:11px 13px;font-size:10px}.tour-environment{padding-left:6vw;padding-right:6vw}}
-@media(max-width:640px){.tour-hud{height:72px;padding-left:17px;padding-right:17px;grid-template-columns:1fr auto 1fr;gap:8px}.tour-exit{font-size:10px;gap:4px}.tour-exit svg{width:14px}.tour-wordmark{font-size:17px}.tour-wordmark span{font-size:7px;letter-spacing:.15em}.tour-hud-right{gap:4px}.tour-counter{min-width:0}.tour-counter span{font-size:8px}.tour-counter b{display:none}.tour-motion{width:34px;height:44px;border:0}.tour-rail{display:none}.tour-environment{padding:110px 25px 90px}.tour-environment h1{font-size:clamp(54px,13vw,80px);letter-spacing:-.06em}.tour-tagline{font-size:16px;margin-top:22px!important}.tour-kicker{font-size:8px;letter-spacing:.14em;margin-bottom:17px}.tour-tiny-line{width:22px}.tour-explore{margin-top:28px}.tour-scene-footer{padding:22px 25px 50px;font-size:8px}.tour-scene-footer b{font-size:7px}.tour-product-layout{grid-template-columns:1fr;grid-template-rows:auto 1fr;min-height:100svh;padding:99px 26px 67px;gap:7px}.tour-product-copy h2{font-size:clamp(45px,11.4vw,69px);max-width:95%;line-height:1}.tour-theme-oat h2{font-size:clamp(40px,10vw,58px)}.tour-product-copy .tour-kicker{margin-bottom:10px}.tour-product-details{margin-top:14px;padding-top:10px;max-width:calc(100% - 58px)}.tour-product-details p{font-size:12px;margin-top:4px}.tour-next{position:absolute;right:0;bottom:0;font-size:0;min-width:44px;min-height:44px;justify-content:center;margin:0;border:1px solid color-mix(in srgb,var(--ink) 30%,transparent);border-radius:50%}.tour-next svg{width:16px}.tour-product-stage{height:clamp(230px,43svh,410px);align-self:center;padding:8px 0}.tour-shape-drink .tour-cutout{max-width:70%}.tour-shape-plate .tour-cutout{max-width:90%}.tour-shape-cookie .tour-cutout{max-height:92%;max-width:85%}.tour-badge-anchor{right:0;top:12%}.tour-product:nth-of-type(even) .tour-badge-anchor{bottom:10%}.tour-floating-badge{font-size:9px;padding:10px 13px}.tour-product-footer{padding:20px 26px 47px;font-size:8px}.tour-watermark{font-size:78vw;top:53%;right:6%}.tour-preview-stamp{font-size:7px;bottom:10px;padding:5px 8px}.tour-closing-copy h2{font-size:clamp(60px,15vw,88px)}.tour-closing-copy>p{font-size:15px}.tour-cta{padding:0 18px;font-size:12px}.tour-closing-copy .tour-cta-notice{font-size:10px}}
+@media(max-width:640px){.tour-hud{height:72px;padding-left:17px;padding-right:17px;grid-template-columns:1fr auto 1fr;gap:8px}.tour-exit{font-size:10px;gap:4px}.tour-exit svg{width:14px}.tour-wordmark{font-size:17px}.tour-wordmark span{font-size:7px;letter-spacing:.15em}.tour-hud-right{gap:4px}.tour-counter{min-width:0}.tour-counter span{font-size:8px}.tour-counter b{display:none}.tour-motion{width:34px;height:44px;border:0}.tour-rail{display:none}.tour-environment{padding:110px 25px 90px}.tour-environment h1{font-size:clamp(54px,13vw,80px);letter-spacing:-.06em}.tour-tagline{font-size:16px;margin-top:22px!important}.tour-kicker{font-size:8px;letter-spacing:.14em;margin-bottom:17px}.tour-tiny-line{width:22px}.tour-explore{margin-top:28px}.tour-scene-footer{padding:22px 25px 50px;font-size:8px}.tour-scene-footer b{font-size:7px}.tour-product-layout{grid-template-columns:1fr;grid-template-rows:auto 1fr;min-height:100svh;padding:99px 26px 67px;gap:7px}.tour-product-copy h2{font-size:clamp(45px,11.4vw,69px);max-width:95%;line-height:1}.tour-theme-oat h2{font-size:clamp(40px,10vw,58px)}.tour-product-copy .tour-kicker{margin-bottom:10px}.tour-product-details{margin-top:14px;padding-top:10px;max-width:calc(100% - 58px)}.tour-product-details p{font-size:12px;margin-top:4px}.tour-next{position:absolute;right:0;bottom:0;font-size:0;min-width:44px;min-height:44px;justify-content:center;margin:0;border:1px solid color-mix(in srgb,var(--ink) 30%,transparent);border-radius:50%}.tour-next svg{width:16px}.tour-product-stage{height:clamp(230px,43svh,410px);align-self:center;padding:8px 0}.tour-shape-drink .tour-cutout{max-width:70%}.tour-shape-plate .tour-cutout{max-width:90%}.tour-shape-cookie .tour-cutout{max-height:92%;max-width:85%}.tour-badge-anchor{right:0;top:12%}.tour-product[id="beef-tapa"] .tour-badge-anchor{bottom:10%}.tour-floating-badge{font-size:9px;padding:10px 13px}.tour-product-footer{padding:20px 26px 47px;font-size:8px}.tour-watermark{font-size:78vw;top:53%;right:6%}.tour-preview-stamp{font-size:7px;bottom:10px;padding:5px 8px}.tour-closing-copy h2{font-size:clamp(60px,15vw,88px)}.tour-closing-copy>p{font-size:15px}.tour-cta{padding:0 18px;font-size:12px}.tour-closing-copy .tour-cta-notice{font-size:10px}}
 @media(max-width:640px) and (max-height:700px){.tour-product-layout{padding-top:88px;padding-bottom:62px;gap:0}.tour-product-copy h2{font-size:42px;max-width:90%}.tour-theme-oat h2{font-size:36px}.tour-product-copy .tour-kicker{margin-bottom:7px}.tour-product-stage{height:32svh;min-height:180px}.tour-product-details{margin-top:10px;padding-top:8px}.tour-product-footer{padding-bottom:42px}.tour-environment h1{font-size:54px}.tour-closing-copy h2{font-size:54px}.tour-closing-copy>p{margin-top:16px}.tour-closing-copy .tour-kicker{margin-bottom:12px}}
 @media(min-width:641px) and (max-height:600px){.tour-product-layout{padding-top:96px;padding-bottom:62px}.tour-product-copy h2{font-size:56px}.tour-theme-oat h2{font-size:48px}.tour-product-stage{height:58svh}.tour-product-details{margin-top:16px;padding-top:12px}.tour-next{margin-top:14px}.tour-environment{padding-top:102px;padding-bottom:72px}.tour-environment h1,.tour-closing-copy h2{font-size:62px}.tour-closing-copy>p{margin-top:12px}.tour-closing-copy .tour-kicker{margin-bottom:10px}}
 /* Keep the tour within the layout viewport on mobile, including after pinch zoom. */
@@ -492,3 +492,121 @@ body{background:#201e16;overflow:hidden;overscroll-behavior:none}
 .is-reduced .tour-pasta :is(.tour-pasta-intro > *, .tour-pasta-dish-entry, .tour-pasta-steam, .tour-pasta-profile) { opacity: 1 !important; transform: none !important; }
 .is-reduced .tour-pasta-ribbon path { stroke-dasharray: none !important; stroke-dashoffset: 0 !important; }
 /* END PASTA CHAPTER */
+
+/* BEGIN QUIET PRODUCT ATMOSPHERE — one decorative layer per selected section.
+   Gradients stay fixed; only transform/opacity animate, and only while in view. */
+.tour-product:is(#beef-tapa, #biscoff-latte, #biscoff-burnt-cheesecake)::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  width: min(72vw, 960px);
+  height: 82%;
+  top: 8%;
+  right: -8%;
+  opacity: .5;
+  transform-origin: center;
+  animation-play-state: paused;
+}
+.tour-product#beef-tapa::before {
+  background: linear-gradient(115deg, transparent 14%, #f3d69c24 28%, #fbe6b875 42%, #f3d69c24 54%, transparent 69%);
+  mask-image: radial-gradient(ellipse at center, #000 35%, transparent 72%);
+  animation: tour-tapa-warmth 22s ease-in-out infinite alternate;
+  animation-play-state: paused;
+}
+.tour-product#biscoff-latte::before {
+  background: radial-gradient(ellipse at center, #fff4d6a8 0%, #f9e1b94d 35%, transparent 68%);
+  animation: tour-latte-glow 18s ease-in-out -5s infinite alternate;
+  animation-play-state: paused;
+}
+.tour-product#biscoff-burnt-cheesecake::before {
+  background: radial-gradient(ellipse at center, transparent 25%, #7784642b 38%, #e5be7a70 49%, transparent 68%);
+  animation: tour-cheesecake-halo 24s ease-in-out -9s infinite alternate;
+  animation-play-state: paused;
+}
+.tour-product:is(#beef-tapa, #biscoff-latte, #biscoff-burnt-cheesecake)[data-active=true]::before {
+  animation-play-state: running;
+  will-change: transform, opacity;
+}
+@keyframes tour-tapa-warmth {
+  from { opacity: .35; transform: translate(-7%, 2%) rotate(-6deg); }
+  to { opacity: .6; transform: translate(6%, -2%) rotate(3deg); }
+}
+@keyframes tour-latte-glow {
+  from { opacity: .4; transform: translate(2%, 4%) scale(.94); }
+  to { opacity: .65; transform: translate(-6%, -3%) scale(1.05); }
+}
+@keyframes tour-cheesecake-halo {
+  from { opacity: .4; transform: translate(-3%, 2%) scale(.95); }
+  to { opacity: .65; transform: translate(3%, -2%) scale(1.04); }
+}
+@media (max-width: 640px) {
+  .tour-product:is(#beef-tapa, #biscoff-latte, #biscoff-burnt-cheesecake)::before {
+    width: 108%;
+    height: 60%;
+    top: auto;
+    bottom: 5%;
+    right: -12%;
+  }
+}
+/* The shared state follows prefers-reduced-motion and the HUD pause control. */
+.is-reduced .tour-product:is(#beef-tapa, #biscoff-latte, #biscoff-burnt-cheesecake)::before {
+  animation: none;
+  transform: none;
+  opacity: .5;
+  will-change: auto;
+}
+/* END QUIET PRODUCT ATMOSPHERE */
+
+/* BEGIN TOUR POLISH — scoped controls and three tiny wisps. */
+.tour-magnetic { touch-action: manipulation; }
+.tour-cta.tour-magnetic { transition: background-color .2s, color .2s; }
+.tour-wordmark { position: relative; }
+.tour-wordmark-cup { position: absolute; right: calc(100% + 9px); top: 0; color: #d2bc96; overflow: visible; }
+.tour-wordmark-steam path { opacity: 0; animation: tour-wordmark-steam 3.8s ease-out infinite; }
+.tour-wordmark-steam path:nth-child(2) { animation-delay: -1.25s; }
+.tour-wordmark-steam path:nth-child(3) { animation-delay: -2.5s; }
+@keyframes tour-wordmark-steam {
+  0% { opacity: 0; transform: translate(0, 3px); }
+  30% { opacity: .48; }
+  75% { opacity: .2; }
+  100% { opacity: 0; transform: translate(1px, -5px); }
+}
+
+/* Absolute product controls retain the current copy and artwork geometry. */
+.tour-save { position: relative; flex: 0 0 44px; display: inline-grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: inherit; isolation: isolate; touch-action: manipulation; }
+.tour-save::before { content: ''; position: absolute; z-index: -1; inset: 6px; border: 1px solid currentColor; border-radius: inherit; opacity: .25; }
+.tour-save > svg { fill: transparent; transition: fill 160ms, color 160ms; }
+.tour-save[aria-pressed=true] > svg { fill: currentColor; }
+.tour-save[aria-pressed=true]::before { background: currentColor; opacity: .12; }
+.tour-save-pop { animation: tour-save-pop 420ms cubic-bezier(.2, .8, .2, 1); }
+@keyframes tour-save-pop { 0%, 100% { transform: scale(1); } 35% { transform: scale(1.24) rotate(-9deg); } 65% { transform: scale(.94) rotate(4deg); } }
+.tour-save-burst { position: absolute; inset: 0; pointer-events: none; }
+.tour-save-burst i { position: absolute; left: calc(50% - 2px); top: calc(50% - 2px); width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: 0; animation: tour-save-scatter 560ms ease-out both; }
+.tour-save-burst i:nth-child(even) { width: 3px; height: 6px; border-radius: 60% 40% 65% 35%; }
+@keyframes tour-save-scatter {
+  0% { opacity: 0; transform: translate(0, 0) scale(.5); }
+  18% { opacity: .8; }
+  100% { opacity: 0; transform: translate(var(--particle-x), var(--particle-y)) rotate(45deg) scale(.3); }
+}
+.tour-product-details { position: relative; }
+.tour-product-save { position: absolute; right: -5px; top: -23px; color: var(--ink); }
+.tour-product-save::before { background: var(--canvas); opacity: 1; border-color: color-mix(in srgb, var(--ink) 25%, transparent); }
+.tour-product-save[aria-pressed=true]::before { background: var(--canvas); opacity: 1; }
+.tour-flavor-selection { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.tour-flavor-selection .tour-save { color: var(--flavor-accent); }
+
+@media (hover: hover) and (pointer: fine) {
+  .tour-save:hover::before { border-color: currentColor; }
+}
+@media (max-width: 640px) {
+  .tour-wordmark-cup { width: 18px; height: 26px; right: calc(100% + 5px); }
+  .tour-flavor-selection { gap: 4px; }
+}
+/* The same state drives the device preference and the existing HUD pause control. */
+.is-reduced .tour-wordmark-steam path { animation: none; opacity: .32; transform: none; }
+.is-reduced .tour-magnetic { transform: none !important; }
+.is-reduced .tour-save-pop { animation: none; }
+.is-reduced .tour-save-burst { display: none; }
+.is-reduced .tour-save > svg { transition: none; }
+/* END TOUR POLISH */

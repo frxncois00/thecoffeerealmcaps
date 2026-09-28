@@ -5,7 +5,6 @@ export const products = [
   { id: 'beef-tapa', name: 'Beef Tapa', category: 'Meals', badge: 'Comfort food', theme: 'clay', shape: 'plate', price: '\u20b1176', description: 'Plain rice, classic beef tapa, fried egg' },
   { id: 'biscoff-latte', name: 'Biscoff Latte', category: 'Coffee', badge: 'From the bar', theme: 'caramel', shape: 'drink', word: 'sip', price: '\u20b1210', description: 'Biscoff spread, milk, espresso shot, biscoff foam, biscoff cookie' },
   { id: 'red-velvet-cake', name: 'Red Velvet Cake', category: 'Cakes', badge: 'Cake time', theme: 'wine', shape: 'cake', word: 'velvet', price: '\u20b12,400', priceUnit: 'whole cake', description: 'Classic red velvet with smooth cream cheese frosting' },
-  { id: 'smores', name: 'Smores', category: 'Cookies', badge: 'A sweet pause', theme: 'cocoa', shape: 'cookie', word: 'pause', price: '\u20b1100', description: 'Chocolatey cookie with marshmallow filling' },
   { id: 'biscoff-burnt-cheesecake', name: 'Biscoff Burnt Cheesecake', category: 'Cakes', badge: 'One last slice', theme: 'oat', shape: 'cake', price: '\u20b12,600', priceUnit: 'whole cake', description: 'Creamy burnt cheesecake topped with rich Biscoff spread and cookie crumbs' },
 ].map(product => ({ ...product, image: `/images/realm-tour/${product.id}.png` }))
 
