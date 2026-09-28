@@ -3,6 +3,7 @@ import { Minus, Plus, ShoppingBag, X } from 'lucide-react'
 import Choice from './Choice'
 import { money } from '../utils/money'
 import { allowsSpecialInstructions } from '../hooks/useProductCustomization'
+import { uniqueAddons } from '../utils/menuAddons'
 
 export default function ProductCustomizationModal({ product, onClose, onAdd, variant = '' }) {
   const closeButtonRef = useRef(null)
@@ -34,9 +35,8 @@ export default function ProductCustomizationModal({ product, onClose, onAdd, var
   const selectedTemperature = temperature || temperatures[0] || ''
   const isCold = /cold|iced/i.test(selectedTemperature)
   const applicableAddons = product.allowAddons
-    ? [...new Map((product.addons || [])
-      .filter((a) => !a.appliesTo || a.appliesTo === 'both' || a.appliesTo === product.itemType)
-      .map((addon) => [addon.id || addon.name.trim().toLowerCase(), addon])).values()]
+    ? uniqueAddons((product.addons || [])
+      .filter((a) => !a.appliesTo || a.appliesTo === 'both' || a.appliesTo === product.itemType))
     : []
   const selectedAddons = addons.filter((a) => applicableAddons.some((valid) => valid.id === a.id))
   const unitPrice = variation?.price ?? product.basePrice ?? product.price

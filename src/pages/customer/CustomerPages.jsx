@@ -187,7 +187,7 @@ function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onR
   const instructions=isGcash?paymentConfig.gcashInstructions:paymentConfig.bankInstructions
   const changeReference=value=>onReferenceChange(isGcash?value.replace(/\D/g,'').slice(0,13):value.replace(/[^A-Za-z0-9-]/g,'').slice(0,30))
   return <section className="checkout-payment-details" aria-live="polite" aria-labelledby="checkout-payment-details-title">
-    <div className="checkout-payment-details-head"><span><CreditCard size={19}/></span><div><small>Pay securely with {label}</small><h3 id="checkout-payment-details-title">Complete these steps before review</h3></div><b>{money(total)}</b></div>
+    <div className="checkout-payment-details-head"><span><img src={isGcash?'/images/gcashpic1.png':'/images/maribank1.png'} alt=""/></span><div><small>Pay securely with {label}</small><h3 id="checkout-payment-details-title">Complete these steps before review</h3></div><b>{money(total)}</b></div>
     <div className="checkout-payment-details-body">
       <img src={qr} alt={`${label} payment QR code`}/>
       <div className="checkout-payment-instructions">
@@ -347,19 +347,19 @@ function OrderCompleteModal({order,freshOrder=false,fallbackEstimatedTime='',onT
   </div>
 }
 export function OrderReviewPage(){
-  const {state}=useLocation();const navigate=useNavigate();const {user,signOut}=useAuth();const cart=useCart();const {items,subtotal,clearCart}=cart;const {pricing}=usePricing();const savedDraft=readCheckoutDraft(user?.id);const form=state?.checkout||savedDraft?.form;const paymentProof=state?.paymentProof||null;const isPayMongoCheckout=['paymongo','qrph'].includes(form?.payment);const [requestKey]=useState(()=>isPayMongoCheckout?crypto.randomUUID():(savedDraft?.requestKey||crypto.randomUUID()));const [busy,setBusy]=useState(false);const [error,setError]=useState('');const [modal,setModal]=useState(null);const [createdOrder,setCreatedOrder]=useState(null);const [freshOrder,setFreshOrder]=useState(false);const [paymentConfig,setPaymentConfig]=useState(SYSTEM_DEFAULTS.payments);
+  const {state}=useLocation();const navigate=useNavigate();const {user,signOut}=useAuth();const cart=useCart();const {items,subtotal,clearCart}=cart;const {pricing}=usePricing();const savedDraft=readCheckoutDraft(user?.id);const form=state?.checkout||savedDraft?.form;const paymentProof=state?.paymentProof||null;const [requestKey]=useState(()=>savedDraft?.requestKey||crypto.randomUUID());const submittingRef=useRef(false);const completedRef=useRef(false);const [submitPhase,setSubmitPhase]=useState('idle');const busy=submitPhase!=='idle';const [error,setError]=useState('');const [modal,setModal]=useState(null);const [createdOrder,setCreatedOrder]=useState(null);const [freshOrder,setFreshOrder]=useState(false);const [paymentConfig,setPaymentConfig]=useState(SYSTEM_DEFAULTS.payments);
   useEffect(()=>{let active=true;fetchPublicPortalData().then(data=>{if(active)setPaymentConfig(data.system.payments)}).catch(()=>{});return()=>{active=false}},[])
-  if(cart.checkingAvailability)return <main className="customer-main"><section className="customer-state">Checking your cart against today’s availability…</section></main>;
-  if(cart.hasUnavailableItems)return <main className="customer-main"><section className="empty-state"><AlertTriangle/><h1>Update your cart</h1><p>One or more items became unavailable. Remove them before placing the order.</p><button className="primary-button" type="button" onClick={()=>{cart.openCart();navigate('/menu',{replace:true})}}>Review cart</button></section></main>;
   if(!form||!items.length)return <NotFoundPage/>;
   const fee=form.fulfillment==='delivery'?Number(form.deliveryFee||0):0;const eligibleBenefit=mostExpensiveEligibleItemBenefit(items,pricing.vatRate,pricing.pricesIncludeVat);const discount=form.applyBenefitDiscount?eligibleBenefit.benefitAmount:0;const total=subtotal+fee-discount;const breakdown=buildVatExemptOrderBreakdown({subtotal,discountSubtotal:form.applyBenefitDiscount?eligibleBenefit.eligibleGrossAmount:0,discountType:form.applyBenefitDiscount?'PWD':'',discountAmount:form.applyBenefitDiscount?eligibleBenefit.discountAmount:0,vatExemptAmount:form.applyBenefitDiscount?eligibleBenefit.vatAmount:0,vatRate:pricing.vatRate,pricesIncludeVat:pricing.pricesIncludeVat});
   const place=async(proof,referenceNumber='')=>{
-    if(busy)return
-    setBusy(true);setError('')
+    if(submittingRef.current||completedRef.current)return
+    submittingRef.current=true
+    setSubmitPhase('checking');setError('')
     try{
       const availability=await cart.refreshAvailability()
       if(!availability.ok)throw new Error('We could not verify current stock. Please try again.')
-      if(!availability.available){setModal(null);return}
+      if(!availability.available){setModal(null);setError('One or more cart items are now unavailable. Review your cart before continuing.');return}
+      setSubmitPhase('placing')
       // Confirm Supabase has a genuinely valid session for THIS attempt before
       // touching the database. getUser() (unlike getSession()) revalidates
       // against the Auth server, so this is the only trustworthy signal for
@@ -389,16 +389,18 @@ export function OrderReviewPage(){
       setCreatedOrder(order)
       setFreshOrder(true)
       clearCheckoutDraft(sessionCheck.user.id)
+      completedRef.current=true
       setModal('complete')
     }catch(cause){
-      await cart.refreshAvailability()
+      setModal(null)
       setError(describeError(cause,'Could not place the order. Please try again.'))
     }finally{
-      setBusy(false)
+      submittingRef.current=false
+      setSubmitPhase('idle')
     }
   };
   const finish=destination=>{const orderId=createdOrder?.order_id||createdOrder?.id;if(!orderId)return;clearCart();if(destination==='menu'){navigate('/menu',{replace:true});return}navigate('/orders',{replace:true,state:{trackOrderId:orderId,order:{...createdOrder,id:createdOrder?.id||orderId}}})};
-  const placeReviewedOrder=()=>{if(form.payment==='cod'){setModal('cod-confirm');return}if(['paymongo','qrph'].includes(form.payment)){place(null);return}if(!paymentProof){setError('Payment proof is missing. Return to checkout and upload it again.');return}place(paymentProof,form.paymentReference)}
+  const placeReviewedOrder=()=>{if(submittingRef.current||completedRef.current||cart.hasUnavailableItems)return;if(form.payment==='cod'){setModal('cod-confirm');return}if(['paymongo','qrph'].includes(form.payment)){place(null);return}if(!paymentProof){setError('Payment proof is missing. Return to checkout and upload it again.');return}place(paymentProof,form.paymentReference)}
   const itemCount=items.reduce((sum,item)=>sum+Number(item.quantity||0),0)
   const scheduledDay=form.scheduleDate===manilaDate()?'Today':form.scheduleDate
   const scheduledTime=timeLabel(Number(form.scheduleTime?.slice(0,2))*60+Number(form.scheduleTime?.slice(3,5)))
@@ -435,8 +437,8 @@ export function OrderReviewPage(){
         {discount>0&&<p className="review-benefit-note">Present your original Senior Citizen/PWD ID upon {form.fulfillment==='delivery'?'delivery':'pickup'}.</p>}
       </section>
     </div>
-    {error&&!modal&&<p className="form-error review-order-error">{error}</p>}
-    <button className="primary-button review-place-order" disabled={busy} onClick={()=>{setError('');placeReviewedOrder()}}>{busy?(['paymongo','qrph'].includes(form.payment)?'Starting secure checkout…':'Uploading proof and placing order…'):'Place order'} <ArrowRight/></button>
+    {(error||cart.hasUnavailableItems)&&!modal&&<div className="form-error review-order-error" role="alert">{error||'One or more cart items are now unavailable. Review your cart before continuing.'}{cart.hasUnavailableItems&&<button type="button" className="text-button" onClick={()=>{cart.openCart();navigate('/menu',{replace:true})}}>Review cart</button>}</div>}
+    <button className="primary-button review-place-order" type="button" disabled={busy||cart.hasUnavailableItems||modal==='complete'} onClick={()=>{setError('');placeReviewedOrder()}}>{submitPhase==='checking'?'Checking current item availability…':submitPhase==='placing'?(['paymongo','qrph'].includes(form.payment)?'Starting secure checkout…':form.payment==='cod'?'Placing order…':'Uploading proof and placing order…'):'Place order'} <ArrowRight/></button>
     <p className="review-order-assurance">By placing your order, you confirm that the information above is correct.</p>
     {modal==='cod-confirm'&&form.payment==='cod'&&<CodConfirmationModal paymentConfig={paymentConfig} total={total} busy={busy} onClose={()=>setModal(null)} onConfirm={()=>place()}/>}
     {modal==='complete'&&<OrderCompleteModal order={createdOrder||mergePlacedOrderData({order:{},form,items,total})} freshOrder={freshOrder} fallbackEstimatedTime={form.estimatedDeliveryTime} onTrack={()=>finish('track')} onContinue={()=>finish('menu')}/>}
