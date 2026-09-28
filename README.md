@@ -30,6 +30,8 @@ Nested staff and admin URLs currently reuse their role dashboard shell, ready fo
 
 Optional: copy `.env.example` to `.env` only if you want to override the built-in public Supabase URL/anon key.
 
+For the test-mode PayMongo Hosted Checkout setup, follow [PAYMONGO_TEST_SETUP.md](./PAYMONGO_TEST_SETUP.md). Keep PayMongo secret and webhook signing keys in Supabase Edge Function secrets, never in the Vite app.
+
 If you are setting this up on a different computer, see [SETUP_ON_ANOTHER_PC.md](./SETUP_ON_ANOTHER_PC.md) for a full clone, install, run, update, and troubleshooting guide.
 
 ## Structure

@@ -86,6 +86,17 @@ export async function fetchCustomerAccountDeletionEligibility(userId){
 }
 export async function createCustomerOrder(payload){if(!isSupabaseConfigured)throw new Error('Supabase is not configured.');const {data,error}=await supabase.rpc('create_customer_order',{request_payload:payload});if(error)throw error;return data}
 export async function createCustomerOrderWithBenefitDiscount(payload){if(!isSupabaseConfigured)throw new Error('Supabase is not configured.');const {data,error}=await supabase.rpc('create_customer_order_with_benefit_discount',{request_payload:payload});if(error)throw error;return data}
+export async function createPaymongoCheckout({orderId,origin,paymentMethod='paymongo'}){
+  if(!isSupabaseConfigured)throw new Error('Supabase is not configured.')
+  const {data,error}=await supabase.functions.invoke('create-paymongo-checkout',{body:{order_id:orderId,origin,payment_method:paymentMethod}})
+  if(error){
+    let message=error.message||'Could not start the PayMongo checkout.'
+    try{const body=await error.context?.json();message=body?.error||message}catch{/* Keep the original function error. */}
+    throw new Error(message)
+  }
+  if(!data?.checkout_url)throw new Error(data?.error||'PayMongo did not return a checkout URL.')
+  return data
+}
 export async function fetchCustomerBenefitApplication(customerId){if(!customerId)return null;const {data,error}=await supabase.from('benefit_applications').select('status,kind').eq('customer_id',customerId).maybeSingle();if(error)throw error;return data}
 
 export async function uploadPaymentProof({orderId,userId,file,referenceNumber}){

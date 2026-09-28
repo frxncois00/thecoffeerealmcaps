@@ -46,15 +46,27 @@ function stageOf(order) {
 function paymentMethod(order) {
   return order.payments?.[0]?.method || 'gcash'
 }
+function isPayMongoMethod(method) {
+  return method === 'qrph' || method === 'paymongo'
+}
+function paymentIsConfirmed(order) {
+  const payment = order.payments?.[0]
+  return Boolean(order.payment_confirmed || order.payment_status === 'paid' || payment?.status === 'paid')
+}
 function paymentMethodLabel(method) {
-  return method === 'cash' ? 'Cash' : method === 'cod' ? 'Cash on Delivery' : method === 'bank_transfer' ? 'Bank Transfer' : 'GCash'
+  return method === 'cash' ? 'Cash'
+    : method === 'cod' ? 'Cash on Delivery'
+      : method === 'bank_transfer' ? 'Bank Transfer'
+        : method === 'qrph' ? 'QRPh via PayMongo'
+          : method === 'paymongo' ? 'PayMongo'
+            : 'GCash'
 }
 function paymentStatusLabel(order) {
   const method = paymentMethod(order)
-  const payment = order.payments?.[0]
-  const paid = order.payment_confirmed || order.payment_status === 'paid' || payment?.status === 'paid'
+  const paid = paymentIsConfirmed(order)
   if (method === 'cod') return paid ? 'Paid' : 'Pay upon delivery'
-  return paid ? 'Verified' : 'Pending verification'
+  if (paid) return isPayMongoMethod(method) ? 'Verified via PayMongo' : 'Verified'
+  return isPayMongoMethod(method) ? 'Awaiting PayMongo payment' : 'Pending verification'
 }
 function itemCount(order) {
   return (order.order_items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0)
@@ -166,6 +178,8 @@ function mainActionFor(order) {
   const method = paymentMethod(order)
   if (stage === 'pending') {
     if (method === 'cod') return { label: 'Confirm Order', next: null, kind: 'confirm' }
+    if (paymentIsConfirmed(order)) return { label: 'Confirm Order', next: null, kind: 'confirm' }
+    if (isPayMongoMethod(method)) return { label: 'Awaiting PayMongo payment', next: null, kind: 'waiting', disabled: true, disabledReason: 'The order will unlock automatically after PayMongo confirms the payment.' }
     return { label: 'Verify Payment', next: null, kind: 'confirm', disabled: !order.payment_proof_path, disabledReason: 'Waiting for the customer to upload payment proof.' }
   }
   if (stage === 'preparing') {
@@ -294,25 +308,29 @@ export default function OrderPreparationPage() {
     if (!isSupabaseConfigured || !supabase) return undefined
     let active = true
     let fallbackPoll = null
-    const refreshInsertedOrder = async (id) => {
+    const refreshRealtimeOrder = async (id) => {
       if (!hasLoadedOrdersRef.current) {
         load({ newOrderId: id, source: 'postgres_changes initial' })
         return
       }
       try {
-        const newOrders = await fetchOpsOrdersByIds([id])
+        const changedOrders = await fetchOpsOrdersByIds([id])
         if (!active) return
-        const arrivals = newOrders.filter((order) => !ordersRef.current.some((known) => known.id === order.id))
-        if (!arrivals.length) return
+        const changedOrder = changedOrders[0]
+        if (!changedOrder) return
         // Do not let an older full refetch replace a newly delivered row.
         loadSequenceRef.current += 1
-        const nextOrders = [...ordersRef.current, ...arrivals]
-          .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        const existingIndex = ordersRef.current.findIndex((order) => order.id === changedOrder.id)
+        const nextOrders = existingIndex === -1
+          ? [...ordersRef.current, changedOrder].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+          : ordersRef.current.map((order, index) => index === existingIndex ? changedOrder : order)
         ordersRef.current = nextOrders
         setOrders(nextOrders)
-        arrivals.forEach(flagNewOrder)
-        setTablePage(1)
-        console.info('[Staff orders] postgres_changes order applied ' + JSON.stringify({ arrivalIds: arrivals.map((order) => order.id), orderCount: nextOrders.length }))
+        if (existingIndex === -1) {
+          flagNewOrder(changedOrder)
+          setTablePage(1)
+        }
+        console.info('[Staff orders] postgres_changes order applied ' + JSON.stringify({ orderId: changedOrder.id, event: existingIndex === -1 ? 'insert' : 'update', orderCount: nextOrders.length }))
       } catch (cause) {
         console.warn('[Staff orders] postgres_changes order fetch failed ' + JSON.stringify({ message: cause?.message || String(cause) }))
         if (active) load({ quiet: true, newOrderId: id, source: 'postgres_changes recovery' })
@@ -342,7 +360,13 @@ export default function OrderPreparationPage() {
         console.info('[Staff orders] postgres_changes received ' + JSON.stringify(payload))
         const { new: order } = payload
         if (order?.order_source && !['customer_pos', 'cashier_pos'].includes(order.order_source)) return
-        if (order?.id) refreshInsertedOrder(order.id)
+        if (order?.id) refreshRealtimeOrder(order.id)
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+        console.info('[Staff orders] postgres_changes order update received ' + JSON.stringify({ orderId: payload.new?.id }))
+        const { new: order } = payload
+        if (order?.order_source && !['customer_pos', 'cashier_pos'].includes(order.order_source)) return
+        if (order?.id) refreshRealtimeOrder(order.id)
       })
       .subscribe((status, error) => {
         console.info('[Staff orders] channel status ' + JSON.stringify({ status, error: error ? { message: error.message, name: error.name } : null }))
@@ -612,7 +636,7 @@ export default function OrderPreparationPage() {
           <input value={search} onChange={(e) => setSearch(e.target.value.slice(0, 100))} maxLength={100} placeholder="Search order number or customer name" />
         </label>
         <label className="ops-toolbar-field"><span>Fulfillment</span><select value={fulfillmentFilter} onChange={(e) => setFulfillmentFilter(e.target.value)}><option value="all">All</option><option value="walk-in">Walk-in</option><option value="pickup">Pickup</option><option value="delivery">Delivery</option></select></label>
-        <label className="ops-toolbar-field"><span>Payment method</span><select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}><option value="all">All methods</option><option value="cash">Cash</option><option value="gcash">GCash</option><option value="bank_transfer">Bank transfer</option><option value="cod">Cash on Delivery</option></select></label>
+        <label className="ops-toolbar-field"><span>Payment method</span><select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}><option value="all">All methods</option><option value="cash">Cash</option><option value="gcash">GCash</option><option value="bank_transfer">Bank transfer</option><option value="cod">Cash on Delivery</option><option value="qrph">QRPh via PayMongo</option><option value="paymongo">PayMongo</option></select></label>
         <label className="ops-toolbar-field"><span>Date</span><select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}><option value="">All dates</option><option value={today}>Today</option><option value={yesterday}>Yesterday</option></select></label>
         <label className="ops-toolbar-field"><span>Sort by</span><select value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="scheduled">{activeTab === 'cancelled' ? 'Cancelled time' : 'Scheduled time'}</option><option value="priority">{activeTab === 'completed' ? 'Recently completed' : 'Lowest preparation time'}</option></select></label>
         <div className="ops-layout-toggle" role="group" aria-label="Order layout view"><button type="button" className={layoutView === 'grid' ? 'active' : ''} aria-label="Grid view" aria-pressed={layoutView === 'grid'} onClick={() => setLayoutView('grid')}><Grid2X2 size={17}/></button><button type="button" className={layoutView === 'table' ? 'active' : ''} aria-label="Table view" aria-pressed={layoutView === 'table'} onClick={() => setLayoutView('table')}><List size={19}/></button></div>
