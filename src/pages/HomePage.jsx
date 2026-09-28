@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ArrowRight, Clock, Mail, MapPin, Phone, Star, UserRound } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import BestSellerCarousel from '../components/BestSellerCarousel'
 import Reveal from '../components/Reveal'
@@ -18,6 +19,34 @@ const mapEmbed = 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3859.012
 const fadeUp = { hidden: { opacity: 0, y: 24 }, show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } } }
 const HERO_VIDEOS = ['/assets/vids/part0.mp4', '/assets/vids/part1.mp4', '/assets/vids/part2.mp4']
 const HERO_FADE_SECONDS = 0.9
+
+// BEGIN TOUR LAUNCH — the only production-side exception; scoped to this one link.
+function RealmTourLaunchLink() {
+  const reduced = useReducedMotion()
+  const [leaving, setLeaving] = useState(false)
+  useEffect(() => {
+    const reset = () => setLeaving(false)
+    window.addEventListener('pageshow', reset)
+    return () => window.removeEventListener('pageshow', reset)
+  }, [])
+  const launch = event => {
+    // Preserve native new-tab, modified-click, and reduced-motion navigation.
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || reduced) return
+    event.preventDefault()
+    setLeaving(true)
+  }
+  return <>
+    <a className="hero-tour-link" href="/preview/realm-tour/" onClick={launch}>Preview our café tour <ArrowRight size={17} /></a>
+    {leaving && createPortal(<motion.div aria-hidden="true" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      transition={{ duration: reduced ? 0 : .22, ease: 'easeOut' }}
+      onAnimationComplete={() => window.location.assign('/preview/realm-tour/')}
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'grid', placeItems: 'center', background: '#201e16', color: '#fbf4e7', font: 'italic 32px Georgia, serif' }}>
+      A little closer to the Realm.
+    </motion.div>, document.body)}
+  </>
+}
+// END TOUR LAUNCH
+
 export default function HomePage() {
   const { user, profile } = useAuth()
   const customerUser = Boolean(user && isCustomerRole(profile?.role))
@@ -149,7 +178,7 @@ export default function HomePage() {
             <motion.p variants={fadeUp}>{content.hero.body}</motion.p>
             <motion.div className="hero-actions" variants={fadeUp}>
               <Link className="button button-light" to={content.hero.primaryHref || '/menu'}>{content.hero.primaryLabel}</Link>
-              <a className="hero-tour-link" href="/preview/realm-tour/">Preview our café tour <ArrowRight size={17} /></a>
+              <RealmTourLaunchLink />
             </motion.div>
           </motion.div>
         </section>
