@@ -1,5 +1,6 @@
 ﻿import { customerSupabase as supabase } from '../lib/supabase'
 
+import { menuItemAddons } from '../utils/menuAddons'
 const fallbackImage='/images/coffeerealmlogo.png'
 const imagePath=value=>{if(!value)return fallbackImage;if(/^https?:\/\//i.test(String(value)))return String(value);const clean=String(value).replace(/^\/+/, '');if(clean.startsWith('assets/'))return `/${clean}`;return value.startsWith('/')?value:`/${value}`}
 const parseVariants=(row)=>{
@@ -13,12 +14,6 @@ const parseVariants=(row)=>{
 }
 const temperatures=type=>type==='flexible'?['Hot','Cold']:type==='hot_only'?['Hot']:type==='iced_only'?['Cold']:[]
 const normalizeAddon=row=>({id:row.id,name:row.name,price:Number(row.price),appliesTo:row.applies_to||'both',targetTemperature:'both',subcategoryIds:Array.isArray(row.addon_subcategories)?row.addon_subcategories.map(link=>link.subcategory_id).filter(Boolean):null})
-const addonMatchesMenuItem=(addon,row)=>{
- if(Array.isArray(addon.subcategoryIds))return addon.subcategoryIds.includes(row.subcategory_id)
- const applies=addon.appliesTo||'both'
- return applies==='both'||applies===row.item_type
-}
-
 export async function fetchMenuCatalog(){
  const [{data:rows,error:menuError},{data:addonRows,error:addonError}]=await Promise.all([
   supabase.from('menu_items').select('*, subcategories(display_name,name), main_categories(display_name,name)').eq('is_archived',false).order('sort_order'),
@@ -26,11 +21,12 @@ export async function fetchMenuCatalog(){
  ])
  if(menuError)throw menuError
  if(addonError)throw addonError
- const foodAddonRows=(rows||[]).filter(row=>(row.subcategories?.name||'')==='add_ons'&&row.is_available)
- const addons=[...(addonRows||[]).map(normalizeAddon),...foodAddonRows.map(row=>({id:row.id,name:row.name,price:Number(row.price),appliesTo:'food',targetTemperature:'both',subcategoryIds:null}))]
+ // The addons table is the checkout catalog. Menu items in the add_ons
+ // subcategory are separate products, not a second source of selectable IDs.
+ const addons=(addonRows||[]).map(normalizeAddon)
  const products=(rows||[]).filter(row=>(row.subcategories?.name||'')!=='add_ons').map(row=>{
   const category=row.subcategories?.display_name||row.subcategories?.name||'Menu'
-  return {id:row.id,slug:row.slug,name:row.name,category,description:row.description||'',basePrice:Number(row.price),image:imagePath(row.image_url),available:Boolean(row.is_available),onlineBenefitEligible:Boolean(row.online_benefit_eligible),itemType:row.item_type||'food',temperatureType:row.temperature_type||'none',temperatures:temperatures(row.temperature_type),allowIce:Boolean(row.allow_ice),iceLevels:row.allow_ice?['Less Ice','Default Ice','More Ice']:[],allowSugar:Boolean(row.allow_sugar),sugars:row.allow_sugar?['0%','25%','50%','75%','100%']:[],allowAddons:Boolean(row.allow_addons)||(row.subcategories?.name==='meals'),variations:parseVariants(row),addons:addons.filter(addon=>addonMatchesMenuItem(addon,row))}
+  return {id:row.id,slug:row.slug,name:row.name,category,description:row.description||'',basePrice:Number(row.price),image:imagePath(row.image_url),available:Boolean(row.is_available),onlineBenefitEligible:Boolean(row.online_benefit_eligible),itemType:row.item_type||'food',temperatureType:row.temperature_type||'none',temperatures:temperatures(row.temperature_type),allowIce:Boolean(row.allow_ice),iceLevels:row.allow_ice?['Less Ice','Default Ice','More Ice']:[],allowSugar:Boolean(row.allow_sugar),sugars:row.allow_sugar?['0%','25%','50%','75%','100%']:[],allowAddons:Boolean(row.allow_addons)||(row.subcategories?.name==='meals'),variations:parseVariants(row),addons:menuItemAddons(addons,row)}
  })
  return {products,categories:['All',...new Set(products.filter(product=>product.available).map(product=>product.category))]}
 }
