@@ -1,24 +1,26 @@
 import { Coffee, LogIn, UserPlus, X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { lockBodyScroll, unlockBodyScroll } from '../../utils/bodyScrollLock'
 
 export default function GuestAuthPrompt({ open, onClose, returnTo = '/menu' }) {
   const closeButtonRef = useRef(null)
+  const scrollLockRef = useRef(Symbol('guest-auth-prompt'))
 
   useEffect(() => {
     if (!open) return undefined
     const previouslyFocused = document.activeElement
-    const previousOverflow = document.body.style.overflow
+    const scrollLock = scrollLockRef.current
     const closeOnEscape = (event) => {
       if (event.key === 'Escape') onClose()
     }
 
-    document.body.style.overflow = 'hidden'
+    lockBodyScroll(scrollLock)
     document.addEventListener('keydown', closeOnEscape)
     closeButtonRef.current?.focus()
 
     return () => {
-      document.body.style.overflow = previousOverflow
+      unlockBodyScroll(scrollLock)
       document.removeEventListener('keydown', closeOnEscape)
       previouslyFocused?.focus?.()
     }

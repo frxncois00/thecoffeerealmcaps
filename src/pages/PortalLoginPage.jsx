@@ -6,6 +6,7 @@ import { queueAuthWelcome } from '../lib/authFeedback'
 import { fetchStaffPreferences } from '../services/staffSettingsService'
 import { recordPortalSession } from '../services/portalSessionService'
 import { EMAIL_MAX_LENGTH } from '../utils/inputValidation'
+import { isFutureJwtError } from '../lib/profileRetry'
 
 export default function PortalLoginPage() {
   const [role, setRole] = useState('admin')
@@ -40,7 +41,9 @@ export default function PortalLoginPage() {
       queueAuthWelcome(profile)
       navigate(target, { replace: true })
     } catch (error) {
-      setMessage(error.message || 'Unable to sign in. Please check the account and role.')
+      setMessage(isFutureJwtError(error)
+        ? 'Supabase is rejecting the sign-in token (PGRST303). Please contact your Supabase project administrator.'
+        : error.message || 'Unable to sign in. Please check the account and role.')
     } finally {
       setLoading(false)
     }

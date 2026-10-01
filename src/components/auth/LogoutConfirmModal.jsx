@@ -1,22 +1,24 @@
 import { Coffee, LogOut, X } from 'lucide-react'
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useEffect, useRef } from 'react'
+import { lockBodyScroll, unlockBodyScroll } from '../../utils/bodyScrollLock'
 
 export default function LogoutConfirmModal({ open, busy = false, onCancel, onConfirm }) {
   const cancelButtonRef = useRef(null)
+  const scrollLockRef = useRef(Symbol('logout-confirmation'))
   const reduceMotion = useReducedMotion()
 
   useEffect(() => {
     if (!open) return undefined
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const scrollLock = scrollLockRef.current
+    lockBodyScroll(scrollLock)
     cancelButtonRef.current?.focus()
     const handleEscape = (event) => {
       if (event.key === 'Escape' && !busy) onCancel()
     }
     document.addEventListener('keydown', handleEscape)
     return () => {
-      document.body.style.overflow = previousOverflow
+      unlockBodyScroll(scrollLock)
       document.removeEventListener('keydown', handleEscape)
     }
   }, [busy, onCancel, open])

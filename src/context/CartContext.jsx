@@ -138,7 +138,7 @@ export function CartProvider({ children }) {
     if (drawerOpen && items.length) refreshAvailability()
   }, [drawerOpen, items.length, refreshAvailability])
 
-  const addItem = (next) => {
+  const addItem = (next, { openDrawer = true } = {}) => {
     setItems((current) => {
       const candidate = { ...next, available: true, availabilityReason: '' }
       const itemSignature = signature(candidate)
@@ -147,7 +147,7 @@ export function CartProvider({ children }) {
         ? current.map((item) => signature(item) === itemSignature ? { ...item, ...candidate, quantity: item.quantity + candidate.quantity } : item)
         : [...current, { ...candidate, lineId: crypto.randomUUID() }]
     })
-    setDrawerOpen(true)
+    if (openDrawer) setDrawerOpen(true)
   }
   const updateQuantity = (lineId, quantity) => setItems((current) => current.map((item) => item.lineId === lineId ? { ...item, quantity } : item).filter((item) => item.quantity > 0))
   const removeItem = (lineId) => setItems((current) => current.filter((item) => item.lineId !== lineId))

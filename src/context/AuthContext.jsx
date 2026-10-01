@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { customerSupabase, isSupabaseConfigured, portalSupabase } from '../lib/supabase'
 import { closePortalSession } from '../services/portalSessionService'
+import { readProfileWithRetry } from '../lib/profileRetry'
 
 const AuthContext = createContext(null)
 const emptyAuthState = { session: null, profile: null, loading: true }
@@ -24,8 +25,13 @@ export function AuthProvider({ children }) {
           setState({ session: null, profile: null, loading: false })
           return
         }
-        const { data } = await client.from('profiles').select('*').eq('id', nextSession.user.id).maybeSingle()
+        const { data, error } = await readProfileWithRetry(client, nextSession.user.id, '*')
         if (!active) return
+        if (error) {
+          // A transient Data API failure must not invalidate a valid Auth session.
+          setState({ session: nextSession, profile: null, loading: false })
+          return
+        }
         const role = String(data?.role || nextSession.user.user_metadata?.role || '').trim().toLowerCase().replace(/[ -]+/g, '_')
         const roleAllowed = scope === 'customer'
           ? role === 'customer'

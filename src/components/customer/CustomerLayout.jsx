@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { LogIn, LogOut, Menu, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Brand from '../Brand'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
@@ -9,6 +9,7 @@ import { isCustomerRole } from '../../lib/auth'
 import LogoutConfirmModal from '../auth/LogoutConfirmModal'
 import { LandingFooter } from '../../pages/LegalPage'
 import { formatVatRate, vatBreakdownFromInclusiveAmount } from '../../utils/pricing'
+import { lockBodyScroll, restoreBodyScrollIfIdle, unlockBodyScroll } from '../../utils/bodyScrollLock'
 
 const centerLinks = [['Menu', '/menu'], ['My Orders', '/orders'], ['Help', '/help'], ['Profile', '/profile']]
 const landingLinks = [['Menu', '#menu'], ['Our Story', '#about'], ['Visit Us', '#visit']]
@@ -22,6 +23,9 @@ export default function CustomerLayout() {
   const { user, profile, signOut } = useAuth()
   const customerUser = user && isCustomerRole(profile?.role) ? user : null
   const cart = useCart()
+  const closeCartRef = useRef(cart.closeCart)
+  const cartScrollLockRef = useRef(Symbol('cart-drawer'))
+  closeCartRef.current = cart.closeCart
   const navigate = useNavigate()
   const location = useLocation()
   const close = () => setOpen(false)
@@ -30,18 +34,43 @@ export default function CustomerLayout() {
   const publicLinks = landingLinks.map(([label, href]) => [label, isLandingPage ? href : `/${href}`])
 
   useEffect(() => {
+    const previousRestoration = window.history.scrollRestoration
+    window.history.scrollRestoration = 'manual'
+    return () => {
+      window.history.scrollRestoration = previousRestoration
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    if (location.hash) return undefined
+    const resetScroll = () => window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    resetScroll()
+    const frame = window.requestAnimationFrame(resetScroll)
+    return () => window.cancelAnimationFrame(frame)
+  }, [location.hash, location.pathname])
+
+  useEffect(() => {
     if (!cart.drawerOpen) return undefined
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    const scrollLock = cartScrollLockRef.current
+    lockBodyScroll(scrollLock)
     const escape = (event) => {
-      if (event.key === 'Escape') cart.closeCart()
+      if (event.key === 'Escape') closeCartRef.current()
     }
     document.addEventListener('keydown', escape)
     return () => {
-      document.body.style.overflow = previous
+      unlockBodyScroll(scrollLock)
       document.removeEventListener('keydown', escape)
     }
-  }, [cart])
+  }, [cart.drawerOpen])
+
+  useEffect(() => {
+    if (cart.drawerOpen) return undefined
+    const frame = window.requestAnimationFrame(() => {
+      const visibleDialog = document.querySelector('[role="dialog"][aria-modal="true"]:not([aria-hidden="true"])')
+      if (!visibleDialog) restoreBodyScrollIfIdle()
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [cart.drawerOpen, location.pathname])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8)
@@ -79,7 +108,7 @@ export default function CustomerLayout() {
         <div className="customer-brand"><Brand /></div>
         <button className="mobile-cart" type="button" onClick={cart.openCart} aria-label={`Open cart${cart.itemCount ? `, ${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}` : ''}`} aria-haspopup="dialog">
           <ShoppingBag size={19} />
-          {cart.itemCount > 0 && <b aria-hidden="true">{cart.itemCount}</b>}
+          {cart.itemCount > 0 && <b key={cart.itemCount} className="cart-count-pulse" aria-hidden="true">{cart.itemCount}</b>}
         </button>
         <button
           className="mobile-menu"
@@ -101,7 +130,7 @@ export default function CustomerLayout() {
           <div className="customer-nav-actions">
             <button className="nav-cart" type="button" onClick={() => { close(); cart.openCart() }} aria-haspopup="dialog">
               <ShoppingBag size={18} />
-              {cart.itemCount > 0 && <b aria-label={`${cart.itemCount} cart items`}>{cart.itemCount}</b>}
+              {cart.itemCount > 0 && <b key={cart.itemCount} className="cart-count-pulse" aria-label={`${cart.itemCount} cart items`}>{cart.itemCount}</b>}
             </button>
             {customerUser ? (
               <button className="nav-auth-action" type="button" onClick={() => setLogoutOpen(true)}>
