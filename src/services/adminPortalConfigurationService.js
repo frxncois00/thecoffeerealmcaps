@@ -34,7 +34,7 @@ export const SYSTEM_DEFAULTS = {
   },
   ordering: {
     storeStatus: 'open', closureMessage: 'Online ordering is temporarily unavailable. Please check again later.',
-    openTime: '10:00', closeTime: '23:30', deliveryEnabled: true, pickupEnabled: true, minimumOrder: 0,
+    openTime: '10:00', closeTime: '23:30', deliveryEnabled: true, allowDeliveryTomorrow: false, pickupEnabled: true, minimumOrder: 0,
   },
   payments: {
     enabledMethods: ['cod', 'gcash', 'bank_transfer'], codMaximum: 1000,
