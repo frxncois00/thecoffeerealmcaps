@@ -105,6 +105,7 @@ const MAX_OPEN_ORDER_TABS = 6
 const CASHIER_WORKSPACE_STORAGE_KEY = 'tcr-cashier-workspace-v1'
 const createOrderTab = (index = 1) => ({
   id: `WI-${String(index).padStart(3, '0')}`,
+  counterNumber: String(index).padStart(2, '0'),
   cart: [],
   customerName: '',
   diningOption: 'dine_in',
@@ -122,12 +123,20 @@ function loadSavedCashierWorkspace() {
       ...createOrderTab(index + 1),
       ...tab,
       id: typeof tab?.id === 'string' && tab.id ? tab.id : `WI-${String(index + 1).padStart(3, '0')}`,
+      counterNumber: /^\d+$/.test(String(tab?.counterNumber || '')) ? String(tab.counterNumber).padStart(2, '0') : String(index + 1).padStart(2, '0'),
       cart: Array.isArray(tab?.cart) ? tab.cart : [],
       customerName: typeof tab?.customerName === 'string' ? tab.customerName : '',
       diningOption: ['dine_in', 'take_out'].includes(tab?.diningOption) ? tab.diningOption : 'dine_in',
       discount: { ...emptyDiscount(), ...(tab?.discount || {}) },
       payment: { ...emptyPayment(), ...(tab?.payment || {}) },
     }))
+    const usedCounters = new Set()
+    orderTabs.forEach((tab, index) => {
+      let counter = Number(tab.counterNumber) || index + 1
+      while (usedCounters.has(counter)) counter += 1
+      tab.counterNumber = String(counter).padStart(2, '0')
+      usedCounters.add(counter)
+    })
     const activeOrderId = orderTabs.some((tab) => tab.id === saved.activeOrderId)
       ? saved.activeOrderId
       : orderTabs[0].id
@@ -358,8 +367,8 @@ function cartVatBreakdown({ subtotal, discount, discountBreakdown, vatRate, pric
     subtotal,
     discountSubtotal: discount.enabled ? discountBreakdown.discountSubtotal : 0,
     discountType: discount.enabled ? discount.type : '',
-    discountAmount: discount.enabled ? discountBreakdown.totalBenefitAmount : 0,
-    vatExemptAmount: discount.enabled ? discountBreakdown.vatExemptAmount : 0,
+    discountAmount: discount.enabled ? (discountBreakdown.discountAmount ?? 0) : 0,
+    vatExemptAmount: discount.enabled ? (discountBreakdown.vatExemptAmount ?? 0) : 0,
     vatRate,
     pricesIncludeVat,
   })
@@ -400,6 +409,7 @@ export default function CashierPage() {
   const [category, setCategory] = useState('All')
   const [search, setSearch] = useState('')
   const [menuFilter, setMenuFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('most-ordered')
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [minimumPrice, setMinimumPrice] = useState('')
   const [maximumPrice, setMaximumPrice] = useState('')
@@ -571,7 +581,8 @@ export default function CashierPage() {
     updateActiveOrder((tab) => ({ payment: typeof updater === 'function' ? updater(tab.payment) : updater }))
   }
   const categories = useMemo(() => ['All', ...Array.from(new Set(products.map((item) => item.category).filter(Boolean)))], [products])
-  const filteredProducts = useMemo(() => products.filter((item) => {
+  const filteredProducts = useMemo(() => {
+    const filtered = products.filter((item) => {
     const matchesCategory = category === 'All' || item.category === category
     const haystack = `${item.name} ${item.description} ${item.category}`.toLowerCase()
     const available = Boolean(item.isAvailable && item.price > 0)
@@ -584,7 +595,24 @@ export default function CashierPage() {
       (!customizableOnly || hasCustomizationChoices(item)) &&
       (minimumPrice === '' || item.price >= Number(minimumPrice)) &&
       (maximumPrice === '' || item.price <= Number(maximumPrice))
-  }), [category, products, search, menuFilter, minimumPrice, maximumPrice, customizableOnly])
+    })
+    const orderedCounts = transactions.reduce((counts, order) => {
+      ;(order.items || []).forEach((line) => {
+        const productId = line.menu_item_id || line.menuItemId || line.product_id || line.productId
+        if (productId != null) counts.set(String(productId), (counts.get(String(productId)) || 0) + Number(line.quantity ?? line.qty ?? 0))
+      })
+      return counts
+    }, new Map())
+    const popularity = (item) => Number(item.orderCount ?? item.ordersCount ?? item.totalOrdered ?? item.orderedCount ?? orderedCounts.get(String(item.id)) ?? 0)
+    return filtered.sort((a, b) => {
+      if (sortBy === 'least-ordered') return popularity(a) - popularity(b) || a.name.localeCompare(b.name)
+      if (sortBy === 'lowest-price') return Number(a.price || 0) - Number(b.price || 0) || a.name.localeCompare(b.name)
+      if (sortBy === 'highest-price') return Number(b.price || 0) - Number(a.price || 0) || a.name.localeCompare(b.name)
+      if (sortBy === 'a-to-z') return a.name.localeCompare(b.name)
+      if (sortBy === 'z-to-a') return b.name.localeCompare(a.name)
+      return popularity(b) - popularity(a) || a.name.localeCompare(b.name)
+    })
+  }, [category, products, search, menuFilter, minimumPrice, maximumPrice, customizableOnly, sortBy, transactions])
   const subtotal = cart.reduce((sum, item) => sum + itemLineTotal(item), 0)
   const discountedLineKeys = Array.isArray(discount.discountedLineKeys) ? discount.discountedLineKeys : []
   const discountSubtotal = discount.enabled
@@ -596,6 +624,7 @@ export default function CashierPage() {
   const discountAmount = selectedBenefit.discountAmount
   const discountBreakdown = {
     discountSubtotal,
+    discountAmount: selectedBenefit.discountAmount,
     totalBenefitAmount: selectedBenefit.benefitAmount,
     vatExemptAmount: selectedBenefit.vatAmount,
   }
@@ -639,7 +668,8 @@ export default function CashierPage() {
     setOrderTabs((current) => {
       if (current.length >= MAX_OPEN_ORDER_TABS) return current
       const nextIndex = Math.max(0, ...current.map((tab) => Number(tab.id.replace('WI-', '')) || 0)) + 1
-      const nextTab = createOrderTab(nextIndex)
+      const nextCounter = Math.max(0, ...current.map((tab) => Number(tab.counterNumber) || 0)) + 1
+      const nextTab = { ...createOrderTab(nextIndex), counterNumber: String(nextCounter).padStart(2, '0') }
       setActiveOrderId(nextTab.id)
       return [...current, nextTab]
     })
@@ -695,6 +725,21 @@ export default function CashierPage() {
       variantPrice: defaultVariant.price,
     } : {})
   }
+
+  function reorderLatestOrder() {
+    const previousOrder = transactions[0]
+    if (!previousOrder?.items?.length) return
+    const productsById = new Map(products.map((product) => [String(product.id), product]))
+    let addedCount = 0
+    previousOrder.items.forEach((line) => {
+      const productId = line.menu_item_id || line.menuItemId || line.product_id || line.productId
+      const product = productsById.get(String(productId))
+      if (!product || !product.isAvailable || !product.price) return
+      addConfiguredItem(product, line.customizations || {}, line.addons || [], Math.min(99, Math.max(1, Number(line.quantity ?? line.qty ?? 1))))
+      addedCount += 1
+    })
+    setNotice(addedCount ? `${addedCount} item${addedCount === 1 ? '' : 's'} added from the previous order.` : 'No items from the previous order are currently in stock.')
+  }
   function changeQty(lineKey, delta) {
     setCart((current) => current.map((item) => item.lineKey === lineKey ? { ...item, qty: item.qty + delta } : item).filter((item) => item.qty > 0))
   }
@@ -731,6 +776,7 @@ export default function CashierPage() {
       const orderDraft = {
         id: Date.now(),
         orderNumber: localIdentifier('WI'),
+        counterNumber: activeOrder.counterNumber || '01',
         receiptNumber: localIdentifier('R'),
         customerName: customerName.trim() || 'Walk-in Customer',
         diningOption: activeOrder.diningOption || 'dine_in',
@@ -765,6 +811,10 @@ export default function CashierPage() {
         setCustomerName('')
         setDiscount(emptyDiscount())
         setPayment(emptyPayment())
+        setOrderTabs((current) => {
+          const nextCounter = Math.max(0, ...current.map((tab) => Number(tab.counterNumber) || 0)) + 1
+          return current.map((tab) => tab.id === activeOrder.id ? { ...tab, counterNumber: String(nextCounter).padStart(2, '0') } : tab)
+        })
         return true
       }
 
@@ -829,6 +879,10 @@ export default function CashierPage() {
       setCustomerName('')
       setDiscount(emptyDiscount())
       setPayment(emptyPayment())
+      setOrderTabs((current) => {
+        const nextCounter = Math.max(0, ...current.map((tab) => Number(tab.counterNumber) || 0)) + 1
+        return current.map((tab) => tab.id === activeOrder.id ? { ...tab, counterNumber: String(nextCounter).padStart(2, '0') } : tab)
+      })
       return true
     } finally {
       setSavingOrder(false)
@@ -955,7 +1009,7 @@ export default function CashierPage() {
             <div className="cashier-workspace-tabs">
               <div className="cashier-order-tabs-list" role="group" aria-label="Open orders">
                 {orderTabs.map((tab) => <div className={`cashier-order-tab ${tab.id === activeOrderId ? 'active' : ''}`} key={tab.id}>
-                  <button type="button" className="cashier-tab-select" aria-pressed={tab.id === activeOrderId} aria-controls="cashier-current-order" onClick={() => setActiveOrderId(tab.id)}>{tab.id}</button>
+                  <button type="button" className="cashier-tab-select" aria-pressed={tab.id === activeOrderId} aria-controls="cashier-current-order" onClick={() => setActiveOrderId(tab.id)}>{tab.counterNumber || '01'}</button>
                   <button type="button" className="cashier-tab-close" onClick={() => closeOrderTab(tab.id)} aria-label={`Close ${tab.id}`}>&times;</button>
                 </div>)}
               </div>
@@ -969,6 +1023,7 @@ export default function CashierPage() {
             <div className="cashier-menu-controls">
               <div className="cashier-search-toolbar">
                 <label className="cashier-search-field"><Search size={18} aria-hidden="true" /><input type="search" aria-label="Search menu items" inputMode="search" enterKeyHint="search" value={search} onChange={(event) => setSearch(event.target.value.slice(0, 100))} maxLength={100} placeholder="Search menu items" /></label>
+                <label className="cashier-sort-field">Sort by<select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Sort menu items"><option value="most-ordered">Most ordered</option><option value="least-ordered">Least ordered</option><option value="lowest-price">Lowest price</option><option value="highest-price">Highest price</option><option value="a-to-z">A to Z</option><option value="z-to-a">Z to A</option></select></label>
                 <button type="button" className="cashier-filter-trigger" aria-expanded={filtersOpen} aria-controls="cashier-filters" onClick={() => setFiltersOpen(!filtersOpen)}><SlidersHorizontal size={17} /> Filter{menuFilter !== 'all' || minimumPrice || maximumPrice || customizableOnly ? ' •' : ''}</button>
               </div>
               {filtersOpen ? <div className="cashier-filter-panel" id="cashier-filters">
@@ -987,9 +1042,9 @@ export default function CashierPage() {
           <aside className="legacy-ticket" id="cashier-current-order">
             <header>
               <div className="cashier-ticket-header-top">
-                <div className="cashier-order-heading"><span className="cashier-order-icon"><ShoppingBag size={16} /></span><span className="cashier-order-heading-text"><b>{activeOrder.id}</b><small>{cartCount} {cartCount === 1 ? 'item' : 'items'}</small></span></div>
+                <div className="cashier-order-heading"><span className="cashier-order-icon"><ShoppingBag size={16} /></span><span className="cashier-order-heading-text"><b>{activeOrder.counterNumber || '01'}</b><small>{cartCount} {cartCount === 1 ? 'item' : 'items'}</small></span></div>
                 <div className="cashier-cart-actions">
-                  <button type="button" className="cashier-clear-cart" onClick={() => setCart([])} disabled={!cart.length}>Clear cart</button>
+                  <button type="button" className="cashier-reorder" onClick={reorderLatestOrder} disabled={!transactions.length}>Reorder</button><button type="button" className="cashier-clear-cart" onClick={() => setCart([])} disabled={!cart.length}>Clear cart</button>
                 </div>
               </div>
               <div className="cashier-dining-selector" role="group" aria-label="Dining option">
@@ -1404,6 +1459,11 @@ function CashierReceipt({ order, onClose }) {
             <div className="receipt-store-info">{store.address}</div>
             <div className="receipt-store-info">{store.phone}</div>
             <div className="receipt-store-info">TIN ID: {RECEIPT_TIN_ID}</div>
+          </div>
+          <div className="receipt-claim-block">
+            <div>CLAIM AT THE COUNTER</div>
+            <strong>{order.counterNumber || '01'}</strong>
+            <div>[ {(order.diningOption || 'dine_in') === 'take_out' ? 'TAKE OUT' : 'DINE IN'} ]</div>
           </div>
           <div className="receipt-line" />
           <div className="receipt-row"><span className="receipt-label">Order #:</span><span className="receipt-value">{order.orderNumber}</span></div>
