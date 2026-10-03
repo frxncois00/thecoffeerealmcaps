@@ -9139,3 +9139,457 @@
   .customer-app .pickup-location-actions { display: grid; grid-template-columns: 1fr; }
   .customer-app .pickup-location-actions :is(button, a) { width: 100%; }
 }
+
+/* =========================================================
+   Staff Instant New Order Toast Notification System
+   ========================================================= */
+
+.staff-order-toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10050;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  pointer-events: none;
+}
+
+.staff-order-toast {
+  pointer-events: auto;
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1.5px solid #167d5d;
+  border-radius: 16px;
+  padding: 14px 16px 14px;
+  box-shadow: 0 14px 34px -4px rgba(15, 23, 42, 0.14), 0 4px 14px rgba(22, 125, 93, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transform-origin: top right;
+  animation: staff-toast-slide-in 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+             staff-toast-glow-pulse 2.4s ease-in-out 1;
+  transition: transform 0.25s ease, opacity 0.25s ease, box-shadow 0.25s ease;
+}
+
+[data-theme="dark"] .staff-order-toast {
+  background: #111a15;
+  border-color: #276749;
+  box-shadow: 0 14px 36px -4px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(34, 197, 94, 0.15);
+  color: #f0fdf4;
+}
+
+.staff-order-toast.is-dismissing {
+  animation: staff-toast-slide-out 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards !important;
+}
+
+@keyframes staff-toast-slide-in {
+  0% {
+    opacity: 0;
+    transform: translateX(110%) scale(0.94);
+  }
+  70% {
+    opacity: 1;
+    transform: translateX(-5px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes staff-toast-slide-out {
+  0% {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    max-height: 220px;
+    margin-bottom: 0;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(120%) scale(0.9);
+    max-height: 0;
+    margin-bottom: -12px;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+@keyframes staff-toast-glow-pulse {
+  0%, 100% {
+    box-shadow: 0 14px 34px -4px rgba(15, 23, 42, 0.14), 0 0 0 0 rgba(34, 197, 94, 0);
+  }
+  18%, 54%, 90% {
+    border-color: #22c55e;
+    box-shadow: 0 14px 38px -2px rgba(22, 125, 93, 0.38), 0 0 0 4.5px rgba(34, 197, 94, 0.32);
+  }
+  36%, 72% {
+    border-color: #167d5d;
+    box-shadow: 0 14px 34px -4px rgba(15, 23, 42, 0.14), 0 0 0 1px rgba(22, 125, 93, 0.1);
+  }
+}
+
+.staff-order-toast-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.staff-order-toast-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 9px 3px 6px;
+  background: #e8f5ec;
+  border-radius: 999px;
+  color: #167d5d;
+  font-weight: 700;
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+[data-theme="dark"] .staff-order-toast-badge {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.staff-order-toast-bell-wrap {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  background: #167d5d;
+  color: #ffffff;
+  border-radius: 50%;
+}
+
+[data-theme="dark"] .staff-order-toast-bell-wrap {
+  background: #22c55e;
+  color: #062817;
+}
+
+.staff-order-toast-bell-icon {
+  animation: toast-bell-shake 0.75s ease-in-out 1;
+}
+
+@keyframes toast-bell-shake {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(18deg); }
+  30% { transform: rotate(-18deg); }
+  45% { transform: rotate(12deg); }
+  60% { transform: rotate(-12deg); }
+  75% { transform: rotate(6deg); }
+  90% { transform: rotate(-6deg); }
+}
+
+.staff-order-toast-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.staff-order-toast-mute-btn,
+.staff-order-toast-close-btn {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  color: #718096;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  transition: all 0.15s ease;
+}
+
+[data-theme="dark"] .staff-order-toast-mute-btn,
+[data-theme="dark"] .staff-order-toast-close-btn {
+  color: #94a3b8;
+}
+
+.staff-order-toast-mute-btn:hover,
+.staff-order-toast-close-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1a202c;
+}
+
+[data-theme="dark"] .staff-order-toast-mute-btn:hover,
+[data-theme="dark"] .staff-order-toast-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.staff-order-toast-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.staff-order-toast-primary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.staff-order-toast-number {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #111827;
+  letter-spacing: -0.01em;
+}
+
+[data-theme="dark"] .staff-order-toast-number {
+  color: #ffffff;
+}
+
+.staff-order-toast-amount {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #167d5d;
+}
+
+[data-theme="dark"] .staff-order-toast-amount {
+  color: #4ade80;
+}
+
+.staff-order-toast-customer {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+[data-theme="dark"] .staff-order-toast-customer {
+  color: #cbd5e1;
+}
+
+.staff-order-toast-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 0.78rem;
+}
+
+.staff-order-toast-fulfillment-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.74rem;
+}
+
+.staff-order-toast-fulfillment-pill.tone-delivery {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.staff-order-toast-fulfillment-pill.tone-pickup {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.staff-order-toast-fulfillment-pill.tone-dine-in {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.staff-order-toast-fulfillment-pill.tone-walk-in {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+[data-theme="dark"] .staff-order-toast-fulfillment-pill.tone-delivery {
+  background: rgba(3, 105, 161, 0.25);
+  color: #7dd3fc;
+}
+
+[data-theme="dark"] .staff-order-toast-fulfillment-pill.tone-pickup {
+  background: rgba(146, 64, 14, 0.25);
+  color: #fde68a;
+}
+
+[data-theme="dark"] .staff-order-toast-fulfillment-pill.tone-dine-in {
+  background: rgba(107, 33, 168, 0.25);
+  color: #d8b4fe;
+}
+
+[data-theme="dark"] .staff-order-toast-fulfillment-pill.tone-walk-in {
+  background: rgba(55, 48, 163, 0.25);
+  color: #a5b4fc;
+}
+
+.staff-order-toast-items {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+[data-theme="dark"] .staff-order-toast-items {
+  color: #94a3b8;
+}
+
+.staff-order-toast-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.staff-order-toast-view-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 14px;
+  background: #167d5d;
+  color: #ffffff;
+  border: 0;
+  border-radius: 9px;
+  font-weight: 700;
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.staff-order-toast-view-btn:hover {
+  background: #116349;
+  transform: translateY(-1px);
+}
+
+.staff-order-toast-view-btn:active {
+  transform: translateY(0);
+}
+
+[data-theme="dark"] .staff-order-toast-view-btn {
+  background: #167d5d;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .staff-order-toast-view-btn:hover {
+  background: #22c55e;
+  color: #052e16;
+}
+
+.staff-order-toast-progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3.5px;
+  background: rgba(22, 125, 93, 0.12);
+  overflow: hidden;
+}
+
+[data-theme="dark"] .staff-order-toast-progress-track {
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.staff-order-toast-progress-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #167d5d, #22c55e);
+  transform-origin: left;
+  animation: staff-toast-progress-shrink linear forwards;
+}
+
+[data-theme="dark"] .staff-order-toast-progress-bar {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+
+.staff-order-toast.is-paused .staff-order-toast-progress-bar {
+  animation-play-state: paused;
+}
+
+@keyframes staff-toast-progress-shrink {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+/* Header bell ringing & badge popping animations */
+.internal-notification-anchor.is-ringing > button > svg {
+  animation: header-bell-shake 0.75s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.internal-utility-badge.is-popping {
+  animation: badge-pop-bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes header-bell-shake {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(18deg); }
+  30% { transform: rotate(-18deg); }
+  45% { transform: rotate(12deg); }
+  60% { transform: rotate(-12deg); }
+  75% { transform: rotate(6deg); }
+  90% { transform: rotate(-6deg); }
+}
+
+@keyframes badge-pop-bounce {
+  0% { transform: scale(0.5); }
+  50% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+/* Reduced motion accessibility support */
+@media (prefers-reduced-motion: reduce) {
+  .staff-order-toast {
+    animation: staff-toast-fade-in 0.2s ease forwards !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12) !important;
+  }
+  .staff-order-toast.is-dismissing {
+    animation: staff-toast-fade-out 0.2s ease forwards !important;
+  }
+  .staff-order-toast-bell-icon {
+    animation: none !important;
+  }
+  .internal-notification-anchor.is-ringing > button > svg {
+    animation: none !important;
+  }
+  .internal-utility-badge.is-popping {
+    animation: none !important;
+  }
+}
+
+[data-staff-motion="reduce"] .staff-order-toast {
+  animation: staff-toast-fade-in 0.2s ease forwards !important;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12) !important;
+}
+
+[data-staff-motion="reduce"] .staff-order-toast.is-dismissing {
+  animation: staff-toast-fade-out 0.2s ease forwards !important;
+}
+
+[data-staff-motion="reduce"] .staff-order-toast-bell-icon {
+  animation: none !important;
+}
+
+[data-staff-motion="reduce"] .internal-notification-anchor.is-ringing > button > svg {
+  animation: none !important;
+}
+
+[data-staff-motion="reduce"] .internal-utility-badge.is-popping {
+  animation: none !important;
+}
+
+
+@keyframes staff-toast-fade-in {
+  from { opacity: 0; transform: none; }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes staff-toast-fade-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: none; }
+}

@@ -15,6 +15,9 @@ import {
   markStaffNotificationRead, subscribeToStaffNotifications,
 } from '../services/notificationCenterService'
 import { clearManagementSessionState, requestManagementDataRefresh, useManagementSessionState, writeManagementSessionState } from '../hooks/useManagementSessionState'
+import StaffOrderToastContainer from './notifications/StaffOrderToastContainer'
+import { playOrderChime } from '../utils/notificationSound'
+
 
 const adminGroups = [
   { label: 'Main', links: [['Dashboard','/admin',LayoutDashboard]] },
@@ -71,6 +74,23 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   const visibleNotifications = notifications.filter((item) => role === 'admin' ? item.category !== 'orders' : item.category !== 'approvals')
   const unreadNotificationCount = visibleNotifications.filter((item) => !item.read).length
   const visibleNotificationCount = Math.max(notificationCount, unreadNotificationCount)
+  const [orderToasts, setOrderToasts] = useState([])
+  const [bellAnimated, setBellAnimated] = useState(false)
+  const seenOrderIdsRef = useRef(new Set())
+  const prevNotificationCountRef = useRef(visibleNotificationCount)
+
+  const triggerBellRing = () => {
+    setBellAnimated(true)
+    setTimeout(() => setBellAnimated(false), 800)
+  }
+
+  useEffect(() => {
+    if (visibleNotificationCount > prevNotificationCountRef.current) {
+      triggerBellRing()
+    }
+    prevNotificationCountRef.current = visibleNotificationCount
+  }, [visibleNotificationCount])
+
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000)
@@ -203,12 +223,41 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
       if (!active) return
       const { table, eventType, new: row, old, commit_timestamp: createdAt } = payload
       if (table === 'orders') {
-        if (eventType === 'INSERT' && role === 'staff' && staffPreferences.notify_new_orders && row?.order_source === 'customer_pos') {
-          add({
-            category: 'orders', title: 'New order',
-            message: `New order ${row.order_number || ''} from ${row.customer_name || 'Customer'} · ${money(Number(row.final_total || 0))}`,
-            target: { kind: 'order', id: row.id }, eventKey: `order:${row.id}`, createdAt,
-          })
+        if (eventType === 'INSERT' && role === 'staff') {
+          const orderId = row?.id
+          if (orderId && !seenOrderIdsRef.current.has(orderId)) {
+            seenOrderIdsRef.current.add(orderId)
+            playOrderChime()
+            triggerBellRing()
+            const initialToast = {
+              id: orderId,
+              order: {
+                id: orderId,
+                order_number: row.order_number,
+                customer_name: row.customer_name,
+                order_type: row.order_type,
+                total_items: row.total_items,
+                final_total: row.final_total,
+                created_at: row.created_at || createdAt,
+              },
+              createdAt: Date.now(),
+            }
+            setOrderToasts((current) => [initialToast, ...current.filter((t) => t.id !== orderId)].slice(0, 3))
+
+            fetchOpsOrdersByIds([orderId]).then(([fullOrder]) => {
+              if (fullOrder && active) {
+                setOrderToasts((current) => current.map((t) => t.id === orderId ? { ...t, order: fullOrder } : t))
+              }
+            }).catch(() => {})
+          }
+
+          if (staffPreferences.notify_new_orders) {
+            add({
+              category: 'orders', title: 'New order',
+              message: `New order ${row.order_number || ''} from ${row.customer_name || 'Customer'} · ${money(Number(row.final_total || 0))}`,
+              target: { kind: 'order', id: row.id }, eventKey: `order:${row.id}`, createdAt,
+            })
+          }
         }
         if (eventType === 'UPDATE' && staffPreferences.notify_payment_proofs && row?.payment_proof_path && row.payment_proof_path !== old?.payment_proof_path) {
           add({ category: 'payments', title: 'Payment proof received', message: row.order_number ? `${row.order_number} needs payment verification.` : 'A payment proof needs verification.' })
@@ -335,6 +384,23 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
     }
   }
 
+  const handleDismissOrderToast = (id) => {
+    setOrderToasts((current) => current.filter((t) => t.id !== id))
+  }
+
+  const handleViewOrderToast = async (order) => {
+    if (!order) return
+    try {
+      const fullOrder = order.order_items ? order : (await fetchOpsOrdersByIds([order.id]))[0] || order
+      writeManagementSessionState('staff:orders:drawer', fullOrder)
+    } catch {
+      writeManagementSessionState('staff:orders:drawer', order)
+    }
+    if (pathname !== '/staff') {
+      navigate('/staff')
+    }
+  }
+
   const themeOptions = [
     ['light', 'Light theme', Sun],
     ['dark', 'Dark theme', Moon],
@@ -355,7 +421,15 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
         <button className="sidebar-exit" type="button" onClick={() => setLogoutOpen(true)}><LogOut size={19}/><span>Logout</span></button>
       </div>
     </aside>
-    <main className="app-main internal-main"><header className={`page-header internal-page-header${eyebrow ? '' : ' is-compact'}${role === 'admin' ? ' is-admin-surface-header' : ''}`}><div><div className={`internal-title-row${titleActions ? ' has-title-actions' : ''}`}><h1>{title}</h1>{titleActions}</div>{eyebrow && <span>{eyebrow}</span>}</div><div className="header-actions"><div className="internal-utility-bar" aria-label="Workspace utilities"><div className="internal-live-datetime">{role === 'admin' && title === 'Dashboard' && <CalendarDays size={16} aria-hidden="true" />}<div className="internal-live-datetime-copy"><span>{new Intl.DateTimeFormat('en-PH', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }).format(now)}</span><b>{new Intl.DateTimeFormat('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }).format(now)} PHT</b></div></div><button type="button" className={`internal-utility-button raimu-toggle${raimuVisible ? ' is-active' : ''}`} aria-label={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} aria-pressed={raimuVisible} title={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} onClick={toggleRaimu}><Bot size={18} aria-hidden="true" /></button><div className="internal-notification-anchor" ref={notificationAnchorRef}><button type="button" className="internal-utility-button" aria-label={`Open notifications${visibleNotificationCount ? `, ${visibleNotificationCount} unread` : ''}`} aria-expanded={['staff', 'admin'].includes(role) ? notificationsOpen : undefined} aria-controls={role === 'staff' ? 'staff-notification-center' : undefined} title="Notifications" onClick={openNotifications}><Bell size={18} />{visibleNotificationCount > 0 && <span className="internal-utility-badge">{visibleNotificationCount > 99 ? '99+' : visibleNotificationCount}</span>}</button>{['staff', 'admin'].includes(role) && notificationsOpen && <aside className="staff-notification-center" id="staff-notification-center" role="dialog" aria-modal="false" aria-labelledby="staff-notification-title"><header><div><span>Notification center</span><h2 id="staff-notification-title">Recent activity</h2></div><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={18} /></button></header><div className="staff-notification-actions"><button type="button" onClick={readAllNotifications} disabled={!unreadNotificationCount}><CheckCheck size={16} />Read all</button><button type="button" className="is-destructive" onClick={clearNotifications} disabled={!visibleNotifications.length}><Trash2 size={16} />Clear</button></div><div className="staff-notification-list">{visibleNotifications.length ? visibleNotifications.map((notification) => <button type="button" className={notification.read ? 'is-read' : 'is-unread'} data-category={notification.category} key={notification.id} onClick={() => void openNotification(notification)}><i aria-hidden="true" /><span><b>{notification.title}</b><small>{notification.message}</small><time dateTime={notification.createdAt}>{notificationTime(notification.createdAt)}</time></span></button>) : <div className="staff-notification-empty"><Bell size={22} /><b>{role === 'admin' && notificationCount > 0 ? `${notificationCount} items need attention` : 'You’re all caught up'}</b><span>{role === 'admin' && notificationCount > 0 ? 'Review the dashboard attention cards for details.' : 'Operational alerts will stack here as they arrive.'}</span></div>}</div><footer><button type="button" onClick={() => { setNotificationsOpen(false); navigate(role === 'admin' ? '/admin/preferences' : '/staff/settings') }}>Notification settings</button></footer></aside>}</div><button type="button" className="internal-utility-button" aria-label={refreshing ? 'Refreshing current page data' : 'Refresh current page data'} aria-busy={refreshing} title={refreshing ? 'Refreshing data…' : 'Refresh data'} onClick={refreshPage} disabled={refreshing}><RefreshCw size={18} className={refreshing ? 'spin' : ''} /></button></div>{actions}</div></header>{children}</main>
+    <main className="app-main internal-main"><header className={`page-header internal-page-header${eyebrow ? '' : ' is-compact'}${role === 'admin' ? ' is-admin-surface-header' : ''}`}><div><div className={`internal-title-row${titleActions ? ' has-title-actions' : ''}`}><h1>{title}</h1>{titleActions}</div>{eyebrow && <span>{eyebrow}</span>}</div><div className="header-actions"><div className="internal-utility-bar" aria-label="Workspace utilities"><div className="internal-live-datetime">{role === 'admin' && title === 'Dashboard' && <CalendarDays size={16} aria-hidden="true" />}<div className="internal-live-datetime-copy"><span>{new Intl.DateTimeFormat('en-PH', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }).format(now)}</span><b>{new Intl.DateTimeFormat('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }).format(now)} PHT</b></div></div><button type="button" className={`internal-utility-button raimu-toggle${raimuVisible ? ' is-active' : ''}`} aria-label={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} aria-pressed={raimuVisible} title={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} onClick={toggleRaimu}><Bot size={18} aria-hidden="true" /></button><div className={`internal-notification-anchor ${bellAnimated ? 'is-ringing' : ''}`} ref={notificationAnchorRef}><button type="button" className="internal-utility-button" aria-label={`Open notifications${visibleNotificationCount ? `, ${visibleNotificationCount} unread` : ''}`} aria-expanded={['staff', 'admin'].includes(role) ? notificationsOpen : undefined} aria-controls={role === 'staff' ? 'staff-notification-center' : undefined} title="Notifications" onClick={openNotifications}><Bell size={18} />{visibleNotificationCount > 0 && <span className={`internal-utility-badge ${bellAnimated ? 'is-popping' : ''}`}>{visibleNotificationCount > 99 ? '99+' : visibleNotificationCount}</span>}</button>{['staff', 'admin'].includes(role) && notificationsOpen && <aside className="staff-notification-center" id="staff-notification-center" role="dialog" aria-modal="false" aria-labelledby="staff-notification-title"><header><div><span>Notification center</span><h2 id="staff-notification-title">Recent activity</h2></div><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={18} /></button></header><div className="staff-notification-actions"><button type="button" onClick={readAllNotifications} disabled={!unreadNotificationCount}><CheckCheck size={16} />Read all</button><button type="button" className="is-destructive" onClick={clearNotifications} disabled={!visibleNotifications.length}><Trash2 size={16} />Clear</button></div><div className="staff-notification-list">{visibleNotifications.length ? visibleNotifications.map((notification) => <button type="button" className={notification.read ? 'is-read' : 'is-unread'} data-category={notification.category} key={notification.id} onClick={() => void openNotification(notification)}><i aria-hidden="true" /><span><b>{notification.title}</b><small>{notification.message}</small><time dateTime={notification.createdAt}>{notificationTime(notification.createdAt)}</time></span></button>) : <div className="staff-notification-empty"><Bell size={22} /><b>{role === 'admin' && notificationCount > 0 ? `${notificationCount} items need attention` : 'You’re all caught up'}</b><span>{role === 'admin' && notificationCount > 0 ? 'Review the dashboard attention cards for details.' : 'Operational alerts will stack here as they arrive.'}</span></div>}</div><footer><button type="button" onClick={() => { setNotificationsOpen(false); navigate(role === 'admin' ? '/admin/preferences' : '/staff/settings') }}>Notification settings</button></footer></aside>}</div><button type="button" className="internal-utility-button" aria-label={refreshing ? 'Refreshing current page data' : 'Refresh current page data'} aria-busy={refreshing} title={refreshing ? 'Refreshing data…' : 'Refresh data'} onClick={refreshPage} disabled={refreshing}><RefreshCw size={18} className={refreshing ? 'spin' : ''} /></button></div>{actions}</div></header>{children}</main>
+    {role === 'staff' && (
+      <StaffOrderToastContainer
+        toasts={orderToasts}
+        onDismiss={handleDismissOrderToast}
+        onViewOrder={handleViewOrderToast}
+      />
+    )}
     <LogoutConfirmModal open={logoutOpen} busy={loggingOut} onCancel={() => setLogoutOpen(false)} onConfirm={confirmLogout} />
+
   </div>
 }

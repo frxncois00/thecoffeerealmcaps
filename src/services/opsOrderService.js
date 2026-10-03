@@ -3,6 +3,21 @@ import { dispatchOrderEmails } from './orderEmailService'
 
 const ACTIVE_SELECT = 'id,order_number,receipt_number,order_type,status,tracking_url,customer_name,customer_email,customer_phone,delivery_address,schedule_date,schedule_time,out_for_delivery_at,received_at,receipt_confirmation,subtotal,discount_type,discount_subtotal,discount_amount,vat_exempt_amount,delivery_fee,final_total,vat_rate,prices_include_vat,payment_status,payment_confirmed,payment_proof_path,refund_status,cancellation_status,fulfillment_hold,cancellation_reason,cancellation_notes,cancellation_requested_by_role,cancellation_requested_at,cancellation_reviewed_at,cancellation_review_notes,cancelled_by_role,cancelled_at,cancellation_resolved,created_at,updated_at,order_items(id,menu_item_id,item_name,display_name,unit_price,quantity,addons_total,line_total,addons,customizations,is_discounted,discount_amount,vat_exempt_amount,menu_items(prep_time_minutes)),payments(method,status,amount_due,reference_number),refunds(id,refund_amount,refund_status,refund_method,reference_number,requested_at,processed_at)'
 
+export const NON_CANCELLABLE_OPS_STATUSES = [
+  'Preparing',
+  'Ready for Pickup',
+  'Out for Delivery',
+  'Received',
+  'Completed',
+]
+export const CANNOT_CANCEL_IN_PROGRESS_REASON = "Orders in progress can't be cancelled."
+
+export function isOrderCancellationBlocked(status) {
+  if (!status) return false
+  const normalized = String(status).trim().toLowerCase()
+  return NON_CANCELLABLE_OPS_STATUSES.some((s) => s.toLowerCase() === normalized)
+}
+
 export async function fetchOpsOrders() {
   const { data, error } = await supabase
     .from('orders')
@@ -45,6 +60,19 @@ export async function advanceOrderStatus(orderId, nextStatus) {
 export async function saveOrderTrackingLink(orderId, trackingUrl) { const { data, error } = await supabase.rpc('staff_set_order_tracking_url', { p_order_id: orderId, p_tracking_url: trackingUrl || null }); if (error) throw error; return data }
 
 export async function cancelOrder(orderId, reason) {
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('id, status')
+    .eq('id', orderId)
+    .maybeSingle()
+
+  if (orderError) throw orderError
+  if (!order) throw new Error('Order not found')
+  if (order.status === 'Cancelled') throw new Error('This order is already cancelled')
+  if (isOrderCancellationBlocked(order.status)) {
+    throw new Error(CANNOT_CANCEL_IN_PROGRESS_REASON)
+  }
+
   const { data, error } = await supabase.rpc('staff_cancel_order', { p_order_id: orderId, p_reason: reason })
   if (error) throw error
   const email = await dispatchOrderEmails(orderId)

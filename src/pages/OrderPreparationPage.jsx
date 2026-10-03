@@ -11,6 +11,7 @@ import { buildVatExemptOrderBreakdown, formatVatRate } from '../utils/pricing'
 import {
   fetchOpsOrders, fetchOpsOrdersByIds, fetchAddonNameMap, confirmOrder, advanceOrderStatus, saveOrderTrackingLink,
   cancelOrder, reviewCancellation, resolveCancellation, completeCancellationRefund, getPaymentProofUrl,
+  CANNOT_CANCEL_IN_PROGRESS_REASON, isOrderCancellationBlocked,
 } from '../services/opsOrderService'
 import { getCurrentPortalSession } from '../lib/auth'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
@@ -431,6 +432,11 @@ export default function OrderPreparationPage() {
 
   const runCancel = async (order, reason) => {
     if (busyId) return
+    if (isOrderCancellationBlocked(order?.status)) {
+      pushToast('error', CANNOT_CANCEL_IN_PROGRESS_REASON)
+      setCancelTarget(null)
+      return false
+    }
     setBusyId(order.id)
     try {
       const result = await cancelOrder(order.id, reason)
@@ -654,7 +660,7 @@ export default function OrderPreparationPage() {
                   {col.orders.length === 0 ? <EmptyColumn /> : col.orders.map((order) => (
                     <OrderCard key={order.id} order={order} isNew={newOrderIds.has(order.id)} busy={busyId === order.id} onView={() => setDrawerOrder(order)}
                       onMain={(action) => setConfirmAction({ order, ...action })}
-                      onCancel={() => setCancelTarget(order)} />
+                      onCancel={() => { if (isOrderCancellationBlocked(order.status)) return; setCancelTarget(order) }} />
                   ))}
                 </div>
               </div>
@@ -675,7 +681,7 @@ export default function OrderPreparationPage() {
                 : activeColumns.find((c) => c.key === selectedMobileStage).orders.map((order) => (
                   <OrderCard key={order.id} order={order} isNew={newOrderIds.has(order.id)} busy={busyId === order.id} onView={() => setDrawerOrder(order)}
                     onMain={(action) => setConfirmAction({ order, ...action })}
-                    onCancel={() => setCancelTarget(order)} />
+                    onCancel={() => { if (isOrderCancellationBlocked(order.status)) return; setCancelTarget(order) }} />
                 ))}
             </div>
           </div>
@@ -692,7 +698,7 @@ export default function OrderPreparationPage() {
           {loading ? <p className="customer-state">Loading completed orders…</p> : layoutView === 'table' ? <><OrderTable orders={tableOrders} newOrderIds={newOrderIds} busyId={busyId} onView={setDrawerOrder} onMain={(order, action) => setConfirmAction({ order, ...action })} onCancel={setCancelTarget} /><OrderTablePagination total={sorted.length} page={tablePage} pages={tablePages} rowsPerPage={rowsPerPage} onPage={setTablePage} /></> : sorted.length === 0 ? <div className="ops-empty"><ShoppingBag size={22} /><span>No completed orders match these filters.</span></div> : <div className="ops-completed-grid">
             {sorted.map((order) => <OrderCard key={order.id} order={order} isNew={newOrderIds.has(order.id)} busy={busyId === order.id} onView={() => setDrawerOrder(order)}
               onMain={(action) => setConfirmAction({ order, ...action })}
-              onCancel={() => setCancelTarget(order)} />)}
+              onCancel={() => { if (isOrderCancellationBlocked(order.status)) return; setCancelTarget(order) }} />)}
           </div>}
         </section>
       )}
@@ -715,7 +721,11 @@ export default function OrderPreparationPage() {
       {drawerOrder && (
         <OrderDrawer order={orders.find((o) => o.id === drawerOrder.id) || drawerOrder} addonNames={addonNames} onClose={() => setDrawerOrder(null)}
           onMain={(action) => setConfirmAction({ order: orders.find((o) => o.id === drawerOrder.id) || drawerOrder, ...action })}
-          onCancel={() => setCancelTarget(orders.find((o) => o.id === drawerOrder.id) || drawerOrder)}
+          onCancel={() => {
+            const target = orders.find((o) => o.id === drawerOrder.id) || drawerOrder
+            if (isOrderCancellationBlocked(target.status)) return
+            setCancelTarget(target)
+          }}
           onTracking={(trackingUrl) => runTrackingSave(orders.find((o) => o.id === drawerOrder.id) || drawerOrder, trackingUrl)}
           busy={busyId === drawerOrder.id} />
       )}
@@ -758,6 +768,7 @@ function OrderCard({ order, isNew = false, busy, onView, onMain, onCancel }) {
   const overdue = isOverdue(order)
   const main = mainActionFor(order)
   const method = paymentMethod(order)
+  const isCancelBlocked = isOrderCancellationBlocked(order.status)
   const canCancel = stage !== 'completed' && stage !== 'cancelled' && !cancellationRequested(order)
   return (
     <article className={`ops-card${overdue ? ' is-overdue' : ''}${isNew ? ' is-new-order' : ''}`}>
@@ -780,7 +791,17 @@ function OrderCard({ order, isNew = false, busy, onView, onMain, onCancel }) {
         )}
         <div className="ops-card-actions-row">
           <button type="button" className="ops-secondary-action" onClick={onView}>View Details</button>
-          {canCancel && <button type="button" className="ops-destructive-action" onClick={onCancel} disabled={busy}>Cancel Order</button>}
+          {canCancel && (
+            <button
+              type="button"
+              className="ops-destructive-action"
+              onClick={isCancelBlocked ? undefined : onCancel}
+              disabled={busy || isCancelBlocked}
+              title={isCancelBlocked ? CANNOT_CANCEL_IN_PROGRESS_REASON : undefined}
+            >
+              Cancel Order
+            </button>
+          )}
         </div>
       </div>
     </article>
@@ -789,7 +810,7 @@ function OrderCard({ order, isNew = false, busy, onView, onMain, onCancel }) {
 
 function OrderTable({ orders, newOrderIds = new Set(), busyId, onView, onMain, onCancel }) {
   if (!orders.length) return <div className="ops-empty"><ShoppingBag size={20} /><span>No orders match these filters.</span></div>
-  return <div className="ops-order-table-wrap"><table className="ops-order-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th>Main action</th><th>Others</th></tr></thead><tbody>{orders.map((order) => { const main = mainActionFor(order); const canCancel = stageOf(order) !== 'completed' && stageOf(order) !== 'cancelled' && !cancellationRequested(order); return <tr key={order.id} className={newOrderIds.has(order.id) ? 'is-new-order' : undefined}><td><b>{order.order_number}</b><small>{timeAgo(order.created_at)}</small></td><td>{order.customer_name}</td><td>{order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</td><td>{itemCount(order)}</td><td>{paymentMethodLabel(paymentMethod(order))}</td><td><span className={`ops-table-status ops-table-status--${orderStatusTone(order.status)}`}>{order.status}</span></td><td><b>{money(order.final_total)}</b></td><td>{main && <button type="button" className="ops-main-action compact" disabled={busyId === order.id || main.disabled} onClick={() => onMain(order, main)}>{busyId === order.id ? 'Please wait…' : main.label}</button>}</td><td><div className="ops-table-actions"><button type="button" className="ops-secondary-action compact" onClick={() => onView(order)}>View details</button>{canCancel && <button type="button" className="ops-destructive-action compact" disabled={busyId === order.id} onClick={() => onCancel(order)}>Cancel</button>}</div></td></tr>})}</tbody></table></div>
+  return <div className="ops-order-table-wrap"><table className="ops-order-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th>Main action</th><th>Others</th></tr></thead><tbody>{orders.map((order) => { const main = mainActionFor(order); const isCancelBlocked = isOrderCancellationBlocked(order.status); const canCancel = stageOf(order) !== 'completed' && stageOf(order) !== 'cancelled' && !cancellationRequested(order); return <tr key={order.id} className={newOrderIds.has(order.id) ? 'is-new-order' : undefined}><td><b>{order.order_number}</b><small>{timeAgo(order.created_at)}</small></td><td>{order.customer_name}</td><td>{order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</td><td>{itemCount(order)}</td><td>{paymentMethodLabel(paymentMethod(order))}</td><td><span className={`ops-table-status ops-table-status--${orderStatusTone(order.status)}`}>{order.status}</span></td><td><b>{money(order.final_total)}</b></td><td>{main && <button type="button" className="ops-main-action compact" disabled={busyId === order.id || main.disabled} onClick={() => onMain(order, main)}>{busyId === order.id ? 'Please wait…' : main.label}</button>}</td><td><div className="ops-table-actions"><button type="button" className="ops-secondary-action compact" onClick={() => onView(order)}>View details</button>{canCancel && <button type="button" className="ops-destructive-action compact" disabled={busyId === order.id || isCancelBlocked} title={isCancelBlocked ? CANNOT_CANCEL_IN_PROGRESS_REASON : undefined} onClick={isCancelBlocked ? undefined : () => onCancel(order)}>Cancel</button>}</div></td></tr>})}</tbody></table></div>
 }
 
 function OrderTablePagination({ total, page, pages, rowsPerPage, onPage }) {
@@ -997,6 +1018,7 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
   const drawerBodyRef = useRef(null)
   const method = paymentMethod(order)
   const stage = stageOf(order)
+  const isCancelBlocked = isOrderCancellationBlocked(order.status)
   const main = mainActionFor(order)
   const canCancel = stage !== 'completed' && stage !== 'cancelled' && !cancellationRequested(order)
   const vatRate = order.vat_rate ?? pricing.vatRate
@@ -1182,7 +1204,17 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
             </div>
           )}
           {main && <button type="button" className="ops-main-action" disabled={busy || main.disabled} onClick={() => onMain(main)}>{busy ? 'Please wait…' : main.label}</button>}
-          {canCancel && <button type="button" className="ops-destructive-action" disabled={busy} onClick={onCancel}>Cancel Order</button>}
+          {canCancel && (
+            <button
+              type="button"
+              className="ops-destructive-action"
+              disabled={busy || isCancelBlocked}
+              title={isCancelBlocked ? CANNOT_CANCEL_IN_PROGRESS_REASON : undefined}
+              onClick={isCancelBlocked ? undefined : onCancel}
+            >
+              Cancel Order
+            </button>
+          )}
           {!main && !canCancel && <button type="button" className="ops-secondary-action" onClick={onClose}>Close details</button>}
         </footer>
       </aside>
