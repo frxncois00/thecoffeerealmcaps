@@ -27,3 +27,15 @@ test('duplicate error detection regex catches database unique index errors', () 
   assert.equal(isDuplicate(errorMsg2), true)
   assert.equal(isDuplicate('Some other random error'), false)
 })
+
+import { isTwoWordPersonName } from '../src/utils/inputValidation.js'
+
+test('isTwoWordPersonName accepts 2 or more words and rejects single word names', () => {
+  assert.equal(isTwoWordPersonName('John'), false)
+  assert.equal(isTwoWordPersonName(''), false)
+  assert.equal(isTwoWordPersonName('   '), false)
+  assert.equal(isTwoWordPersonName('John Doe'), true)
+  assert.equal(isTwoWordPersonName('John Michael Doe'), true)
+  assert.equal(isTwoWordPersonName('Maria Del Rosario De La Cruz'), true)
+  assert.equal(isTwoWordPersonName('   Juan   Dela   Cruz   '), true)
+})
