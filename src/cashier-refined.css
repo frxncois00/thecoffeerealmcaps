@@ -444,8 +444,8 @@ html[data-theme] .cashier-refined #cashier-current-order .cashier-dining-selecto
   grid-template-columns: 1fr 1fr;
   gap: 6px;
   width: 100%;
-  padding: 4px;
-  border-radius: 10px;
+  padding: 3px;
+  border-radius: 9px;
   background: #142319;
   border: 1px solid #364938;
 }
@@ -453,22 +453,34 @@ html[data-theme] .cashier-refined #cashier-current-order .cashier-dining-btn {
   display: inline-flex !important;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 36px;
-  height: 36px;
-  padding: 0 10px !important;
+  gap: 5px;
+  min-height: 30px;
+  height: 30px;
+  padding: 0 8px !important;
   border: 1px solid transparent !important;
-  border-radius: 7px !important;
+  border-radius: 6px !important;
   background: transparent !important;
-  color: #c6c5ae !important;
-  font-size: .8rem !important;
+  color: #ffffff !important;
+  font-size: .75rem !important;
   font-weight: 700 !important;
   cursor: pointer;
   transition: background .15s, color .15s, border-color .15s;
 }
+html[data-theme] .cashier-refined #cashier-current-order .cashier-dining-btn svg {
+  width: 13px;
+  height: 13px;
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  flex-shrink: 0;
+  transition: color .15s, stroke .15s;
+}
 html[data-theme] .cashier-refined #cashier-current-order .cashier-dining-btn:hover:not(.is-active) {
-  background: rgba(255, 255, 255, .06) !important;
-  color: var(--pos-cream) !important;
+  background: rgba(255, 255, 255, .08) !important;
+  color: #ffffff !important;
+}
+html[data-theme] .cashier-refined #cashier-current-order .cashier-dining-btn:hover:not(.is-active) svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
 }
 html[data-theme] .cashier-refined #cashier-current-order .cashier-dining-btn.is-active {
   background: var(--pos-cream) !important;
@@ -476,6 +488,10 @@ html[data-theme] .cashier-refined #cashier-current-order .cashier-dining-btn.is-
   border-color: var(--pos-cream) !important;
   font-weight: 800 !important;
   box-shadow: 0 2px 6px rgba(0, 0, 0, .16) !important;
+}
+html[data-theme] .cashier-refined #cashier-current-order .cashier-dining-btn.is-active svg {
+  color: var(--pos-forest) !important;
+  stroke: var(--pos-forest) !important;
 }
 html[data-theme] .cashier-refined #cashier-current-order .legacy-ticket-items { background: var(--pos-forest); scrollbar-color: #6f775f transparent; }
 html[data-theme] .cashier-refined #cashier-current-order .legacy-ticket-items .cashier-cart-line { grid-template-columns: minmax(0, 1fr); gap: 0; background: transparent; border-color: #42503f; }

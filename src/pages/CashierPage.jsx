@@ -24,7 +24,7 @@ import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { sanitizePersonName, sanitizePhone } from '../utils/inputValidation'
 import { buildVatExemptOrderBreakdown, formatVatRate, vatExemptDiscountBreakdown } from '../utils/pricing'
 
-function DineInIcon({ size = 16, className = '', ...props }) {
+function DineInIcon({ size = 13, className = '', ...props }) {
   return (
     <svg
       width={size}
@@ -46,7 +46,7 @@ function DineInIcon({ size = 16, className = '', ...props }) {
   )
 }
 
-function TakeOutIcon({ size = 16, className = '', ...props }) {
+function TakeOutIcon({ size = 13, className = '', ...props }) {
   return (
     <svg
       width={size}
@@ -999,7 +999,7 @@ export default function CashierPage() {
                   onClick={() => updateActiveOrder(() => ({ diningOption: 'dine_in' }))}
                   aria-pressed={(activeOrder.diningOption || 'dine_in') === 'dine_in'}
                 >
-                  <DineInIcon size={16} />
+                  <DineInIcon size={13} />
                   <span>Dine In</span>
                 </button>
                 <button
@@ -1008,7 +1008,7 @@ export default function CashierPage() {
                   onClick={() => updateActiveOrder(() => ({ diningOption: 'take_out' }))}
                   aria-pressed={activeOrder.diningOption === 'take_out'}
                 >
-                  <TakeOutIcon size={16} />
+                  <TakeOutIcon size={13} />
                   <span>Take Out</span>
                 </button>
               </div>
