@@ -289,6 +289,8 @@ function normalizeProduct(row, addonRows = []) {
     description: row.description || '',
     isFeatured: Boolean(row.is_featured || row.is_bestseller),
     price: Number(row.price || row.unit_price || 0),
+    sortOrder: Number(row.sort_order ?? 0),
+    orderCount: Number(row.order_count ?? row.orderCount ?? 0),
     image: resolveImagePath(row.image_url || row.image_path || row.image),
     isAvailable: row.is_available ?? row.available ?? row.status !== 'unavailable',
     itemType: row.item_type || row.type || '',
@@ -447,7 +449,7 @@ export default function CashierPage() {
           setLastSyncedAt(new Date())
           return
         }
-        const [productResult, addonResult, orderResult, recipeResult, ingredientStockResult, mappingResult, finishedProductResult] = await Promise.all([
+        const [productResult, addonResult, orderResult, recipeResult, ingredientStockResult, mappingResult, finishedProductResult, orderStatsResult] = await Promise.all([
           loadMenuItems(),
           supabase.from('addons').select('id,name,price,applies_to,is_available,sort_order,addon_subcategories(subcategory_id)').eq('is_available', true).order('sort_order', { ascending: true }),
           supabase.from('orders').select('id,order_number,receipt_number,customer_name,subtotal,discount_subtotal,discount_amount,vat_exempt_amount,final_total,vat_rate,prices_include_vat,payment_status,payment_confirmed,discount_type,discount_customer_name,discount_id_number,created_at,order_items(*),payments(*)').eq('order_type', 'walk-in').order('created_at', { ascending: false }).limit(30),
@@ -455,15 +457,27 @@ export default function CashierPage() {
           supabase.from('inventory_stock').select('ingredient_id,quantity'),
           supabase.from('finished_product_sale_mappings').select('menu_item_id,finished_product_id,variant_key,units_per_sale'),
           supabase.from('finished_products').select('id,menu_item_id,quantity,is_archived'),
+          supabase.from('order_items').select('menu_item_id,quantity'),
         ])
         if (ignore) return
         if (!productResult.error) {
+          const orderCounts = new Map()
+          if (!orderStatsResult.error && orderStatsResult.data) {
+            for (const item of orderStatsResult.data) {
+              if (!item.menu_item_id) continue
+              orderCounts.set(String(item.menu_item_id), (orderCounts.get(String(item.menu_item_id)) || 0) + Number(item.quantity || 0))
+            }
+          }
           const stockReadable = !recipeResult.error && !ingredientStockResult.error && !mappingResult.error && !finishedProductResult.error
           const ingredientStock = new Map((ingredientStockResult.data || []).map((row) => [row.ingredient_id, Number(row.quantity)]))
           const finishedProducts = new Map((finishedProductResult.data || []).map((row) => [row.id, row]))
           const liveProducts = (productResult.data || []).map((row) => {
             const item = normalizeProduct(row, addonResult.error ? [] : (addonResult.data || []))
-            return { ...item, stockInfo: stockReadable ? stockForMenuItem(item, recipeResult.data || [], ingredientStock, mappingResult.data || [], finishedProducts) : null }
+            return {
+              ...item,
+              orderCount: orderCounts.get(String(item.id)) || 0,
+              stockInfo: stockReadable ? stockForMenuItem(item, recipeResult.data || [], ingredientStock, mappingResult.data || [], finishedProducts) : null,
+            }
           })
           setProducts(liveProducts)
           setNotice(liveProducts.length ? '' : 'No active menu items are currently available in the POS.')
@@ -472,7 +486,7 @@ export default function CashierPage() {
           setNotice(`The current menu could not load: ${productResult.error.message}`)
         }
         if (!orderResult.error && orderResult.data) setTransactions(orderResult.data.map(normalizeOrder))
-        const syncError = productResult.error || addonResult.error || orderResult.error || recipeResult.error || ingredientStockResult.error || mappingResult.error || finishedProductResult.error
+        const syncError = productResult.error || addonResult.error || orderResult.error || recipeResult.error || ingredientStockResult.error || mappingResult.error || finishedProductResult.error || orderStatsResult.error
         if (syncError) setDataSyncError(syncError.message || 'Live data could not be refreshed.')
         else {
           setDataSyncError('')
@@ -595,24 +609,17 @@ export default function CashierPage() {
       (!customizableOnly || hasCustomizationChoices(item)) &&
       (minimumPrice === '' || item.price >= Number(minimumPrice)) &&
       (maximumPrice === '' || item.price <= Number(maximumPrice))
-    })
-    const orderedCounts = transactions.reduce((counts, order) => {
-      ;(order.items || []).forEach((line) => {
-        const productId = line.menu_item_id || line.menuItemId || line.product_id || line.productId
-        if (productId != null) counts.set(String(productId), (counts.get(String(productId)) || 0) + Number(line.quantity ?? line.qty ?? 0))
-      })
-      return counts
-    }, new Map())
-    const popularity = (item) => Number(item.orderCount ?? item.ordersCount ?? item.totalOrdered ?? item.orderedCount ?? orderedCounts.get(String(item.id)) ?? 0)
+    const popularity = (item) => Number(item.orderCount ?? item.ordersCount ?? item.totalOrdered ?? item.orderedCount ?? 0)
     return filtered.sort((a, b) => {
-      if (sortBy === 'least-ordered') return popularity(a) - popularity(b) || a.name.localeCompare(b.name)
-      if (sortBy === 'lowest-price') return Number(a.price || 0) - Number(b.price || 0) || a.name.localeCompare(b.name)
-      if (sortBy === 'highest-price') return Number(b.price || 0) - Number(a.price || 0) || a.name.localeCompare(b.name)
+      if (sortBy === 'most-ordered') return popularity(b) - popularity(a) || (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
+      if (sortBy === 'least-ordered') return popularity(a) - popularity(b) || (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
+      if (sortBy === 'lowest-price') return Number(a.price || 0) - Number(b.price || 0) || (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
+      if (sortBy === 'highest-price') return Number(b.price || 0) - Number(a.price || 0) || (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
       if (sortBy === 'a-to-z') return a.name.localeCompare(b.name)
       if (sortBy === 'z-to-a') return b.name.localeCompare(a.name)
-      return popularity(b) - popularity(a) || a.name.localeCompare(b.name)
+      return (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
     })
-  }, [category, products, search, menuFilter, minimumPrice, maximumPrice, customizableOnly, sortBy, transactions])
+  }, [category, products, search, menuFilter, minimumPrice, maximumPrice, customizableOnly, sortBy])
   const subtotal = cart.reduce((sum, item) => sum + itemLineTotal(item), 0)
   const discountedLineKeys = Array.isArray(discount.discountedLineKeys) ? discount.discountedLineKeys : []
   const discountSubtotal = discount.enabled
