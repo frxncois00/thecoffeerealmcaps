@@ -17,6 +17,7 @@ import {
   exportTransactionsToPdf, exportTransactionsToXlsx, fetchTransactionAudit, fetchTransactionById, fetchTransactions,
   fetchTransactionsSummary, fetchTransactionStaffOptions, getPaymentProofUrl,
   processRefund, correctPaymentStatus, requestRefund, voidOrder,
+  CANNOT_VOID_REASON, isTransactionVoidBlocked,
 } from '../services/transactionsService'
 import {
   fetchStaffPreferences,
@@ -635,6 +636,11 @@ export default function TransactionsPage() {
   }
 
   const runVoid = async (reason) => {
+    if (isTransactionVoidBlocked(voidTarget?.status)) {
+      pushToast('error', CANNOT_VOID_REASON)
+      setVoidTarget(null)
+      return false
+    }
     setBusyId(voidTarget.id)
     try {
       await voidOrder(voidTarget.id, reason)
@@ -913,7 +919,11 @@ export default function TransactionsPage() {
                           onViewRelatedOrder={() => viewRelatedOrder(transaction)}
                           onRequestRefund={() => { setRefundTarget(transaction); setRowMenuId('') }}
                           onProcessRefund={() => { setDetailTarget(transaction); setRowMenuId('') }}
-                          onVoid={() => { setVoidTarget(transaction); setRowMenuId('') }}
+                          onVoid={() => {
+                            if (isTransactionVoidBlocked(transaction.status)) return
+                            setVoidTarget(transaction)
+                            setRowMenuId('')
+                          }}
                         />
                       </td>
                     </tr>
@@ -1020,6 +1030,7 @@ function RowActionsMenu({
 }) {
   const canRefund = canManageFinancialActions && paymentStatusMeta(transaction).key === 'paid' && processedRefundAmount(transaction) < transaction.finalTotal && !transaction.isVoided
   const hasPendingRefund = Boolean(pendingRefund(transaction)) && canManageFinancialActions
+  const isVoidBlocked = isTransactionVoidBlocked(transaction.status)
   const triggerRef = useRef(null)
   const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0 })
 
@@ -1055,7 +1066,18 @@ function RowActionsMenu({
           {transaction.paymentProofPath && <button type="button" role="menuitem" onClick={onViewProof}><ExternalLink size={14} /> View Payment Proof</button>}
           {hasPendingRefund && <button type="button" role="menuitem" onClick={onProcessRefund}><Undo2 size={14} /> Process Refund</button>}
           {canRefund && <button type="button" role="menuitem" onClick={onRequestRefund}><RotateCcw size={14} /> Request Refund</button>}
-          {canManageFinancialActions && !transaction.isVoided && <button type="button" role="menuitem" className="danger" onClick={onVoid}><Ban size={14} /> Void Transaction</button>}
+          {canManageFinancialActions && !transaction.isVoided && (
+            <button
+              type="button"
+              role="menuitem"
+              className={`danger ${isVoidBlocked ? 'is-disabled' : ''}`}
+              disabled={isVoidBlocked}
+              title={isVoidBlocked ? CANNOT_VOID_REASON : undefined}
+              onClick={isVoidBlocked ? undefined : onVoid}
+            >
+              <Ban size={14} /> Void Transaction
+            </button>
+          )}
         </div>, document.body
       )}
     </div>
@@ -1292,7 +1314,17 @@ function TransactionDrawer({
               {canManageFinancialActions && paymentMeta.key !== 'paid' && !transaction.isVoided && <button type="button" role="menuitem" onClick={() => onCorrectPayment(transaction)}><Settings2 size={15} /> Correct payment</button>}
             </div>
           </details>
-          {canManageFinancialActions && !transaction.isVoided && <button type="button" className="ops-destructive-action" onClick={() => onVoid(transaction)}><Ban size={16} /> Void</button>}
+          {canManageFinancialActions && !transaction.isVoided && (
+            <button
+              type="button"
+              className="ops-destructive-action"
+              disabled={isTransactionVoidBlocked(transaction.status)}
+              title={isTransactionVoidBlocked(transaction.status) ? CANNOT_VOID_REASON : undefined}
+              onClick={isTransactionVoidBlocked(transaction.status) ? undefined : () => onVoid(transaction)}
+            >
+              <Ban size={16} /> Void
+            </button>
+          )}
         </footer>
       </aside>
     </div>

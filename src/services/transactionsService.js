@@ -216,7 +216,29 @@ export async function getPaymentProofUrl(path) {
   return data?.signedUrl || null
 }
 
+export const NON_VOIDABLE_TRANSACTION_STATUSES = ['Preparing', 'Out for Delivery', 'Received', 'Completed']
+export const CANNOT_VOID_REASON = 'Cannot void a transaction that is already preparing, out for delivery, received, or completed'
+
+export function isTransactionVoidBlocked(status) {
+  if (!status) return false
+  const normalized = String(status).trim().toLowerCase()
+  return NON_VOIDABLE_TRANSACTION_STATUSES.some((s) => s.toLowerCase() === normalized)
+}
+
 export async function voidOrder(orderId, reason) {
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('id, status, is_voided')
+    .eq('id', orderId)
+    .maybeSingle()
+
+  if (orderError) throw orderError
+  if (!order) throw new Error('Order not found')
+  if (order.is_voided) throw new Error('This transaction is already voided')
+  if (isTransactionVoidBlocked(order.status)) {
+    throw new Error(CANNOT_VOID_REASON)
+  }
+
   const { error } = await supabase.rpc('staff_void_order', { p_order_id: orderId, p_reason: reason })
   if (error) throw error
 }
