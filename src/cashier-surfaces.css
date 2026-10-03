@@ -209,16 +209,17 @@ html[data-theme] .cashier-v2.cashier-refined-modal .customize-addon-button.activ
   color: #fff !important;
 }
 /* Solid header actions with readable forest-green labels in every state. */
-html[data-theme] .cashier-v2.cashier-refined .legacy-cashier-top nav button:is(.cashier-transactions-button, .cashier-signout-button) {
+html[data-theme] .cashier-v2.cashier-refined .legacy-cashier-top nav button:is(.cashier-transactions-button, .cashier-order-status-button, .cashier-signout-button) {
   background: #e8dcc4 !important;
   color: #1b2f22 !important;
   border: 1px solid #e8dcc4 !important;
   box-shadow: none !important;
+  position: relative !important;
 }
-html[data-theme] .cashier-v2.cashier-refined .legacy-cashier-top nav button:is(.cashier-transactions-button, .cashier-signout-button) :is(span, svg) {
+html[data-theme] .cashier-v2.cashier-refined .legacy-cashier-top nav button:is(.cashier-transactions-button, .cashier-order-status-button, .cashier-signout-button) :is(span, svg) {
   color: #1b2f22 !important;
 }
-html[data-theme] .cashier-v2.cashier-refined .legacy-cashier-top nav button:is(.cashier-transactions-button, .cashier-signout-button):hover {
+html[data-theme] .cashier-v2.cashier-refined .legacy-cashier-top nav button:is(.cashier-transactions-button, .cashier-order-status-button, .cashier-signout-button):hover {
   background: #f3ead9 !important;
   border-color: #f3ead9 !important;
 }

@@ -97,6 +97,16 @@ export async function createPaymongoCheckout({orderId,origin,paymentMethod='paym
   if(!data?.checkout_url)throw new Error(data?.error||'PayMongo did not return a checkout URL.')
   return data
 }
+export async function verifyPaymongoPayment({orderId}){
+  if(!isSupabaseConfigured)return {paid:false}
+  try{
+    const {data,error}=await supabase.functions.invoke('create-paymongo-checkout',{body:{action:'verify',order_id:orderId}})
+    if(error)return {paid:false,error:error.message}
+    return data||{paid:false}
+  }catch(err){
+    return {paid:false,error:err?.message}
+  }
+}
 export async function fetchCustomerBenefitApplication(customerId){if(!customerId)return null;const {data,error}=await supabase.from('benefit_applications').select('status,kind').eq('customer_id',customerId).maybeSingle();if(error)throw error;return data}
 
 export async function uploadPaymentProof({orderId,userId,file,referenceNumber}){

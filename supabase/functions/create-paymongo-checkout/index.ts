@@ -62,16 +62,16 @@ Deno.serve(async (request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
     const body = await request.json().catch(() => ({}));
+    const action = String(body?.action || "checkout").trim().toLowerCase();
     const orderId = String(body?.order_id || "").trim();
-    const paymentMethod = String(body?.payment_method || "paymongo").trim().toLowerCase();
-    const origin = originFromRequest(body?.origin);
-    if (!/^[0-9a-f-]{36}$/i.test(orderId) || !origin || !["paymongo", "qrph"].includes(paymentMethod)) {
-      return json({ error: "A valid order and browser origin are required." }, 400);
+
+    if (!/^[0-9a-f-]{36}$/i.test(orderId)) {
+      return json({ error: "A valid order ID is required." }, 400);
     }
 
     const { data: order, error: orderError } = await admin
       .from("orders")
-      .select("id,customer_id,order_number,receipt_number,customer_name,customer_email,customer_phone,final_total,status,payments(id,method,amount_due,status,provider_checkout_session_id,provider_checkout_url)")
+      .select("id,customer_id,order_number,receipt_number,customer_name,customer_email,customer_phone,final_total,status,payment_status,payment_confirmed,payments(id,method,amount_due,status,provider_checkout_session_id,provider_checkout_url)")
       .eq("id", orderId)
       .eq("customer_id", authData.user.id)
       .maybeSingle();
@@ -79,8 +79,67 @@ Deno.serve(async (request) => {
     if (!order) return json({ error: "Order not found." }, 404);
     if (String(order.status || "").toLowerCase() === "cancelled") return json({ error: "This order has been cancelled." }, 409);
 
-    const payment = (order.payments || []).find((entry: { method?: string }) => entry.method === "paymongo") || order.payments?.[0];
+    const payment = (order.payments || []).find((entry: { method?: string }) => ["paymongo", "qrph"].includes(entry.method || "")) || order.payments?.[0];
     if (!payment?.id) return json({ error: "The order payment record is unavailable." }, 409);
+
+    // If verify action was requested: query PayMongo directly for session payment status
+    if (action === "verify") {
+      if (order.payment_confirmed || order.payment_status === "paid" || payment.status === "paid") {
+        return json({ success: true, paid: true, order_id: order.id });
+      }
+      if (!payment.provider_checkout_session_id) {
+        return json({ success: true, paid: false, order_id: order.id, note: "No checkout session found." });
+      }
+
+      const verifyRes = await fetch(`https://api.paymongo.com/v2/checkout_sessions/${payment.provider_checkout_session_id}`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: basicAuth(paymongoSecretKey),
+        },
+      });
+
+      if (verifyRes.ok) {
+        const verifyBody = await verifyRes.json();
+        const sessionData = verifyBody?.data;
+        const sessionPayments = Array.isArray(sessionData?.attributes?.payments) ? sessionData.attributes.payments : [];
+        const paidPayment = sessionPayments.find((p: { attributes?: { status?: string } }) => p?.attributes?.status === "paid")
+          || (sessionData?.attributes?.status === "paid" ? sessionData : null);
+
+        if (paidPayment) {
+          const now = new Date().toISOString();
+          const providerPaymentId = String(paidPayment?.id || payment.provider_checkout_session_id);
+
+          await admin.from("payments").update({
+            status: "paid",
+            paid_at: now,
+            reference_number: providerPaymentId,
+            provider: "paymongo",
+            provider_payment_id: providerPaymentId,
+            provider_status: "paid",
+          }).eq("id", payment.id);
+
+          await admin.from("orders").update({
+            payment_status: "paid",
+            payment_confirmed: true,
+            updated_at: now,
+          }).eq("id", order.id);
+
+          if (["Pending Confirmation", "Awaiting Payment Verification"].includes(String(order.status || ""))) {
+            await admin.from("orders").update({ status: "Order Received", updated_at: now }).eq("id", order.id);
+          }
+
+          return json({ success: true, paid: true, order_id: order.id });
+        }
+      }
+      return json({ success: true, paid: false, order_id: order.id });
+    }
+
+    const paymentMethod = String(body?.payment_method || "paymongo").trim().toLowerCase();
+    const origin = originFromRequest(body?.origin);
+    if (!origin || !["paymongo", "qrph"].includes(paymentMethod)) {
+      return json({ error: "A valid browser origin and payment method are required." }, 400);
+    }
 
     if (payment.provider_checkout_session_id && payment.provider_checkout_url) {
       return json({
