@@ -115,17 +115,28 @@ export async function uploadPaymentProof({orderId,userId,file,referenceNumber}){
   if(attachError){
     const {error:cleanupError}=await supabase.storage.from('payment-proofs').remove([path])
     if(cleanupError)console.warn('[checkout] payment proof cleanup failed',cleanupError)
-    if(/duplicate key|unique constraint|payments_unique_reference_number_idx/i.test(attachError.message||'')){
-      throw new Error('This payment reference has already been used. Enter the reference from your current receipt.')
+    if(/duplicate key|unique constraint|payments_unique_reference_number_idx|already.*used/i.test(attachError.message||'')){
+      throw new Error('This payment reference number has already been used by another customer. Please enter the valid reference from your payment receipt.')
     }
     throw attachError
   }
   return {path,filename}
 }
 export async function checkCustomerPaymentReference(referenceNumber){
-  const {data,error}=await supabase.rpc('check_customer_payment_reference',{p_reference:String(referenceNumber||'').trim()})
-  if(error)throw error
-  return data!==false
+  const cleanRef=String(referenceNumber||'').trim()
+  if(!cleanRef)return true
+  try{
+    const {data,error}=await supabase.rpc('check_customer_payment_reference',{p_reference:cleanRef})
+    if(error){
+      if(/already.*used|duplicate/i.test(error.message||''))return false
+      console.warn('[customerService] check_customer_payment_reference rpc error:',error)
+      return true
+    }
+    return data!==false
+  }catch(err){
+    console.warn('[customerService] checkCustomerPaymentReference failed:',err)
+    return true
+  }
 }
 const ORDER_DETAIL_SELECT='id,order_number,receipt_number,order_type,status,subtotal,discount_type,discount_subtotal,discount_amount,vat_exempt_amount,delivery_fee,final_total,vat_rate,prices_include_vat,payment_status,payment_confirmed,payment_proof_path,refund_status,cancellation_status,fulfillment_hold,cancellation_reason,cancellation_notes,cancellation_requested_by_role,cancellation_requested_at,cancellation_review_notes,cancelled_by_role,cancelled_at,schedule_date,schedule_time,out_for_delivery_at,received_at,receipt_confirmation,created_at,updated_at,delivery_address,delivery_notes,customer_name,customer_phone,customer_email,order_items(id,menu_item_id,item_name,display_name,unit_price,quantity,addons_total,line_total,addons,customizations,is_discounted,discount_amount,vat_exempt_amount,menu_items(prep_time_minutes)),payments(method,status,reference_number)'
 

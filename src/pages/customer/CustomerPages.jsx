@@ -141,6 +141,23 @@ export function CheckoutPage(){
   const setFulfillment=value=>setForm(current=>{const allowed=customerPaymentMethods(systemSettings.payments).filter(method=>value==='delivery'||method!=='cod');const payment=allowed.includes(current.payment)?current.payment:(allowed[0]||'');const nextTime=value==='pickup'?(pickupSlots[0]?.id||''):(scheduleSlots(manilaDate(),'delivery',systemSettings.ordering)[0]?.id||'10:00');return {...current,fulfillment:value,payment,paymentReference:payment===current.payment?current.paymentReference:'',scheduleDate:manilaDate(),scheduleTime:nextTime}});
   const clearPaymentProof=()=>{if(paymentProofPreview)URL.revokeObjectURL(paymentProofPreview);setPaymentProof(null);setPaymentProofPreview('');setPaymentProofError('');setValidatingPaymentProof(false)}
   const setPayment=value=>{if(value===form.payment)return;setForm(current=>({...current,payment:value,paymentReference:''}));clearPaymentProof()};
+  const handleReferenceBlur=async ref=>{
+    const cleanRef=String(ref||'').trim()
+    if(!cleanRef)return
+    const isGcash=form.payment==='gcash'
+    if(isGcash?cleanRef.length===13:cleanRef.length>=6){
+      try{
+        const available=await checkCustomerPaymentReference(cleanRef)
+        if(!available){
+          setPaymentProofError(`Reference number ${cleanRef} has already been used by another customer. Please enter a valid, unused reference number.`)
+        }else if(paymentProofError&&paymentProofError.includes('already been used')){
+          setPaymentProofError('')
+        }
+      }catch(err){
+        console.warn('[checkout] reference blur check notice:',err)
+      }
+    }
+  }
   const choosePaymentProof=async event=>{
     const input=event.currentTarget
     const next=input.files?.[0]||null
@@ -158,6 +175,14 @@ export function CheckoutPage(){
         const isGcash=form.payment==='gcash'
         const cleaned=isGcash?ocrResult.referenceNumber.replace(/\D/g,'').slice(0,13):ocrResult.referenceNumber.slice(0,30)
         set('paymentReference',cleaned)
+        try{
+          const available=await checkCustomerPaymentReference(cleaned)
+          if(!available){
+            setPaymentProofError(`Reference number ${cleaned} has already been used by another customer. Please enter a valid, unused reference number.`)
+          }
+        }catch(err){
+          console.warn('[ocr] reference duplicate check:',err)
+        }
       }
     }catch(cause){
       input.value=''
@@ -189,8 +214,17 @@ export function CheckoutPage(){
     if(['gcash','bank_transfer'].includes(form.payment)&&form.paymentReference.trim()){
       try{
         const available=await checkCustomerPaymentReference(form.paymentReference)
-        if(!available){setPaymentProofError('This payment reference has already been used. Enter the reference from your current receipt.');return}
-      }catch{setPaymentProofError('We could not verify this payment reference. Please try again.');return}
+        if(!available){
+          setPaymentProofError(`Reference number ${form.paymentReference.trim()} has already been used by another customer. Please enter a valid, unused reference number.`);
+          return
+        }
+      }catch(cause){
+        if(/already.*used|duplicate/i.test(cause?.message||'')){
+          setPaymentProofError(`Reference number ${form.paymentReference.trim()} has already been used by another customer. Please enter a valid, unused reference number.`);
+          return
+        }
+        console.warn('[checkout] reference verification notice:',cause)
+      }
     }
     const availability=await cart.refreshAvailability();if(!availability.ok){setSubmitError('We could not verify current stock. Please try again.');return}if(!availability.available){setSubmitError('One or more cart items are now unavailable. Review your cart before continuing.');return}
     const validDeliveryTime=scheduleSlots(manilaDate(),'delivery',systemSettings.ordering).some(slot=>slot.id===form.scheduleTime)?form.scheduleTime:(scheduleSlots(manilaDate(),'delivery',systemSettings.ordering)[0]?.id||'10:00');
@@ -200,7 +234,7 @@ export function CheckoutPage(){
     <CheckoutSection n="1" title="Customer information"><div className="form-grid"><Field label="Full name" value={form.fullName} error={customerErrors.fullName} onChange={value=>{set('fullName',sanitizePersonName(value,60));setCustomerErrors(current=>({...current,fullName:''}))}} onBlur={()=>setCustomerErrors(current=>({...current,fullName:isTwoWordPersonName(form.fullName)?'':'Enter your first and last name (2 words).'}))} maxLength={60} pattern="[^\s]+\s+[^\s]+" title="Enter your first and last name (2 words)."/><Field label="Contact number" type="tel" value={form.contact} error={customerErrors.contact} onChange={value=>{set('contact',normalizePhone(value));setCustomerErrors(current=>({...current,contact:''}))}} onBlur={()=>setCustomerErrors(current=>({...current,contact:isValidPhone(form.contact)?'':'Enter a valid contact number starting with 09 (11 digits).'}))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Contact number must contain 11 digits and start with 09."/></div>{submitError&&<p className="field-hint error">{submitError}</p>}</CheckoutSection>
     <CheckoutSection n="2" title="Fulfillment"><div className="fulfillment-controls"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/>{form.fulfillment==='pickup'&&<SelectField label="Pickup time (today)" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={pickupSlots} placeholder={pickupSlots.length?'Choose a time':'No pickup times available today'} disabled={!pickupSlots.length}/>}</div>
     {form.fulfillment==='delivery'?<><fieldset className={`address-source-picker${addresses.length?' has-saved-addresses':''}`}><legend>Delivery address</legend><div>{addresses.length>0&&<button type="button" className={addressMode==='saved'?'active':''} onClick={()=>chooseAddressMode('saved')} aria-pressed={addressMode==='saved'}><span><MapPin size={18}/></span><b>Use saved address</b><small>{defaultAddress?(defaultAddress.label||'Default address'):`${addresses.length} saved address${addresses.length===1?'':'es'}`}</small></button>}<button type="button" className={addressMode==='new'?'active':''} onClick={()=>chooseAddressMode('new')} aria-pressed={addressMode==='new'}><span><Pencil size={18}/></span><b>{addresses.length?'Enter a new address':'Enter your delivery address'}</b>{addresses.length>0&&<small>Search or pin on the map</small>}</button></div></fieldset><DeliveryLocationPicker key={`${addressMode}-${selectedAddress||'new'}`} initialAddress={addressMode==='saved'&&addresses.length>0?form.address:''} address={form.address} barangay={form.barangay} selectedArea={selectedArea} onAddressChange={value=>set('address',value)} onBarangayChange={value=>set('barangay',value)} onCoordinatesChange={coords=>set('coordinates',coords)} />{form.fulfillment==='delivery'&&form.address.trim()&&!selectedArea&&<p className="field-hint error">We do not deliver outside Quezon City for now. Please select an address within Quezon City.</p>}</>:<PickupStoreLocation/>}<Field label={form.fulfillment==='delivery'?'Delivery instructions':'Pickup note (optional)'} value={form.instructions} onChange={value=>set('instructions',value)} maxLength={300} required={false}/></CheckoutSection>
-    <CheckoutSection n="3" title="Payment"><Choice title="Payment method" options={customerPaymentMethods(systemSettings.payments).filter(method=>form.fulfillment==='delivery'||method!=='cod').map(method=>({id:method,name:method==='cod'?'Cash on delivery':method==='bank_transfer'?'Bank transfer':method==='paymongo'?'PayMongo':method==='qrph'?'QRPh via PayMongo':'GCash'}))} value={form.payment} onChange={setPayment}/><CheckoutPaymentDetails payment={form.payment} paymentConfig={systemSettings.payments} total={total} referenceNumber={form.paymentReference} onReferenceChange={value=>set('paymentReference',value)} proof={paymentProof} previewUrl={paymentProofPreview} proofError={paymentProofError} validatingProof={validatingPaymentProof} onProofChange={choosePaymentProof} onProofClear={clearPaymentProof}/></CheckoutSection>
+    <CheckoutSection n="3" title="Payment"><Choice title="Payment method" options={customerPaymentMethods(systemSettings.payments).filter(method=>form.fulfillment==='delivery'||method!=='cod').map(method=>({id:method,name:method==='cod'?'Cash on delivery':method==='bank_transfer'?'Bank transfer':method==='paymongo'?'PayMongo':method==='qrph'?'QRPh via PayMongo':'GCash'}))} value={form.payment} onChange={setPayment}/><CheckoutPaymentDetails payment={form.payment} paymentConfig={systemSettings.payments} total={total} referenceNumber={form.paymentReference} onReferenceChange={value=>{set('paymentReference',value);if(paymentProofError&&paymentProofError.includes('already been used')){setPaymentProofError('')}}} onReferenceBlur={handleReferenceBlur} proof={paymentProof} previewUrl={paymentProofPreview} proofError={paymentProofError} validatingProof={validatingPaymentProof} onProofChange={choosePaymentProof} onProofClear={clearPaymentProof}/></CheckoutSection>
     {systemSettings.ordering.storeStatus!=='open'&&<p className="field-hint error">{systemSettings.ordering.closureMessage}</p>}
     {cart.checkingAvailability?<p className="checkout-stock-refresh" role="status">Checking current item availability…</p>:null}
     <button type="submit" className="primary-button checkout-submit" disabled={cart.checkingAvailability||validatingPaymentProof||systemSettings.ordering.storeStatus!=='open'||!form.payment||(form.fulfillment==='delivery'&&!selectedArea)}>Review order · {money(total)} <ArrowRight/></button>
@@ -220,7 +254,7 @@ function PickupStoreLocation(){
     <div className="pickup-location-actions"><button type="button" onClick={copyAddress}><Copy size={14}/>{copied?'Copied':'Copy address'}</button><a href={mapsUrl} target="_blank" rel="noreferrer"><ExternalLink size={14}/>Open in Google Maps</a></div>
   </div>
 }
-function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onReferenceChange,proof,previewUrl,proofError,validatingProof,onProofChange,onProofClear}){
+function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onReferenceChange,onReferenceBlur,proof,previewUrl,proofError,validatingProof,onProofChange,onProofClear}){
   const proofInputRef=useRef(null)
   if(payment==='cod')return <div className="checkout-payment-cod"><Info size={18}/><p><b>Pay when your order arrives.</b><span>Please prepare the exact amount whenever possible. Cash on delivery is available up to {money(Number(paymentConfig.codMaximum||1000))}.</span></p></div>
   if(payment==='paymongo'||payment==='qrph')return <section className="checkout-payment-details" aria-live="polite" aria-labelledby="checkout-paymongo-title"><div className="checkout-payment-details-head"><span><Lock size={19}/></span><div><h3 id="checkout-paymongo-title">Pay with PayMongo</h3></div><b>{money(total)}</b></div><div className="checkout-payment-instructions"><p>Continue to PayMongo after reviewing your order to complete payment securely.</p></div></section>
@@ -248,7 +282,7 @@ function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onR
       </div>
       <div className="checkout-payment-column checkout-payment-column-proof">
         <div className="checkout-proof-field"><span>Payment screenshot</span><input ref={proofInputRef} id="checkout-proof-upload" className="proof-file-input" type="file" accept={IMAGE_UPLOAD_ACCEPT} tabIndex={-1} aria-hidden="true" onClick={event=>{event.currentTarget.value=''}} onChange={onProofChange}/><button type="button" className={`proof-dropzone${previewUrl?' has-preview':''}${validatingProof?' is-scanning':''}`} aria-describedby={previewUrl?undefined:'checkout-proof-help'} onClick={()=>proofInputRef.current?.click()}>{previewUrl?<><img className="proof-preview-image" src={previewUrl} alt="Selected payment proof preview"/>{validatingProof&&<span className="inline-proof-scanning"><span className="inline-proof-scan-line"/><RotateCcw className="spinning" size={22}/>Scanning receipt…</span>}<span className="proof-preview-action"><Camera size={17}/>{validatingProof?'Reading reference…':'Change screenshot'}</span></>:<><Camera/><strong>Upload screenshot</strong><small id="checkout-proof-help">JPG, PNG, or WEBP</small></>}</button>{proof&&<div className="proof-file" aria-live="polite"><span>{proof.name}</span><button type="button" onClick={onProofClear} disabled={validatingProof}>Remove</button></div>}{proofError&&<p className="field-hint error" role="alert">{proofError}</p>}</div>
-        <label className="field checkout-reference-field"><span>{label} reference number</span><input required type="text" value={referenceNumber} onChange={event=>changeReference(event.target.value)} inputMode={isGcash?'numeric':'text'} autoComplete="off" maxLength={isGcash?13:30} minLength={isGcash?13:6} pattern={isGcash?'[0-9]{13}':'[A-Za-z0-9-]{6,30}'} placeholder={isGcash?'Enter 13-digit reference':'Enter bank reference'} title={isGcash?'Enter exactly 13 digits from your GCash receipt.':'Enter 6 to 30 letters, numbers, or hyphens from your bank receipt.'}/></label>
+        <label className="field checkout-reference-field"><span>{label} reference number</span><input required type="text" value={referenceNumber} onChange={event=>changeReference(event.target.value)} onBlur={()=>onReferenceBlur?.(referenceNumber)} inputMode={isGcash?'numeric':'text'} autoComplete="off" maxLength={isGcash?13:30} minLength={isGcash?13:6} pattern={isGcash?'[0-9]{13}':'[A-Za-z0-9-]{6,30}'} placeholder={isGcash?'Enter 13-digit reference':'Enter bank reference'} title={isGcash?'Enter exactly 13 digits from your GCash receipt.':'Enter 6 to 30 letters, numbers, or hyphens from your bank receipt.'}/></label>
       </div>
     </div>
   </section>
