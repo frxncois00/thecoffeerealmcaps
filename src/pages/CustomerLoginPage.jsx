@@ -2,12 +2,13 @@ import { ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck, User, UserPlus } from 
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { isCustomerRole } from '../lib/auth'
-import { queueAuthWelcome } from '../lib/authFeedback'
 import { customerSupabase as supabase, isSupabaseConfigured } from '../lib/supabase'
 import { retryJwtTimingRequest } from '../lib/supabaseRetry'
 import { EMAIL_MAX_LENGTH, isValidEmail, isValidPassword, sanitizeUsername } from '../utils/inputValidation'
+import AuthWelcomeScreen from '../components/auth/AuthWelcomeScreen'
 
 const otpDigits = 6
+const pause = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds))
 const productionSiteUrl = String(import.meta.env.VITE_PUBLIC_SITE_URL || 'https://thecoffeerealm.store').replace(/\/$/, '')
 
 function googleCallbackUrl() {
@@ -38,6 +39,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
   const [authError, setAuthError] = useState(location.state?.authError || '')
   const [loading, setLoading] = useState(false)
   const [forgotEmail, setForgotEmail] = useState('')
+  const [welcomeTransition, setWelcomeTransition] = useState(null)
 
   useEffect(() => {
     let resizeTimer
@@ -144,30 +146,56 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
       authData = usernameAuthData
     }
 
+    // Credentials are valid: activate the welcome transition screen!
+    const startTime = Date.now()
+    setWelcomeTransition({
+      active: true,
+      statusText: 'Signing you in…',
+      isExiting: false,
+      isComplete: false,
+    })
+
     const { data: profile, error: profileError } = await retryJwtTimingRequest(() => supabase
       .from('profiles')
-      .select('role')
+      .select('id, role, full_name, username')
       .eq('id', authData.user.id)
       .maybeSingle())
-    setLoading(false)
 
     // Username sign-in can authenticate legacy accounts whose profile row is
     // still being backfilled. The Edge Function has already verified the
     // account as a customer, so use its signup metadata as a temporary role
     // fallback while keeping email sign-in strict about the profile record.
     const resolvedRole = profile?.role || (isUsernameLogin ? authData.user.user_metadata?.role : '')
-    if (profileError || (!profile && !isCustomerRole(resolvedRole))) {
+    if (profileError || (!profile && !isCustomerRole(resolvedRole)) || !isCustomerRole(resolvedRole)) {
       await supabase.auth.signOut()
+      setWelcomeTransition(null)
+      setLoading(false)
       return setAuthError('Invalid username, email, or password.')
     }
 
-    if (!isCustomerRole(resolvedRole)) {
-      await supabase.auth.signOut()
-      return setAuthError('Invalid username, email, or password.')
+    const fullName = (profile?.full_name || authData?.user?.user_metadata?.full_name || '').trim()
+    const firstName = fullName && fullName !== 'Coffee Realm Customer'
+      ? fullName.split(/\s+/)[0]
+      : (profile?.username || (isUsernameLogin ? identifier : ''))
+
+    // Keep screen visible for a minimum of 1.5s so animation can be seen
+    const elapsed = Date.now() - startTime
+    const remainingTime = Math.max(0, 1500 - elapsed)
+    if (remainingTime > 0) {
+      await pause(remainingTime)
     }
 
-    queueAuthWelcome(authData?.user?.user_metadata)
-    navigate('/menu', { replace: true })
+    if (firstName) {
+      setWelcomeTransition((prev) => (prev ? { ...prev, statusText: `Welcome back, ${firstName}` } : null))
+      await pause(450)
+    }
+
+    setWelcomeTransition((prev) => (prev ? { ...prev, isComplete: true, isExiting: true } : null))
+    await pause(320)
+
+    setLoading(false)
+    const destination = location.state?.from || '/menu'
+    navigate(destination, { replace: true })
   }
 
   async function submitRegister(event) {
@@ -191,7 +219,6 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
     setLoading(false)
     if (error) return setAuthError(error.message || 'Unable to send OTP right now.')
     if (signupData.session) {
-      queueAuthWelcome(signupData.user?.user_metadata, username)
       return navigate('/menu', { replace: true })
     }
     setRegisteredEmail(email)
@@ -216,7 +243,6 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
     if (error) return setAuthError(error.message || 'Unable to verify OTP right now.')
     setOtpOpen(false)
     setAuthMessage(`Account verified. Welcome, ${pendingUsername || 'customer'}!`)
-    queueAuthWelcome(pendingUsername)
     navigate('/menu', { replace: true })
   }
 
@@ -307,6 +333,16 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
 
   function setForgotOtpDigit(index, value) {
     setForgotOtp((current) => current.map((digit, digitIndex) => digitIndex === index ? value : digit))
+  }
+
+  if (welcomeTransition?.active) {
+    return (
+      <AuthWelcomeScreen
+        statusText={welcomeTransition.statusText}
+        isExiting={welcomeTransition.isExiting}
+        isComplete={welcomeTransition.isComplete}
+      />
+    )
   }
 
   return (

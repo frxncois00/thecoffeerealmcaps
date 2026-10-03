@@ -7,6 +7,7 @@ import { useCart } from '../../context/CartContext'
 import { usePricing } from '../../context/usePricing'
 import { isCustomerRole } from '../../lib/auth'
 import LogoutConfirmModal from '../auth/LogoutConfirmModal'
+import { useLogoutTransition } from '../../context/LogoutTransitionContext'
 import { LandingFooter } from '../../pages/LegalPage'
 import { formatVatRate, vatBreakdownFromInclusiveAmount } from '../../utils/pricing'
 import { lockBodyScroll, restoreBodyScrollIfIdle, unlockBodyScroll } from '../../utils/bodyScrollLock'
@@ -20,6 +21,8 @@ export default function CustomerLayout() {
   const [scrolled, setScrolled] = useState(false)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const { setTransition: setLogoutTransition } = useLogoutTransition()
+  const [logoutError, setLogoutError] = useState('')
   const { user, profile, signOut } = useAuth()
   const customerUser = user && isCustomerRole(profile?.role) ? user : null
   const cart = useCart()
@@ -92,14 +95,61 @@ export default function CustomerLayout() {
   async function logout() {
     if (loggingOut) return
     setLoggingOut(true)
+    setLogoutOpen(false)
+    setLogoutError('')
+
+    const fullName = (profile?.full_name || user?.user_metadata?.full_name || '').trim()
+    const firstName = fullName && fullName !== 'Coffee Realm Customer'
+      ? fullName.split(/\s+/)[0]
+      : (profile?.username || '')
+
+    // Mount global goodbye screen overlay at root App level
+    setLogoutTransition({
+      active: true,
+      statusText: 'Signing you out…',
+      isExiting: false,
+      isComplete: false,
+    })
+
+    const startTime = Date.now()
     try {
       await signOut()
-      close()
-      navigate('/')
-    } finally {
+    } catch (error) {
+      console.error('Logout failed:', error)
+      setLogoutTransition(null)
       setLoggingOut(false)
-      setLogoutOpen(false)
+      setLogoutError(error?.message || 'Unable to log out right now. Please try again.')
+      return
     }
+
+    // Guarantee minimum display duration of 1.5s
+    const elapsed = Date.now() - startTime
+    const remainingTime = Math.max(0, 1500 - elapsed)
+    if (remainingTime > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remainingTime))
+    }
+
+    // Show farewell message & trigger cup cool-down (steam fade-out)
+    setLogoutTransition((prev) => (prev ? {
+      ...prev,
+      statusText: firstName ? `See you next time, ${firstName}` : 'See you next time',
+      isComplete: true,
+    } : null))
+    await new Promise((resolve) => setTimeout(resolve, 650))
+
+    // Navigate to /login while root overlay is 100% opaque!
+    close()
+    navigate('/login', { replace: true })
+
+    // Give React Router 60ms to mount CustomerLoginPage under the overlay
+    await new Promise((resolve) => setTimeout(resolve, 60))
+
+    // Smooth card exit animation directly into the login page
+    setLogoutTransition((prev) => (prev ? { ...prev, isExiting: true } : null))
+    await new Promise((resolve) => setTimeout(resolve, 320))
+
+    setLogoutTransition(null)
+    setLoggingOut(false)
   }
 
   return (
@@ -155,6 +205,14 @@ export default function CustomerLayout() {
         onCancel={() => setLogoutOpen(false)}
         onConfirm={logout}
       />
+      {logoutError && (
+        <div className="customer-logout-error-banner" role="alert">
+          <span>{logoutError}</span>
+          <button type="button" onClick={() => setLogoutError('')} aria-label="Dismiss error">
+            <X size={16} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

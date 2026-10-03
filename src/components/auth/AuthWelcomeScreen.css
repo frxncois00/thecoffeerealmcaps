@@ -1,0 +1,445 @@
+/* AuthWelcomeScreen.css - Animated Transition Screen for Google and Password Sign-In */
+
+.auth-welcome-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--cr-cream, #f7f5ef);
+  color: var(--cr-ink, #18251d);
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  transition: opacity 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.auth-welcome-screen.is-exiting {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.auth-welcome-screen.is-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
+/* Subtle background floating coffee beans and ambient glow */
+.auth-welcome-ambient {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.auth-welcome-ambient .ambient-bean {
+  position: absolute;
+  color: var(--cr-green, #244a36);
+  opacity: 0.055;
+  will-change: transform;
+}
+
+.auth-welcome-ambient .bean-1 {
+  top: 14%;
+  left: 12%;
+  transform: rotate(-18deg) scale(1.1);
+  animation: authWelcomeAmbientFloat1 7.5s ease-in-out infinite;
+}
+
+.auth-welcome-ambient .bean-2 {
+  bottom: 18%;
+  right: 14%;
+  transform: rotate(26deg) scale(1.3);
+  animation: authWelcomeAmbientFloat2 8.5s ease-in-out infinite;
+}
+
+.auth-welcome-ambient .bean-3 {
+  top: 24%;
+  right: 18%;
+  transform: rotate(48deg) scale(0.95);
+  animation: authWelcomeAmbientFloat3 6.8s ease-in-out infinite;
+}
+
+.auth-welcome-ambient .bean-4 {
+  bottom: 22%;
+  left: 16%;
+  transform: rotate(-38deg) scale(1);
+  animation: authWelcomeAmbientFloat1 9s ease-in-out infinite 1.2s;
+}
+
+.auth-welcome-ambient .ambient-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  pointer-events: none;
+}
+
+.auth-welcome-ambient .glow-1 {
+  width: 320px;
+  height: 320px;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(213, 175, 103, 0.12), transparent 70%);
+}
+
+/* Central Card */
+.auth-welcome-card {
+  width: min(440px, 92vw);
+  position: relative;
+  z-index: 1;
+  padding: clamp(34px, 6vw, 46px) clamp(22px, 5vw, 40px);
+  text-align: center;
+  border: 1px solid var(--cr-line, #dce5dd);
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 20px 55px rgba(24, 37, 29, 0.09), 0 4px 16px rgba(24, 37, 29, 0.03);
+  overflow: hidden;
+  box-sizing: border-box;
+  animation: authWelcomeCardEnter 460ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.auth-welcome-screen.is-exiting .auth-welcome-card {
+  animation: authWelcomeCardExit 320ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Coffee Cup and Steam */
+.auth-welcome-cup-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 6px;
+  color: var(--cr-green, #244a36);
+}
+
+.auth-welcome-cup-svg {
+  width: 68px;
+  height: 68px;
+  display: block;
+}
+
+/* Steam Wisps Animation */
+.steam-wisp {
+  opacity: 0;
+  transform-origin: center bottom;
+  will-change: transform, opacity;
+}
+
+.steam-wisp-1 {
+  animation: authWelcomeSteamWisp1 2.3s ease-out infinite 0s;
+}
+
+.steam-wisp-2 {
+  animation: authWelcomeSteamWisp2 2.3s ease-out infinite 0.75s;
+}
+
+.steam-wisp-3 {
+  animation: authWelcomeSteamWisp3 2.3s ease-out infinite 1.5s;
+}
+
+/* Logout variant: steam wisps cool down and fade away smoothly */
+.auth-welcome-screen.variant-logout .steam-wisp {
+  transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.auth-welcome-screen.variant-logout.is-complete .steam-wisp {
+  opacity: 0 !important;
+  transform: translateY(-8px) scale(0.65) !important;
+  animation: none !important;
+}
+
+/* Heading with Word-by-Word Reveal */
+.auth-welcome-heading {
+  margin: 16px 0 10px;
+  font-family: Georgia, 'Playfair Display', serif;
+  font-size: clamp(1.75rem, 5.2vw, 2.35rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--cr-ink, #18251d);
+}
+
+.auth-welcome-heading .word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(8px);
+  animation: authWelcomeWordFadeUp 0.44s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.auth-welcome-heading .word-1 { animation-delay: 0.08s; }
+.auth-welcome-heading .word-2 { animation-delay: 0.14s; }
+.auth-welcome-heading .word-3 { animation-delay: 0.20s; }
+.auth-welcome-heading .word-4 { animation-delay: 0.26s; }
+.auth-welcome-heading .word-5 { animation-delay: 0.32s; }
+
+.auth-welcome-heading--logout .word-1 { animation-delay: 0.08s; }
+.auth-welcome-heading--logout .word-2 { animation-delay: 0.16s; }
+.auth-welcome-heading--logout .word-3 { animation-delay: 0.24s; }
+
+/* Subtext & Animated Dots */
+.auth-welcome-subtext {
+  margin: 0;
+  color: var(--cr-muted, #68766c);
+  font-size: clamp(0.92rem, 2.6vw, 1.02rem);
+  line-height: 1.6;
+  opacity: 0;
+  animation: authWelcomeSubtextFade 0.42s ease forwards 0.38s;
+  min-height: 1.6em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.auth-welcome-subtext-message {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.auth-welcome-dots {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 2px;
+  letter-spacing: 1px;
+}
+
+.auth-welcome-dots span {
+  display: inline-block;
+  opacity: 0.2;
+  transform: translateY(0);
+  animation: authWelcomeDotPulse 1.4s ease-in-out infinite;
+}
+
+.auth-welcome-dots span:nth-child(1) { animation-delay: 0s; }
+.auth-welcome-dots span:nth-child(2) { animation-delay: 0.24s; }
+.auth-welcome-dots span:nth-child(3) { animation-delay: 0.48s; }
+
+/* Thin Bottom Progress Bar */
+.auth-welcome-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(36, 74, 54, 0.08);
+  overflow: hidden;
+  border-radius: 0 0 24px 24px;
+}
+
+.auth-welcome-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--cr-green, #244a36);
+  border-radius: 0 0 24px 24px;
+  animation: authWelcomeProgressFill 1.55s cubic-bezier(0.12, 0.5, 0.22, 1) forwards;
+  transition: width 0.3s ease-out;
+}
+
+.auth-welcome-progress-bar.is-complete {
+  width: 100% !important;
+}
+
+/* Accessibility utility */
+.auth-welcome-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Keyframe Definitions */
+@keyframes authWelcomeCardEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.965);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes authWelcomeCardExit {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.975);
+  }
+}
+
+@keyframes authWelcomeSteamWisp1 {
+  0% {
+    opacity: 0;
+    transform: translateY(3px) scale(0.9) rotate(0deg);
+  }
+  25% {
+    opacity: 0.8;
+  }
+  75% {
+    opacity: 0.45;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-13px) scale(1.1) rotate(-4deg);
+  }
+}
+
+@keyframes authWelcomeSteamWisp2 {
+  0% {
+    opacity: 0;
+    transform: translateY(3px) scale(0.9) rotate(0deg);
+  }
+  25% {
+    opacity: 0.9;
+  }
+  75% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-15px) scale(1.18) rotate(1deg);
+  }
+}
+
+@keyframes authWelcomeSteamWisp3 {
+  0% {
+    opacity: 0;
+    transform: translateY(3px) scale(0.9) rotate(0deg);
+  }
+  25% {
+    opacity: 0.8;
+  }
+  75% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px) scale(1.08) rotate(4deg);
+  }
+}
+
+@keyframes authWelcomeWordFadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes authWelcomeSubtextFade {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes authWelcomeDotPulse {
+  0%, 20% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+  70%, 100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+}
+
+@keyframes authWelcomeProgressFill {
+  0% {
+    width: 0%;
+  }
+  45% {
+    width: 62%;
+  }
+  80% {
+    width: 86%;
+  }
+  100% {
+    width: 95%;
+  }
+}
+
+@keyframes authWelcomeAmbientFloat1 {
+  0%, 100% {
+    transform: rotate(-18deg) scale(1.1) translateY(0);
+  }
+  50% {
+    transform: rotate(-15deg) scale(1.1) translateY(-14px);
+  }
+}
+
+@keyframes authWelcomeAmbientFloat2 {
+  0%, 100% {
+    transform: rotate(26deg) scale(1.3) translateY(0);
+  }
+  50% {
+    transform: rotate(29deg) scale(1.3) translateY(-18px);
+  }
+}
+
+@keyframes authWelcomeAmbientFloat3 {
+  0%, 100% {
+    transform: rotate(48deg) scale(0.95) translateY(0);
+  }
+  50% {
+    transform: rotate(44deg) scale(0.95) translateY(-12px);
+  }
+}
+
+/* Reduced Motion Mode */
+@media (prefers-reduced-motion: reduce) {
+  .auth-welcome-card,
+  .auth-welcome-screen.is-exiting .auth-welcome-card,
+  .auth-welcome-heading .word,
+  .auth-welcome-subtext,
+  .auth-welcome-progress-bar,
+  .steam-wisp-1,
+  .steam-wisp-2,
+  .steam-wisp-3,
+  .auth-welcome-dots span,
+  .auth-welcome-ambient .ambient-bean {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+
+  .steam-wisp {
+    display: none !important;
+  }
+
+  .auth-welcome-ambient {
+    display: none !important;
+  }
+
+  .auth-welcome-progress-bar {
+    width: 100% !important;
+  }
+
+  .auth-welcome-screen.is-exiting {
+    opacity: 0 !important;
+    transition: opacity 0.15s linear !important;
+  }
+}

@@ -2,7 +2,6 @@ import { ArrowRight, Coffee, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { normalizeRole, roleRoutes, signInPortal } from '../lib/auth'
-import { queueAuthWelcome } from '../lib/authFeedback'
 import { fetchStaffPreferences } from '../services/staffSettingsService'
 import { recordPortalSession } from '../services/portalSessionService'
 import { EMAIL_MAX_LENGTH } from '../utils/inputValidation'
@@ -38,7 +37,6 @@ export default function PortalLoginPage() {
       }
       window.localStorage.setItem('raimu-visible', 'false')
       window.dispatchEvent(new CustomEvent('raimu-visibility-change', { detail: { visible: false } }))
-      queueAuthWelcome(profile)
       navigate(target, { replace: true })
     } catch (error) {
       setMessage(isFutureJwtError(error)

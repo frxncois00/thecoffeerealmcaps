@@ -1,5 +1,5 @@
 /* CoffeeRealm management workspace — shared light/dark theme */
-.app-layout.legacy-staff,.app-layout.legacy-admin{
+.app-layout.legacy-staff,.app-layout.legacy-admin,.raimu-companion{
   --mgmt-canvas:#fff;--mgmt-subtle:#f6f7f7;--mgmt-surface:#fff;--mgmt-elevated:#fff;
   --mgmt-hover:#eef2f0;--mgmt-border:#e1e7e4;--mgmt-border-strong:#cad4cf;
   --mgmt-text:#202824;--mgmt-heading:#121916;--mgmt-muted:#68736e;--mgmt-faint:#87918c;
@@ -10,7 +10,7 @@
   --mgmt-shadow-high:0 26px 64px rgba(31,65,45,.14);--mgmt-highlight:rgba(255,255,255,.94);
   color-scheme:light;color:var(--mgmt-text);background:var(--mgmt-canvas)
 }
-.app-layout.legacy-staff[data-theme="dark"],.app-layout.legacy-admin[data-theme="dark"]{
+.app-layout.legacy-staff[data-theme="dark"],.app-layout.legacy-admin[data-theme="dark"],.raimu-companion[data-theme="dark"]{
   --mgmt-canvas:#080e0e;--mgmt-subtle:#0a1111;--mgmt-surface:#0d1715;--mgmt-elevated:#121d19;
   --mgmt-featured:#17231d;--mgmt-hover:#1e2f25;--mgmt-border:#293730;--mgmt-border-strong:#365f48;
   --mgmt-text:#f1f4f2;--mgmt-heading:#f1f4f2;--mgmt-muted:#a6b0aa;--mgmt-muted-low:#737f79;--mgmt-faint:#75817b;
