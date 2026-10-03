@@ -10,6 +10,10 @@ export function sanitizePersonName(value, maxLength = 60) {
   return value.replace(/[^\p{L}\p{M} .'-]/gu, '').replace(/\s{2,}/g, ' ').slice(0, maxLength)
 }
 
+export function isTwoWordPersonName(value) {
+  return /^\S+\s+\S+$/.test(String(value || '').trim())
+}
+
 export function sanitizeCatalogText(value, maxLength = 80) {
   return value.replace(/[^\p{L}\p{M}0-9 &.'()/+-]/gu, '').replace(/\s{2,}/g, ' ').slice(0, maxLength)
 }

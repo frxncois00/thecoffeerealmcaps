@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { LogIn, LogOut, Menu, Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react'
+import { LogIn, LogOut, Menu, Minus, Plus, ShoppingBag, ShoppingCart, Trash2, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Brand from '../Brand'
 import { useAuth } from '../../context/AuthContext'
@@ -107,7 +107,7 @@ export default function CustomerLayout() {
       <header className={`customer-header${scrolled ? ' is-scrolled' : ''}`}>
         <div className="customer-brand"><Brand /></div>
         <button className="mobile-cart" type="button" onClick={cart.openCart} aria-label={`Open cart${cart.itemCount ? `, ${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}` : ''}`} aria-haspopup="dialog">
-          <ShoppingBag size={19} />
+          <ShoppingCart size={19} />
           {cart.itemCount > 0 && <b key={cart.itemCount} className="cart-count-pulse" aria-hidden="true">{cart.itemCount}</b>}
         </button>
         <button
@@ -129,7 +129,7 @@ export default function CustomerLayout() {
           </div>
           <div className="customer-nav-actions">
             <button className="nav-cart" type="button" onClick={() => { close(); cart.openCart() }} aria-haspopup="dialog">
-              <ShoppingBag size={18} />
+              <ShoppingCart size={18} />
               {cart.itemCount > 0 && <b key={cart.itemCount} className="cart-count-pulse" aria-label={`${cart.itemCount} cart items`}>{cart.itemCount}</b>}
             </button>
             {customerUser ? (

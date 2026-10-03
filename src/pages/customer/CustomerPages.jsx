@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Coffee, CreditCard, Info, Link2, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Trash2, Unlink, X, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Coffee, Copy, CreditCard, ExternalLink, Info, Link2, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Trash2, Unlink, X, XCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -6,7 +6,7 @@ import { useMenuCatalog } from '../../hooks/useMenuCatalog'
 import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePricing } from '../../context/usePricing'
-import { createCustomerOrderWithBenefitDiscount, createPaymongoCheckout, fetchCustomerBenefitApplication, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, confirmCustomerOrderReceived, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
+import { createCustomerOrderWithBenefitDiscount, createPaymongoCheckout, fetchCustomerBenefitApplication, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, checkCustomerPaymentReference, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, confirmCustomerOrderReceived, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
 import { deliveryAreas } from '../../data/deliveryAreas'
 import { money } from '../../utils/money'
 import { describeError } from '../../utils/describeError'
@@ -21,7 +21,9 @@ import { normalizeOrderTemperature } from '../../utils/temperature'
 import { buildVatExemptOrderBreakdown, formatVatRate, vatExemptDiscountBreakdown } from '../../utils/pricing'
 import { IMAGE_UPLOAD_ACCEPT, validateImageFile } from '../../utils/imageUpload'
 import { clearCheckoutDraft, readCheckoutDraft, writeCheckoutDraft } from '../../utils/checkoutDraft'
-import { EMAIL_MAX_LENGTH, isValidEmail, isValidPassword, isValidPhone, sanitizePersonName, sanitizePhone, sanitizeUsername } from '../../utils/inputValidation'
+import { EMAIL_MAX_LENGTH, isTwoWordPersonName, isValidEmail, isValidPassword, isValidPhone, sanitizePersonName, sanitizePhone, sanitizeUsername } from '../../utils/inputValidation'
+import { extractReferenceNumberFromReceipt } from '../../services/ocrService'
+import DeliveryLocationPicker from '../../components/customer/DeliveryLocationPicker'
 export function MenuPage(){const [query,setQuery]=useState('');const [category,setCategory]=useState('All');const [chipMotion,setChipMotion]=useState('All');const [guestPromptOpen,setGuestPromptOpen]=useState(false);const {user,profile}=useAuth();const customerUser=Boolean(user&&isCustomerRole(profile?.role));const {products,categories,loading,error}=useMenuCatalog();const {openProduct,modal}=useProductCustomization({alwaysCustomize:true,modalVariant:'menu-detail',beforeAdd:()=>{if(customerUser)return true;setGuestPromptOpen(true);return false}});useEffect(()=>{const timeout=window.setTimeout(()=>setChipMotion(''),460);return()=>window.clearTimeout(timeout)},[category]);useEffect(()=>{if(customerUser)setGuestPromptOpen(false)},[customerUser]);const filtered=products.filter(p=>p.available&&(category==='All'||p.category===category)&&`${p.name} ${p.description}`.toLowerCase().includes(query.toLowerCase()));return <main className="customer-main"><section className="page-hero"><span>Made fresh in North Fairview</span><h1>Find your next favorite.</h1></section><div className="menu-tools"><label><Search/><span className="sr-only">Search menu</span><input value={query} onChange={e=>setQuery(e.target.value.slice(0,100))} maxLength={100} placeholder="Search drinks, cakes, and meals"/></label><div className="menu-chip-row">{categories.map(c=><button className={`category-chip ${c===category?'active':''} ${c===chipMotion?'is-switching':''}`.trim()} onClick={()=>{setChipMotion(c);setCategory(c)}} key={c} type="button"><span>{c}</span></button>)}</div></div>{loading?<section className="customer-state">Loading today’s menu…</section>:error?<section className="customer-state error-state"><h2>We couldn’t load the menu.</h2><p>{error}</p></section>:<section className="customer-products menu-results-grid" key={`${category}-${query}`}>{filtered.map(p=><ProductCard key={p.id} product={p} onOpen={openProduct}/>)}</section>}
     {modal}
     <GuestAuthPrompt open={guestPromptOpen} onClose={()=>setGuestPromptOpen(false)} returnTo="/menu" />
@@ -81,19 +83,21 @@ const mergePlacedOrderData=({order,form,items,total})=>{const payment=orderPayme
 const trackingSteps=order=>((order?.order_type||order?.fulfillment)==='pickup'?[initialOrderStatusLabel(orderPaymentMethod(order)),'Confirmed','Preparing','Ready for Pickup','Completed']:[initialOrderStatusLabel(orderPaymentMethod(order)),'Confirmed','Preparing','Out for Delivery','Received'])
 const trackingStatusCopy=(order,status)=>status==='Awaiting Payment Verification'?'Your payment proof is waiting for review.':status==='Order Received'?'Your order is waiting for store confirmation.':status==='Confirmed'?`Scheduled for ${orderScheduleLabel(order)}`:status==='Preparing'?'The kitchen and bar are preparing your order.':status==='Out for Delivery'?'Your order is on the way. Confirm once it arrives.':status==='Ready for Pickup'?'Your order is ready at the store.':status==='Received'?'You confirmed that this delivery was received.':status==='Completed'?'This order has been completed.':'Waiting for update'
 const clockMinutes=(value,fallback)=>{const [hour,minute]=String(value||'').split(':').map(Number);return Number.isFinite(hour)&&Number.isFinite(minute)?hour*60+minute:fallback}
-const emptyCheckoutForm=()=>({fullName:'',email:'',contact:'',fulfillment:'delivery',address:'',barangay:'',city:'Quezon City',province:'Metro Manila',postal:'',instructions:'',payment:'cod',paymentReference:'',scheduleDate:manilaDate(),scheduleTime:'',deliveryFee:0,deliveryZone:'',estimatedDeliveryTime:'',applyBenefitDiscount:false})
+const manilaCurrentTime=()=>{const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());const map=Object.fromEntries(parts.map(part=>[part.type,part.value]));return `${String(map.hour).padStart(2,'0')}:${String(map.minute).padStart(2,'0')}`}
+const emptyCheckoutForm=()=>({fullName:'',email:'',contact:'',fulfillment:'delivery',address:'',barangay:'',city:'Quezon City',province:'Metro Manila',postal:'',instructions:'',payment:'cod',paymentReference:'',scheduleDate:manilaDate(),scheduleTime:'10:00',deliveryFee:0,deliveryZone:'',estimatedDeliveryTime:'',applyBenefitDiscount:false,coordinates:null})
 const customerPaymentMethods=payments=>Array.from(new Set([...(payments?.enabledMethods||[]),'qrph']))
-function scheduleSlots(date,fulfillment,ordering=SYSTEM_DEFAULTS.ordering){if(!date)return[];const nowParts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());const nowMap=Object.fromEntries(nowParts.map(part=>[part.type,part.value]));const nowMinutes=(Number(nowMap.hour)%24)*60+Number(nowMap.minute);const buffer=fulfillment==='delivery'?60:30;const earliest=date===manilaDate()?nowMinutes+buffer:-1;const open=clockMinutes(ordering.openTime,STORE_OPEN_MINUTES);const close=clockMinutes(ordering.closeTime,STORE_CLOSE_MINUTES);const slots=[];for(let time=open;time<=close;time+=30){if(date===manilaDate()&&time<=earliest)continue;slots.push({id:`${String(Math.floor(time/60)).padStart(2,'0')}:${String(time%60).padStart(2,'0')}`,name:timeLabel(time)})}return slots}
+function scheduleSlots(date,fulfillment,ordering=SYSTEM_DEFAULTS.ordering){if(!date)return[];const nowParts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());const nowMap=Object.fromEntries(nowParts.map(part=>[part.type,part.value]));const nowMinutes=(Number(nowMap.hour)%24)*60+Number(nowMap.minute);const buffer=fulfillment==='delivery'?60:0;const earliest=date===manilaDate()?nowMinutes+buffer:-1;const open=clockMinutes(ordering.openTime,STORE_OPEN_MINUTES);const close=clockMinutes(ordering.closeTime,STORE_CLOSE_MINUTES);const slots=[];for(let time=open;time<=close;time+=30){if(date===manilaDate()&&time<=earliest)continue;slots.push({id:`${String(Math.floor(time/60)).padStart(2,'0')}:${String(time%60).padStart(2,'0')}`,name:timeLabel(time)})}return slots}
 export function CheckoutPage(){
   const cart=useCart();const {items,subtotal}=cart;const {user,profile}=useAuth();const {pricing}=usePricing();const navigate=useNavigate();
   const [submitError,setSubmitError]=useState('');
+  const [customerErrors,setCustomerErrors]=useState({fullName:'',contact:''});
   const [paymentProof,setPaymentProof]=useState(null);const [paymentProofPreview,setPaymentProofPreview]=useState('');const [paymentProofError,setPaymentProofError]=useState('');const [validatingPaymentProof,setValidatingPaymentProof]=useState(false);
   const [systemSettings,setSystemSettings]=useState(SYSTEM_DEFAULTS);
   const [availableAreas,setAvailableAreas]=useState(deliveryAreas);
   const [addresses,setAddresses]=useState([]);const [selectedAddress,setSelectedAddress]=useState('');const [addressMode,setAddressMode]=useState('loading');const [draftReady,setDraftReady]=useState(false);const [requestKey,setRequestKey]=useState(()=>crypto.randomUUID());
   const [form,setForm]=useState(emptyCheckoutForm);const [benefitApplication,setBenefitApplication]=useState(null);
-  useEffect(()=>{if(!user?.id)return;const draft=readCheckoutDraft(user.id);if(draft){setForm({...emptyCheckoutForm(),...draft.form});setAddressMode(['saved','new'].includes(draft.addressMode)?draft.addressMode:'new');setSelectedAddress(String(draft.selectedAddress||''));setRequestKey(draft.requestKey||crypto.randomUUID())}else{setAddressMode('loading')}setDraftReady(true)},[user?.id]);
-  useEffect(()=>{if(!draftReady)return;const today=manilaDate();const tomorrow=manilaDate(1);setForm(current=>{const scheduleDate=[today,tomorrow].includes(current.scheduleDate)?current.scheduleDate:today;const scheduleTime=scheduleDate===current.scheduleDate?current.scheduleTime:'';if(scheduleDate===current.scheduleDate&&!current.postal)return current;return {...current,scheduleDate,scheduleTime,postal:''}})},[draftReady]);
+  useEffect(()=>{if(!user?.id)return;const draft=readCheckoutDraft(user.id);if(draft){setForm({...emptyCheckoutForm(),...draft.form,scheduleDate:manilaDate(),scheduleTime:manilaCurrentTime()});setAddressMode(['saved','new'].includes(draft.addressMode)?draft.addressMode:'new');setSelectedAddress(String(draft.selectedAddress||''));setRequestKey(draft.requestKey||crypto.randomUUID())}else{setAddressMode('loading')}setDraftReady(true)},[user?.id]);
+  useEffect(()=>{if(!draftReady)return;setForm(current=>({...current,scheduleDate:manilaDate(),scheduleTime:current.fulfillment==='pickup'?(current.scheduleTime||scheduleSlots(manilaDate(),'pickup',systemSettings.ordering)[0]?.id||''):(scheduleSlots(manilaDate(),'delivery',systemSettings.ordering)[0]?.id||'10:00'),postal:''}))},[draftReady,systemSettings.ordering]);
   useEffect(()=>{if(!draftReady||!user?.id||addressMode==='loading')return undefined;const timeout=window.setTimeout(()=>writeCheckoutDraft(user.id,{form,addressMode,selectedAddress,requestKey}),120);return()=>window.clearTimeout(timeout)},[addressMode,draftReady,form,requestKey,selectedAddress,user?.id]);
   useEffect(()=>{setForm(current=>({...current,fullName:current.fullName||profile?.full_name||profile?.name||'',email:current.email||profile?.email||user?.email||'',contact:current.contact||normalizePhone(profile?.contact_number||profile?.phone||'')}))},[profile,user]);
   useEffect(()=>{let active=true;fetchPublicPortalData().then(data=>{if(!active)return;setSystemSettings(data.system);setForm(current=>{const delivery=data.system.ordering.deliveryEnabled;const pickup=data.system.ordering.pickupEnabled;const fulfillment=current.fulfillment==='delivery'&&!delivery&&pickup?'pickup':current.fulfillment==='pickup'&&!pickup&&delivery?'delivery':current.fulfillment;const methods=customerPaymentMethods(data.system.payments);const allowed=fulfillment==='delivery'?methods:methods.filter(method=>method!=='cod');const payment=allowed.includes(current.payment)?current.payment:(allowed[0]||'');return {...current,fulfillment,payment,paymentReference:payment===current.payment?current.paymentReference:''}})}).catch(()=>{});return()=>{active=false}},[]);
@@ -124,18 +128,17 @@ export function CheckoutPage(){
   }
   const defaultAddress=addresses.find(address=>address.is_default)||null
   const chooseAddressMode=mode=>{
-    if(mode==='saved'&&defaultAddress){applyAddress(defaultAddress);return}
+    if(mode==='saved'&&addresses.length){applyAddress(defaultAddress||addresses[0]);return}
     setAddressMode('new')
     setSelectedAddress('')
     setForm(current=>({...current,address:'',barangay:'',city:'Quezon City',province:'Metro Manila',postal:''}))
   }
-  const selectedArea=availableAreas.find(area=>area.barangay.toLowerCase()===form.barangay.trim().toLowerCase());const fee=form.fulfillment==='delivery'?(selectedArea?.fee||0):0;const benefitEligible=benefitApplication?.status==='approved';const eligibleBenefit=mostExpensiveEligibleItemBenefit(items,pricing.vatRate,pricing.pricesIncludeVat);const benefitDiscount=benefitEligible&&form.applyBenefitDiscount?eligibleBenefit.benefitAmount:0;const total=subtotal+fee-benefitDiscount;const todayDate=manilaDate();const tomorrowDate=manilaDate(1);const scheduleDateOptions=[{id:todayDate,name:'Today'},{id:tomorrowDate,name:'Tomorrow'}];const slots=useMemo(()=>scheduleSlots(form.scheduleDate,form.fulfillment,systemSettings.ordering),[form.scheduleDate,form.fulfillment,systemSettings.ordering]);
-  useEffect(()=>{if(form.scheduleTime&&!slots.some(slot=>slot.id===form.scheduleTime))setForm(current=>({...current,scheduleTime:''}))},[form.scheduleTime,slots]);
+  const selectedArea=availableAreas.find(area=>area.barangay.toLowerCase()===form.barangay.trim().toLowerCase());const fee=form.fulfillment==='delivery'?(selectedArea?.fee||0):0;const pickupSlots=useMemo(()=>scheduleSlots(manilaDate(),'pickup',systemSettings.ordering),[systemSettings.ordering]);const benefitEligible=benefitApplication?.status==='approved';const eligibleBenefit=mostExpensiveEligibleItemBenefit(items,pricing.vatRate,pricing.pricesIncludeVat);const benefitDiscount=benefitEligible&&form.applyBenefitDiscount?eligibleBenefit.benefitAmount:0;const total=subtotal+fee-benefitDiscount;
+  useEffect(()=>{if(form.fulfillment!=='pickup')return;setForm(current=>current.scheduleTime&&pickupSlots.some(slot=>slot.id===current.scheduleTime)?current:{...current,scheduleDate:manilaDate(),scheduleTime:pickupSlots[0]?.id||''})},[form.fulfillment,pickupSlots]);
   if(!items.length)return <Empty title="Nothing to checkout" body="Your cart needs at least one item." action="Browse menu" to="/menu"/>;
   if(cart.hasUnavailableItems)return <main className="customer-main"><section className="empty-state"><AlertTriangle/><h1>Update your cart</h1><p>Remove unavailable items before continuing to checkout.</p><button className="primary-button" type="button" onClick={cart.openCart}>Review cart</button></section></main>;
   const set=(key,value)=>setForm(current=>({...current,[key]:value}));
-  const setScheduleDate=value=>setForm(current=>({...current,scheduleDate:value,scheduleTime:''}));
-  const setFulfillment=value=>setForm(current=>{const allowed=customerPaymentMethods(systemSettings.payments).filter(method=>value==='delivery'||method!=='cod');const payment=allowed.includes(current.payment)?current.payment:(allowed[0]||'');const scheduleDate=[todayDate,tomorrowDate].includes(current.scheduleDate)?current.scheduleDate:todayDate;return {...current,fulfillment:value,payment,paymentReference:payment===current.payment?current.paymentReference:'',scheduleDate,scheduleTime:''}});
+  const setFulfillment=value=>setForm(current=>{const allowed=customerPaymentMethods(systemSettings.payments).filter(method=>value==='delivery'||method!=='cod');const payment=allowed.includes(current.payment)?current.payment:(allowed[0]||'');const nextTime=value==='pickup'?(pickupSlots[0]?.id||''):(scheduleSlots(manilaDate(),'delivery',systemSettings.ordering)[0]?.id||'10:00');return {...current,fulfillment:value,payment,paymentReference:payment===current.payment?current.paymentReference:'',scheduleDate:manilaDate(),scheduleTime:nextTime}});
   const clearPaymentProof=()=>{if(paymentProofPreview)URL.revokeObjectURL(paymentProofPreview);setPaymentProof(null);setPaymentProofPreview('');setPaymentProofError('');setValidatingPaymentProof(false)}
   const setPayment=value=>{if(value===form.payment)return;setForm(current=>({...current,payment:value,paymentReference:''}));clearPaymentProof()};
   const choosePaymentProof=async event=>{
@@ -150,6 +153,12 @@ export function CheckoutPage(){
     setValidatingPaymentProof(true)
     try{
       await validateImageFile(next,{label:'Payment proof'})
+      const ocrResult=await extractReferenceNumberFromReceipt(next)
+      if(ocrResult?.success&&ocrResult?.referenceNumber){
+        const isGcash=form.payment==='gcash'
+        const cleaned=isGcash?ocrResult.referenceNumber.replace(/\D/g,'').slice(0,13):ocrResult.referenceNumber.slice(0,30)
+        set('paymentReference',cleaned)
+      }
     }catch(cause){
       input.value=''
       URL.revokeObjectURL(nextPreview)
@@ -161,25 +170,60 @@ export function CheckoutPage(){
     }
   }
   const submit=async event=>{
-    event.preventDefault();setSubmitError('');if(systemSettings.ordering.storeStatus!=='open'){setSubmitError(systemSettings.ordering.closureMessage);return}if(subtotal<Number(systemSettings.ordering.minimumOrder||0)){setSubmitError(`A minimum order of ${money(systemSettings.ordering.minimumOrder)} is required.`);return}if(!isValidPhone(form.contact)){setSubmitError('Contact number must contain 11 digits and start with 09.');return}if(form.fulfillment==='delivery'&&!selectedArea)return;if(['gcash','bank_transfer'].includes(form.payment)&&!paymentProof){setPaymentProofError('Upload your payment proof before reviewing the order.');return}
+    event.preventDefault();setSubmitError('');
+    const nextCustomerErrors={
+      fullName:isTwoWordPersonName(form.fullName)?'':'Enter your first and last name (2 words).',
+      contact:isValidPhone(form.contact)?'':'Enter a valid contact number starting with 09 (11 digits).'
+    }
+    setCustomerErrors(nextCustomerErrors)
+    if(nextCustomerErrors.fullName||nextCustomerErrors.contact){return}
+    if(systemSettings.ordering.storeStatus!=='open'){setSubmitError(systemSettings.ordering.closureMessage);return}
+    if(subtotal<Number(systemSettings.ordering.minimumOrder||0)){setSubmitError(`A minimum order of ${money(systemSettings.ordering.minimumOrder)} is required.`);return}
+    if(form.fulfillment==='pickup'&&!form.scheduleTime){setSubmitError('Choose an available pickup time for today.');return}
+    if(form.fulfillment==='delivery'){
+      if(!form.address.trim()){setSubmitError('Please enter or pin your delivery address.');return}
+      if(!selectedArea){setSubmitError('We do not deliver outside Quezon City for now. Please select an address within Quezon City.');return}
+    }
+    if(['gcash','bank_transfer'].includes(form.payment)&&!form.paymentReference.trim()){setPaymentProofError('Enter the reference number from your payment receipt.');return}
+    if(['gcash','bank_transfer'].includes(form.payment)&&!paymentProof){setPaymentProofError('Upload your payment proof before reviewing the order.');return}
+    if(['gcash','bank_transfer'].includes(form.payment)&&form.paymentReference.trim()){
+      try{
+        const available=await checkCustomerPaymentReference(form.paymentReference)
+        if(!available){setPaymentProofError('This payment reference has already been used. Enter the reference from your current receipt.');return}
+      }catch{setPaymentProofError('We could not verify this payment reference. Please try again.');return}
+    }
     const availability=await cart.refreshAvailability();if(!availability.ok){setSubmitError('We could not verify current stock. Please try again.');return}if(!availability.available){setSubmitError('One or more cart items are now unavailable. Review your cart before continuing.');return}
-    const checkout={...form,deliveryFee:fee,deliveryZone:selectedArea?.zone||'',estimatedDeliveryTime:selectedArea?.estimatedTime||''};writeCheckoutDraft(user.id,{form:checkout,addressMode,selectedAddress,requestKey});navigate('/checkout/review',{state:{checkout,paymentProof}})
+    const validDeliveryTime=scheduleSlots(manilaDate(),'delivery',systemSettings.ordering).some(slot=>slot.id===form.scheduleTime)?form.scheduleTime:(scheduleSlots(manilaDate(),'delivery',systemSettings.ordering)[0]?.id||'10:00');
+    const checkout={...form,scheduleDate:manilaDate(),scheduleTime:form.fulfillment==='pickup'?form.scheduleTime:validDeliveryTime,deliveryFee:fee,deliveryZone:selectedArea?.zone||'',estimatedDeliveryTime:selectedArea?.estimatedTime||''};writeCheckoutDraft(user.id,{form:checkout,addressMode,selectedAddress,requestKey});navigate('/checkout/review',{state:{checkout,paymentProof}})
   };
-  return <main className="customer-main checkout-page"><section className="page-title"><span>Secure checkout</span><h1>How should we prepare your order?</h1></section><div className="checkout-layout"><form className="checkout-form" onSubmit={submit}>
-    <CheckoutSection n="1" title="Customer information"><div className="form-grid"><Field label="Full name" value={form.fullName} onChange={value=>set('fullName',sanitizePersonName(value,60))} maxLength={60}/><Field label="Contact number" type="tel" value={form.contact} onChange={value=>set('contact',normalizePhone(value))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Contact number must contain 11 digits and start with 09."/></div>{submitError&&<p className="field-hint error">{submitError}</p>}</CheckoutSection>
-    <CheckoutSection n="2" title="Fulfillment"><div className="fulfillment-controls"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/><Choice title="Date" options={scheduleDateOptions} value={form.scheduleDate} onChange={setScheduleDate}/><SelectField label="Time" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={slots} placeholder={slots.length?'Select time':`No slots available ${form.scheduleDate===tomorrowDate?'tomorrow':'today'}`} disabled={!slots.length}/></div>{!slots.length&&<p className="field-hint">No remaining times for {form.scheduleDate===tomorrowDate?'tomorrow':'today'}. Choose another date if available.</p>}
-    {form.fulfillment==='delivery'?<><fieldset className="address-source-picker"><legend>Delivery address</legend><div><button type="button" className={addressMode==='saved'?'active':''} onClick={()=>chooseAddressMode('saved')} disabled={!defaultAddress} aria-pressed={addressMode==='saved'}><span><MapPin size={19}/></span><b>Use default address</b><small>{defaultAddress?(defaultAddress.label||'Saved address'):'No default address saved'}</small></button><button type="button" className={addressMode==='new'?'active':''} onClick={()=>chooseAddressMode('new')} aria-pressed={addressMode==='new'}><span><Pencil size={19}/></span><b>Enter a new address</b><small>Use a different delivery location</small></button></div></fieldset>{addressMode==='saved'&&defaultAddress?<div className="saved-address-summary"><span>Default address</span><strong>{defaultAddress.label||'Saved address'}</strong><p>{[defaultAddress.address_line,defaultAddress.barangay&&`Brgy. ${defaultAddress.barangay}`,defaultAddress.city,defaultAddress.province].filter(Boolean).join(', ')}</p></div>:<div className="form-grid"><Field label="House no. / Bldg. / Street / Village" value={form.address} onChange={value=>set('address',value)} maxLength={200}/><BarangayField areas={availableAreas} value={form.barangay} onChange={value=>set('barangay',value)} selectedArea={selectedArea}/><Field label="City" value={form.city} readOnly maxLength={60}/><Field label="Province" value={form.province} readOnly maxLength={60}/></div>}{form.barangay&&!selectedArea&&<p className="field-hint error">Please select a Barangay from the delivery list.</p>}</>:<div className="pickup-note"><MapPin/>Lot 1 Block 210 Mark Street corner Dollar Street, North Fairview</div>}<Field label={form.fulfillment==='delivery'?'Delivery instructions':'Pickup note (optional)'} value={form.instructions} onChange={value=>set('instructions',value)} maxLength={300} required={false}/></CheckoutSection>
+  return <main className="customer-main checkout-page"><section className="page-title"><span>Secure checkout</span><h1>How should we prepare your order?</h1></section><div className="checkout-layout"><form className="checkout-form" noValidate onSubmit={submit}>
+    <CheckoutSection n="1" title="Customer information"><div className="form-grid"><Field label="Full name" value={form.fullName} error={customerErrors.fullName} onChange={value=>{set('fullName',sanitizePersonName(value,60));setCustomerErrors(current=>({...current,fullName:''}))}} onBlur={()=>setCustomerErrors(current=>({...current,fullName:isTwoWordPersonName(form.fullName)?'':'Enter your first and last name (2 words).'}))} maxLength={60} pattern="[^\s]+\s+[^\s]+" title="Enter your first and last name (2 words)."/><Field label="Contact number" type="tel" value={form.contact} error={customerErrors.contact} onChange={value=>{set('contact',normalizePhone(value));setCustomerErrors(current=>({...current,contact:''}))}} onBlur={()=>setCustomerErrors(current=>({...current,contact:isValidPhone(form.contact)?'':'Enter a valid contact number starting with 09 (11 digits).'}))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Contact number must contain 11 digits and start with 09."/></div>{submitError&&<p className="field-hint error">{submitError}</p>}</CheckoutSection>
+    <CheckoutSection n="2" title="Fulfillment"><div className="fulfillment-controls"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/>{form.fulfillment==='pickup'&&<SelectField label="Pickup time (today)" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={pickupSlots} placeholder={pickupSlots.length?'Choose a time':'No pickup times available today'} disabled={!pickupSlots.length}/>}</div>
+    {form.fulfillment==='delivery'?<><fieldset className={`address-source-picker${addresses.length?' has-saved-addresses':''}`}><legend>Delivery address</legend><div>{addresses.length>0&&<button type="button" className={addressMode==='saved'?'active':''} onClick={()=>chooseAddressMode('saved')} aria-pressed={addressMode==='saved'}><span><MapPin size={18}/></span><b>Use saved address</b><small>{defaultAddress?(defaultAddress.label||'Default address'):`${addresses.length} saved address${addresses.length===1?'':'es'}`}</small></button>}<button type="button" className={addressMode==='new'?'active':''} onClick={()=>chooseAddressMode('new')} aria-pressed={addressMode==='new'}><span><Pencil size={18}/></span><b>{addresses.length?'Enter a new address':'Enter your delivery address'}</b>{addresses.length>0&&<small>Search or pin on the map</small>}</button></div></fieldset><DeliveryLocationPicker key={`${addressMode}-${selectedAddress||'new'}`} initialAddress={addressMode==='saved'&&addresses.length>0?form.address:''} address={form.address} barangay={form.barangay} selectedArea={selectedArea} onAddressChange={value=>set('address',value)} onBarangayChange={value=>set('barangay',value)} onCoordinatesChange={coords=>set('coordinates',coords)} />{form.fulfillment==='delivery'&&form.address.trim()&&!selectedArea&&<p className="field-hint error">We do not deliver outside Quezon City for now. Please select an address within Quezon City.</p>}</>:<PickupStoreLocation/>}<Field label={form.fulfillment==='delivery'?'Delivery instructions':'Pickup note (optional)'} value={form.instructions} onChange={value=>set('instructions',value)} maxLength={300} required={false}/></CheckoutSection>
     <CheckoutSection n="3" title="Payment"><Choice title="Payment method" options={customerPaymentMethods(systemSettings.payments).filter(method=>form.fulfillment==='delivery'||method!=='cod').map(method=>({id:method,name:method==='cod'?'Cash on delivery':method==='bank_transfer'?'Bank transfer':method==='paymongo'?'PayMongo':method==='qrph'?'QRPh via PayMongo':'GCash'}))} value={form.payment} onChange={setPayment}/><CheckoutPaymentDetails payment={form.payment} paymentConfig={systemSettings.payments} total={total} referenceNumber={form.paymentReference} onReferenceChange={value=>set('paymentReference',value)} proof={paymentProof} previewUrl={paymentProofPreview} proofError={paymentProofError} validatingProof={validatingPaymentProof} onProofChange={choosePaymentProof} onProofClear={clearPaymentProof}/></CheckoutSection>
     {systemSettings.ordering.storeStatus!=='open'&&<p className="field-hint error">{systemSettings.ordering.closureMessage}</p>}
     {cart.checkingAvailability?<p className="checkout-stock-refresh" role="status">Checking current item availability…</p>:null}
-    <button type="submit" className="primary-button checkout-submit" disabled={cart.checkingAvailability||validatingPaymentProof||systemSettings.ordering.storeStatus!=='open'||!form.payment||!form.scheduleDate||!form.scheduleTime||(form.fulfillment==='delivery'&&!selectedArea)}>Review order · {money(total)} <ArrowRight/></button>
-  </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} benefit={eligibleBenefit} benefitEligible={benefitEligible} applyBenefitDiscount={Boolean(form.applyBenefitDiscount)} onBenefitChange={value=>set('applyBenefitDiscount',value)} fulfillment={form.fulfillment} selectedArea={selectedArea} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div></main>
+    <button type="submit" className="primary-button checkout-submit" disabled={cart.checkingAvailability||validatingPaymentProof||systemSettings.ordering.storeStatus!=='open'||!form.payment||(form.fulfillment==='delivery'&&!selectedArea)}>Review order · {money(total)} <ArrowRight/></button>
+  </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} benefit={eligibleBenefit} benefitEligible={benefitEligible} applyBenefitDiscount={Boolean(form.applyBenefitDiscount)} onBenefitChange={value=>set('applyBenefitDiscount',value)} fulfillment={form.fulfillment} selectedArea={selectedArea} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div>
+  </main>
 }
 function CheckoutSection({n,title,children}){return <section className="checkout-section"><header><b>{n}</b><h2>{title}</h2></header>{children}</section>}
+function PickupStoreLocation(){
+  const [copied,setCopied]=useState(false)
+  const address='Lot 1 Block 210 Mark Street corner Dollar Street, North Fairview, Quezon City'
+  const mapsUrl=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+  const copyAddress=async()=>{
+    try{await navigator.clipboard.writeText(address);setCopied(true);window.setTimeout(()=>setCopied(false),1800)}catch{setCopied(false)}
+  }
+  return <div className="pickup-location-card">
+    <div className="pickup-location-main"><div><span>Pickup location</span><strong>The Coffee Realm</strong><p>{address}</p></div></div>
+    <div className="pickup-location-actions"><button type="button" onClick={copyAddress}><Copy size={14}/>{copied?'Copied':'Copy address'}</button><a href={mapsUrl} target="_blank" rel="noreferrer"><ExternalLink size={14}/>Open in Google Maps</a></div>
+  </div>
+}
 function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onReferenceChange,proof,previewUrl,proofError,validatingProof,onProofChange,onProofClear}){
   const proofInputRef=useRef(null)
   if(payment==='cod')return <div className="checkout-payment-cod"><Info size={18}/><p><b>Pay when your order arrives.</b><span>Please prepare the exact amount whenever possible. Cash on delivery is available up to {money(Number(paymentConfig.codMaximum||1000))}.</span></p></div>
-  if(payment==='paymongo'||payment==='qrph')return <section className="checkout-payment-details" aria-live="polite" aria-labelledby="checkout-paymongo-title"><div className="checkout-payment-details-head"><span><Lock size={19}/></span><div><small>{payment==='qrph'?'Secure QRPh test checkout with PayMongo':'Secure test checkout with PayMongo'}</small><h3 id="checkout-paymongo-title">You’ll pay on PayMongo’s hosted page</h3></div><b>{money(total)}</b></div><div className="checkout-payment-instructions"><p>After you review the order, we’ll open PayMongo in a secure checkout window. {payment==='qrph'?'This session is restricted to QRPh.':'Choose one of the enabled test payment methods there.'} Return here when finished.</p><ol><li>Review your order details.</li><li>Complete the payment on PayMongo.</li><li>Wait for the payment confirmation to appear in your orders.</li></ol><small>Test mode only · no live charge will be made.</small></div></section>
+  if(payment==='paymongo'||payment==='qrph')return <section className="checkout-payment-details" aria-live="polite" aria-labelledby="checkout-paymongo-title"><div className="checkout-payment-details-head"><span><Lock size={19}/></span><div><h3 id="checkout-paymongo-title">Pay with PayMongo</h3></div><b>{money(total)}</b></div><div className="checkout-payment-instructions"><p>Continue to PayMongo after reviewing your order to complete payment securely.</p></div></section>
   if(!['gcash','bank_transfer'].includes(payment))return null
   const isGcash=payment==='gcash'
   const label=isGcash?'GCash':'Bank transfer'
@@ -187,24 +231,29 @@ function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onR
   const instructions=isGcash?paymentConfig.gcashInstructions:paymentConfig.bankInstructions
   const changeReference=value=>onReferenceChange(isGcash?value.replace(/\D/g,'').slice(0,13):value.replace(/[^A-Za-z0-9-]/g,'').slice(0,30))
   return <section className="checkout-payment-details" aria-live="polite" aria-labelledby="checkout-payment-details-title">
-    <div className="checkout-payment-details-head"><span><img src={isGcash?'/images/gcashpic1.png':'/images/maribank1.png'} alt=""/></span><div><small>Pay securely with {label}</small><h3 id="checkout-payment-details-title">Complete these steps before review</h3></div><b>{money(total)}</b></div>
-    <div className="checkout-payment-details-body">
-      <img src={qr} alt={`${label} payment QR code`}/>
-      <div className="checkout-payment-instructions">
-        {instructions&&<p>{instructions}</p>}
-        {!isGcash&&(paymentConfig.bankName||paymentConfig.bankAccountName||paymentConfig.bankAccountNumber)&&<dl>
-          {paymentConfig.bankName&&<div><dt>Bank</dt><dd>{paymentConfig.bankName}</dd></div>}
-          {paymentConfig.bankAccountName&&<div><dt>Account name</dt><dd>{paymentConfig.bankAccountName}</dd></div>}
-          {paymentConfig.bankAccountNumber&&<div><dt>Account number</dt><dd>{paymentConfig.bankAccountNumber}</dd></div>}
-        </dl>}
-        <ol><li>Send the exact amount shown above.</li><li>Save the transaction reference and a clear payment screenshot.</li><li>Enter the reference and upload the proof below.</li></ol>
+    <div className="checkout-payment-details-head"><span><img src={isGcash?'/images/gcashpic1.png':'/images/maribank1.png'} alt=""/></span><div><h3 id="checkout-payment-details-title">Pay with {label}</h3></div><b>{money(total)}</b></div>
+    <div className="checkout-payment-columns">
+      <div className="checkout-payment-column checkout-payment-column-instructions">
+        <div className="checkout-payment-details-body">
+          <img src={qr} alt={`${label} payment QR code`}/>
+          <div className="checkout-payment-instructions">
+            {!isGcash&&(paymentConfig.bankName||paymentConfig.bankAccountName||paymentConfig.bankAccountNumber)&&<dl>
+              {paymentConfig.bankName&&<div><dt>Bank</dt><dd>{paymentConfig.bankName}</dd></div>}
+              {paymentConfig.bankAccountName&&<div><dt>Account name</dt><dd>{paymentConfig.bankAccountName}</dd></div>}
+              {paymentConfig.bankAccountNumber&&<div><dt>Account number</dt><dd>{paymentConfig.bankAccountNumber}</dd></div>}
+            </dl>}
+            <p>{instructions||`Scan the QR code and send ${money(total)}.`}</p>
+          </div>
+        </div>
+      </div>
+      <div className="checkout-payment-column checkout-payment-column-proof">
+        <div className="checkout-proof-field"><span>Payment screenshot</span><input ref={proofInputRef} id="checkout-proof-upload" className="proof-file-input" type="file" accept={IMAGE_UPLOAD_ACCEPT} tabIndex={-1} aria-hidden="true" onClick={event=>{event.currentTarget.value=''}} onChange={onProofChange}/><button type="button" className={`proof-dropzone${previewUrl?' has-preview':''}${validatingProof?' is-scanning':''}`} aria-describedby={previewUrl?undefined:'checkout-proof-help'} onClick={()=>proofInputRef.current?.click()}>{previewUrl?<><img className="proof-preview-image" src={previewUrl} alt="Selected payment proof preview"/>{validatingProof&&<span className="inline-proof-scanning"><span className="inline-proof-scan-line"/><RotateCcw className="spinning" size={22}/>Scanning receipt…</span>}<span className="proof-preview-action"><Camera size={17}/>{validatingProof?'Reading reference…':'Change screenshot'}</span></>:<><Camera/><strong>Upload screenshot</strong><small id="checkout-proof-help">JPG, PNG, or WEBP</small></>}</button>{proof&&<div className="proof-file" aria-live="polite"><span>{proof.name}</span><button type="button" onClick={onProofClear} disabled={validatingProof}>Remove</button></div>}{proofError&&<p className="field-hint error" role="alert">{proofError}</p>}</div>
+        <label className="field checkout-reference-field"><span>{label} reference number</span><input required type="text" value={referenceNumber} onChange={event=>changeReference(event.target.value)} inputMode={isGcash?'numeric':'text'} autoComplete="off" maxLength={isGcash?13:30} minLength={isGcash?13:6} pattern={isGcash?'[0-9]{13}':'[A-Za-z0-9-]{6,30}'} placeholder={isGcash?'Enter 13-digit reference':'Enter bank reference'} title={isGcash?'Enter exactly 13 digits from your GCash receipt.':'Enter 6 to 30 letters, numbers, or hyphens from your bank receipt.'}/></label>
       </div>
     </div>
-    <label className="field checkout-reference-field"><span>{label} reference number</span><input required type="text" value={referenceNumber} onChange={event=>changeReference(event.target.value)} inputMode={isGcash?'numeric':'text'} autoComplete="off" maxLength={isGcash?13:30} minLength={isGcash?13:6} pattern={isGcash?'[0-9]{13}':'[A-Za-z0-9-]{6,30}'} placeholder={isGcash?'Enter the 13-digit GCash reference':'Enter the bank transaction reference'} title={isGcash?'Enter exactly 13 digits from your GCash receipt.':'Enter 6 to 30 letters, numbers, or hyphens from your bank receipt.'}/><small>{isGcash?'Enter the 13-digit reference shown on your successful GCash receipt.':'Use 6-30 letters, numbers, or hyphens from the successful transfer receipt.'}</small></label>
-    <div className="checkout-proof-field"><span>Proof of payment</span><input ref={proofInputRef} id="checkout-proof-upload" className="proof-file-input" type="file" accept={IMAGE_UPLOAD_ACCEPT} tabIndex={-1} aria-hidden="true" onClick={event=>{event.currentTarget.value=''}} onChange={onProofChange}/><button type="button" className={`proof-dropzone${previewUrl?' has-preview':''}`} aria-describedby={previewUrl?undefined:'checkout-proof-help'} onClick={()=>proofInputRef.current?.click()}>{previewUrl?<><img className="proof-preview-image" src={previewUrl} alt="Selected payment proof preview"/><span className="proof-preview-action"><Camera size={17}/>{validatingProof?'Checking image…':'Choose a different screenshot'}</span></>:<><ShoppingBag/><strong>Choose payment screenshot</strong><small id="checkout-proof-help">JPG, PNG, or WEBP only · Maximum 5 MB</small></>}</button>{proof&&<div className="proof-file" aria-live="polite"><span>{proof.name}</span><span><b>{validatingProof?'Checking…':`${(proof.size/1024/1024).toFixed(2)} MB`}</b><button type="button" onClick={onProofClear} disabled={validatingProof}>Remove</button></span></div>}{proofError&&<p className="field-hint error" role="alert">{proofError}</p>}</div>
   </section>
 }
-function Field({label,type='text',value,onChange=()=>{},readOnly=false,required=true,inputMode,pattern,minLength,maxLength,title,autoComplete,autoCapitalize,spellCheck}){const labelText=String(label||'').toLowerCase();const resolvedMaxLength=maxLength??(labelText.includes('email')?EMAIL_MAX_LENGTH:labelText.includes('address')?200:labelText.includes('instruction')||labelText.includes('note')||labelText.includes('comment')||labelText.includes('explain')?300:labelText.includes('name')||labelText.includes('label')||labelText.includes('city')||labelText.includes('province')?60:80);return <label className={`field ${readOnly?'locked-field':''}`}><span>{label}</span><input required={required} readOnly={readOnly} aria-readonly={readOnly} value={value} type={type} inputMode={inputMode} pattern={pattern} minLength={minLength} maxLength={resolvedMaxLength} title={title} autoComplete={autoComplete} autoCapitalize={autoCapitalize} spellCheck={spellCheck} onChange={event=>onChange(event.target.value)}/></label>}
+function Field({label,type='text',value,onChange=()=>{},onBlur=()=>{},readOnly=false,required=true,inputMode,pattern,minLength,maxLength,title,autoComplete,autoCapitalize,spellCheck,error}){const labelText=String(label||'').toLowerCase();const resolvedMaxLength=maxLength??(labelText.includes('email')?EMAIL_MAX_LENGTH:labelText.includes('address')?200:labelText.includes('instruction')||labelText.includes('note')||labelText.includes('comment')||labelText.includes('explain')?300:labelText.includes('name')||labelText.includes('label')||labelText.includes('city')||labelText.includes('province')?60:80);return <label className={`field ${readOnly?'locked-field':''}${error?' has-error':''}`}><span>{label}</span><input required={required} readOnly={readOnly} aria-readonly={readOnly} aria-invalid={Boolean(error)} aria-describedby={error?`${labelText.replace(/\s+/g,'-')}-error`:undefined} value={value} type={type} inputMode={inputMode} pattern={pattern} minLength={minLength} maxLength={resolvedMaxLength} title={title} autoComplete={autoComplete} autoCapitalize={autoCapitalize} spellCheck={spellCheck} onChange={event=>onChange(event.target.value)} onBlur={onBlur}/>{error&&<small id={`${labelText.replace(/\s+/g,'-')}-error`} className="field-error-message" role="alert">{error}</small>}</label>}
 function SelectField({label,value,onChange,options,placeholder,disabled=false}){return <label className="field"><span>{label}</span><select required value={value} onChange={event=>onChange(event.target.value)} disabled={disabled}><option value="">{placeholder}</option>{options.map(option=><option key={option.id} value={option.id}>{option.name}</option>)}</select></label>}
 function BarangayField({areas=deliveryAreas,value,onChange,selectedArea}){
   const [open,setOpen]=useState(false)
@@ -342,6 +391,11 @@ export function OrderReviewPage(){
     submittingRef.current=true
     setSubmitPhase('checking');setError('')
     try{
+      if(form.fulfillment==='delivery'&&(!form.deliveryZone||!form.barangay||!form.address?.trim()||!form.deliveryFee)){
+        setModal(null)
+        setError('We do not deliver outside Quezon City for now. Please select an address within Quezon City.')
+        return
+      }
       const availability=await cart.refreshAvailability()
       if(!availability.ok)throw new Error('We could not verify current stock. Please try again.')
       if(!availability.available){setModal(null);setError('One or more cart items are now unavailable. Review your cart before continuing.');return}
@@ -406,7 +460,7 @@ export function OrderReviewPage(){
         })}</div>
         <div className="review-order-totals">
           {breakdown.isVatExemptDiscount?<>{breakdown.regularBaseAmount>0&&<p><span>VATable Sale</span><b>{money(breakdown.regularBaseAmount)}</b></p>}<p><span>VAT-Exempt Sale</span><b>{money(breakdown.vatExemptSale)}</b></p><p><span>{formatVatRate(pricing.vatRate)} VAT</span><b>{money(breakdown.regularVatAmount)}</b></p><p className="checkout-discount-row"><span>Less 20% SC/PWD Discount</span><b>-{money(breakdown.discountAmount)}</b></p></>:<><p><span>VATable Sale</span><b>{money(breakdown.baseAmount)}</b></p><p><span>{formatVatRate(pricing.vatRate)} VAT</span><b>{money(breakdown.vatAmount)}</b></p></>}
-          {form.fulfillment==='delivery'&&<p><span>Delivery{form.deliveryZone?` · ${form.deliveryZone}`:''}</span><b>{money(fee)}</b></p>}
+          {form.fulfillment==='delivery'&&<p><span>Delivery fee</span><b>{money(fee)}</b></p>}
           <p className="review-order-total"><span>Total</span><b>{money(total)}</b></p>
         </div>
       </section>
@@ -981,7 +1035,7 @@ export function ProfilePage(){
   const submit=async event=>{
     event.preventDefault()
     if(savingProfile)return
-    if(sanitizePersonName(values.full_name,60).trim().length<2){setStatusTone('error');setStatus('Enter a valid name using letters only.');return}
+    if(!isTwoWordPersonName(values.full_name)){setStatusTone('error');setStatus('Enter your first and last name (2 words).');return}
     if(values.username.length<3||sanitizeUsername(values.username,24)!==values.username){setStatusTone('error');setStatus('Username must contain 3-24 letters, numbers, periods, underscores, or hyphens.');return}
     if(!isValidEmail(values.email)){setStatusTone('error');setStatus('Enter a valid email address.');return}
     if(values.phone&&!isValidPhone(values.phone)){setStatusTone('error');setStatus('Contact number must contain 11 digits and start with 09.');return}
@@ -1194,7 +1248,7 @@ export function ProfilePage(){
           </div>
         </div>
         <div className="form-grid">
-          <Field label="Full name" value={values.full_name} onChange={value=>set('full_name',sanitizePersonName(value,60))} maxLength={60}/>
+          <Field label="Full name" value={values.full_name} onChange={value=>set('full_name',sanitizePersonName(value,60))} maxLength={60} pattern="[^\s]+\s+[^\s]+" title="Enter your first and last name (2 words)."/>
           <Field label="Username" value={values.username} onChange={value=>set('username',sanitizeUsername(value,24))} minLength={3} maxLength={24} pattern="[A-Za-z0-9._-]{3,24}" autoComplete="username" autoCapitalize="none" spellCheck={false} title="Use 3-24 letters, numbers, periods, underscores, or hyphens."/>
           <Field label="Email address" type="email" value={values.email} onChange={value=>set('email',value.slice(0,EMAIL_MAX_LENGTH))} maxLength={EMAIL_MAX_LENGTH}/>
           <Field label="Phone number" type="tel" value={values.phone} onChange={value=>set('phone',normalizePhone(value))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Phone number must contain 11 digits and start with 09."/>
@@ -1311,7 +1365,8 @@ function AddressFormModal({address,onClose,onSave}){
   const selectedArea=deliveryAreas.find(area=>area.barangay.toLowerCase()===values.barangay.trim().toLowerCase())
   const submit=async event=>{
     event.preventDefault()
-    if(!values.addressLine.trim())return setError('Enter a complete address.')
+    if(!values.addressLine.trim())return setError('Search for or pin your delivery address.')
+    if(!values.barangay.trim()||!selectedArea)return setError('Choose a Barangay within Quezon City.')
     setSaving(true);setError('')
     try{await onSave(values)}
     catch(cause){setError(describeError(cause,'Could not save this address.'));setSaving(false)}
@@ -1322,13 +1377,15 @@ function AddressFormModal({address,onClose,onSave}){
       <span className="payment-modal-kicker">{address?'Edit address':'Add address'}</span>
       <h2 id="address-form-title">{address?'Update delivery address':'New delivery address'}</h2>
       <form onSubmit={submit}>
-        <div className="form-grid">
-           <Field label="Label (e.g. Home, Office)" value={values.label} onChange={value=>set('label',value.slice(0,40))} maxLength={40} required={false}/>
-           <Field label="House no. / Bldg. / Street / Village" value={values.addressLine} onChange={value=>set('addressLine',value.slice(0,200))} maxLength={200}/>
-          <BarangayField value={values.barangay} onChange={value=>set('barangay',value)} selectedArea={selectedArea}/>
-          <Field label="Province" value={values.province} readOnly/>
-          <Field label="City" value={values.city} readOnly/>
-        </div>
+        <Field label="Label (e.g. Home, Office)" value={values.label} onChange={value=>set('label',value.slice(0,40))} maxLength={40} required={false}/>
+        <DeliveryLocationPicker
+          initialAddress={address?[address.address_line,address.barangay&&`Brgy. ${address.barangay}`].filter(Boolean).join(', '):''}
+          address={values.addressLine}
+          barangay={values.barangay}
+          selectedArea={selectedArea}
+          onAddressChange={value=>set('addressLine',value.slice(0,200))}
+          onBarangayChange={value=>set('barangay',value)}
+        />
          <Field label="Delivery instructions" value={values.deliveryNotes} onChange={value=>set('deliveryNotes',value.slice(0,300))} maxLength={300} required={false}/>
         <label className="check-choice">
           <input type="checkbox" checked={values.isDefault} onChange={event=>set('isDefault',event.target.checked)}/>

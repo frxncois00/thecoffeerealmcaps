@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { isCustomerRole } from '../lib/auth'
 import { queueAuthWelcome } from '../lib/authFeedback'
 import { customerSupabase as supabase, isSupabaseConfigured } from '../lib/supabase'
+import { retryJwtTimingRequest } from '../lib/supabaseRetry'
 import { EMAIL_MAX_LENGTH, isValidEmail, isValidPassword, sanitizeUsername } from '../utils/inputValidation'
 
 const otpDigits = 6
@@ -143,11 +144,11 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
       authData = usernameAuthData
     }
 
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await retryJwtTimingRequest(() => supabase
       .from('profiles')
       .select('role')
       .eq('id', authData.user.id)
-      .maybeSingle()
+      .maybeSingle())
     setLoading(false)
 
     // Username sign-in can authenticate legacy accounts whose profile row is
