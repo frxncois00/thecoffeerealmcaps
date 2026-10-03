@@ -5,7 +5,6 @@ import {
   Landmark,
   LogOut,
   Minus,
-  Pause,
   Pencil,
   Plus,
   ReceiptText,
@@ -24,6 +23,51 @@ import { getCurrentPortalSession, signOutPortal } from '../lib/auth'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { sanitizePersonName, sanitizePhone } from '../utils/inputValidation'
 import { buildVatExemptOrderBreakdown, formatVatRate, vatExemptDiscountBreakdown } from '../utils/pricing'
+
+function DineInIcon({ size = 16, className = '', ...props }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <path d="M5 2v5.5a2.5 2.5 0 0 0 5 0V2" />
+      <path d="M7.5 2v4.5" />
+      <path d="M7.5 10v12" />
+      <path d="M16.5 22v-9.5c2.5 0 4.5-2 4.5-5.5C21 4 19.5 2 16.5 2v20" />
+    </svg>
+  )
+}
+
+function TakeOutIcon({ size = 16, className = '', ...props }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      {...props}
+    >
+      <path d="M9 6.5V4.2a2.2 2.2 0 0 1 4.4 0V6.5" />
+      <path d="M12.5 6.5V3.8a2.2 2.2 0 0 1 4.4 0v2.7" />
+      <path d="M6 6.5h14.5" />
+      <path d="M6.5 6.5 4.5 21.5h15l-1.5-15" />
+      <path d="M8.2 11 7 21.5" />
+    </svg>
+  )
+}
 
 const paymentMethods = [
   { value: 'Cash', label: 'Cash', icon: Banknote },
@@ -63,6 +107,7 @@ const createOrderTab = (index = 1) => ({
   id: `WI-${String(index).padStart(3, '0')}`,
   cart: [],
   customerName: '',
+  diningOption: 'dine_in',
   discount: emptyDiscount(),
   payment: emptyPayment(),
 })
@@ -79,6 +124,7 @@ function loadSavedCashierWorkspace() {
       id: typeof tab?.id === 'string' && tab.id ? tab.id : `WI-${String(index + 1).padStart(3, '0')}`,
       cart: Array.isArray(tab?.cart) ? tab.cart : [],
       customerName: typeof tab?.customerName === 'string' ? tab.customerName : '',
+      diningOption: ['dine_in', 'take_out'].includes(tab?.diningOption) ? tab.diningOption : 'dine_in',
       discount: { ...emptyDiscount(), ...(tab?.discount || {}) },
       payment: { ...emptyPayment(), ...(tab?.payment || {}) },
     }))
@@ -615,19 +661,6 @@ export default function CashierPage() {
     })
   }
 
-  function holdOrder() {
-    if (!cart.length) return
-    const emptyTab = orderTabs.find((tab) => tab.id !== activeOrder.id && !tab.cart.length)
-    if (!emptyTab && orderTabs.length >= MAX_OPEN_ORDER_TABS) {
-      setError('Close an empty order before holding this order.')
-      return
-    }
-    updateActiveOrder(() => ({ held: true }))
-    if (emptyTab) setActiveOrderId(emptyTab.id)
-    else openNewOrderTab()
-    setError('')
-  }
-
   function shouldCustomize(product) {
     if (addsDirectlyToCart(product)) return false
     return Boolean(
@@ -700,6 +733,7 @@ export default function CashierPage() {
         orderNumber: localIdentifier('WI'),
         receiptNumber: localIdentifier('R'),
         customerName: customerName.trim() || 'Walk-in Customer',
+        diningOption: activeOrder.diningOption || 'dine_in',
         subtotal,
         discountAmount,
         vatExemptAmount: selectedBenefit.vatAmount,
@@ -921,7 +955,7 @@ export default function CashierPage() {
             <div className="cashier-workspace-tabs">
               <div className="cashier-order-tabs-list" role="group" aria-label="Open orders">
                 {orderTabs.map((tab) => <div className={`cashier-order-tab ${tab.id === activeOrderId ? 'active' : ''}`} key={tab.id}>
-                  <button type="button" className="cashier-tab-select" aria-pressed={tab.id === activeOrderId} aria-controls="cashier-current-order" onClick={() => { setActiveOrderId(tab.id); setOrderTabs((current) => current.map((entry) => entry.id === tab.id ? { ...entry, held: false } : entry)) }}>{tab.id}{tab.held ? <Pause size={12} aria-label="Held order" /> : null}</button>
+                  <button type="button" className="cashier-tab-select" aria-pressed={tab.id === activeOrderId} aria-controls="cashier-current-order" onClick={() => setActiveOrderId(tab.id)}>{tab.id}</button>
                   <button type="button" className="cashier-tab-close" onClick={() => closeOrderTab(tab.id)} aria-label={`Close ${tab.id}`}>&times;</button>
                 </div>)}
               </div>
@@ -952,10 +986,31 @@ export default function CashierPage() {
 
           <aside className="legacy-ticket" id="cashier-current-order">
             <header>
-              <div className="cashier-order-heading"><span className="cashier-order-icon"><ShoppingBag size={16} /></span><span className="cashier-order-heading-text"><b>{activeOrder.id}</b><small>{cartCount} {cartCount === 1 ? 'item' : 'items'}</small></span></div>
-              <div className="cashier-cart-actions">
-                <button type="button" className="cashier-hold-order" onClick={holdOrder} disabled={!cart.length}><Pause size={15} /> Hold order</button>
-                <button type="button" className="cashier-clear-cart" onClick={() => setCart([])} disabled={!cart.length}>Clear cart</button>
+              <div className="cashier-ticket-header-top">
+                <div className="cashier-order-heading"><span className="cashier-order-icon"><ShoppingBag size={16} /></span><span className="cashier-order-heading-text"><b>{activeOrder.id}</b><small>{cartCount} {cartCount === 1 ? 'item' : 'items'}</small></span></div>
+                <div className="cashier-cart-actions">
+                  <button type="button" className="cashier-clear-cart" onClick={() => setCart([])} disabled={!cart.length}>Clear cart</button>
+                </div>
+              </div>
+              <div className="cashier-dining-selector" role="group" aria-label="Dining option">
+                <button
+                  type="button"
+                  className={`cashier-dining-btn${(activeOrder.diningOption || 'dine_in') === 'dine_in' ? ' is-active' : ''}`}
+                  onClick={() => updateActiveOrder(() => ({ diningOption: 'dine_in' }))}
+                  aria-pressed={(activeOrder.diningOption || 'dine_in') === 'dine_in'}
+                >
+                  <DineInIcon size={16} />
+                  <span>Dine In</span>
+                </button>
+                <button
+                  type="button"
+                  className={`cashier-dining-btn${activeOrder.diningOption === 'take_out' ? ' is-active' : ''}`}
+                  onClick={() => updateActiveOrder(() => ({ diningOption: 'take_out' }))}
+                  aria-pressed={activeOrder.diningOption === 'take_out'}
+                >
+                  <TakeOutIcon size={16} />
+                  <span>Take Out</span>
+                </button>
               </div>
             </header>
             <POSCart cart={cart} products={products} onQty={changeQty} onEdit={editCartItem} />

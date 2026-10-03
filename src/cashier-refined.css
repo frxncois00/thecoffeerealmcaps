@@ -432,15 +432,51 @@ html[data-theme] .cashier-refined #cashier-current-order { background: var(--pos
 html[data-theme] .cashier-refined #cashier-current-order > header { padding: 18px; background: var(--pos-forest); border-bottom: 1px solid #42503f; }
 html[data-theme] .cashier-refined #cashier-current-order > header small { color: #c6c5ae; }
 html[data-theme] .cashier-refined #cashier-current-order .cashier-order-icon { color: var(--pos-cream); background: transparent; }
-html[data-theme] .cashier-refined #cashier-current-order > header { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; height: auto; flex: 0 0 auto; gap: 8px; padding: 14px 12px; }
+html[data-theme] .cashier-refined #cashier-current-order > header { display: grid; grid-template-columns: 1fr; align-items: start; height: auto; flex: 0 0 auto; gap: 10px; padding: 14px 12px; }
+html[data-theme] .cashier-refined #cashier-current-order .cashier-ticket-header-top { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px; }
 html[data-theme] .cashier-refined #cashier-current-order .cashier-cart-actions { display: flex; align-items: center; justify-self: end; width: auto; gap: 6px; }
-html[data-theme] .cashier-refined #cashier-current-order .cashier-cart-actions button { display: inline-flex !important; align-items: center; justify-content: center; width: auto; min-width: 0; min-height: 36px; height: 36px; padding: 0 7px !important; font-size: .7rem !important; white-space: nowrap; visibility: visible; }
-html[data-theme] .cashier-refined #cashier-current-order .cashier-order-heading { gap: 5px; }
-html[data-theme] .cashier-refined #cashier-current-order .cashier-order-icon { width: 20px; height: 24px; flex: 0 0 20px; }
-html[data-theme] .cashier-refined #cashier-current-order .cashier-order-heading-text b { font-size: .9rem; overflow-wrap: anywhere; }
-html[data-theme] .cashier-refined #cashier-current-order .cashier-cart-actions .cashier-hold-order { gap: 4px; }
-html[data-theme] .cashier-refined #cashier-current-order .cashier-hold-order { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 1px solid #63705a; border-radius: 8px; background: transparent; color: var(--pos-cream); font-size: .78rem; }
-html[data-theme] .cashier-refined #cashier-current-order .cashier-hold-order:disabled { opacity: .7; cursor: not-allowed; }
+html[data-theme] .cashier-refined #cashier-current-order .cashier-cart-actions button { display: inline-flex !important; align-items: center; justify-content: center; width: auto; min-width: 0; min-height: 36px; height: 36px; padding: 0 10px !important; font-size: .72rem !important; white-space: nowrap; visibility: visible; }
+html[data-theme] .cashier-refined #cashier-current-order .cashier-order-heading { gap: 6px; }
+html[data-theme] .cashier-refined #cashier-current-order .cashier-order-icon { width: 22px; height: 24px; flex: 0 0 22px; }
+html[data-theme] .cashier-refined #cashier-current-order .cashier-order-heading-text b { font-size: .95rem; overflow-wrap: anywhere; }
+html[data-theme] .cashier-refined #cashier-current-order .cashier-dining-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 100%;
+  padding: 4px;
+  border-radius: 10px;
+  background: #142319;
+  border: 1px solid #364938;
+}
+html[data-theme] .cashier-refined #cashier-current-order .cashier-dining-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0 10px !important;
+  border: 1px solid transparent !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  color: #c6c5ae !important;
+  font-size: .8rem !important;
+  font-weight: 700 !important;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+html[data-theme] .cashier-refined #cashier-current-order .cashier-dining-btn:hover:not(.is-active) {
+  background: rgba(255, 255, 255, .06) !important;
+  color: var(--pos-cream) !important;
+}
+html[data-theme] .cashier-refined #cashier-current-order .cashier-dining-btn.is-active {
+  background: var(--pos-cream) !important;
+  color: var(--pos-forest) !important;
+  border-color: var(--pos-cream) !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .16) !important;
+}
 html[data-theme] .cashier-refined #cashier-current-order .legacy-ticket-items { background: var(--pos-forest); scrollbar-color: #6f775f transparent; }
 html[data-theme] .cashier-refined #cashier-current-order .legacy-ticket-items .cashier-cart-line { grid-template-columns: minmax(0, 1fr); gap: 0; background: transparent; border-color: #42503f; }
 html[data-theme] .cashier-refined #cashier-current-order .cashier-cart-line > img { border: 0; }
