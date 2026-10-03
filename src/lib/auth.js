@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { retryJwtTimingRequest } from './supabaseRetry'
 
 export const roleRoutes = {
   admin: '/admin',
@@ -29,11 +30,11 @@ export async function getCurrentPortalSession() {
   if (sessionError || !sessionData.session) return { session: null, profile: null, error: sessionError || null }
 
   const userId = sessionData.session.user.id
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: profileError } = await retryJwtTimingRequest(() => supabase
     .from('profiles')
     .select(portalProfileSelect)
     .eq('id', userId)
-    .maybeSingle()
+    .maybeSingle())
   return { session: sessionData.session, profile, error: profileError || null }
 }
 
@@ -67,11 +68,11 @@ export async function signInPortal({ identifier, email, password, role }) {
 async function verifyPortalRole(data, role) {
   const requestedRole = normalizeRole(role)
   const userId = data.user?.id
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: profileError } = await retryJwtTimingRequest(() => supabase
     .from('profiles')
     .select(portalProfileSelect)
     .eq('id', userId)
-    .maybeSingle()
+    .maybeSingle())
 
   if (profileError) throw profileError
   if (!profile) throw new Error('Login succeeded, but no staff profile was found for this account.')

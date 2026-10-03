@@ -2,6 +2,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { customerSupabase, isSupabaseConfigured, portalSupabase } from '../lib/supabase'
+import { retryJwtTimingRequest } from '../lib/supabaseRetry'
 import { closePortalSession } from '../services/portalSessionService'
 
 const AuthContext = createContext(null)
@@ -24,7 +25,7 @@ export function AuthProvider({ children }) {
           setState({ session: null, profile: null, loading: false })
           return
         }
-        const { data } = await client.from('profiles').select('*').eq('id', nextSession.user.id).maybeSingle()
+        const { data } = await retryJwtTimingRequest(() => client.from('profiles').select('*').eq('id', nextSession.user.id).maybeSingle())
         if (!active) return
         const role = String(data?.role || nextSession.user.user_metadata?.role || '').trim().toLowerCase().replace(/[ -]+/g, '_')
         const roleAllowed = scope === 'customer'
