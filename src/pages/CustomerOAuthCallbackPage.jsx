@@ -77,16 +77,13 @@ export default function CustomerOAuthCallbackPage() {
         : (window.sessionStorage.getItem('tcr.oauth.returnTo') || '/menu')
 
       if (oauthMode !== 'link-google') {
-        const identities = user.identities || []
-        const isGoogleOnlyAccount = identities.length === 1 && identities[0]?.provider === 'google'
         const profileNeedsDetails = !profile.username || !profile.phone || profile.full_name === 'Coffee Realm Customer'
-        if (isGoogleOnlyAccount && profileNeedsDetails) {
+        if (profileNeedsDetails) {
           const { count, error: orderCountError } = await supabase
             .from('orders')
             .select('id', { count: 'exact', head: true })
             .eq('customer_id', user.id)
-          if (orderCountError) throw orderCountError
-          if (!count) {
+          if (!orderCountError && !count) {
             destination = '/complete-profile'
           }
         }
