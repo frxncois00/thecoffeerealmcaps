@@ -482,10 +482,9 @@ html[data-theme] .cashier-refined #cashier-current-order .cashier-order-icon { c
 html[data-theme] .cashier-refined #cashier-current-order > header { display: grid; grid-template-columns: 1fr; align-items: start; height: auto; flex: 0 0 auto; gap: 10px; padding: 14px 12px; }
 html[data-theme] .cashier-refined #cashier-current-order .cashier-ticket-header-top { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px; }
 html[data-theme] .cashier-refined #cashier-current-order .cashier-cart-actions { display: flex; align-items: center; justify-self: end; width: auto; gap: 6px; }
-html[data-theme] .cashier-refined #cashier-current-order .cashier-cart-actions button { display: inline-flex !important; align-items: center; justify-content: center; width: auto; min-width: 0; min-height: 36px; height: 36px; padding: 0 10px !important; font-size: .72rem !important; white-space: nowrap; visibility: visible; }
-html[data-theme] .cashier-refined #cashier-current-order .cashier-order-heading { gap: 6px; }
-html[data-theme] .cashier-refined #cashier-current-order .cashier-order-icon { width: 22px; height: 24px; flex: 0 0 22px; }
-html[data-theme] .cashier-refined #cashier-current-order .cashier-order-heading-text b { font-size: .95rem; overflow-wrap: anywhere; }
+html[data-theme] .cashier-refined #cashier-current-order .cashier-order-heading { display: flex; align-items: center; min-width: 0; gap: 0; }
+html[data-theme] .cashier-refined #cashier-current-order .cashier-order-heading-text { display: flex; align-items: center; min-width: 0; white-space: nowrap; }
+html[data-theme] .cashier-refined #cashier-current-order .cashier-order-heading-text b { color: #ffffff; font-size: .88rem; font-weight: 750; line-height: 1.2; white-space: nowrap; }
 html[data-theme] .cashier-refined #cashier-current-order .cashier-dining-selector {
   display: grid;
   grid-template-columns: 1fr 1fr;

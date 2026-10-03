@@ -1049,7 +1049,7 @@ export default function CashierPage() {
           <aside className="legacy-ticket" id="cashier-current-order">
             <header>
               <div className="cashier-ticket-header-top">
-                <div className="cashier-order-heading"><span className="cashier-order-icon"><ShoppingBag size={16} /></span><span className="cashier-order-heading-text"><b>{activeOrder.counterNumber || '01'}</b><small>{cartCount} {cartCount === 1 ? 'item' : 'items'}</small></span></div>
+                <div className="cashier-order-heading"><span className="cashier-order-heading-text"><b>Order no. {activeOrder.counterNumber || '01'} - {cartCount} {cartCount === 1 ? 'item' : 'items'}</b></span></div>
                 <div className="cashier-cart-actions">
                   <button type="button" className="cashier-reorder" onClick={reorderLatestOrder} disabled={!transactions.length}>Reorder</button><button type="button" className="cashier-clear-cart" onClick={() => setCart([])} disabled={!cart.length}>Clear cart</button>
                 </div>
