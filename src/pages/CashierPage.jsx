@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import LogoutConfirmModal from '../components/auth/LogoutConfirmModal'
+import { useLogoutTransition } from '../context/LogoutTransitionContext'
 import { usePricing } from '../context/usePricing'
 import { menuItems, store } from '../data/mockData'
 import { getCurrentPortalSession, signOutPortal } from '../lib/auth'
@@ -351,6 +352,8 @@ export default function CashierPage() {
   const [notice, setNotice] = useState('')
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const { setTransition: setLogoutTransition } = useLogoutTransition()
+  const [logoutError, setLogoutError] = useState('')
   const [category, setCategory] = useState('All')
   const [search, setSearch] = useState('')
   const [menuFilter, setMenuFilter] = useState('all')
@@ -803,13 +806,55 @@ export default function CashierPage() {
   async function logout() {
     if (loggingOut) return
     setLoggingOut(true)
+    setLogoutOpen(false)
+    setLogoutError('')
+
+    const session = getCurrentPortalSession()
+    const fullName = (session?.user?.user_metadata?.full_name || '').trim()
+    const firstName = fullName ? fullName.split(/\s+/)[0] : 'Cashier'
+
+    setLogoutTransition({
+      active: true,
+      statusText: 'Signing you out…',
+      isExiting: false,
+      isComplete: false,
+    })
+
+    const startTime = Date.now()
     try {
       await signOutPortal()
-      navigate('/portal', { replace: true })
-    } finally {
+    } catch (err) {
+      console.error('Cashier logout failed:', err)
+      setLogoutTransition(null)
       setLoggingOut(false)
-      setLogoutOpen(false)
+      setLogoutError(err?.message || 'Unable to log out right now. Please try again.')
+      return
     }
+
+    const elapsed = Date.now() - startTime
+    const remainingTime = Math.max(0, 1500 - elapsed)
+    if (remainingTime > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remainingTime))
+    }
+
+    setLogoutTransition((prev) => (prev ? {
+      ...prev,
+      statusText: firstName ? `See you next time, ${firstName}` : 'See you next time',
+      isComplete: true,
+    } : null))
+    await new Promise((resolve) => setTimeout(resolve, 650))
+
+    // Navigate to /portal while root overlay is 100% opaque!
+    navigate('/portal', { replace: true })
+
+    // Give React Router 60ms to mount PortalPage under the overlay
+    await new Promise((resolve) => setTimeout(resolve, 60))
+
+    setLogoutTransition((prev) => (prev ? { ...prev, isExiting: true } : null))
+    await new Promise((resolve) => setTimeout(resolve, 320))
+
+    setLogoutTransition(null)
+    setLoggingOut(false)
   }
 
   async function toggleFullscreen() {
@@ -972,6 +1017,14 @@ export default function CashierPage() {
         <button type="button" onClick={() => document.getElementById('cashier-current-order')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} disabled={!cart.length}>View order</button>
       </div> : null}
       <LogoutConfirmModal open={logoutOpen} busy={loggingOut} onCancel={() => setLogoutOpen(false)} onConfirm={logout} />
+      {logoutError && (
+        <div className="customer-logout-error-banner" role="alert">
+          <span>{logoutError}</span>
+          <button type="button" onClick={() => setLogoutError('')} aria-label="Dismiss error">
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {showCheckout ? <CheckoutModal cart={cart} total={total} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat} discount={discount} breakdown={priceBreakdown} setDiscount={setDiscount} payment={payment} setPayment={setPayment} change={change} error={error} saving={savingOrder} onCancel={() => { if (!savingOrder) { setShowCheckout(false); setError('') } }} onConfirm={async () => { if (await saveOrder()) setShowCheckout(false) }} /> : null}
       {customizingProduct ? <ItemCustomizationModal product={customizingProduct} onClose={() => setCustomizingProduct(null)} onAdd={(customizations, addons, quantity) => { updateConfiguredItem(customizingProduct, customizations, addons, quantity); setCustomizingProduct(null) }} /> : null}

@@ -28,7 +28,9 @@ export function setSoundMuted(muted) {
   try {
     localStorage.setItem(MUTE_STORAGE_KEY, String(Boolean(muted)))
     window.dispatchEvent(new CustomEvent('tcr:sound-mute-change', { detail: { muted: Boolean(muted) } }))
-  } catch {}
+  } catch {
+    // Ignore storage failure
+  }
 }
 
 export function toggleSoundMuted() {

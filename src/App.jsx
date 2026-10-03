@@ -1,5 +1,4 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-import AuthUiLayer from './components/auth/AuthUiLayer'
 import ProtectedRoute from './components/ProtectedRoute'
 import CustomerLayout from './components/customer/CustomerLayout'
 import CustomerProtectedRoute from './routes/CustomerProtectedRoute'
@@ -109,7 +108,6 @@ export default function App() {
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-      <AuthUiLayer />
       <RaimuWidget />
     </>
   )

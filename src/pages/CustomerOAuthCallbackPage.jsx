@@ -1,8 +1,7 @@
-import { LoaderCircle } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import AuthWelcomeScreen from '../components/auth/AuthWelcomeScreen'
 import { isCustomerRole, normalizeRole, roleRoutes } from '../lib/auth'
-import { queueAuthWelcome } from '../lib/authFeedback'
 import { customerSupabase as supabase } from '../lib/supabase'
 import { retryJwtTimingRequest } from '../lib/supabaseRetry'
 
@@ -15,10 +14,13 @@ function clearOAuthState() {
 
 export default function CustomerOAuthCallbackPage() {
   const navigate = useNavigate()
-  const [message, setMessage] = useState('Finishing your Google sign-in…')
+  const [statusText, setStatusText] = useState('Finishing your Google sign-in…')
+  const [isExiting, setIsExiting] = useState(false)
+  const [isComplete, setIsComplete] = useState(false)
 
   useEffect(() => {
     let active = true
+    const startTime = Date.now()
 
     async function finishGoogleSignIn() {
       const params = new URLSearchParams(window.location.search)
@@ -32,14 +34,22 @@ export default function CustomerOAuthCallbackPage() {
         sessionData = exchanged.data
         sessionError = exchanged.error
       }
-      if (sessionError || !sessionData.session?.user) throw sessionError || new Error('Google did not return a valid session.')
+      if (sessionError || !sessionData.session?.user) {
+        throw sessionError || new Error('Google did not return a valid session.')
+      }
 
       const user = sessionData.session.user
       const oauthMode = window.sessionStorage.getItem('tcr.oauth.mode')
       let profile = null
       let profileError = null
       for (let attempt = 0; attempt < 4 && !profile; attempt += 1) {
-        const result = await retryJwtTimingRequest(() => supabase.from('profiles').select('id, role, full_name, username, email, phone').eq('id', user.id).maybeSingle())
+        const result = await retryJwtTimingRequest(() =>
+          supabase
+            .from('profiles')
+            .select('id, role, full_name, username, email, phone')
+            .eq('id', user.id)
+            .maybeSingle()
+        )
         profile = result.data
         profileError = result.error
         if (profileError) break
@@ -54,6 +64,7 @@ export default function CustomerOAuthCallbackPage() {
       if (!isCustomerRole(profile.role)) {
         const portalRoute = roleRoutes[normalizeRole(profile.role)] || '/portal'
         await supabase.auth.signOut()
+        if (!active) return
         navigate('/login', {
           replace: true,
           state: { authError: `This email belongs to a staff account. Please use the staff login at ${portalRoute}.` },
@@ -61,42 +72,74 @@ export default function CustomerOAuthCallbackPage() {
         return
       }
 
+      let destination = oauthMode === 'link-google'
+        ? '/profile?google=linked'
+        : (window.sessionStorage.getItem('tcr.oauth.returnTo') || '/menu')
+
       if (oauthMode !== 'link-google') {
         const identities = user.identities || []
         const isGoogleOnlyAccount = identities.length === 1 && identities[0]?.provider === 'google'
         const profileNeedsDetails = !profile.username || !profile.phone || profile.full_name === 'Coffee Realm Customer'
         if (isGoogleOnlyAccount && profileNeedsDetails) {
-          const { count, error: orderCountError } = await supabase.from('orders').select('id', { count: 'exact', head: true }).eq('customer_id', user.id)
+          const { count, error: orderCountError } = await supabase
+            .from('orders')
+            .select('id', { count: 'exact', head: true })
+            .eq('customer_id', user.id)
           if (orderCountError) throw orderCountError
           if (!count) {
-            clearOAuthState()
-            if (active) navigate('/complete-profile', { replace: true })
-            return
+            destination = '/complete-profile'
           }
         }
       }
 
-      queueAuthWelcome({ ...user.user_metadata, full_name: profile.full_name || user.user_metadata?.full_name })
+      // Enforce minimum 1.5 seconds for animation visibility
+      const elapsed = Date.now() - startTime
+      const remainingTime = Math.max(0, 1500 - elapsed)
+      if (remainingTime > 0) {
+        await pause(remainingTime)
+      }
+      if (!active) return
+
+      // Optional welcome back greeting if profile is complete
+      const rawName = (profile.full_name || user.user_metadata?.full_name || user.user_metadata?.name || '').trim()
+      const firstName = rawName && rawName !== 'Coffee Realm Customer' ? rawName.split(/\s+/)[0] : ''
+      if (firstName && destination !== '/complete-profile') {
+        setStatusText(`Welcome back, ${firstName}`)
+        await pause(450)
+        if (!active) return
+      }
+
+      setIsComplete(true)
+      setIsExiting(true)
+      await pause(320)
+      if (!active) return
+
       clearOAuthState()
-      if (active) navigate(oauthMode === 'link-google' ? '/profile?google=linked' : '/menu', { replace: true })
+      navigate(destination, { replace: true })
     }
 
     finishGoogleSignIn().catch(async (error) => {
       if (!active) return
-      setMessage(error?.message || 'Google sign-in could not be completed.')
-      window.setTimeout(() => {
-        if (active) navigate('/login', { replace: true, state: { authError: error?.message || 'Google sign-in could not be completed.' } })
-      }, 1800)
+      setStatusText(error?.message || 'Google sign-in could not be completed.')
+      await pause(1800)
+      if (active) {
+        navigate('/login', {
+          replace: true,
+          state: { authError: error?.message || 'Google sign-in could not be completed.' },
+        })
+      }
     })
 
-    return () => { active = false }
+    return () => {
+      active = false
+    }
   }, [navigate])
 
-  return <main className="customer-oauth-callback" aria-live="polite">
-    <section>
-      <LoaderCircle className="spin" size={30} aria-hidden="true" />
-      <h1>Welcome to The Coffee Realm</h1>
-      <p>{message}</p>
-    </section>
-  </main>
+  return (
+    <AuthWelcomeScreen
+      statusText={statusText}
+      isExiting={isExiting}
+      isComplete={isComplete}
+    />
+  )
 }

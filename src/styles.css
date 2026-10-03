@@ -4463,11 +4463,7 @@
 .legacy-google-auth-button:hover:not(:disabled){border-color:#9eaaa1;box-shadow:0 7px 18px rgba(24,37,29,.08);transform:translateY(-1px)}
 .legacy-google-auth-button:focus-visible{outline:3px solid rgba(36,74,54,.2);outline-offset:2px}
 .legacy-google-auth-button:disabled{opacity:.65;cursor:wait}
-.customer-oauth-callback{min-height:100vh;display:grid;place-items:center;padding:24px;background:#f7f5ef;color:var(--cr-ink)}
-.customer-oauth-callback section{width:min(440px,100%);padding:42px;text-align:center;border:1px solid var(--cr-line);border-radius:24px;background:#fff;box-shadow:0 20px 55px rgba(24,37,29,.1)}
-.customer-oauth-callback svg{color:var(--cr-green)}
-.customer-oauth-callback h1{margin:20px 0 10px;font-family:Georgia,serif;font-size:clamp(1.8rem,5vw,2.5rem)}
-.customer-oauth-callback p{margin:0;color:var(--cr-muted);line-height:1.6}
+/* Auth transition screen styles are consolidated in src/components/auth/AuthWelcomeScreen.css */
 .legacy-auth-hint{color:var(--cr-muted);font-size:.8rem}
 .legacy-auth-toggle::before{border-radius:0 140px 140px 0;background:var(--cr-green);transition-duration:.7s}
 .legacy-auth-container.active .legacy-auth-toggle::before{border-radius:140px 0 0 140px}
@@ -6465,44 +6461,29 @@
 /* Authentication confirmation and welcome feedback */
 .sidebar-exit{border:0;background:transparent;color:inherit;cursor:pointer}
 .sidebar-exit:disabled{cursor:not-allowed;opacity:.65}
-.auth-confirm-backdrop{z-index:120}
-.auth-confirm-modal{width:min(540px,calc(100vw - 24px));padding:30px 28px 18px;text-align:center;background:radial-gradient(circle at top,rgba(231,238,228,.82) 0%,rgba(255,255,255,0) 24%),linear-gradient(180deg,#fffefb 0%,#f5f7f1 100%);border:1px solid rgba(255,255,255,.72);box-shadow:0 34px 90px rgba(16,31,22,.24),inset 0 0 0 1px rgba(36,74,54,.06);overflow:hidden}
-.auth-confirm-close{right:20px;top:20px;z-index:2;border-color:rgba(36,74,54,.14);background:rgba(255,255,255,.88);box-shadow:0 10px 24px rgba(24,37,29,.08)}
-.auth-confirm-close:hover:not(:disabled){transform:translateY(-1px);background:#fff}
-.auth-confirm-scene{position:relative;display:flex;align-items:center;justify-content:center;gap:18px;min-height:180px;margin:4px auto 18px}
-.auth-confirm-scene__halo{position:absolute;inset:12px auto auto 50%;width:220px;height:220px;border-radius:50%;transform:translateX(-50%);background:radial-gradient(circle,rgba(229,236,222,.95) 0%,rgba(229,236,222,0) 74%)}
-.auth-confirm-scene__leaf{position:absolute;width:56px;height:30px;border-radius:56px 56px 10px 56px;background:linear-gradient(180deg,rgba(182,193,162,.95),rgba(143,160,125,.92));opacity:.75;box-shadow:inset 0 0 0 1px rgba(85,108,78,.08)}
-.auth-confirm-scene__leaf::after{content:'';position:absolute;left:50%;top:2px;bottom:2px;width:1px;background:rgba(255,255,255,.38);transform:translateX(-50%) rotate(12deg)}
-.auth-confirm-scene__leaf--left{left:92px;top:84px;transform:rotate(-28deg)}
-.auth-confirm-scene__leaf--right{right:104px;top:60px;transform:scaleX(-1) rotate(-10deg)}
-.auth-confirm-icon{position:relative;z-index:1;width:118px;height:118px;border-radius:34px;display:grid;place-items:center;background:linear-gradient(180deg,#f8fbf5,#edf4eb);color:var(--cr-green);box-shadow:0 18px 42px rgba(24,37,29,.12),inset 0 0 0 1px rgba(36,74,54,.08)}
-.auth-confirm-cup{position:relative;z-index:1;width:74px;height:74px;border-radius:24px;display:grid;place-items:center;background:rgba(255,252,246,.88);color:#6b7e6d;box-shadow:0 14px 30px rgba(24,37,29,.09),inset 0 0 0 1px rgba(36,74,54,.08)}
-.auth-confirm-cup img{position:absolute;bottom:10px;right:9px;width:18px;height:18px;object-fit:contain;opacity:.65}
-.auth-confirm-kicker{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 18px;border:1px solid rgba(36,74,54,.08);border-radius:999px;background:rgba(235,241,233,.96);box-shadow:inset 0 1px 0 rgba(255,255,255,.8)}
-.auth-confirm-kicker::before{content:'◌';margin-right:10px;font-size:.9rem;opacity:.85}
-.auth-confirm-modal h2{max-width:430px;margin:14px auto 8px;font-size:clamp(2.75rem,5.1vw,4.05rem);line-height:.94;letter-spacing:-.055em;color:#314d3c}
-.auth-confirm-divider{display:block;margin:2px auto 14px;color:#b5bfa8;font-size:1.15rem;line-height:1}
-.auth-confirm-modal p{max-width:360px;margin:0 auto;color:var(--cr-muted);font-size:1.02rem;line-height:1.7}
-.auth-confirm-actions{margin-top:28px;justify-content:stretch}
-.auth-confirm-actions .secondary-button,.auth-confirm-actions .primary-button{flex:1;min-height:58px;border-radius:20px;transition:transform .18s ease,box-shadow .18s ease,background-color .18s ease,border-color .18s ease,opacity .18s ease}
-.auth-confirm-actions .secondary-button{background:rgba(255,255,255,.92);border:1.5px solid rgba(36,74,54,.24);color:#35503e;box-shadow:0 12px 24px rgba(24,37,29,.05)}
-.auth-confirm-actions .primary-button{background:linear-gradient(135deg,#355b43,#234730)!important;box-shadow:0 16px 32px rgba(36,74,54,.24)}
-.auth-confirm-actions .secondary-button:hover:not(:disabled),.auth-confirm-actions .primary-button:hover:not(:disabled){transform:translateY(-1px)}
-.auth-confirm-actions .secondary-button:active:not(:disabled),.auth-confirm-actions .primary-button:active:not(:disabled){transform:translateY(0) scale(.985)}
-.auth-confirm-actions .secondary-button:focus-visible,.auth-confirm-actions .primary-button:focus-visible,.sidebar-exit:focus-visible{outline:3px solid rgba(213,175,103,.7);outline-offset:2px}
-.auth-confirm-landscape{position:relative;height:84px;margin:18px -28px -18px;overflow:hidden}
-.auth-confirm-landscape__ridge{position:absolute;left:-8%;right:-8%;bottom:0;border-radius:50% 50% 0 0}
-.auth-confirm-landscape__ridge--back{height:42px;background:linear-gradient(180deg,rgba(229,234,220,.2),rgba(217,224,209,.78))}
-.auth-confirm-landscape__ridge--front{height:30px;background:linear-gradient(180deg,rgba(243,246,238,.88),rgba(228,234,221,.96))}
-.auth-confirm-landscape__mark{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.85);box-shadow:0 8px 18px rgba(24,37,29,.08)}
-.auth-confirm-landscape__mark img{width:16px;height:16px;object-fit:contain;opacity:.65}
-.auth-welcome-popup{position:fixed;top:18px;right:18px;z-index:130;display:flex;align-items:center;gap:14px;max-width:min(430px,calc(100vw - 24px));padding:16px 18px;border:1px solid rgba(36,74,54,.12);border-radius:22px;background:rgba(255,253,248,.96);box-shadow:0 24px 60px rgba(16,31,22,.18);backdrop-filter:blur(14px)}
-.auth-welcome-popup__icon{width:46px;height:46px;flex:0 0 auto;border-radius:16px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(227,239,229,.95),rgba(246,248,241,.9));color:var(--cr-green);box-shadow:inset 0 0 0 1px rgba(36,74,54,.07)}
-.auth-welcome-popup__copy{min-width:0}
-.auth-welcome-popup__copy b{display:block;margin-bottom:3px;color:var(--cr-green);font-size:.76rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
-.auth-welcome-popup__copy p{margin:0;color:var(--cr-ink);font-size:.98rem;font-weight:700;line-height:1.35}
-@media(max-width:640px){.auth-welcome-popup{top:12px;left:12px;right:12px;max-width:none}.auth-confirm-modal{padding:26px 18px 16px}.auth-confirm-close{right:14px;top:14px}.auth-confirm-scene{min-height:148px;margin-bottom:14px}.auth-confirm-scene__halo{width:180px;height:180px}.auth-confirm-scene__leaf--left{left:28px;top:74px}.auth-confirm-scene__leaf--right{right:34px;top:54px}.auth-confirm-icon{width:98px;height:98px;border-radius:28px}.auth-confirm-cup{width:62px;height:62px;border-radius:22px}.auth-confirm-modal h2{font-size:clamp(2.15rem,10vw,3rem)}.auth-confirm-modal p{font-size:.96rem}.auth-confirm-actions{flex-direction:column-reverse}.auth-confirm-landscape{margin-left:-18px;margin-right:-18px}}
-@media(prefers-reduced-motion:reduce){.auth-confirm-actions .secondary-button,.auth-confirm-actions .primary-button{transition:none}}
+.auth-confirm-backdrop{z-index:120;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);background:rgba(14,25,18,.45)}
+.auth-logout-card{position:relative;width:min(420px,calc(100vw - 32px));padding:34px 28px 24px;text-align:center;background:#fff;border-radius:26px;border:1px solid rgba(36,74,54,.08);box-shadow:0 24px 60px rgba(16,31,22,.16),0 4px 18px rgba(0,0,0,.03);overflow:hidden;box-sizing:border-box}
+.auth-logout-card__close{position:absolute;top:16px;right:16px;width:34px;height:34px;border-radius:50%;border:0;background:transparent;color:#76887a;cursor:pointer;display:grid;place-items:center;transition:background .15s ease,color .15s ease}
+.auth-logout-card__close:hover:not(:disabled){background:#f1f5f1;color:#18251d}
+.auth-logout-card__badge-wrap{display:inline-flex;align-items:center;justify-content:center;gap:12px;margin-top:4px}
+.auth-logout-card__badge{width:78px;height:78px;border-radius:50%;background:linear-gradient(180deg,#f3f7f3,#e5eee6);border:1.5px solid rgba(36,74,54,.09);display:grid;place-items:center;box-shadow:0 8px 20px rgba(24,37,29,.06)}
+.auth-logout-card__logo{width:44px;height:44px;object-fit:contain}
+.auth-logout-card__leaf{flex:0 0 auto}
+.auth-logout-card__title{font-family:Georgia,'Playfair Display',serif;font-size:clamp(1.85rem,5.5vw,2.25rem);font-weight:600;color:#244a36;margin:18px 0 8px;line-height:1.1;letter-spacing:-.02em}
+.auth-logout-card__copy{font-size:.96rem;color:var(--cr-muted,#647568);line-height:1.5;margin:0 auto 26px;max-width:320px}
+.auth-logout-card__actions{display:flex;gap:12px;justify-content:center}
+.auth-logout-btn{flex:1;height:48px;border-radius:14px;font-weight:600;font-size:.95rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .18s ease,box-shadow .18s ease,background-color .18s ease,border-color .18s ease}
+.auth-logout-btn:disabled{opacity:.65;cursor:not-allowed}
+.auth-logout-btn--cancel{background:#eef3ee;border:1px solid #d4dfd5;color:#2d4c38}
+.auth-logout-btn--cancel:hover:not(:disabled){background:#e4ebe4;transform:translateY(-1px)}
+.auth-logout-btn--confirm{background:#244a36;border:1px solid #244a36;color:#fff}
+.auth-logout-btn--confirm:hover:not(:disabled){background:#1b3829;box-shadow:0 10px 22px rgba(36,74,54,.26);transform:translateY(-1px)}
+.auth-logout-btn:active:not(:disabled){transform:scale(.98)}
+.customer-logout-error-banner{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:150;display:flex;align-items:center;gap:12px;max-width:min(480px,calc(100vw - 32px));padding:12px 18px;border-radius:14px;background:#fef2f2;border:1px solid #fecaca;color:#991b1b;box-shadow:0 14px 34px rgba(0,0,0,.12);font-size:.92rem;font-weight:600}
+.customer-logout-error-banner button{border:0;background:transparent;color:inherit;cursor:pointer;padding:4px;display:grid;place-items:center;opacity:.75}
+.customer-logout-error-banner button:hover{opacity:1}
+@media(max-width:480px){.auth-logout-card{padding:28px 18px 20px;width:min(380px,92vw)}.auth-logout-card__title{font-size:clamp(1.7rem,7vw,2rem)}.auth-logout-card__copy{font-size:.92rem;margin-bottom:22px}}
+@media(prefers-reduced-motion:reduce){.auth-logout-card,.auth-logout-btn{transition:none!important;transform:none!important}}
 
 /* Staff workspace — elevated white-surface redesign */
 .app-layout.legacy-staff,.legacy-staff .internal-main{background:#fff}
