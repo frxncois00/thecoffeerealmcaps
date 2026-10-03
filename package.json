@@ -8,7 +8,8 @@
     "server": "node server/server.js",
     "build": "vite build && vite build --config vite.realm-tour.config.js",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint src",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "@rive-app/canvas": "^2.42.2",

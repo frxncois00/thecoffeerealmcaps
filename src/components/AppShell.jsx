@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { signOutPortal } from '../lib/auth'
 import LogoutConfirmModal from './auth/LogoutConfirmModal'
+import { useLogoutTransition } from '../context/LogoutTransitionContext'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
@@ -53,6 +54,8 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   const { pathname } = useLocation()
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const { setTransition: setLogoutTransition } = useLogoutTransition()
+  const [logoutError, setLogoutError] = useState('')
   const [now, setNow] = useState(() => new Date())
   const [notificationsOpen, setNotificationsOpen] = useManagementSessionState(`${role}:shell:notifications-open`, false)
   const [refreshing, setRefreshing] = useState(false)
@@ -374,14 +377,57 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   async function confirmLogout() {
     if (loggingOut) return
     setLoggingOut(true)
+    setLogoutOpen(false)
+    setLogoutError('')
+
+    const fullName = (profile?.full_name || user?.user_metadata?.full_name || '').trim()
+    const firstName = fullName && fullName !== 'Coffee Realm Customer'
+      ? fullName.split(/\s+/)[0]
+      : (profile?.username || user?.email?.split('@')[0] || '')
+
+    setLogoutTransition({
+      active: true,
+      statusText: 'Signing you out…',
+      isExiting: false,
+      isComplete: false,
+    })
+
+    const startTime = Date.now()
     try {
       await signOutPortal()
       clearManagementSessionState()
-      navigate('/portal', { replace: true })
-    } finally {
+    } catch (error) {
+      console.error('Portal logout failed:', error)
+      setLogoutTransition(null)
       setLoggingOut(false)
-      setLogoutOpen(false)
+      setLogoutError(error?.message || 'Unable to log out right now. Please try again.')
+      return
     }
+
+    const elapsed = Date.now() - startTime
+    const remainingTime = Math.max(0, 1500 - elapsed)
+    if (remainingTime > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remainingTime))
+    }
+
+    setLogoutTransition((prev) => (prev ? {
+      ...prev,
+      statusText: firstName ? `See you next time, ${firstName}` : 'See you next time',
+      isComplete: true,
+    } : null))
+    await new Promise((resolve) => setTimeout(resolve, 650))
+
+    // Navigate to /portal while root overlay is 100% opaque!
+    navigate('/portal', { replace: true })
+
+    // Give React Router 60ms to mount PortalPage under the overlay
+    await new Promise((resolve) => setTimeout(resolve, 60))
+
+    setLogoutTransition((prev) => (prev ? { ...prev, isExiting: true } : null))
+    await new Promise((resolve) => setTimeout(resolve, 320))
+
+    setLogoutTransition(null)
+    setLoggingOut(false)
   }
 
   const handleDismissOrderToast = (id) => {
@@ -430,6 +476,14 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
       />
     )}
     <LogoutConfirmModal open={logoutOpen} busy={loggingOut} onCancel={() => setLogoutOpen(false)} onConfirm={confirmLogout} />
+    {logoutError && (
+      <div className="customer-logout-error-banner" role="alert">
+        <span>{logoutError}</span>
+        <button type="button" onClick={() => setLogoutError('')} aria-label="Dismiss error">
+          <X size={16} />
+        </button>
+      </div>
+    )}
 
   </div>
 }

@@ -1,10 +1,15 @@
 import {
   Banknote,
+  Check,
+  CheckCircle2,
+  Clock,
+  Coffee,
   CreditCard,
   Expand,
   Landmark,
   LogOut,
   Minus,
+  PackageCheck,
   Pencil,
   Plus,
   ReceiptText,
@@ -13,10 +18,11 @@ import {
   ShoppingBag,
   Wallet,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import LogoutConfirmModal from '../components/auth/LogoutConfirmModal'
+import { useLogoutTransition } from '../context/LogoutTransitionContext'
 import { usePricing } from '../context/usePricing'
 import { menuItems, store } from '../data/mockData'
 import { getCurrentPortalSession, signOutPortal } from '../lib/auth'
@@ -77,6 +83,18 @@ const paymentMethods = [
 ]
 
 const peso = (value) => `PHP ${Number(value || 0).toFixed(2)}`
+const formatReceiptDate = (value) => {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return new Intl.DateTimeFormat('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)
+}
 const RECEIPT_TIN_ID = ''
 const localIdentifier = (prefix) => {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date())
@@ -340,6 +358,11 @@ function normalizeOrder(row) {
     discountIdNumber: row.discount_id_number || '',
     vatRate: row.vat_rate == null ? null : Number(row.vat_rate),
     pricesIncludeVat: row.prices_include_vat == null ? null : Boolean(row.prices_include_vat),
+    status: row.status || 'Preparing',
+    counterNumber: row.counter_number || row.counterNumber || '',
+    diningOption: row.dining_option || row.diningOption || 'dine_in',
+    orderSource: row.order_source || row.orderSource || 'cashier_pos',
+    orderType: row.order_type || row.orderType || 'walk-in',
     createdAt: row.created_at,
     items: normalizedItems,
   }
@@ -404,11 +427,22 @@ export default function CashierPage() {
   })), [])
   const [savedWorkspace] = useState(loadSavedCashierWorkspace)
   const [products, setProducts] = useState(() => isSupabaseConfigured ? [] : fallbackProducts)
-  const [transactions, setTransactions] = useState([])
+  const [transactions, setTransactions] = useState(() => isSupabaseConfigured ? [] : [
+    { id: '1048', orderNumber: '01', counterNumber: '01', status: 'Preparing', diningOption: 'dine_in', orderSource: 'cashier_pos', orderType: 'walk-in', customerName: 'Mika Santos', createdAt: new Date().toISOString() },
+    { id: '1047', orderNumber: '02', counterNumber: '02', status: 'Ready for Pickup', diningOption: 'take_out', orderSource: 'cashier_pos', orderType: 'walk-in', customerName: 'Aya Reyes', createdAt: new Date().toISOString() },
+    { id: '1049', orderNumber: '03', counterNumber: '03', status: 'Preparing', diningOption: 'dine_in', orderSource: 'cashier_pos', orderType: 'walk-in', customerName: 'Noah Cruz', createdAt: new Date().toISOString() },
+  ])
+  const [onlineActiveOrders, setOnlineActiveOrders] = useState([])
   const [loading, setLoading] = useState(Boolean(isSupabaseConfigured))
   const [notice, setNotice] = useState('')
+  const [showOrderStatusModal, setShowOrderStatusModal] = useState(false)
+  const [unseenQueueUpdates, setUnseenQueueUpdates] = useState(0)
+  const prevQueueSnapshotRef = useRef(new Map())
+  const isInitialMountRef = useRef(true)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
+  const { setTransition: setLogoutTransition } = useLogoutTransition()
+  const [logoutError, setLogoutError] = useState('')
   const [category, setCategory] = useState('All')
   const [search, setSearch] = useState('')
   const [menuFilter, setMenuFilter] = useState('all')
@@ -450,15 +484,16 @@ export default function CashierPage() {
           setLastSyncedAt(new Date())
           return
         }
-        const [productResult, addonResult, orderResult, recipeResult, ingredientStockResult, mappingResult, finishedProductResult, orderStatsResult] = await Promise.all([
+        const [productResult, addonResult, orderResult, recipeResult, ingredientStockResult, mappingResult, finishedProductResult, orderStatsResult, onlineOrderResult] = await Promise.all([
           loadMenuItems(),
           supabase.from('addons').select('id,name,price,applies_to,is_available,sort_order,addon_subcategories(subcategory_id)').eq('is_available', true).order('sort_order', { ascending: true }),
-          supabase.from('orders').select('id,order_number,receipt_number,customer_name,subtotal,discount_subtotal,discount_amount,vat_exempt_amount,final_total,vat_rate,prices_include_vat,payment_status,payment_confirmed,discount_type,discount_customer_name,discount_id_number,created_at,order_items(*),payments(*)').eq('order_type', 'walk-in').order('created_at', { ascending: false }).limit(30),
+          supabase.from('orders').select('id,order_number,receipt_number,status,order_type,order_source,customer_name,subtotal,discount_subtotal,discount_amount,vat_exempt_amount,final_total,vat_rate,prices_include_vat,payment_status,payment_confirmed,discount_type,discount_customer_name,discount_id_number,created_at,order_items(*),payments(*)').order('created_at', { ascending: false }).limit(40),
           supabase.from('menu_item_ingredients').select('menu_item_id,ingredient_id,quantity_per_serving'),
           supabase.from('inventory_stock').select('ingredient_id,quantity'),
           supabase.from('finished_product_sale_mappings').select('menu_item_id,finished_product_id,variant_key,units_per_sale'),
           supabase.from('finished_products').select('id,menu_item_id,quantity,is_archived'),
           supabase.from('order_items').select('menu_item_id,quantity'),
+          supabase.from('orders').select('id,order_number,status,order_type,order_source,customer_name,created_at').eq('order_source', 'customer_pos').in('status', ['Preparing', 'Ready for Pickup']).order('created_at', { ascending: true }),
         ])
         if (ignore) return
         if (!productResult.error) {
@@ -487,6 +522,7 @@ export default function CashierPage() {
           setNotice(`The current menu could not load: ${productResult.error.message}`)
         }
         if (!orderResult.error && orderResult.data) setTransactions(orderResult.data.map(normalizeOrder))
+        if (!onlineOrderResult.error && onlineOrderResult.data) setOnlineActiveOrders(onlineOrderResult.data.map(normalizeOrder))
         const syncError = productResult.error || addonResult.error || orderResult.error || recipeResult.error || ingredientStockResult.error || mappingResult.error || finishedProductResult.error || orderStatsResult.error
         if (syncError) setDataSyncError(syncError.message || 'Live data could not be refreshed.')
         else {
@@ -547,6 +583,41 @@ export default function CashierPage() {
       if (liveChannel) supabase.removeChannel(liveChannel)
     }
   }, [fallbackProducts])
+
+  useEffect(() => {
+    if (!notice) return undefined
+    const timer = window.setTimeout(() => setNotice(''), 3500)
+    return () => clearTimeout(timer)
+  }, [notice])
+
+  useEffect(() => {
+    const currentSnapshot = new Map()
+    let newChanges = 0
+
+    transactions.forEach((order) => {
+      const s = String(order.status || 'Preparing').trim().toLowerCase()
+      const activeStage = (s === 'preparing' || s === 'in prep' || s === 'confirmed' || s === 'pending confirmation') ? 'preparing'
+        : (s === 'ready for pickup' || s === 'ready' || s === 'ready to claim') ? 'ready'
+        : null
+
+      if (activeStage) {
+        const orderKey = String(order.id || order.orderNumber)
+        currentSnapshot.set(orderKey, activeStage)
+        const prevStage = prevQueueSnapshotRef.current.get(orderKey)
+        if (!isInitialMountRef.current && (!prevStage || prevStage !== activeStage)) {
+          newChanges += 1
+        }
+      }
+    })
+
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false
+    } else if (newChanges > 0 && !showOrderStatusModal) {
+      setUnseenQueueUpdates((prev) => prev + newChanges)
+    }
+
+    prevQueueSnapshotRef.current = currentSnapshot
+  }, [transactions, showOrderStatusModal])
 
   useEffect(() => {
     const syncFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement))
@@ -782,12 +853,18 @@ export default function CashierPage() {
     setSavingOrder(true)
     try {
       const orderSequence = Math.floor(Date.now() / 1000)
+      const hasCustomName = customerName.trim() && !/^walk-in(\s+customer)?$/i.test(customerName.trim())
+      const resolvedCustomerName = (discount.enabled && discount.customerName?.trim())
+        ? discount.customerName.trim()
+        : (hasCustomName ? customerName.trim() : (customerName.trim() || 'Walk-in Customer'))
+
       const orderDraft = {
         id: Date.now(),
         orderNumber: localIdentifier('WI'),
         counterNumber: activeOrder.counterNumber || '01',
         receiptNumber: localIdentifier('R'),
-        customerName: customerName.trim() || 'Walk-in Customer',
+        status: 'Preparing',
+        customerName: resolvedCustomerName,
         diningOption: activeOrder.diningOption || 'dine_in',
         subtotal,
         discountAmount,
@@ -833,6 +910,8 @@ export default function CashierPage() {
         order_source: 'cashier_pos',
         cashier_id: cashierProfile.id,
         order_type: 'walk-in',
+        counter_number: activeOrder.counterNumber || '01',
+        dining_option: activeOrder.diningOption || 'dine_in',
         status: 'Preparing',
         customer_name: orderDraft.customerName,
         subtotal,
@@ -881,7 +960,19 @@ export default function CashierPage() {
         return false
       }
 
-      const saved = { ...orderDraft, id: savedOrder.id, orderNumber: savedOrder.order_number || orderDraft.orderNumber, receiptNumber: savedOrder.receipt_number || orderDraft.receiptNumber, subtotal: Number(savedOrder.subtotal ?? orderDraft.subtotal), discountAmount: Number(savedOrder.discount_amount ?? orderDraft.discountAmount), total: Number(savedOrder.total ?? orderDraft.total), change: Number(savedOrder.change_amount ?? orderDraft.change) }
+      const saved = {
+        ...orderDraft,
+        id: savedOrder.id,
+        status: 'Preparing',
+        counterNumber: activeOrder.counterNumber || '01',
+        diningOption: activeOrder.diningOption || 'dine_in',
+        orderNumber: savedOrder.order_number || orderDraft.orderNumber,
+        receiptNumber: savedOrder.receipt_number || orderDraft.receiptNumber,
+        subtotal: Number(savedOrder.subtotal ?? orderDraft.subtotal),
+        discountAmount: Number(savedOrder.discount_amount ?? orderDraft.discountAmount),
+        total: Number(savedOrder.total ?? orderDraft.total),
+        change: Number(savedOrder.change_amount ?? orderDraft.change),
+      }
       setTransactions((current) => [saved, ...current])
       setReceipt(saved)
       setCart([])
@@ -897,16 +988,92 @@ export default function CashierPage() {
       setSavingOrder(false)
     }
   }
+
+  const handleAdvanceOrderStatus = async (order, nextStatus) => {
+    if (!order?.id) return
+    try {
+      if (isSupabaseConfigured) {
+        const { error: rpcError } = await supabase.rpc('staff_advance_order_status', {
+          p_order_id: order.id,
+          p_new_status: nextStatus,
+        })
+        if (rpcError) throw rpcError
+      }
+      setTransactions((current) =>
+        current.map((t) => (t.id === order.id ? { ...t, status: nextStatus } : t))
+      )
+      // Update online active orders — remove if no longer active (Completed or Out for Delivery)
+      const activeStatuses = ['Preparing', 'Ready for Pickup']
+      setOnlineActiveOrders((current) =>
+        activeStatuses.includes(nextStatus)
+          ? current.map((t) => (t.id === order.id ? { ...t, status: nextStatus } : t))
+          : current.filter((t) => t.id !== order.id)
+      )
+      const num = getQueueDisplayNumber(order)
+      if (nextStatus === 'Completed') {
+        setNotice(`Order #${num} claimed and marked as Completed.`)
+      } else if (nextStatus === 'Ready for Pickup') {
+        setNotice(`Order #${num} moved to Ready to Claim.`)
+      } else {
+        setNotice(`Order #${num} updated to ${nextStatus}.`)
+      }
+    } catch (err) {
+      setNotice(`Could not update order: ${err?.message || 'Action failed'}`)
+    }
+  }
+
   async function logout() {
     if (loggingOut) return
     setLoggingOut(true)
+    setLogoutOpen(false)
+    setLogoutError('')
+
+    const session = getCurrentPortalSession()
+    const fullName = (session?.user?.user_metadata?.full_name || '').trim()
+    const firstName = fullName ? fullName.split(/\s+/)[0] : 'Cashier'
+
+    setLogoutTransition({
+      active: true,
+      statusText: 'Signing you out…',
+      isExiting: false,
+      isComplete: false,
+    })
+
+    const startTime = Date.now()
     try {
       await signOutPortal()
-      navigate('/portal', { replace: true })
-    } finally {
+    } catch (err) {
+      console.error('Cashier logout failed:', err)
+      setLogoutTransition(null)
       setLoggingOut(false)
-      setLogoutOpen(false)
+      setLogoutError(err?.message || 'Unable to log out right now. Please try again.')
+      return
     }
+
+    const elapsed = Date.now() - startTime
+    const remainingTime = Math.max(0, 1500 - elapsed)
+    if (remainingTime > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remainingTime))
+    }
+
+    setLogoutTransition((prev) => (prev ? {
+      ...prev,
+      statusText: firstName ? `See you next time, ${firstName}` : 'See you next time',
+      isComplete: true,
+    } : null))
+    await new Promise((resolve) => setTimeout(resolve, 650))
+
+    // Navigate to /portal while root overlay is 100% opaque!
+    navigate('/portal', { replace: true })
+
+    // Give React Router 60ms to mount PortalPage under the overlay
+    await new Promise((resolve) => setTimeout(resolve, 60))
+
+    setLogoutTransition((prev) => (prev ? { ...prev, isExiting: true } : null))
+    await new Promise((resolve) => setTimeout(resolve, 320))
+
+    setLogoutTransition(null)
+    setLoggingOut(false)
   }
 
   async function toggleFullscreen() {
@@ -973,6 +1140,24 @@ export default function CashierPage() {
           </div>
         </div>
         <nav>
+          <button
+            type="button"
+            className={`cashier-order-status-button ${showOrderStatusModal ? 'is-active' : ''}`}
+            onClick={() => {
+              setShowOrderStatusModal(true)
+              setUnseenQueueUpdates(0)
+            }}
+            aria-pressed={showOrderStatusModal}
+            aria-label="Order Status"
+          >
+            <Clock size={21} />
+            <span>Order Status</span>
+            {unseenQueueUpdates > 0 ? (
+              <span className="cashier-status-badge-counter" aria-label={`${unseenQueueUpdates} new updates`}>
+                {unseenQueueUpdates > 99 ? '99+' : unseenQueueUpdates}
+              </span>
+            ) : null}
+          </button>
           <button type="button" className={`cashier-transactions-button ${showTransactions ? 'is-active' : ''}`} onClick={showTransactions ? returnToPos : openTransactions} aria-pressed={showTransactions}>
             {showTransactions ? <ShoppingBag size={21} /> : <ReceiptText size={21} />}
             <span>{showTransactions ? 'Back to POS' : 'Transactions'}</span>
@@ -1028,7 +1213,6 @@ export default function CashierPage() {
                 <div className="cashier-menu-title-row"><div className="cashier-menu-title"><h1>Menu</h1><button type="button" className="cashier-fullscreen" onClick={toggleFullscreen} aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}><Expand size={16} /> <span>{isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}</span></button></div><div className="cashier-menu-actions"><button type="button" className="cashier-new-order" onClick={openNewOrderTab} disabled={orderTabs.length >= MAX_OPEN_ORDER_TABS}><Plus size={18} /> New Order</button></div></div>
               </div>
             </div>
-            {notice ? <div className="cashier-sync-note">{notice}</div> : null}
             <div className="cashier-menu-controls">
               <div className="cashier-search-toolbar">
                 <label className="cashier-search-field"><Search size={18} aria-hidden="true" /><input type="search" aria-label="Search menu items" inputMode="search" enterKeyHint="search" value={search} onChange={(event) => setSearch(event.target.value.slice(0, 100))} maxLength={100} placeholder="Search menu items" /></label>
@@ -1091,10 +1275,42 @@ export default function CashierPage() {
         <button type="button" onClick={() => document.getElementById('cashier-current-order')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} disabled={!cart.length}>View order</button>
       </div> : null}
       <LogoutConfirmModal open={logoutOpen} busy={loggingOut} onCancel={() => setLogoutOpen(false)} onConfirm={logout} />
+      {logoutError && (
+        <div className="customer-logout-error-banner" role="alert">
+          <span>{logoutError}</span>
+          <button type="button" onClick={() => setLogoutError('')} aria-label="Dismiss error">
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {showCheckout ? <CheckoutModal cart={cart} total={total} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat} discount={discount} breakdown={priceBreakdown} setDiscount={setDiscount} payment={payment} setPayment={setPayment} change={change} error={error} saving={savingOrder} onCancel={() => { if (!savingOrder) { setShowCheckout(false); setError('') } }} onConfirm={async () => { if (await saveOrder()) setShowCheckout(false) }} /> : null}
       {customizingProduct ? <ItemCustomizationModal product={customizingProduct} onClose={() => setCustomizingProduct(null)} onAdd={(customizations, addons, quantity) => { updateConfiguredItem(customizingProduct, customizations, addons, quantity); setCustomizingProduct(null) }} /> : null}
       {receipt ? <CashierReceipt order={receipt} onClose={() => setReceipt(null)} /> : null}
+      {showOrderStatusModal ? (
+        <OrderStatusModal
+          orders={transactions}
+          onlineOrders={onlineActiveOrders}
+          onUpdateStatus={handleAdvanceOrderStatus}
+          onClose={() => setShowOrderStatusModal(false)}
+        />
+      ) : null}
+      {notice ? (
+        <div className="cashier-toast-container" role="status" aria-live="polite">
+          <div className="cashier-toast">
+            <CheckCircle2 size={16} className="cashier-toast-icon" />
+            <span className="cashier-toast-message">{notice}</span>
+            <button
+              type="button"
+              className="cashier-toast-close"
+              onClick={() => setNotice('')}
+              aria-label="Dismiss notification"
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -1443,3 +1659,190 @@ function CashierReceipt({ order, onClose }) {
     </div>
   )
 }
+
+function getQueueDisplayNumber(order) {
+  const raw = order.counterNumber || order.counter_number || order.orderNumber || order.order_number || ''
+  const str = String(raw)
+  // Online orders use CR-MMDD-XXXX format — always show the last 4 chars as-is
+  if (order.orderSource === 'customer_pos' || /^CR-/i.test(str)) {
+    return str.slice(-4) || str
+  }
+  // Walk-in orders: extract trailing digits, pad to 2
+  const match = str.match(/(\d+)$/)
+  if (match) {
+    const num = parseInt(match[1], 10)
+    if (!Number.isNaN(num)) {
+      return num < 100 ? String(num).padStart(2, '0') : String(num)
+    }
+  }
+  return String(raw || '01')
+}
+
+function OrderStatusModal({ orders = [], onlineOrders = [], onUpdateStatus, onClose }) {
+  const [busyOrderId, setBusyOrderId] = useState(null)
+
+  // Cashier/walk-in orders currently preparing or ready
+  const cashierPreparing = useMemo(() => {
+    return orders.filter((o) => {
+      if (o.orderSource === 'customer_pos') return false
+      const s = String(o.status || '').trim().toLowerCase()
+      return s === 'preparing' || s === 'in prep'
+    })
+  }, [orders])
+
+  const cashierReady = useMemo(() => {
+    return orders.filter((o) => {
+      if (o.orderSource === 'customer_pos') return false
+      const s = String(o.status || '').trim().toLowerCase()
+      return s === 'ready for pickup' || s === 'ready to claim'
+    })
+  }, [orders])
+
+  // Online orders (customer_pos) — sourced from dedicated onlineOrders fetch
+  const onlinePreparing = useMemo(() => {
+    return onlineOrders.filter((o) => {
+      const s = String(o.status || '').trim().toLowerCase()
+      return s === 'preparing' || s === 'in prep'
+    })
+  }, [onlineOrders])
+
+  const onlineReady = useMemo(() => {
+    return onlineOrders.filter((o) => {
+      const s = String(o.status || '').trim().toLowerCase()
+      return s === 'ready for pickup' || s === 'ready to claim'
+    })
+  }, [onlineOrders])
+
+  const allPreparing = useMemo(() => [...cashierPreparing, ...onlinePreparing], [cashierPreparing, onlinePreparing])
+  const allReady = useMemo(() => [...cashierReady, ...onlineReady], [cashierReady, onlineReady])
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  const handleAction = async (order, nextStatus) => {
+    if (busyOrderId) return
+    setBusyOrderId(order.id)
+    try {
+      if (onUpdateStatus) {
+        await onUpdateStatus(order, nextStatus)
+      }
+    } finally {
+      setBusyOrderId(null)
+    }
+  }
+
+  function orderTypeLabel(order) {
+    if (order.orderSource === 'customer_pos') return 'Online'
+    return order.diningOption === 'take_out' ? 'Take out' : 'Dine in'
+  }
+
+  return (
+    <div className="cashier-queue-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="cashier-queue-title">
+      <div className="cashier-queue-modal" onClick={(e) => e.stopPropagation()}>
+        <header className="cashier-queue-modal-header">
+          <div className="cashier-queue-modal-title">
+            <Clock size={20} />
+            <h2 id="cashier-queue-title">Order Status</h2>
+          </div>
+          <button type="button" className="cashier-queue-modal-close" onClick={onClose} aria-label="Close Order Status">&times;</button>
+        </header>
+
+        <div className="cashier-queue-modal-body">
+          <div className="cashier-queue-grid">
+            {/* Column 1: Preparing */}
+            <section className="cashier-queue-column" aria-label="Orders being prepared">
+              <div className="cashier-queue-col-header">
+                <div className="cashier-queue-col-title">
+                  <Coffee size={18} />
+                  <h3>Preparing</h3>
+                </div>
+                <span className="cashier-queue-count-pill">{allPreparing.length}</span>
+              </div>
+
+              {allPreparing.length > 0 ? (
+                <div className="cashier-queue-list">
+                  {allPreparing.map((order) => {
+                    const number = getQueueDisplayNumber(order)
+                    const isOnline = order.orderSource === 'customer_pos'
+                    return (
+                      <div className={`cashier-queue-card${isOnline ? ' is-online' : ''}`} key={order.id || order.orderNumber}>
+                        <div className="cashier-queue-card-main">
+                          <span className="cashier-queue-card-number">{number}</span>
+                          <span className={`cashier-queue-card-type${isOnline ? ' is-online-badge' : ''}`}>{orderTypeLabel(order)}</span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="cashier-queue-empty">
+                  <Coffee size={28} />
+                  <span>No orders currently preparing</span>
+                </div>
+              )}
+            </section>
+
+            {/* Column 2: Ready to Claim */}
+            <section className="cashier-queue-column is-ready" aria-label="Orders ready to claim">
+              <div className="cashier-queue-col-header">
+                <div className="cashier-queue-col-title">
+                  <PackageCheck size={18} />
+                  <h3>Ready to Claim</h3>
+                </div>
+                <span className="cashier-queue-count-pill">{allReady.length}</span>
+              </div>
+
+              {allReady.length > 0 ? (
+                <div className="cashier-queue-list">
+                  {allReady.map((order) => {
+                    const number = getQueueDisplayNumber(order)
+                    const isBusy = busyOrderId === order.id
+                    const isOnline = order.orderSource === 'customer_pos'
+                    const isDelivery = order.orderType === 'delivery'
+                    return (
+                      <div className={`cashier-queue-card${isOnline ? ' is-online' : ''}`} key={order.id || order.orderNumber}>
+                        <div className="cashier-queue-card-main">
+                          <span className="cashier-queue-card-number">{number}</span>
+                          <span className={`cashier-queue-card-type${isOnline ? ' is-online-badge' : ''}`}>{orderTypeLabel(order)}</span>
+                        </div>
+                        {/* Delivery orders at ready: ops staff marks OFD with link — no cashier action */}
+                        {!isDelivery && (
+                          <button
+                            type="button"
+                            className="cashier-queue-card-action"
+                            onClick={() => handleAction(order, 'Completed')}
+                            disabled={isBusy}
+                            title="Complete and remove order from active queue"
+                          >
+                            <CheckCircle2 size={12} />
+                            <span>{isBusy ? '...' : 'Complete'}</span>
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="cashier-queue-empty">
+                  <PackageCheck size={28} />
+                  <span>No orders ready to claim</span>
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
+
+        <footer className="cashier-queue-modal-footer">
+          <span>Click <strong>Complete</strong> to mark claimed orders as done.</span>
+          <span>Active orders: <strong>{allPreparing.length + allReady.length}</strong></span>
+        </footer>
+      </div>
+    </div>
+  )
+}
+

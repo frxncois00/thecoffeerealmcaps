@@ -6,6 +6,7 @@ import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import { PricingProvider } from './context/PricingContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { LogoutTransitionProvider } from './context/LogoutTransitionContext'
 import './styles.css'
 import './management-theme.css'
 import './cashier-polish.css'
@@ -13,4 +14,5 @@ import './pricing.css'
 import './purchase-orders.css'
 import './cashier-refined.css'
 import './cashier-surfaces.css'
-createRoot(document.getElementById('root')).render(<StrictMode><BrowserRouter><ThemeProvider><PricingProvider><AuthProvider><CartProvider><App /></CartProvider></AuthProvider></PricingProvider></ThemeProvider></BrowserRouter></StrictMode>)
+createRoot(document.getElementById('root')).render(<StrictMode><BrowserRouter><ThemeProvider><PricingProvider><AuthProvider><CartProvider><LogoutTransitionProvider><App /></LogoutTransitionProvider></CartProvider></AuthProvider></PricingProvider></ThemeProvider></BrowserRouter></StrictMode>)
+

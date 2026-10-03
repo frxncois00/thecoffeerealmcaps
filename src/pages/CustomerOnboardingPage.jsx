@@ -2,7 +2,6 @@ import { Check, Eye, EyeOff, Lock, Phone, User, UserRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { queueAuthWelcome } from '../lib/authFeedback'
 import { customerSupabase as supabase } from '../lib/supabase'
 import { saveProfile } from '../services/customerService'
 import { EMAIL_MAX_LENGTH, isValidPassword, isValidPhone, sanitizePersonName, sanitizeUsername } from '../utils/inputValidation'
@@ -50,7 +49,6 @@ export default function CustomerOnboardingPage() {
         if (passwordError) throw passwordError
       }
       updateProfile((current) => ({ ...current, ...saved }))
-      queueAuthWelcome({ ...user.user_metadata, full_name: saved.full_name || fullName })
       navigate('/menu', { replace: true })
     } catch (cause) {
       setError(cause?.message || 'Could not finish setting up your account.')

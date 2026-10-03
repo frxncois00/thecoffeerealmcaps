@@ -1,7 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { dispatchOrderEmails } from './orderEmailService'
 
-const ACTIVE_SELECT = 'id,order_number,receipt_number,order_type,status,tracking_url,customer_name,customer_email,customer_phone,delivery_address,schedule_date,schedule_time,out_for_delivery_at,received_at,receipt_confirmation,subtotal,discount_type,discount_subtotal,discount_amount,vat_exempt_amount,delivery_fee,final_total,vat_rate,prices_include_vat,payment_status,payment_confirmed,payment_proof_path,refund_status,cancellation_status,fulfillment_hold,cancellation_reason,cancellation_notes,cancellation_requested_by_role,cancellation_requested_at,cancellation_reviewed_at,cancellation_review_notes,cancelled_by_role,cancelled_at,cancellation_resolved,created_at,updated_at,order_items(id,menu_item_id,item_name,display_name,unit_price,quantity,addons_total,line_total,addons,customizations,is_discounted,discount_amount,vat_exempt_amount,menu_items(prep_time_minutes)),payments(method,status,amount_due,reference_number),refunds(id,refund_amount,refund_status,refund_method,reference_number,requested_at,processed_at)'
+const ACTIVE_SELECT = 'id,order_number,receipt_number,order_type,status,tracking_url,customer_name,customer_email,customer_phone,delivery_address,schedule_date,schedule_time,out_for_delivery_at,received_at,receipt_confirmation,subtotal,discount_type,discount_customer_name,discount_id_number,discount_subtotal,discount_amount,vat_exempt_amount,delivery_fee,final_total,vat_rate,prices_include_vat,payment_status,payment_confirmed,payment_proof_path,refund_status,cancellation_status,fulfillment_hold,cancellation_reason,cancellation_notes,cancellation_requested_by_role,cancellation_requested_at,cancellation_reviewed_at,cancellation_review_notes,cancelled_by_role,cancelled_at,cancellation_resolved,created_at,updated_at,order_items(id,menu_item_id,item_name,display_name,unit_price,quantity,addons_total,line_total,addons,customizations,is_discounted,discount_amount,vat_exempt_amount,menu_items(prep_time_minutes)),payments(method,status,amount_due,reference_number),refunds(id,refund_amount,refund_status,refund_method,reference_number,requested_at,processed_at)'
 
 export const NON_CANCELLABLE_OPS_STATUSES = [
   'Preparing',
@@ -22,7 +22,6 @@ export async function fetchOpsOrders() {
   const { data, error } = await supabase
     .from('orders')
     .select(ACTIVE_SELECT)
-    .in('order_source', ['customer_pos', 'cashier_pos'])
     .order('created_at', { ascending: true })
   if (error) throw error
   return data || []
@@ -33,7 +32,6 @@ export async function fetchOpsOrdersByIds(ids) {
   const { data, error } = await supabase
     .from('orders')
     .select(ACTIVE_SELECT)
-    .in('order_source', ['customer_pos', 'cashier_pos'])
     .in('id', ids)
     .order('created_at', { ascending: true })
   if (error) throw error

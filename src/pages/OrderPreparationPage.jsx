@@ -23,7 +23,7 @@ const PENDING_STATUSES = ['Order Received', 'Awaiting Payment Verification', 'Pe
 const COLUMNS = [
   { key: 'pending', title: 'Pending Confirmation', subtitle: 'Verify payment proofs', icon: Clock, tone: 'amber' },
   { key: 'preparing', title: 'Preparing', subtitle: 'Orders being prepared', icon: Coffee, tone: 'blue' },
-  { key: 'ready', title: 'Ready for Pickup / Dine-in / Take-out', icon: Package, tone: 'green' },
+  { key: 'ready', title: 'Ready to Claim', icon: Package, tone: 'green' },
   { key: 'delivery', title: 'Out for Delivery', subtitle: 'Orders currently being delivered', icon: Bike, tone: 'teal' },
 ]
 
@@ -35,12 +35,13 @@ function normalizeOrderTab(value) {
 }
 
 function stageOf(order) {
-  if (order.status === 'Cancelled') return 'cancelled'
-  if (PENDING_STATUSES.includes(order.status)) return 'pending'
-  if (order.status === 'Preparing') return 'preparing'
-  if (order.status === 'Ready for Pickup') return 'ready'
-  if (order.status === 'Out for Delivery') return 'delivery'
-  if (['Completed', 'Received'].includes(order.status)) return 'completed'
+  const s = String(order?.status || '').trim().toLowerCase()
+  if (s === 'cancelled') return 'cancelled'
+  if (['completed', 'received'].includes(s)) return 'completed'
+  if (s === 'ready for pickup' || s === 'ready' || s === 'ready to claim') return 'ready'
+  if (s === 'out for delivery' || s === 'delivery') return 'delivery'
+  if (s === 'preparing' || s === 'in prep') return 'preparing'
+  if (PENDING_STATUSES.some((p) => p.toLowerCase() === s) || s === 'ordered' || s === 'pending') return 'pending'
   return 'pending'
 }
 
@@ -93,7 +94,7 @@ function timeAgo(dateString) {
 }
 function scheduleLabel(order) {
   const when = scheduleDate(order)
-  if (!when && order.order_type === 'walk-in') return 'Walk-in · Now'
+  if (!when && order.order_type === 'walk-in') return 'Now'
   if (!when) return 'Schedule pending'
   return new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(when)
 }
@@ -134,12 +135,13 @@ function refundStatusLabel(value) {
 }
 
 function orderStatusTone(status) {
-  if (['Completed', 'Received'].includes(status)) return 'completed'
-  if (status === 'Cancelled') return 'cancelled'
-  if (status === 'Preparing') return 'preparing'
-  if (status === 'Ready for Pickup') return 'pickup'
-  if (status === 'Out for Delivery') return 'delivery'
-  if (/pending|awaiting|received/i.test(status)) return 'attention'
+  const s = String(status || '').trim().toLowerCase()
+  if (['completed', 'received'].includes(s)) return 'completed'
+  if (s === 'cancelled') return 'cancelled'
+  if (s === 'preparing' || s === 'in prep') return 'preparing'
+  if (s === 'ready for pickup' || s === 'ready' || s === 'ready to claim') return 'pickup'
+  if (s === 'out for delivery' || s === 'delivery') return 'delivery'
+  if (/pending|awaiting|received|ordered/i.test(s)) return 'attention'
   return 'neutral'
 }
 
@@ -169,6 +171,15 @@ function orderTypeLabel(type) {
   return type === 'walk-in' ? 'Walk-in order' : type === 'pickup' ? 'Pickup order' : 'Delivery order'
 }
 
+function getOrderCustomerName(order) {
+  const name = String(order?.customer_name || '').trim()
+  const discountName = String(order?.discount_customer_name || '').trim()
+  if (!name || /^walk-in(\s+customer)?$/i.test(name)) {
+    return discountName || name || 'Walk-in Customer'
+  }
+  return name
+}
+
 function actionableRefund(order) {
   return (order.refunds || []).find((refund) => ['pending', 'approved', 'processing', 'failed'].includes(refund.refund_status)) || null
 }
@@ -183,12 +194,18 @@ function mainActionFor(order) {
     if (isPayMongoMethod(method)) return { label: 'Awaiting PayMongo payment', next: null, kind: 'waiting', disabled: true, disabledReason: 'The order will unlock automatically after PayMongo confirms the payment.' }
     return { label: 'Verify Payment', next: null, kind: 'confirm', disabled: !order.payment_proof_path, disabledReason: 'Waiting for the customer to upload payment proof.' }
   }
+  // All order types go Preparing → Ready for Pickup first
   if (stage === 'preparing') {
-    return ['pickup', 'walk-in'].includes(order.order_type)
-      ? { label: 'Mark as Ready', next: 'Ready for Pickup', kind: 'advance' }
-      : { label: 'Mark Out for Delivery', next: 'Out for Delivery', kind: 'advance' }
+    return { label: 'Mark as Ready', next: 'Ready for Pickup', kind: 'advance' }
   }
-  if (stage === 'ready') return { label: order.order_type === 'walk-in' ? 'Complete Order' : 'Complete Pickup', next: 'Completed', kind: 'advance' }
+  if (stage === 'ready') {
+    // Delivery orders proceed to Out for Delivery; everything else completes here
+    if (order.order_type === 'delivery') {
+      return { label: 'Mark Out for Delivery', next: 'Out for Delivery', kind: 'advance' }
+    }
+    return { label: order.order_type === 'walk-in' ? 'Complete Order' : 'Complete Pickup', next: 'Completed', kind: 'advance' }
+  }
+  // Out for Delivery → completed by customer / system, no staff action needed
   if (stage === 'delivery') return null
   return null
 }
@@ -241,7 +258,13 @@ export default function OrderPreparationPage() {
         if (remembered) {
           setSearch(remembered.search || '')
           setPaymentFilter(remembered.paymentFilter || 'all')
-          setDateFilter(remembered.dateFilter ?? new Date().toLocaleDateString('en-CA'))
+          const todayStr = new Date().toLocaleDateString('en-CA')
+          const yesterdayCalc = new Date()
+          yesterdayCalc.setDate(yesterdayCalc.getDate() - 1)
+          const yesterdayStr = yesterdayCalc.toLocaleDateString('en-CA')
+          const remDate = remembered.dateFilter
+          const isRecentDate = remDate === '' || remDate === todayStr || remDate === yesterdayStr
+          setDateFilter(isRecentDate ? remDate : todayStr)
         }
       } catch { /* Defaults remain available if preferences have not been migrated yet. */ }
       finally { if (active) setFiltersReady(true) }
@@ -360,13 +383,11 @@ export default function OrderPreparationPage() {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
         console.info('[Staff orders] postgres_changes received ' + JSON.stringify(payload))
         const { new: order } = payload
-        if (order?.order_source && !['customer_pos', 'cashier_pos'].includes(order.order_source)) return
         if (order?.id) refreshRealtimeOrder(order.id)
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
         console.info('[Staff orders] postgres_changes order update received ' + JSON.stringify({ orderId: payload.new?.id }))
         const { new: order } = payload
-        if (order?.order_source && !['customer_pos', 'cashier_pos'].includes(order.order_source)) return
         if (order?.id) refreshRealtimeOrder(order.id)
       })
       .subscribe((status, error) => {
@@ -550,11 +571,16 @@ export default function OrderPreparationPage() {
 
   const filteredByTab = useMemo(() => {
     const q = search.trim().toLowerCase()
+    const todayStr = now.toLocaleDateString('en-CA')
     const matchesFilters = (order, view) => {
-      if (q && !`${order.order_number} ${order.customer_name}`.toLowerCase().includes(q)) return false
+      if (q && !`${order.order_number} ${getOrderCustomerName(order)} ${order.customer_name || ''} ${order.discount_customer_name || ''}`.toLowerCase().includes(q)) return false
       if (fulfillmentFilter !== 'all' && order.order_type !== fulfillmentFilter) return false
       if (paymentFilter !== 'all' && paymentMethod(order) !== paymentFilter) return false
-      if (dateFilter && filterDateFor(order, view) !== dateFilter) return false
+      if (view === 'active') {
+        if (dateFilter && dateFilter !== todayStr && filterDateFor(order, view) !== dateFilter) return false
+      } else {
+        if (dateFilter && filterDateFor(order, view) !== dateFilter) return false
+      }
       return true
     }
     return {
@@ -562,7 +588,7 @@ export default function OrderPreparationPage() {
       completed: orders.filter((order) => matchesFilters(order, 'completed') && stageOf(order) === 'completed'),
       cancelled: orders.filter((order) => matchesFilters(order, 'cancelled') && (stageOf(order) === 'cancelled' || cancellationRequested(order))),
     }
-  }, [orders, search, fulfillmentFilter, paymentFilter, dateFilter])
+  }, [orders, search, fulfillmentFilter, paymentFilter, dateFilter, now])
   const filtered = useMemo(() => filteredByTab[activeTab] || [], [filteredByTab, activeTab])
 
   const sorted = useMemo(() => {
@@ -778,7 +804,7 @@ function OrderCard({ order, isNew = false, busy, onView, onMain, onCancel }) {
         {overdue && <span className="ops-overdue-chip"><AlertTriangle size={12} /> Overdue</span>}
       </div>
       <h3>{order.order_number}</h3>
-      <p className="ops-customer">{order.customer_name}</p>
+      <p className="ops-customer">{getOrderCustomerName(order)}</p>
       <p className="ops-meta">{itemCount(order)} item{itemCount(order) === 1 ? '' : 's'} · {scheduleLabel(order)}</p>
       <div className="ops-card-row"><span>Payment</span><b>{paymentMethodLabel(method)}</b></div>
       <div className="ops-card-row"><span>Status</span><b className={`ops-pay-status ${order.payment_confirmed || method === 'cod' ? '' : 'is-pending'}`}>{paymentStatusLabel(order)}</b></div>
@@ -810,7 +836,7 @@ function OrderCard({ order, isNew = false, busy, onView, onMain, onCancel }) {
 
 function OrderTable({ orders, newOrderIds = new Set(), busyId, onView, onMain, onCancel }) {
   if (!orders.length) return <div className="ops-empty"><ShoppingBag size={20} /><span>No orders match these filters.</span></div>
-  return <div className="ops-order-table-wrap"><table className="ops-order-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th>Main action</th><th>Others</th></tr></thead><tbody>{orders.map((order) => { const main = mainActionFor(order); const isCancelBlocked = isOrderCancellationBlocked(order.status); const canCancel = stageOf(order) !== 'completed' && stageOf(order) !== 'cancelled' && !cancellationRequested(order); return <tr key={order.id} className={newOrderIds.has(order.id) ? 'is-new-order' : undefined}><td><b>{order.order_number}</b><small>{timeAgo(order.created_at)}</small></td><td>{order.customer_name}</td><td>{order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</td><td>{itemCount(order)}</td><td>{paymentMethodLabel(paymentMethod(order))}</td><td><span className={`ops-table-status ops-table-status--${orderStatusTone(order.status)}`}>{order.status}</span></td><td><b>{money(order.final_total)}</b></td><td>{main && <button type="button" className="ops-main-action compact" disabled={busyId === order.id || main.disabled} onClick={() => onMain(order, main)}>{busyId === order.id ? 'Please wait…' : main.label}</button>}</td><td><div className="ops-table-actions"><button type="button" className="ops-secondary-action compact" onClick={() => onView(order)}>View details</button>{canCancel && <button type="button" className="ops-destructive-action compact" disabled={busyId === order.id || isCancelBlocked} title={isCancelBlocked ? CANNOT_CANCEL_IN_PROGRESS_REASON : undefined} onClick={isCancelBlocked ? undefined : () => onCancel(order)}>Cancel</button>}</div></td></tr>})}</tbody></table></div>
+  return <div className="ops-order-table-wrap"><table className="ops-order-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th>Main action</th><th>Others</th></tr></thead><tbody>{orders.map((order) => { const main = mainActionFor(order); const isCancelBlocked = isOrderCancellationBlocked(order.status); const canCancel = stageOf(order) !== 'completed' && stageOf(order) !== 'cancelled' && !cancellationRequested(order); return <tr key={order.id} className={newOrderIds.has(order.id) ? 'is-new-order' : undefined}><td><b>{order.order_number}</b><small>{timeAgo(order.created_at)}</small></td><td>{getOrderCustomerName(order)}</td><td>{order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</td><td>{itemCount(order)}</td><td>{paymentMethodLabel(paymentMethod(order))}</td><td><span className={`ops-table-status ops-table-status--${orderStatusTone(order.status)}`}>{order.status}</span></td><td><b>{money(order.final_total)}</b></td><td>{main && <button type="button" className="ops-main-action compact" disabled={busyId === order.id || main.disabled} onClick={() => onMain(order, main)}>{busyId === order.id ? 'Please wait…' : main.label}</button>}</td><td><div className="ops-table-actions"><button type="button" className="ops-secondary-action compact" onClick={() => onView(order)}>View details</button>{canCancel && <button type="button" className="ops-destructive-action compact" disabled={busyId === order.id || isCancelBlocked} title={isCancelBlocked ? CANNOT_CANCEL_IN_PROGRESS_REASON : undefined} onClick={isCancelBlocked ? undefined : () => onCancel(order)}>Cancel</button>}</div></td></tr>})}</tbody></table></div>
 }
 
 function OrderTablePagination({ total, page, pages, rowsPerPage, onPage }) {
@@ -826,7 +852,7 @@ function CancelGroup({ title, tone, orders, onView, onReview, onResolve, onRefun
           const refund = actionableRefund(order)
           const needsReview = cancellationRequested(order)
           return <article className={`ops-cancel-card${resolved ? ' is-resolved' : ''}`} key={order.id}>
-            <div><b>{order.order_number}</b><span>{order.customer_name}</span></div>
+            <div><b>{order.order_number}</b><span>{getOrderCustomerName(order)}</span></div>
             <p>{order.cancellation_reason}</p>
             <div className="ops-cancel-card-meta">
               <span>{order.cancellation_requested_at || order.cancelled_at ? timeAgo(order.cancellation_requested_at || order.cancelled_at) : ''}</span>
@@ -981,7 +1007,7 @@ function CancellationReviewModal({ order, busy, onClose, onSubmit }) {
         <span className="payment-modal-kicker">Payment-safe cancellation</span>
         <h2 id="ops-review-title">Review {order.order_number}</h2>
         <div className="ops-review-summary">
-          <p><span>Customer</span><b>{order.customer_name}</b></p>
+          <p><span>Customer</span><b>{getOrderCustomerName(order)}</b></p>
           <p><span>Order total</span><b>{money(order.final_total)}</b></p>
           <p><span>Payment state</span><b>{paymentState === 'paid' ? 'Verified as paid' : 'Proof awaiting verification'}</b></p>
           <p><span>Request reason</span><b>{order.cancellation_reason || 'No reason provided'}</b></p>
@@ -1052,7 +1078,7 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
     { label: 'Order placed', done: true, at: order.created_at },
     { label: 'Payment verified', done: method === 'cod' || order.payment_confirmed, at: order.payment_confirmed_at || (method === 'cod' ? order.updated_at : null) },
     { label: 'Preparing', done: !PENDING_STATUSES.includes(order.status) && order.status !== 'Cancelled', at: !PENDING_STATUSES.includes(order.status) && order.status !== 'Cancelled' ? order.updated_at : null },
-    { label: order.order_type === 'delivery' ? 'Out for delivery' : 'Ready for pickup / dine-in / take-out', done: ['Ready for Pickup', 'Out for Delivery', 'Completed', 'Received'].includes(order.status), at: ['Ready for Pickup', 'Out for Delivery', 'Completed', 'Received'].includes(order.status) ? order.out_for_delivery_at || order.updated_at : null },
+    { label: order.order_type === 'delivery' ? 'Out for delivery' : 'Ready to claim', done: ['Ready for Pickup', 'Out for Delivery', 'Completed', 'Received'].includes(order.status), at: ['Ready for Pickup', 'Out for Delivery', 'Completed', 'Received'].includes(order.status) ? order.out_for_delivery_at || order.updated_at : null },
     { label: order.order_type === 'delivery' ? 'Received by customer' : 'Completed', done: order.order_type === 'delivery' ? order.status === 'Received' : order.status === 'Completed', at: order.order_type === 'delivery' ? order.received_at : order.completed_at || (order.status === 'Completed' ? order.updated_at : null) },
   ]
   if (cancellationRequested(order)) timeline.push({ label: 'Cancellation review requested', done: false, at: order.cancellation_requested_at })
@@ -1098,7 +1124,7 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
             <div className="txn-overview-cards">
               <article className="txn-info-card">
                 <span>Customer</span>
-                <b>{order.customer_name || 'Guest customer'}</b>
+                <b>{getOrderCustomerName(order) || 'Guest customer'}</b>
                 <small>{order.customer_email || order.customer_phone ? 'Contact details on file' : 'No contact details recorded'}</small>
                 {order.customer_phone && <p>Phone: {order.customer_phone}</p>}
               </article>

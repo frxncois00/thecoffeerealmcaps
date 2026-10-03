@@ -1238,7 +1238,7 @@ function buildTimeline(transaction, audit) {
   ]
   if (transaction.paymentConfirmed) items.push({ label: 'Payment confirmed', time: transaction.updatedAt, icon: <Check size={14} />, detail: paymentStatusMeta(transaction).label })
   if (transaction.status === 'Preparing') items.push({ label: 'Preparing', time: transaction.updatedAt, icon: <Clock3 size={14} /> })
-  if (transaction.status === 'Ready for Pickup') items.push({ label: 'Ready for pickup', time: transaction.updatedAt, icon: <ShoppingBag size={14} /> })
+  if (transaction.status === 'Ready for Pickup' || transaction.status === 'Ready to Claim') items.push({ label: 'Ready to claim', time: transaction.updatedAt, icon: <ShoppingBag size={14} /> })
   if (transaction.status === 'Out for Delivery') items.push({ label: 'Out for delivery', time: transaction.updatedAt, icon: <ShoppingBag size={14} /> })
   if (['Completed', 'Received'].includes(transaction.status)) items.push({ label: transaction.status, time: transaction.updatedAt, icon: <Check size={14} /> })
   if (transaction.cancelledAt) items.push({ label: 'Cancelled', time: transaction.cancelledAt, icon: <Ban size={14} />, detail: transaction.cancellationReason })

@@ -6,7 +6,7 @@ import { useMenuCatalog } from '../../hooks/useMenuCatalog'
 import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePricing } from '../../context/usePricing'
-import { createCustomerOrderWithBenefitDiscount, createPaymongoCheckout, fetchCustomerBenefitApplication, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, checkCustomerPaymentReference, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, confirmCustomerOrderReceived, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
+import { createCustomerOrderWithBenefitDiscount, createPaymongoCheckout, verifyPaymongoPayment, fetchCustomerBenefitApplication, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, checkCustomerPaymentReference, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, confirmCustomerOrderReceived, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
 import { deliveryAreas } from '../../data/deliveryAreas'
 import { money } from '../../utils/money'
 import { describeError } from '../../utils/describeError'
@@ -78,11 +78,11 @@ const orderScheduleLabel=order=>{const date=order?.schedule_date||order?.schedul
 const orderCount=order=>(order?.order_items||[]).reduce((sum,item)=>sum+Number(item.quantity||item.qty||0),0)
 const shortenAddress=value=>{const clean=String(value||'').replace(/\s+/g,' ').trim();if(!clean)return '';const compact=clean.split(',').map(part=>part.trim()).filter(Boolean).slice(0,2).join(', ');if(compact.length>=clean.length)return compact;return compact.length>54?`${compact.slice(0,51)}...`:`${compact}...`}
 const completionMessage=order=>orderPaymentMethod(order)==='cod'?'Your order has been received and will be prepared shortly.':'Your payment proof has been submitted for verification.'
-const completionNote=order=>{const notes=[];if(orderPaymentMethod(order)==='cod')notes.push('Please prepare the exact amount. Payment will be collected upon delivery.');else notes.push('Your order will be processed after the payment proof is verified.');if((order?.order_type||order?.fulfillment)==='pickup')notes.push('You will be notified when your order is ready for pickup.');return notes.join(' ')}
+const completionNote=order=>{const notes=[];if(orderPaymentMethod(order)==='cod')notes.push('Please prepare the exact amount. Payment will be collected upon delivery.');else notes.push('Your order will be processed after the payment proof is verified.');if((order?.order_type||order?.fulfillment)==='pickup')notes.push('You will be notified when your order is ready to claim.');return notes.join(' ')}
 const estimatedTimeLabel=order=>((order?.order_type||order?.fulfillment)==='pickup'?'Estimated ready time':'Estimated delivery time')
 const mergePlacedOrderData=({order,form,items,total})=>{const payment=orderPaymentMethod(order)||form.payment;const fulfillment=order?.order_type||order?.fulfillment||form.fulfillment;return {...order,payment_method:payment,payment_status:order?.payment_status||'pending',payments:order?.payments?.length?order.payments:[{method:payment,status:order?.payment_status||'pending'}],order_type:fulfillment,schedule_date:order?.schedule_date||form.scheduleDate,schedule_time:order?.schedule_time||form.scheduleTime,delivery_address:order?.delivery_address||(fulfillment==='delivery'?`${form.address}, Brgy. ${form.barangay}, ${form.city}, ${form.province}`:''),final_total:Number(order?.final_total??order?.total??total??0),total:Number(order?.total??order?.final_total??total??0),order_items:order?.order_items?.length?order.order_items:items.map(item=>({id:item.lineId,quantity:item.quantity}))}}
-const trackingSteps=order=>((order?.order_type||order?.fulfillment)==='pickup'?[initialOrderStatusLabel(orderPaymentMethod(order)),'Confirmed','Preparing','Ready for Pickup','Completed']:[initialOrderStatusLabel(orderPaymentMethod(order)),'Confirmed','Preparing','Out for Delivery','Received'])
-const trackingStatusCopy=(order,status)=>status==='Awaiting Payment Verification'?'Your payment proof is waiting for review.':status==='Order Received'?'Your order is waiting for store confirmation.':status==='Confirmed'?`Scheduled for ${orderScheduleLabel(order)}`:status==='Preparing'?'The kitchen and bar are preparing your order.':status==='Out for Delivery'?'Your order is on the way. Confirm once it arrives.':status==='Ready for Pickup'?'Your order is ready at the store.':status==='Received'?'You confirmed that this delivery was received.':status==='Completed'?'This order has been completed.':'Waiting for update'
+const trackingSteps=order=>((order?.order_type||order?.fulfillment)==='pickup'?[initialOrderStatusLabel(orderPaymentMethod(order)),'Confirmed','Preparing','Ready to Claim','Completed']:[initialOrderStatusLabel(orderPaymentMethod(order)),'Confirmed','Preparing','Out for Delivery','Received'])
+const trackingStatusCopy=(order,status)=>status==='Awaiting Payment Verification'?'Your payment proof is waiting for review.':status==='Order Received'?'Your order is waiting for store confirmation.':status==='Confirmed'?`Scheduled for ${orderScheduleLabel(order)}`:status==='Preparing'?'The kitchen and bar are preparing your order.':status==='Out for Delivery'?'Your order is on the way. Confirm once it arrives.':status==='Ready for Pickup'||status==='Ready to Claim'?'Your order is ready to claim at the store.':status==='Received'?'You confirmed that this delivery was received.':status==='Completed'?'This order has been completed.':'Waiting for update'
 const clockMinutes=(value,fallback)=>{const [hour,minute]=String(value||'').split(':').map(Number);return Number.isFinite(hour)&&Number.isFinite(minute)?hour*60+minute:fallback}
 const manilaCurrentTime=()=>{const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());const map=Object.fromEntries(parts.map(part=>[part.type,part.value]));return `${String(map.hour).padStart(2,'0')}:${String(map.minute).padStart(2,'0')}`}
 const emptyCheckoutForm=()=>({fullName:'',email:'',contact:'',fulfillment:'delivery',address:'',barangay:'',city:'Quezon City',province:'Metro Manila',postal:'',instructions:'',payment:'cod',paymentReference:'',scheduleDate:manilaDate(),scheduleTime:'10:00',deliveryFee:0,deliveryZone:'',estimatedDeliveryTime:'',applyBenefitDiscount:false,coordinates:null})
@@ -528,8 +528,23 @@ export function PayMongoSuccessPage(){
     if(!orderId){setLoading(false);return undefined}
     if(user?.id)clearCheckoutDraft(user.id)
     let active=true;let cleared=false;let attempts=0
-    const load=async()=>{try{const next=await fetchCustomerOrder(orderId);if(!active)return;if(next){setOrder(next);if(!cleared){clearCart();cleared=true}}}catch(cause){if(active)setError(describeError(cause,'Could not load the payment result.'))}finally{if(active)setLoading(false)}}
-    void load();const timer=window.setInterval(()=>{attempts+=1;if(attempts>=8){window.clearInterval(timer);return}void load()},2500)
+    const load=async()=>{
+      try{
+        // Actively check and sync payment status with PayMongo API
+        await verifyPaymongoPayment({orderId})
+        const next=await fetchCustomerOrder(orderId)
+        if(!active)return
+        if(next){
+          setOrder(next)
+          if(!cleared){clearCart();cleared=true}
+        }
+      }catch(cause){
+        if(active)setError(describeError(cause,'Could not load the payment result.'))
+      }finally{
+        if(active)setLoading(false)
+      }
+    }
+    void load();const timer=window.setInterval(()=>{attempts+=1;if(attempts>=10){window.clearInterval(timer);return}void load()},2000)
     return()=>{active=false;window.clearInterval(timer)}
   },[clearCart,orderId,user?.id])
   const paid=Boolean(order?.payment_confirmed)||String(order?.payment_status||'').toLowerCase()==='paid'||String(order?.payments?.[0]?.status||'').toLowerCase()==='paid'
@@ -549,8 +564,8 @@ const customerCancellationNeedsReview=order=>{
   return Boolean(paid||(orderPaymentMethod(order)!=='cod'&&order?.payment_proof_path))
 }
 const CANCEL_REASONS=['Ordered by mistake','Wrong items or quantities','Wrong delivery address','Wrong payment method','Duplicate order','Delivery or preparation time is too long','Changed my mind','Other']
-const STATUS_MESSAGE={'Order Received':'Waiting for the shop to confirm your order.','Awaiting Payment Verification':'Your payment proof is being reviewed.','Confirmed':'Your order has been confirmed.','Preparing':'Your order is currently being prepared.','Ready for Pickup':'Your order is ready for pickup.','Out for Delivery':'Your order is on the way. Confirm receipt once it arrives.','Received':'You confirmed that your delivery was received.','Completed':'Your order has been completed.','Cancelled':'This order was cancelled.'}
-const STATUS_ICON={'Order Received':Receipt,'Awaiting Payment Verification':CreditCard,'Confirmed':PackageCheck,'Preparing':Coffee,'Ready for Pickup':ShoppingBag,'Out for Delivery':Bike,'Received':PartyPopper,'Completed':PartyPopper,'Cancelled':XCircle}
+const STATUS_MESSAGE={'Order Received':'Waiting for the shop to confirm your order.','Awaiting Payment Verification':'Your payment proof is being reviewed.','Confirmed':'Your order has been confirmed.','Preparing':'Your order is currently being prepared.','Ready for Pickup':'Your order is ready to claim at the counter.','Ready to Claim':'Your order is ready to claim at the counter.','Out for Delivery':'Your order is on the way. Confirm receipt once it arrives.','Received':'You confirmed that your delivery was received.','Completed':'Your order has been completed.','Cancelled':'This order was cancelled.'}
+const STATUS_ICON={'Order Received':Receipt,'Awaiting Payment Verification':CreditCard,'Confirmed':PackageCheck,'Preparing':Coffee,'Ready for Pickup':ShoppingBag,'Ready to Claim':ShoppingBag,'Out for Delivery':Bike,'Received':PartyPopper,'Completed':PartyPopper,'Cancelled':XCircle}
 const backdropMotion={initial:{opacity:0},animate:{opacity:1},exit:{opacity:0},transition:{duration:0.18}}
 const modalMotion={initial:{opacity:0,scale:0.97,y:8},animate:{opacity:1,scale:1,y:0},exit:{opacity:0,scale:0.98,y:6},transition:{duration:0.2,ease:[0.22,1,0.36,1]}}
 const drawerPanelMotion={initial:{x:'100%'},animate:{x:0},exit:{x:'100%'},transition:{duration:0.26,ease:[0.22,1,0.36,1]}}
