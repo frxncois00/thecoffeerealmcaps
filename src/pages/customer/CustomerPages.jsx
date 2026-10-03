@@ -24,6 +24,7 @@ import { clearCheckoutDraft, readCheckoutDraft, writeCheckoutDraft } from '../..
 import { EMAIL_MAX_LENGTH, isTwoWordPersonName, isValidEmail, isValidPassword, isValidPhone, sanitizePersonName, sanitizePhone, sanitizeUsername } from '../../utils/inputValidation'
 import { extractReferenceNumberFromReceipt } from '../../services/ocrService'
 import DeliveryLocationPicker from '../../components/customer/DeliveryLocationPicker'
+import { ReceiptPaper, printReceipt } from '../../components/common/ReceiptDocument'
 export function MenuPage(){const [query,setQuery]=useState('');const [category,setCategory]=useState('All');const [chipMotion,setChipMotion]=useState('All');const [guestPromptOpen,setGuestPromptOpen]=useState(false);const {user,profile}=useAuth();const customerUser=Boolean(user&&isCustomerRole(profile?.role));const {products,categories,loading,error}=useMenuCatalog();const {openProduct,modal}=useProductCustomization({alwaysCustomize:true,modalVariant:'menu-detail',beforeAdd:()=>{if(customerUser)return true;setGuestPromptOpen(true);return false}});useEffect(()=>{const timeout=window.setTimeout(()=>setChipMotion(''),460);return()=>window.clearTimeout(timeout)},[category]);useEffect(()=>{if(customerUser)setGuestPromptOpen(false)},[customerUser]);const filtered=products.filter(p=>p.available&&(category==='All'||p.category===category)&&`${p.name} ${p.description}`.toLowerCase().includes(query.toLowerCase()));return <main className="customer-main"><section className="page-hero"><span>Made fresh in North Fairview</span><h1>Find your next favorite.</h1></section><div className="menu-tools"><label><Search/><span className="sr-only">Search menu</span><input value={query} onChange={e=>setQuery(e.target.value.slice(0,100))} maxLength={100} placeholder="Search drinks, cakes, and meals"/></label><div className="menu-chip-row">{categories.map(c=><button className={`category-chip ${c===category?'active':''} ${c===chipMotion?'is-switching':''}`.trim()} onClick={()=>{setChipMotion(c);setCategory(c)}} key={c} type="button"><span>{c}</span></button>)}</div></div>{loading?<section className="customer-state">Loading today’s menu…</section>:error?<section className="customer-state error-state"><h2>We couldn’t load the menu.</h2><p>{error}</p></section>:<section className="customer-products menu-results-grid" key={`${category}-${query}`}>{filtered.map(p=><ProductCard key={p.id} product={p} onOpen={openProduct}/>)}</section>}
     {modal}
     <GuestAuthPrompt open={guestPromptOpen} onClose={()=>setGuestPromptOpen(false)} returnTo="/menu" />
@@ -842,99 +843,23 @@ const receiptOrderNumber=order=>String(order?.order_number||order?.orderNumber||
 const receiptScheduleValue=order=>{const date=order?.schedule_date||order?.scheduleDate;const time=order?.schedule_time||order?.scheduleTime;if(!date||!time)return'To be confirmed';const minutes=parseScheduleMinutes(time);const longDate=new Intl.DateTimeFormat('en-PH',{month:'long',day:'numeric',year:'numeric'}).format(new Date(`${date}T00:00:00`));return `${longDate} at ${minutes===null?String(time).slice(0,5):timeLabel(minutes)}`}
 const receiptProofStatus=order=>{const method=orderPaymentMethod(order);if(method==='cod')return'';const raw=String(order?.payments?.[0]?.status||order?.payment_status||'pending').toLowerCase();const uploaded=Boolean(order?.payment_proof_path);if(raw==='paid'||raw==='verified'||raw==='confirmed')return uploaded?'Uploaded and verified':'Verified';if(raw==='failed')return uploaded?'Uploaded with issue':'Payment issue';if(method==='paymongo'||method==='qrph')return'Payment pending';return uploaded?'Uploaded and pending verification':'Not uploaded'}
 const receiptItemDetails=(item,addonNames)=>{const custom=item.customizations||{};const addons=(item.addons||[]).map(id=>addonNames[id]||id);return [custom.sugarLevel,custom.temperature,custom.iceLevel,...addons,custom.special_instructions?`Note: ${custom.special_instructions}`:''].filter(Boolean)}
-const CUSTOMER_RECEIPT_PRINT_CSS=`
-  @page{size:A4 portrait;margin:12mm}
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0;background:#fff;color:#000}
-  body{font:11px/1.4 "Courier New",Courier,monospace;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .receipt-print-area{width:80mm;margin:0 auto;padding:5mm 4mm;border:1px solid #4b4b4b;background:#fff}
-  .receipt-print-area *{box-sizing:border-box;font-family:inherit;overflow-wrap:break-word}
-  .receipt-header,.receipt-footer{text-align:center}
-  .customer-receipt-brand-badge{display:grid;place-items:center;width:15mm;height:15mm;margin:0 auto 3mm;border:1px solid #4b4b4b;border-radius:50%}
-  .receipt-logo{display:block;width:11mm;height:11mm;object-fit:contain}
-  .receipt-store-name{font-size:16px;font-weight:800;letter-spacing:.06em}
-  .receipt-store-info{font-size:10px;line-height:1.3}
-  .receipt-line{width:100%;margin:2mm 0;border-top:1px dashed #000}
-  .receipt-row,.receipt-total-row{display:flex;align-items:flex-start;justify-content:space-between;gap:3mm;width:100%;margin:.8mm 0}
-  .receipt-label{flex:0 0 28mm;text-align:left}
-  .receipt-value{flex:1;min-width:0;text-align:right}
-  .receipt-table-header,.receipt-item{display:grid;grid-template-columns:7mm minmax(0,1fr) 24mm;gap:1.5mm;width:100%}
-  .receipt-table-header{font-weight:800}
-  .receipt-item{margin-bottom:1.2mm;break-inside:avoid}
-  .receipt-item-name{min-width:0}
-  .receipt-item-price{text-align:right;white-space:nowrap}
-  .receipt-option{grid-column:2/4;font-size:10px;line-height:1.3}
-  .receipt-grand-total{font-size:13px;font-weight:900}
-  .receipt-footer{margin-top:3mm;font-size:10px;line-height:1.45}
-`
-
-function printCustomerReceipt(element,orderNumber){
-  if(!element)return
-  const printWindow=window.open('','coffee-realm-receipt','width=520,height=760')
-  if(!printWindow)return
-  printWindow.document.open()
-  printWindow.document.write(`<!doctype html><html><head><meta charset="utf-8"><base href="${window.location.origin}/"><title>The Coffee Realm receipt</title><style>${CUSTOMER_RECEIPT_PRINT_CSS}</style></head><body>${element.outerHTML}</body></html>`)
-  printWindow.document.close()
-  printWindow.document.title=`Receipt ${orderNumber}`
-  const images=[...printWindow.document.images]
-  const ready=images.length?Promise.all(images.map(image=>image.complete?Promise.resolve():new Promise(resolve=>{image.addEventListener('load',resolve,{once:true});image.addEventListener('error',resolve,{once:true})}))):Promise.resolve()
-  ready.then(()=>window.setTimeout(()=>{printWindow.focus();printWindow.print()},120))
-  printWindow.addEventListener('afterprint',()=>printWindow.close(),{once:true})
-}
-
-function ReceiptModal({order,addonNames,onClose}){
+function ReceiptModal({ order, addonNames, onClose }) {
   const { pricing } = usePricing()
-  const receiptRef=useRef(null)
-  const items=order.order_items||[]
-  const paymentMethod=paymentMethodLabel(orderPaymentMethod(order))
-  const paymentProof=receiptProofStatus(order)
-  const isDelivery=(order.order_type||order.fulfillment)==='delivery'
-  const vatRate=order.vat_rate ?? pricing.vatRate
-  const pricesIncludeVat=order.prices_include_vat !== false
-  const breakdown=buildVatExemptOrderBreakdown({subtotal:order.subtotal,discountSubtotal:order.discount_subtotal,discountType:order.discount_type,discountAmount:order.discount_amount,vatExemptAmount:order.vat_exempt_amount,vatRate,pricesIncludeVat})
-  return <motion.div className="payment-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}} {...backdropMotion}>
-    <motion.section className="payment-modal receipt-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-title" {...modalMotion}>
-      <button className="payment-modal-close" type="button" onClick={onClose} aria-label="Close">&times;</button>
-      <div className="receipt-preview-shell customer-receipt-shell">
-        <div ref={receiptRef} id="printable-receipt" className="receipt-print-area customer-receipt-paper">
-          <div className="receipt-header">
-            <span className="customer-receipt-brand-badge"><img className="receipt-logo" src="/images/coffeerealmlogo.png" alt="Store logo" /></span>
-            <div className="receipt-store-name" id="receipt-title">THE COFFEE REALM</div>
-            <div className="receipt-store-info">Receipt preview</div>
-            <div className="receipt-store-info">TIN ID: {RECEIPT_TIN_ID}</div>
-          </div>
-          <div className="receipt-line" />
-          <div className="receipt-row"><span className="receipt-label">Order #</span><span className="receipt-value">{receiptOrderNumber(order)}</span></div>
-          <div className="receipt-row"><span className="receipt-label">Reference #</span><span className="receipt-value">{receiptReferenceNumber(order)}</span></div>
-          <div className="receipt-row"><span className="receipt-label">Date</span><span className="receipt-value">{formatReceiptPreviewDate(order.created_at)}</span></div>
-          <div className="receipt-row"><span className="receipt-label">Type</span><span className="receipt-value">{fulfillmentLabel(order.order_type)}</span></div>
-          <div className="receipt-row"><span className="receipt-label">Payment</span><span className="receipt-value">{paymentMethod}</span></div>
-          {order.customer_name&&<div className="receipt-row"><span className="receipt-label">Customer</span><span className="receipt-value">{order.customer_name}</span></div>}
-          {order.customer_phone&&<div className="receipt-row"><span className="receipt-label">Contact</span><span className="receipt-value">{order.customer_phone}</span></div>}
-          <div className="receipt-row"><span className="receipt-label">Schedule</span><span className="receipt-value">{receiptScheduleValue(order)}</span></div>
-          {isDelivery&&order.delivery_address&&<div className="receipt-row"><span className="receipt-label">Customer Address</span><span className="receipt-value">{order.delivery_address}</span></div>}
-          {paymentProof&&<div className="receipt-row"><span className="receipt-label">Payment Proof</span><span className="receipt-value">{paymentProof}</span></div>}
-          <div className="receipt-line" />
-          <div className="receipt-table-header"><div>QTY</div><div>ITEM</div><div>PRICE</div></div>
-          <div className="receipt-line" />
-          <div className="receipt-items">
-            {items.map((item,index)=>{const details=receiptItemDetails(item,addonNames);return <div className="receipt-item" key={item.id||index}>
-              <div>{Number(item.quantity||item.qty||0)}</div>
-              <div className="receipt-item-name">{item.display_name||item.item_name||'Menu item'}{details.map(detail=><div className="receipt-option" key={detail}>{detail}</div>)}</div>
-              <div className="receipt-item-price">{receiptMoney(item.line_total)}</div>
-            </div>})}
-          </div>
-          <div className="receipt-line" />
-           {breakdown.isVatExemptDiscount?<>{breakdown.regularBaseAmount>0&&<div className="receipt-total-row"><span>VATable Sale</span><span>{receiptMoney(breakdown.regularBaseAmount)}</span></div>}<div className="receipt-total-row"><span>VAT-Exempt Sale</span><span>{receiptMoney(breakdown.vatExemptSale)}</span></div><div className="receipt-total-row"><span>{formatVatRate(vatRate)} VAT</span><span>{receiptMoney(breakdown.regularVatAmount)}</span></div><div className="receipt-total-row"><span>Less 20% SC/PWD Disc.</span><span>-{receiptMoney(breakdown.discountAmount)}</span></div></>:<><div className="receipt-total-row"><span>VATable Sale</span><span>{receiptMoney(breakdown.baseAmount)}</span></div><div className="receipt-total-row"><span>{formatVatRate(vatRate)} VAT</span><span>{receiptMoney(breakdown.vatAmount)}</span></div></>}
-           {isDelivery&&Number(order.delivery_fee||0)>0&&<div className="receipt-total-row"><span>Delivery Fee</span><span>{receiptMoney(order.delivery_fee)}</span></div>}
-           <div className="receipt-total-row"><span>Total</span><span className="receipt-grand-total">{receiptMoney(order.final_total)}</span></div>
-          <div className="receipt-row"><span className="receipt-label">Item Count</span><span className="receipt-value">{orderCount(order)}</span></div>
-          <div className="receipt-footer">{isDelivery?'Please check your items upon delivery.':'Please check your order before leaving the store.'}<br/>Thank you for choosing The Coffee Realm.</div>
+  return (
+    <motion.div className="payment-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }} {...backdropMotion}>
+      <motion.section className="payment-modal receipt-modal" role="dialog" aria-modal="true" aria-labelledby="receipt-title" {...modalMotion}>
+        <button className="payment-modal-close" type="button" onClick={onClose} aria-label="Close">&times;</button>
+        <div className="receipt-preview-shell customer-receipt-shell">
+          <ReceiptPaper order={order} defaultVatRate={pricing.vatRate} defaultPricesIncludeVat={pricing.pricesIncludeVat} addonNames={addonNames} />
         </div>
-      </div>
-      <div className="payment-modal-actions"><button className="primary-button" type="button" onClick={()=>printCustomerReceipt(receiptRef.current,receiptOrderNumber(order))}><Printer size={15}/> Print</button></div>
-    </motion.section>
-  </motion.div>
+        <div className="payment-modal-actions">
+          <button className="primary-button" type="button" onClick={() => printReceipt(order, pricing.vatRate, pricing.pricesIncludeVat, addonNames)}>
+            <Printer size={15} /> Print
+          </button>
+        </div>
+      </motion.section>
+    </motion.div>
+  )
 }
 
 function FeedbackModal({order,userId,thankYou=false,onClose,onDone}){

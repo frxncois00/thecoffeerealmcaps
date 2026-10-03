@@ -26,6 +26,7 @@ import {
   shouldShowSystemNotification,
 } from '../services/staffSettingsService'
 import { useManagementSessionState } from '../hooks/useManagementSessionState'
+import { buildReceiptHtml, openReceiptWindow } from '../components/common/ReceiptDocument'
 
 const ORDER_STATUS_OPTIONS = ['Order Received', 'Awaiting Payment Verification', 'Pending Confirmation', 'Confirmed', 'Preparing', 'Ready for Pickup', 'Out for Delivery', 'Received', 'Completed', 'Cancelled', 'Ordered']
 const PAYMENT_METHOD_LABEL = { cash: 'Cash', gcash: 'GCash', bank_transfer: 'Bank Transfer', cod: 'Cash on Delivery', other: 'Other' }
@@ -169,106 +170,6 @@ function buildFilterLabel({ quickRange, dateFrom, dateTo }) {
   if (dateFrom && dateTo) return `${formatDateInput(dateFrom)} to ${formatDateInput(dateTo)}`
   if (dateFrom) return `From ${formatDateInput(dateFrom)}`
   return `Until ${formatDateInput(dateTo)}`
-}
-
-function receiptMoney(value) {
-  return `PHP ${Number(value || 0).toFixed(2)}`
-}
-
-function buildReceiptHtml(transaction, pricing) {
-  const vatRate = transaction.vatRate ?? pricing?.vatRate ?? 0.12
-  const pricesIncludeVat = transaction.pricesIncludeVat ?? pricing?.pricesIncludeVat ?? true
-  const breakdown = buildVatExemptOrderBreakdown({
-    subtotal: transaction.subtotal,
-    discountSubtotal: transaction.discountSubtotal,
-    discountType: transaction.discountType,
-    discountAmount: transaction.discountAmount,
-    vatExemptAmount: transaction.vatExemptAmount,
-    vatRate,
-    pricesIncludeVat,
-  })
-  const itemsMarkup = transaction.items.map((item) => {
-    const detailLines = []
-    const customizations = item.customizations || {}
-    ;['variantKey', 'temperature', 'iceLevel', 'sugarLevel'].forEach((key) => {
-      if (customizations[key]) detailLines.push(`${startCase(key)}: ${customizations[key]}`)
-    })
-    ;(item.addons || []).forEach((addon) => {
-      if (typeof addon === 'string') detailLines.push(`Add-on: ${addon}`)
-      else if (addon?.name) detailLines.push(`Add-on: ${addon.name}`)
-    })
-    if (customizations.special_instructions) detailLines.push(`Note: ${customizations.special_instructions}`)
-
-    return `<div class="receipt-item">
-      <div>${item.quantity}</div>
-      <div class="receipt-item-name">
-        ${item.name}
-        ${detailLines.map((line) => `<div class="receipt-option">${line}</div>`).join('')}
-      </div>
-      <div class="receipt-item-price">${receiptMoney(item.lineTotal)}</div>
-    </div>`
-  }).join('')
-
-  const refundMeta = refundStatusMeta(transaction)
-  const paymentMeta = paymentStatusMeta(transaction)
-  const receiptRef = transaction.paymentReference || 'N/A'
-  return `<!doctype html><html><head><title>${transaction.receiptNumber}</title>
-    <style>
-      body{margin:0;background:#f3f4f0;padding:20px;font-family:'Courier New',Courier,monospace}
-      .receipt{width:320px;max-width:100%;margin:0 auto;background:#fff;color:#000;padding:10px 12px;border:1px solid #d9ddd7}
-      .center{text-align:center}.line{border-top:1px dashed #000;margin:8px 0}.row,.total{display:flex;justify-content:space-between;gap:12px;font-size:11px}
-      .label{flex:0 0 118px}.value{flex:1;text-align:right}.header{font-size:16px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
-      .sub{font-size:11px}.table-head,.receipt-item{display:grid;grid-template-columns:24px minmax(0,1fr) 72px;gap:6px;font-size:11px}
-      .table-head{font-weight:800}.receipt-item-price{text-align:right}.receipt-option{font-size:10px}.grand{font-size:14px;font-weight:900}
-    </style></head><body><div class="receipt">
-      <div class="center"><img src="/images/coffeerealmlogo.png" alt="" style="width:42px;height:42px;object-fit:contain;margin:0 auto 4px"/><div class="header">THE COFFEE REALM</div><div class="sub">Transaction receipt</div></div>
-      <div class="line"></div>
-      <div class="row"><span class="label">Order #</span><span class="value">${transaction.orderNumber}</span></div>
-      <div class="row"><span class="label">Receipt #</span><span class="value">${transaction.receiptNumber}</span></div>
-      <div class="row"><span class="label">Reference #</span><span class="value">${receiptRef}</span></div>
-      <div class="row"><span class="label">Date</span><span class="value">${formatDateTime(transaction.createdAt)}</span></div>
-      <div class="row"><span class="label">Source</span><span class="value">${getSourceLabel(transaction)}</span></div>
-      <div class="row"><span class="label">Fulfillment</span><span class="value">${transaction.fulfillment}</span></div>
-      <div class="row"><span class="label">Payment</span><span class="value">${PAYMENT_METHOD_LABEL[transaction.paymentMethod] || '-'}</span></div>
-      <div class="row"><span class="label">Payment status</span><span class="value">${paymentMeta.label}</span></div>
-      <div class="row"><span class="label">Customer</span><span class="value">${transaction.customerName}</span></div>
-      ${transaction.customerPhone ? `<div class="row"><span class="label">Contact</span><span class="value">${transaction.customerPhone}</span></div>` : ''}
-      ${transaction.deliveryAddress ? `<div class="row"><span class="label">Address</span><span class="value">${transaction.deliveryAddress}</span></div>` : ''}
-      ${transaction.cashierName ? `<div class="row"><span class="label">Staff</span><span class="value">${transaction.cashierName}</span></div>` : ''}
-      ${refundMeta.key !== 'not_applicable' ? `<div class="row"><span class="label">Refund</span><span class="value">${refundMeta.label}</span></div>` : ''}
-      <div class="line"></div>
-      <div class="table-head"><div>QTY</div><div>ITEM</div><div style="text-align:right">PRICE</div></div>
-      <div class="line"></div>
-      ${itemsMarkup}
-      <div class="line"></div>
-       ${breakdown.isVatExemptDiscount
-         ? `${breakdown.regularBaseAmount > 0 ? `<div class="total"><span>VATable Sale</span><span>${receiptMoney(breakdown.regularBaseAmount)}</span></div>` : ''}
-            <div class="total"><span>VAT-Exempt Sale</span><span>${receiptMoney(breakdown.vatExemptSale)}</span></div>
-            <div class="total"><span>${formatVatRate(vatRate)} VAT</span><span>${receiptMoney(breakdown.regularVatAmount)}</span></div>
-            <div class="total"><span>Less 20% SC/PWD Disc.</span><span>- ${receiptMoney(breakdown.discountAmount)}</span></div>`
-         : `<div class="total"><span>VATable Sale</span><span>${receiptMoney(breakdown.baseAmount)}</span></div>
-            ${transaction.discountAmount > 0 ? `<div class="total"><span>Discount</span><span>- ${receiptMoney(transaction.discountAmount)}</span></div>` : ''}
-            <div class="total"><span>${formatVatRate(vatRate)} VAT</span><span>${receiptMoney(breakdown.vatAmount)}</span></div>`}
-       ${transaction.deliveryFee > 0 ? `<div class="total"><span>Delivery Fee</span><span>${receiptMoney(transaction.deliveryFee)}</span></div>` : ''}
-       <div class="total grand"><span>Total</span><span>${receiptMoney(transaction.finalTotal)}</span></div>
-      <div class="total"><span>Item Count</span><span>${transaction.itemCount}</span></div>
-      <div class="line"></div>
-      <div class="center sub">Please keep this receipt for reference.</div>
-    </div></body></html>`
-}
-
-function openReceiptWindow(transaction, shouldPrint = false, pricing) {
-  const win = window.open('', '_blank', 'width=460,height=900')
-  if (!win) return false
-  win.document.write(buildReceiptHtml(transaction, pricing))
-  win.document.close()
-  if (shouldPrint) {
-    setTimeout(() => {
-      win.focus()
-      win.print()
-    }, 180)
-  }
-  return true
 }
 
 function downloadReceiptHtml(transaction, pricing) {

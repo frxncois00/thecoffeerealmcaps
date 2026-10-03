@@ -23,6 +23,7 @@ import { getCurrentPortalSession, signOutPortal } from '../lib/auth'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { sanitizePersonName, sanitizePhone } from '../utils/inputValidation'
 import { buildVatExemptOrderBreakdown, formatVatRate, vatExemptDiscountBreakdown } from '../utils/pricing'
+import { ReceiptPaper, printReceipt } from '../components/common/ReceiptDocument'
 
 function DineInIcon({ size = 13, className = '', ...props }) {
   return (
@@ -597,18 +598,19 @@ export default function CashierPage() {
   const categories = useMemo(() => ['All', ...Array.from(new Set(products.map((item) => item.category).filter(Boolean)))], [products])
   const filteredProducts = useMemo(() => {
     const filtered = products.filter((item) => {
-    const matchesCategory = category === 'All' || item.category === category
-    const haystack = `${item.name} ${item.description} ${item.category}`.toLowerCase()
-    const available = Boolean(item.isAvailable && item.price > 0)
-    const matchesFilter = menuFilter === 'all' ||
-      (menuFilter === 'available' && available) ||
-      (menuFilter === 'unavailable' && !available) ||
-      (menuFilter === 'customizable' && hasCustomizationChoices(item)) ||
-      (menuFilter === 'standard' && !hasCustomizationChoices(item))
-    return matchesCategory && matchesFilter && haystack.includes(search.trim().toLowerCase()) &&
-      (!customizableOnly || hasCustomizationChoices(item)) &&
-      (minimumPrice === '' || item.price >= Number(minimumPrice)) &&
-      (maximumPrice === '' || item.price <= Number(maximumPrice))
+      const matchesCategory = category === 'All' || item.category === category
+      const haystack = `${item.name} ${item.description} ${item.category}`.toLowerCase()
+      const available = Boolean(item.isAvailable && item.price > 0)
+      const matchesFilter = menuFilter === 'all' ||
+        (menuFilter === 'available' && available) ||
+        (menuFilter === 'unavailable' && !available) ||
+        (menuFilter === 'customizable' && hasCustomizationChoices(item)) ||
+        (menuFilter === 'standard' && !hasCustomizationChoices(item))
+      return matchesCategory && matchesFilter && haystack.includes(search.trim().toLowerCase()) &&
+        (!customizableOnly || hasCustomizationChoices(item)) &&
+        (minimumPrice === '' || item.price >= Number(minimumPrice)) &&
+        (maximumPrice === '' || item.price <= Number(maximumPrice))
+    })
     const popularity = (item) => Number(item.orderCount ?? item.ordersCount ?? item.totalOrdered ?? item.orderedCount ?? 0)
     return filtered.sort((a, b) => {
       if (sortBy === 'most-ordered') return popularity(b) - popularity(a) || (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)
@@ -1422,95 +1424,22 @@ function TransactionDetailsView({ order, onBack }) {
       </div>
     </section>
 }
-function formatReceiptDate(value) {
-  if (!value) return 'N/A'
-  return new Date(value).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-function receiptPaymentRows(order) {
-  if (order.paymentMethod === 'GCash') {
-    return [
-      ['Payment Reference Number', order.paymentReference],
-      ['Account Number', order.accountNumber],
-    ].filter((row) => row[1])
-  }
-  if (order.paymentMethod === 'Bank Transfer') {
-    return [
-      ['Bank Name', order.bankName],
-      ['Payment Reference Number', order.paymentReference],
-    ].filter((row) => row[1])
-  }
-  return [
-    ['Cash Received', peso(order.cashReceived)],
-    ['Change', peso(order.change)],
-  ]
-}
-
 function CashierReceipt({ order, onClose }) {
   const { pricing } = usePricing()
-  const itemCount = (order.items || []).reduce((sum, item) => sum + Number(item.qty || item.quantity || 0), 0)
-  const cashierName = order.cashierName || 'Cashier'
-  const vatRate = order.vatRate ?? pricing.vatRate
-  const pricesIncludeVat = order.pricesIncludeVat ?? pricing.pricesIncludeVat
-  const breakdown = storedOrderVatBreakdown(order, vatRate, pricesIncludeVat)
-  return <div className="cashier-receipt-backdrop">
-    <section className="cashier-receipt-modal" role="dialog" aria-modal="true" aria-label="Receipt preview">
-      <header className="cashier-receipt-modal-head">
-        <h3>Receipt Preview</h3>
-      </header>
-      <div className="receipt-preview-shell">
-        <div className="receipt-print-area">
-          <div className="receipt-header">
-            <img className="receipt-logo" src="/images/coffeerealmlogo.png" alt="Store logo" />
-            <div className="receipt-store-name">{store.name}</div>
-            <div className="receipt-store-info">{store.address}</div>
-            <div className="receipt-store-info">{store.phone}</div>
-            <div className="receipt-store-info">TIN ID: {RECEIPT_TIN_ID}</div>
-          </div>
-          <div className="receipt-claim-block">
-            <div>CLAIM AT THE COUNTER</div>
-            <strong>{order.counterNumber || '01'}</strong>
-            <div>[ {(order.diningOption || 'dine_in') === 'take_out' ? 'TAKE OUT' : 'DINE IN'} ]</div>
-          </div>
-          <div className="receipt-line" />
-          <div className="receipt-row"><span className="receipt-label">Order #:</span><span className="receipt-value">{order.orderNumber}</span></div>
-          <div className="receipt-row"><span className="receipt-label">Reference #:</span><span className="receipt-value">{order.receiptNumber || 'N/A'}</span></div>
-          <div className="receipt-row"><span className="receipt-label">Date:</span><span className="receipt-value">{formatReceiptDate(order.createdAt)}</span></div>
-          <div className="receipt-row"><span className="receipt-label">Type:</span><span className="receipt-value">Walk-in</span></div>
-          <div className="receipt-row"><span className="receipt-label">Cashier:</span><span className="receipt-value">{cashierName}</span></div>
-          <div className="receipt-line" />
-          <div className="receipt-table-header"><div>QTY</div><div>ITEM</div><div>PRICE</div></div>
-          <div className="receipt-line" />
-          <div className="receipt-items">
-            {(order.items || []).map((item) => {
-              const qty = Number(item.qty || item.quantity || 0)
-              const name = item.name || item.product_name || 'Menu item'
-              const receiptLineTotal = Number(item.line_total || itemLineTotal(item) || item.unit_price * item.quantity || 0)
-              return <div className="receipt-item" key={item.lineKey || item.id || name}>
-                <div>{qty}</div>
-                <div className="receipt-item-name">{name}{customizationDetails(item).map((detail) => <div className="receipt-option" key={detail}>+ {detail}</div>)}{Number(item.is_discounted || item.isDiscounted || 0) ? <div className="receipt-option">+ {order.discountType || 'Discount'} discount applied</div> : null}</div>
-                <div className="receipt-item-price">{Number(receiptLineTotal || 0).toFixed(2)}</div>
-              </div>
-            })}
-          </div>
-          <div className="receipt-line" />
-          {breakdown.isVatExemptDiscount ? <>{breakdown.regularBaseAmount > 0 ? <div className="receipt-total-row"><span>VATable Sale:</span><span>{breakdown.regularBaseAmount.toFixed(2)}</span></div> : null}<div className="receipt-total-row"><span>VAT-Exempt Sale:</span><span>{breakdown.vatExemptSale.toFixed(2)}</span></div><div className="receipt-total-row"><span>{formatVatRate(vatRate)} VAT:</span><span>{breakdown.regularVatAmount.toFixed(2)}</span></div><div className="receipt-total-row"><span>Less 20% SC/PWD Disc.:</span><span>-{breakdown.discountAmount.toFixed(2)}</span></div></> : <><div className="receipt-total-row"><span>VATable Sale:</span><span>{breakdown.baseAmount.toFixed(2)}</span></div><div className="receipt-total-row"><span>{formatVatRate(vatRate)} VAT:</span><span>{breakdown.vatAmount.toFixed(2)}</span></div></>}
-          <div className="receipt-total-row"><span>TOTAL:</span><span className="receipt-grand-total">{Number(order.total || 0).toFixed(2)}</span></div>
-          <div className="receipt-line" />
-          <div className="receipt-row"><span className="receipt-label">Payment Method:</span><span className="receipt-value">{order.paymentMethod}</span></div>
-          {breakdown.isVatExemptDiscount ? <div className="receipt-row"><span className="receipt-label">Discount ID:</span><span className="receipt-value">{order.discountIdNumber || 'N/A'}</span></div> : null}
-          {receiptPaymentRows(order).map(([label, value]) => <div className="receipt-row" key={label}><span className="receipt-label">{label}:</span><span className="receipt-value">{value}</span></div>)}
-          <div className="receipt-line" />
-          <div className="receipt-row"><span className="receipt-label">Items:</span><span className="receipt-value">{itemCount}</span></div>
-          <div className="receipt-line" />
-          <div className="receipt-footer">Thank you for choosing The Coffee Realm,<br />Enjoy your drink and have a great day!</div>
-          <div className="receipt-line" />
+  return (
+    <div className="cashier-receipt-backdrop">
+      <section className="cashier-receipt-modal" role="dialog" aria-modal="true" aria-label="Receipt preview">
+        <header className="cashier-receipt-modal-head">
+          <h3>Receipt Preview</h3>
+        </header>
+        <div className="receipt-preview-shell">
+          <ReceiptPaper order={order} defaultVatRate={pricing.vatRate} defaultPricesIncludeVat={pricing.pricesIncludeVat} />
         </div>
-      </div>
-      <footer className="cashier-receipt-actions">
-        <button type="button" onClick={() => window.print()}>Print</button>
-        <button type="button" onClick={onClose}>Close</button>
-      </footer>
-    </section>
-  </div>
+        <footer className="cashier-receipt-actions">
+          <button type="button" onClick={() => printReceipt(order, pricing.vatRate, pricing.pricesIncludeVat)}>Print</button>
+          <button type="button" onClick={onClose}>Close</button>
+        </footer>
+      </section>
+    </div>
+  )
 }
