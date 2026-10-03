@@ -403,17 +403,64 @@ html[data-theme] .cashier-refined .cashier-menu-title h1 { font-family: Georgia,
 html[data-theme] .cashier-refined .cashier-menu-actions .cashier-new-order,
 html[data-theme] .cashier-refined .legacy-pos-tabs button.active { background: var(--pos-forest) !important; border-color: var(--pos-forest) !important; color: var(--pos-cream) !important; }
 html[data-theme] .cashier-refined .legacy-pos-tabs button { border-radius: 20px; }
-html[data-theme] .cashier-refined .cashier-search-toolbar .cashier-search-field { flex: 1 1 220px; max-width: none; background: #f3f0e9; }
+html[data-theme] .cashier-refined .cashier-search-toolbar .cashier-search-field { flex: 1 1 260px; max-width: none; min-height: 40px; background: #f3f0e9; }
+html[data-theme] .cashier-refined .cashier-sort-field { display: flex; align-items: center; gap: 6px; color: var(--pos-text); font-size: .76rem; font-weight: 700; white-space: nowrap; }
+html[data-theme] .cashier-refined .cashier-sort-field select { height: 40px; min-width: 142px; padding: 0 28px 0 10px; border: 1px solid var(--pos-border); border-radius: 9px; background: var(--pos-surface); color: var(--pos-text); font: inherit; font-size: .8rem; }
 html[data-theme] .cashier-refined .cashier-menu-controls { height: auto; }
 html[data-theme] .cashier-refined .cashier-search-toolbar { flex: 0 0 auto; height: auto; min-height: 0; align-content: start; }
 html[data-theme] .cashier-refined .cashier-filter-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid var(--pos-border); border-radius: 9px; background: var(--pos-surface); color: var(--pos-text); font: inherit; font-size: .85rem; cursor: pointer; }
 html[data-theme] .cashier-refined .cashier-filter-trigger[aria-expanded='true'] { background: var(--pos-cream); }
-html[data-theme] .cashier-refined .cashier-filter-panel { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 16px; border-radius: 12px; background: var(--pos-bg); }
-html[data-theme] .cashier-refined .cashier-filter-panel label { display: flex; flex: 1 1 120px; flex-direction: column; gap: 6px; color: var(--pos-text); font-size: .8rem; }
-html[data-theme] .cashier-refined .cashier-filter-panel :is(input:not([type='checkbox']), select) { width: 100%; min-width: 0; height: 44px; padding: 0 10px; border: 1px solid var(--pos-border); border-radius: 8px; background: var(--pos-surface); color: var(--pos-text); }
-html[data-theme] .cashier-refined .cashier-filter-panel .cashier-filter-check { flex-direction: row; align-items: center; min-height: 44px; }
+html[data-theme] .cashier-refined .cashier-filter-panel { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--pos-bg); }
+html[data-theme] .cashier-refined .cashier-filter-panel label { display: flex; flex: 1 1 120px; flex-direction: column; gap: 4px; color: var(--pos-text); font-size: .8rem; }
+html[data-theme] .cashier-refined .cashier-filter-panel :is(input:not([type='checkbox']), select) { width: 100%; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--pos-border); border-radius: 8px; background: var(--pos-surface); color: var(--pos-text); }
+html[data-theme] .cashier-refined .cashier-filter-panel .cashier-filter-check { flex-direction: row; align-items: center; min-height: 36px; }
 html[data-theme] .cashier-refined .cashier-filter-check input { width: 18px; height: 18px; accent-color: var(--pos-forest); }
-html[data-theme] .cashier-refined .cashier-filter-panel > button { min-height: 44px; padding: 0 12px; border: 0; background: transparent; color: var(--pos-text); text-decoration: underline; }
+html[data-theme] .cashier-refined .cashier-filter-panel > button { min-height: 36px; padding: 0 10px; border: 0; background: transparent; color: var(--pos-text); text-decoration: underline; }
+html[data-theme] .cashier-refined .cashier-search-toolbar .cashier-search-field { height: 40px; min-height: 40px; }
+html[data-theme] .cashier-refined .cashier-search-toolbar .cashier-sort-field { height: 40px; min-height: 40px; padding: 0 10px; }
+html[data-theme] .cashier-refined .cashier-search-toolbar .cashier-sort-field select { height: 100%; min-width: 142px; padding: 0 10px; }
+html[data-theme] .cashier-refined #cashier-current-order .cashier-cart-actions { width: 50%; }
+html[data-theme] .cashier-refined #cashier-current-order .cashier-cart-actions button { flex: 1 1 0; }
+html[data-theme] .cashier-refined #cashier-current-order .cashier-reorder {
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 8px !important;
+  border: 1px solid var(--pos-cream) !important;
+  border-radius: 6px !important;
+  background: var(--pos-cream) !important;
+  color: var(--pos-forest) !important;
+  font-size: .72rem !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .16) !important;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+html[data-theme] .cashier-refined #cashier-current-order .cashier-reorder:hover:not(:disabled) {
+  background: #ede4d0 !important;
+  border-color: #ede4d0 !important;
+}
+html[data-theme] .cashier-refined #cashier-current-order .cashier-reorder:disabled {
+  opacity: .48 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+html[data-theme] .cashier-refined #cashier-current-order .cashier-clear-cart {
+  width: auto !important;
+  min-width: 0 !important;
+  height: 30px !important;
+  min-height: 30px !important;
+  padding: 0 8px !important;
+  border: 1px solid #7f1d1d !important;
+  border-radius: 6px !important;
+  background: #8f2020 !important;
+  color: #fff !important;
+  font-size: .72rem !important;
+  font-weight: 800 !important;
+  box-shadow: none !important;
+}
+html[data-theme] .cashier-refined #cashier-current-order .cashier-clear-cart:hover:not(:disabled) {
+  background: #741818 !important;
+}
 html[data-theme] .cashier-refined .legacy-pos-products { grid-template-columns: repeat(auto-fill, minmax(min(100%, 175px), 1fr)); }
 html[data-theme] .cashier-refined .legacy-pos-products article { background: var(--pos-surface); border-color: var(--pos-border); border-radius: 14px; }
 html[data-theme] .cashier-refined .legacy-pos-products article.is-featured { border: 2px solid #c9ad75; }
