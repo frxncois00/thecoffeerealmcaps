@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { isCustomerRole, normalizeRole, roleRoutes } from '../lib/auth'
 import { queueAuthWelcome } from '../lib/authFeedback'
 import { customerSupabase as supabase } from '../lib/supabase'
+import { retryJwtTimingRequest } from '../lib/supabaseRetry'
 
 const pause = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds))
 
@@ -38,9 +39,10 @@ export default function CustomerOAuthCallbackPage() {
       let profile = null
       let profileError = null
       for (let attempt = 0; attempt < 4 && !profile; attempt += 1) {
-        const result = await supabase.from('profiles').select('id, role, full_name, username, email, phone').eq('id', user.id).maybeSingle()
+        const result = await retryJwtTimingRequest(() => supabase.from('profiles').select('id, role, full_name, username, email, phone').eq('id', user.id).maybeSingle())
         profile = result.data
         profileError = result.error
+        if (profileError) break
         if (!profile && !profileError) await pause(250 * (attempt + 1))
       }
 

@@ -62,6 +62,8 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [formOpen, setFormOpen] = useState(false)
+  const [supplierPickerOpen, setSupplierPickerOpen] = useState(false)
+  const [supplierChoices, setSupplierChoices] = useState([])
   const [supplierOpen, setSupplierOpen] = useState(false)
   const [draft, setDraft] = useState(EMPTY_DRAFT)
   const [action, setAction] = useState(null)
@@ -84,6 +86,8 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   useEffect(() => { load() }, [])
 
   const selected = orders.find((order) => order.id === selectedId) || null
+  const lowStockItems = useMemo(() => options.filter((item) => item.itemType === 'ingredient' && Number(item.quantity || 0) <= Number(item.minStockLevel || 0)), [options])
+  const lowStockCount = lowStockItems.length
   const counts = useMemo(() => orders.reduce((acc, order) => { acc[order.status] = (acc[order.status] || 0) + 1; return acc }, {}), [orders])
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -99,7 +103,47 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   const suppliersInOrders = useMemo(() => [...new Set(orders.map((order) => order.supplierName).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [orders])
 
   function announce(message) { setNotice(message); window.setTimeout(() => setNotice(''), 4500) }
-  function openCreate() { setDraft(EMPTY_DRAFT); setFormOpen(true) }
+  function getSupplierForItem(item) {
+    const match = suppliers.find((s) =>
+      (s.items || []).some((si) => {
+        const isIng = item.itemType === 'ingredient' && (String(si.ingredient_id) === String(item.id) || (si.item_type === 'ingredient' && String(si.item_id) === String(item.id)))
+        const isFin = item.itemType === 'finished_product' && (String(si.finished_product_id) === String(item.id) || (si.item_type === 'finished_product' && String(si.item_id) === String(item.id)))
+        return isIng || isFin
+      })
+    )
+    return match?.name || item.supplier || ''
+  }
+
+  function openCreateForSupplier(supplierName, lowStock) {
+    const supplier = suppliers.find((entry) => entry.name === supplierName)
+    const suggested = (lowStock || []).map((item) => ({
+      itemType: item.itemType, itemId: item.id, purchaseUnit: item.unit || 'piece',
+      quantityOrdered: Math.max(Number(item.highStockLevel || 0) - Number(item.quantity || 0), 1), estimatedTotalCost: '',
+    }))
+    setDraft({ ...EMPTY_DRAFT, supplierName: supplierName === 'Unassigned supplier' ? '' : supplierName, supplierContact: supplier?.contact || '', items: suggested.length ? suggested : EMPTY_DRAFT.items })
+    setSupplierPickerOpen(false)
+    setFormOpen(true)
+  }
+  function openCreate() {
+    // Start from the inventory exceptions so staff only confirms quantities and price.
+    const lowStock = options.filter((item) => item.itemType === 'ingredient' && Number(item.quantity || 0) <= Number(item.minStockLevel || 0))
+    const groups = lowStock.reduce((acc, item) => {
+      const supplierName = getSupplierForItem(item) || 'Unassigned supplier'
+      acc[supplierName] = [...(acc[supplierName] || []), item]
+      return acc
+    }, {})
+    const choices = Object.entries(groups).map(([name, items]) => ({ name, items }))
+    if (choices.length > 1) {
+      setSupplierChoices(choices)
+      setSupplierPickerOpen(true)
+      return
+    }
+    if (choices.length === 1) {
+      openCreateForSupplier(choices[0].name, choices[0].items)
+      return
+    }
+    openCreateForSupplier('', [])
+  }
   async function saveSupplierRecord(payload) { await saveSupplier(payload); await load(); announce('Supplier saved.') }
   function openEdit(order) { setDraft(emptyDraftFromOrder(order)); setFormOpen(true) }
   async function saveDraft(payload) {
@@ -146,6 +190,15 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
       {error ? <div className="po-alert is-error" role="alert">{error}<button type="button" onClick={() => setError('')} aria-label="Dismiss error"><X size={15} /></button></div> : null}
       {notice ? <div className="po-alert is-success" role="status"><Check size={15} />{notice}</div> : null}
 
+      {lowStockCount > 0 ? (
+        <LowStockSlideshow
+          items={lowStockItems}
+          getSupplier={getSupplierForItem}
+          onOrder={(supplierName, items) => openCreateForSupplier(supplierName, items)}
+          isAdmin={isAdmin}
+        />
+      ) : null}
+
       <section className="po-summary" aria-label="Purchase order summary">
         <Summary label="Pending Approval" value={counts.pending_approval || 0} tone="amber" icon={<AlertTriangle size={18} />} detail="Needs review" />
         <Summary label="Approved" value={counts.approved || 0} tone="blue" icon={<Check size={18} />} detail="Ready to send" />
@@ -157,7 +210,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
         <div className="po-toolbar-search"><FileText size={16} /><input value={query} onChange={(event) => setQuery(event.target.value.slice(0, 80))} placeholder="Search PO or supplier" aria-label="Search purchase orders" /></div>
         <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter purchase orders by status"><option value="all">All statuses</option>{Object.entries(STATUS_META).map(([value, [label]]) => <option value={value} key={value}>{label}</option>)}</select>
         <select value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)} aria-label="Filter purchase orders by supplier"><option value="all">All suppliers</option>{suppliersInOrders.map((supplier) => <option value={supplier} key={supplier}>{supplier}</option>)}</select>
-        {!isAdmin ? <><button type="button" className="ops-secondary-action" onClick={() => setSupplierOpen(true)}><Store size={16} /> Suppliers</button><button type="button" className="ops-main-action" onClick={openCreate}><Plus size={16} /> Create Purchase Order</button></> : null}
+        {!isAdmin ? <><button type="button" className="ops-secondary-action" onClick={() => setSupplierOpen(true)}><Store size={16} /> Suppliers</button><button type="button" className="ops-main-action" onClick={openCreate}><Plus size={16} /> Generate P.O.{lowStockCount ? ` (${lowStockCount})` : ''}</button></> : null}
       </section>
 
       <section className="po-table-panel">
@@ -168,6 +221,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
       <footer className="po-pagination"><span>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filtered.length)} of {filtered.length}</span><label>Rows<select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label><div><button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>‹</button><b>Page {page} of {pageCount}</b><button type="button" aria-label="Next page" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)}>›</button></div></footer>
 
       {selected ? <PurchaseOrderDrawer order={selected} isAdmin={isAdmin} onClose={() => setSelectedId('')} onEdit={() => openEdit(selected)} onSubmit={() => saveDraft({ ...emptyDraftFromOrder(selected), submit: true })} onApprove={() => setAction({ type: 'approve', title: 'Approve purchase order', label: 'Approve', note: '' })} onReject={() => setAction({ type: 'reject', title: 'Reject purchase order', label: 'Reject', note: '' })} onSend={() => setAction({ type: 'send', title: 'Mark as sent', label: 'Mark Sent', note: selected.supplierReference || '' })} onReceive={() => setReceivingOpen(true)} onPayment={() => setPaymentOpen(true)} onReviewReceiving={() => setAction({ type: 'receiving-review', title: 'Review receiving', label: 'Approve receiving', note: '' })} onReviewPayment={() => setAction({ type: 'payment-review', title: 'Verify payment', label: 'Verify payment', note: '' })} onCloseOrder={() => setAction({ type: 'close', title: 'Close purchase order', label: 'Close PO', note: '' })} onCancel={() => setAction({ type: 'cancel', title: 'Cancel purchase order', label: 'Cancel PO', note: '' })} /> : null}
+      {supplierPickerOpen ? <SupplierPickerModal choices={supplierChoices} onClose={() => setSupplierPickerOpen(false)} onSelect={(choice) => openCreateForSupplier(choice.name, choice.items)} onBlankOrder={() => openCreateForSupplier('', [])} /> : null}
       {formOpen ? <PurchaseOrderForm draft={draft} options={options} suppliers={suppliers} onClose={() => setFormOpen(false)} onSave={saveDraft} /> : null}
       {supplierOpen ? <SupplierModal options={options} suppliers={suppliers} onClose={() => setSupplierOpen(false)} onSave={async (payload) => { await saveSupplierRecord(payload); setSupplierOpen(false) }} /> : null}
       {receivingOpen && selected ? <ReceivingModal order={selected} onClose={() => setReceivingOpen(false)} onSave={submitReceiving} onReport={() => setIssueOpen(true)} /> : null}
@@ -377,7 +431,9 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
   const set = (key, value) => setValues((current) => ({ ...current, [key]: value }))
   const setLine = (index, key, value) => setValues((current) => ({ ...current, items: current.items.map((line, itemIndex) => itemIndex === index ? { ...line, [key]: value } : line) }))
   useEffect(() => {
-    if (values.id || !selectedSupplier?.items?.length) return
+    const hasSelectedItems = values.items.some((item) => item.itemId)
+    const isBlankPlaceholder = values.items.length === 1 && !values.items[0].itemId
+    if (values.id || hasSelectedItems || !isBlankPlaceholder || !selectedSupplier?.items?.length) return
     const savedItems = selectedSupplier.items.map((item) => {
       const itemType = item.item_type === 'finished_product' ? 'finished_product' : 'ingredient'
       const itemId = item.ingredient_id || item.finished_product_id
@@ -388,7 +444,7 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
       setValues((current) => ({ ...current, items: savedItems }))
       setItemSearches({})
     }
-  }, [options, selectedSupplier, values.id])
+  }, [options, selectedSupplier, values.id, values.items])
   async function submit(event, shouldSubmit) {
     event.preventDefault(); setError('')
     if (!values.supplierName.trim()) { setError('Select a supplier.'); return }
@@ -471,3 +527,90 @@ function SupplierModal({ options, suppliers = [], onClose, onSave }) {
   return <div className="po-modal-backdrop"><section className="po-modal po-supplier-modal" role="dialog" aria-modal="true" aria-label="Manage suppliers"><header><div><span>Inventory purchasing</span><h2>Suppliers</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><div className="po-supplier-layout"><aside className="po-supplier-list"><div className="po-supplier-list-head"><b>Saved suppliers</b><button type="button" className="ops-secondary-action compact" onClick={startNew}><Plus size={14} /> Add</button></div>{suppliers.length ? suppliers.map((supplier) => <button type="button" className={`po-supplier-row ${activeId === supplier.id ? 'is-active' : ''}`} key={supplier.id} onClick={() => editSupplier(supplier)}><span><b>{supplier.name}</b><small>{supplier.contact || 'No contact saved'}</small></span><span className="po-supplier-edit">Edit</span></button>) : <p className="po-supplier-empty">No suppliers saved.</p>}</aside><form className="po-supplier-form" onSubmit={submit}><div className="po-supplier-form-title"><div><span>{activeId ? 'Edit supplier' : 'Add supplier'}</span><h3>{activeId ? name : 'New supplier'}</h3></div>{activeId ? <button type="button" className="ops-secondary-action compact" onClick={startNew}>New</button> : null}</div><Field label="Supplier name" required><input value={name} onChange={(event) => setName(event.target.value)} required maxLength={120} /></Field><Field label="Contact number or email"><input value={contact} onChange={(event) => setContact(event.target.value)} maxLength={160} /></Field><Field label="Previously supplied ingredients"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search ingredients" aria-label="Search supplied ingredients" /></Field><div className="po-supplier-items">{visible.map((item) => <label key={`${item.itemType}:${item.id}`}><input type="checkbox" checked={selected.includes(`${item.itemType}:${item.id}`)} onChange={() => toggleItem(item)} /><span>{item.name}</span><small>{item.unit}</small></label>)}</div>{error ? <p className="po-inline-error">{error}</p> : null}<footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-main-action" disabled={saving}>{activeId ? 'Save Changes' : 'Save Supplier'}</button></footer></form></div></section></div>
 }
 function Field({ label, required, children }) { return <label className="po-field"><span>{label}{required ? ' *' : ''}</span>{children}</label> }
+
+function SupplierPickerModal({ choices, onClose, onSelect, onBlankOrder }) {
+  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal" role="dialog" aria-modal="true" aria-label="Choose supplier"><header><div><span>Low-stock items</span><h2>Choose supplier</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><div className="po-picker-list">{choices.map((choice) => <button type="button" className="po-picker-option" key={choice.name} onClick={() => onSelect(choice)}><span><b>{choice.name}</b><small>{choice.items.length} {choice.items.length === 1 ? 'item' : 'items'} ready to order</small></span><span aria-hidden="true">›</span></button>)}<button type="button" className="po-picker-option" onClick={onBlankOrder}><span><b>Custom order</b><small>Order custom items from scratch</small></span><span aria-hidden="true">›</span></button></div><footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button></footer></section></div>
+}
+
+function LowStockSlideshow({ items = [], getSupplier, onOrder, isAdmin }) {
+  const [index, setIndex] = useState(0)
+  const [isPaused, setIsPaused] = useState(false)
+
+  useEffect(() => {
+    if (items.length <= 1 || isPaused) return undefined
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % items.length)
+    }, 3500)
+    return () => clearInterval(timer)
+  }, [items.length, isPaused])
+
+  const safeIndex = index < items.length ? index : 0
+  const item = items[safeIndex]
+  if (!item) return null
+
+  const supplier = getSupplier ? getSupplier(item) : (item.supplier || '')
+  const isOut = Number(item.quantity || 0) <= 0
+  const suggested = Math.max(Number(item.highStockLevel || 0) - Number(item.quantity || 0), 1)
+
+  return (
+    <div
+      className="po-slideshow-banner"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      role="region"
+      aria-label="Low stock alerts slideshow"
+    >
+      <div className="po-slideshow-left">
+        <span className="po-slideshow-badge">
+          <span className="po-slideshow-dot" />
+          {isOut ? 'Out of stock' : 'Low stock'}
+        </span>
+        <div className="po-slideshow-body">
+          <span className="po-slideshow-name">{item.name}</span>
+          <span className="po-slideshow-details">
+            Current: <b>{qty(item.quantity)} {item.unit}</b>
+            <span className="po-slideshow-sep">·</span>
+            Min: <b>{qty(item.minStockLevel)} {item.unit}</b>
+            <span className="po-slideshow-sep">·</span>
+            Suggested: <b>+{suggested} {item.unit}</b>
+          </span>
+          {supplier ? (
+            <span className="po-slideshow-supplier">
+              Supplier: <b>{supplier}</b>
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <div className="po-slideshow-controls">
+        {items.length > 1 ? (
+          <div className="po-slideshow-pager">
+            <button
+              type="button"
+              onClick={() => setIndex((prev) => (prev - 1 + items.length) % items.length)}
+              aria-label="Previous low stock item"
+            >
+              ‹
+            </button>
+            <span>{safeIndex + 1} / {items.length}</span>
+            <button
+              type="button"
+              onClick={() => setIndex((prev) => (prev + 1) % items.length)}
+              aria-label="Next low stock item"
+            >
+              ›
+            </button>
+          </div>
+        ) : null}
+        {!isAdmin ? (
+          <button
+            type="button"
+            className="po-slideshow-btn"
+            onClick={() => onOrder(supplier, [item])}
+          >
+            Order Item ›
+          </button>
+        ) : null}
+      </div>
+    </div>
+  )
+}

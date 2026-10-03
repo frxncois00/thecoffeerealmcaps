@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "node server/server.js",
     "build": "vite build && vite build --config vite.realm-tour.config.js",
     "preview": "vite preview",
     "lint": "eslint ."
@@ -12,13 +13,20 @@
   "dependencies": {
     "@rive-app/canvas": "^2.42.2",
     "@supabase/supabase-js": "^2.110.8",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.5",
     "exceljs": "^4.4.0",
+    "express": "^5.2.1",
     "framer-motion": "^12.42.2",
     "jspdf": "^4.2.1",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.468.0",
+    "multer": "^2.4.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.9.1"
+    "react-router-dom": "^7.9.1",
+    "sharp": "^0.35.5",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
