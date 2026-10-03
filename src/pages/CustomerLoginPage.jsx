@@ -9,12 +9,8 @@ import AuthWelcomeScreen from '../components/auth/AuthWelcomeScreen'
 
 const otpDigits = 6
 const pause = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds))
-const productionSiteUrl = String(import.meta.env.VITE_PUBLIC_SITE_URL || 'https://thecoffeerealm.store').replace(/\/$/, '')
-
 function googleCallbackUrl() {
-  const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname)
-  const siteUrl = isLocal ? window.location.origin : productionSiteUrl
-  return `${siteUrl}/auth/callback`
+  return `${window.location.origin}/auth/callback`
 }
 
 export default function CustomerLoginPage({ initialMode = 'login' }) {

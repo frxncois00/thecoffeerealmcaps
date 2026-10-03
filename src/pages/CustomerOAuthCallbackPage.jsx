@@ -77,15 +77,9 @@ export default function CustomerOAuthCallbackPage() {
         : (window.sessionStorage.getItem('tcr.oauth.returnTo') || '/menu')
 
       if (oauthMode !== 'link-google') {
-        const profileNeedsDetails = !profile.username || !profile.phone || profile.full_name === 'Coffee Realm Customer'
+        const profileNeedsDetails = !profile?.username || !profile?.phone || profile?.full_name === 'Coffee Realm Customer'
         if (profileNeedsDetails) {
-          const { count, error: orderCountError } = await supabase
-            .from('orders')
-            .select('id', { count: 'exact', head: true })
-            .eq('customer_id', user.id)
-          if (!orderCountError && !count) {
-            destination = '/complete-profile'
-          }
+          destination = '/complete-profile'
         }
       }
 
