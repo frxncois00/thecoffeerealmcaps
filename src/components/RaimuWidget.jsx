@@ -17,19 +17,30 @@ function renderMessageText(text) {
     : <span key={`text-${index}`}>{part}</span>)
 }
 
+function saveReportBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000)
+}
+
 async function downloadReport(url, format) {
   const response = await fetch(url)
   if (!response.ok) throw new Error('The report could not be downloaded. Please try again.')
   const csv = await response.text()
   const rows = csv.trim().split(/\r?\n/).map((line) => line.split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((cell) => cell.replace(/^"|"$/g, '').replaceAll('""', '"')))
   const filename = `the-coffee-realm-report-${new Date().toISOString().slice(0, 10)}`
-  if (format === 'csv') { const blob = new Blob([csv], { type: 'text/csv' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${filename}.csv`; link.click(); return }
+  if (format === 'csv') { saveReportBlob(new Blob([csv], { type: 'text/csv' }), `${filename}.csv`); return }
   if (format === 'xlsx') {
     const { default: ExcelJS } = await import('exceljs')
     const workbook = new ExcelJS.Workbook(); const sheet = workbook.addWorksheet('Report', { views: [{ showGridLines: false }] })
     sheet.addRows(rows); sheet.mergeCells(1, 1, 1, rows[0].length); sheet.getCell(1, 1).value = 'THE COFFEE REALM REPORT'; sheet.getCell(1, 1).font = { bold: true, size: 16, color: { argb: 'FFFFFF' } }; sheet.getCell(1, 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0C4B32' } }
     sheet.getRow(2).eachCell((cell) => { cell.font = { bold: true, color: { argb: 'FFFFFF' } }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '176A48' } } }); sheet.columns = rows[0].map(() => ({ width: 22 }))
-    const buffer = await workbook.xlsx.writeBuffer(); const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${filename}.xlsx`; link.click(); return
+    const buffer = await workbook.xlsx.writeBuffer(); saveReportBlob(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${filename}.xlsx`); return
   }
   const { jsPDF } = await import('jspdf'); const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' }); pdf.setFillColor(12, 75, 50); pdf.rect(0, 0, 842, 48, 'F'); pdf.setTextColor(255, 255, 255); pdf.setFontSize(16); pdf.text('THE COFFEE REALM REPORT', 32, 30); pdf.setTextColor(35, 65, 50); pdf.setFontSize(8); let y = 78; rows.forEach((row, index) => { if (y > 560) { pdf.addPage(); y = 50 } if (index === 0) pdf.setFont('helvetica', 'bold'); else pdf.setFont('helvetica', 'normal'); pdf.text(row.map((cell) => String(cell).slice(0, 28)).join('   |   '), 32, y); y += 18 }); pdf.save(`${filename}.pdf`)
 }
@@ -87,7 +98,7 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
   const inFlight = useRef(false)
   const exportInFlight = useRef(false)
   const gaze = useRef({ rect: null, frame: 0 })
-  const { dockRef, panelRef, panelStyle, bubbleStyle, moved, resetPosition, dragHandlers } = useRaimuPosition({ open, enabled, onDrag: () => setOpen(false) })
+  const { dockRef, panelRef, panelStyle, bubbleStyle, moved, resetPosition, cancelDrag, dragHandlers } = useRaimuPosition({ open, enabled, onDrag: () => setOpen(false) })
 
   const closePanel = (clear = false) => {
     setOpen(false)
@@ -129,6 +140,10 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
 
   useEffect(() => {
     if (!open || !companion.visible) return
+    if (!messages.length && !typing) {
+      logRef.current?.scrollTo({ top: 0, behavior: 'instant' })
+      return
+    }
     if (nearBottom.current || typing) {
       const log = logRef.current
       log?.scrollTo({ top: log.scrollHeight, behavior: companion.motion ? 'smooth' : 'instant' })
@@ -153,24 +168,26 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
 
   useEffect(() => {
     if (!enabled || !companion.motion || !companion.visible || companion.state !== 'attention') return undefined
-    gaze.current.rect = avatarRef.current?.getBoundingClientRect()
+    const currentGaze = gaze.current
+    const avatar = avatarRef.current
+    currentGaze.rect = avatar?.getBoundingClientRect()
     const follow = (event) => {
-      const rect = gaze.current.rect
+      const rect = currentGaze.rect
       if (!rect) return
       const x = Math.max(-3, Math.min(3, (event.clientX - rect.left - rect.width / 2) / 25))
       const y = Math.max(-2, Math.min(2, (event.clientY - rect.top - rect.height / 2) / 30))
-      window.cancelAnimationFrame(gaze.current.frame)
-      gaze.current.frame = window.requestAnimationFrame(() => {
-        avatarRef.current?.style.setProperty('--rc-look-x', `${x}px`)
-        avatarRef.current?.style.setProperty('--rc-look-y', `${y}px`)
+      window.cancelAnimationFrame(currentGaze.frame)
+      currentGaze.frame = window.requestAnimationFrame(() => {
+        avatar?.style.setProperty('--rc-look-x', `${x}px`)
+        avatar?.style.setProperty('--rc-look-y', `${y}px`)
       })
     }
     window.addEventListener('pointermove', follow, { passive: true })
     return () => {
       window.removeEventListener('pointermove', follow)
-      window.cancelAnimationFrame(gaze.current.frame)
-      avatarRef.current?.style.setProperty('--rc-look-x', '0px')
-      avatarRef.current?.style.setProperty('--rc-look-y', '0px')
+      window.cancelAnimationFrame(currentGaze.frame)
+      avatar?.style.setProperty('--rc-look-x', '0px')
+      avatar?.style.setProperty('--rc-look-y', '0px')
     }
   }, [enabled, companion.motion, companion.visible, companion.state])
 
@@ -184,6 +201,7 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
     setMessages((current) => [...current, { from: 'user', text }])
     setDraft('')
     setTyping(true)
+    inputRef.current?.focus({ preventScroll: true })
     raimu.clearBubbles()
     raimu.setState('thinking')
     try {
@@ -251,7 +269,7 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
         onPointerLeave={() => { if (raimu.getSnapshot().state === 'attention') raimu.setState('idle') }}
         onFocus={() => raimu.setState('attention', { duration: 0 })}
         onBlur={() => { if (raimu.getSnapshot().state === 'attention') raimu.setState('idle') }}
-        onClick={(event) => { if (event.detail === 0 || !moved.current) { if (open) closePanel(); else openPanel() } }}>
+        onClick={(event) => { cancelDrag(); if (event.detail === 0 || !moved.current) { if (open) closePanel(); else openPanel() } }}>
         <span className="rc-aura" aria-hidden="true" />
         <span className="rc-notification-pulse" key={companion.pulse} data-active={companion.pulse > 0} aria-hidden="true" />
         <RaimuMascot state={companion.state} blink={companion.blink} earTwitch={companion.earTwitch} />
@@ -284,6 +302,7 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
         {typing && <div className="rc-typing"><ThinkingDots /><span>Raimu is thinking…</span></div>}
       </div>
       {unseen && <button className="rc-latest" type="button" onClick={() => scrollToLatest()}><ArrowDown size={14} />Latest message</button>}
+      {companion.bubble && ['success', 'error', 'empty'].includes(companion.state) && <div className="rc-inline-bubble"><span>{companion.bubble.text}</span><button type="button" aria-label="Dismiss Raimu’s message" onClick={raimu.dismissBubble}><X size={13} /></button></div>}
       <form className="rc-composer" onSubmit={send}>
         <label className="rc-sr-only" htmlFor="raimu-widget-input">Message Raimu</label>
         <input id="raimu-widget-input" ref={inputRef} value={draft} onChange={(event) => { setDraft(event.target.value); if (!inFlight.current && !exportInFlight.current) raimu.setState(event.target.value.trim() ? 'listening' : 'idle') }} onFocus={() => { if (draft.trim() && !inFlight.current && !exportInFlight.current) raimu.setState('listening') }} onBlur={() => { if (raimu.getSnapshot().state === 'listening') raimu.setState('idle') }} placeholder="Ask Raimu anything…" maxLength={500} autoComplete="off" />
@@ -296,6 +315,7 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
       </footer>
     </section>}
     <span className="rc-sr-only" role="status" aria-live="polite" aria-atomic="true">{companion.bubble?.text || ''}</span>
+    <span className="rc-sr-only" aria-live="polite" aria-atomic="true">{!open && messages.at(-1)?.from === 'raimu' ? `Raimu: ${messages.at(-1).text}` : ''}</span>
   </div>
 }
 

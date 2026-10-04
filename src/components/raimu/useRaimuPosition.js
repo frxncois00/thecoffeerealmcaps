@@ -60,6 +60,12 @@ export function useRaimuPosition({ open, enabled, onDrag }) {
   }
   const moveDrag = (event) => {
     if (!drag.current || drag.current.id !== event.pointerId) return
+    // Recover from a lost pointerup (window switching, native controls, or a
+    // cancelled gesture); a later hover must never minimize the conversation.
+    if (event.pointerType === 'mouse' && event.buttons === 0) {
+      drag.current = null
+      return
+    }
     const current = drag.current
     const dx = event.clientX - current.x
     const dy = event.clientY - current.y
@@ -96,5 +102,6 @@ export function useRaimuPosition({ open, enabled, onDrag }) {
     dockRef.current.style.transform = 'translate3d(0, 0, 0)'
     place()
   }
-  return { dockRef, panelRef, panelStyle, bubbleStyle, moved, resetPosition, dragHandlers: { onPointerDown: startDrag, onPointerMove: moveDrag, onPointerUp: endDrag, onPointerCancel: endDrag, onKeyDown: moveWithKeyboard } }
+  const cancelDrag = () => { drag.current = null }
+  return { dockRef, panelRef, panelStyle, bubbleStyle, moved, resetPosition, cancelDrag, dragHandlers: { onPointerDown: startDrag, onPointerMove: moveDrag, onPointerUp: endDrag, onPointerCancel: endDrag, onLostPointerCapture: cancelDrag, onKeyDown: moveWithKeyboard } }
 }

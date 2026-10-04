@@ -40,6 +40,8 @@ const normalizePhone=value=>sanitizePhone(value)
 const normalizePostal=value=>String(value||'').replace(/\D/g,'').slice(0,6)
 const customerOrderNumber=value=>{const raw=String(value||'').trim();if(!raw)return '';if(/^(WI|CR)-\d{4}-\d{4,}$/i.test(raw))return raw.toUpperCase();if(/^#?D\d{10}$/i.test(raw))return raw.startsWith('#')?raw:`#${raw.toUpperCase()}`;if(/^\d{10,}$/.test(raw))return `#D${raw.slice(-10)}`;return raw}
 const paymentMethodLabel=value=>value==='cod'?'Cash on delivery':value==='bank_transfer'?'Bank transfer':value==='paymongo'?'PayMongo':value==='qrph'?'QRPh via PayMongo':'GCash'
+const validPaymentReference=(payment,value)=>payment==='gcash'?/^[0-9]{13}$/.test(String(value||'').trim()):payment==='bank_transfer'?/^[0-9]{10,25}$/.test(String(value||'').trim()):true
+const paymentReferenceMessage=payment=>payment==='bank_transfer'?'Enter 10 to 25 digits from your bank transfer receipt.':'Enter exactly 13 digits from your GCash receipt.'
 const fulfillmentLabel=value=>value==='pickup'?'Store pickup':'Delivery'
 const titleCase=value=>String(value||'').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim().replace(/\b\w/g,letter=>letter.toUpperCase())
 const orderPaymentMethod=order=>order?.payments?.[0]?.method||order?.payment_method||order?.payment||'gcash'
@@ -92,7 +94,7 @@ export function CheckoutPage(){
   const cart=useCart();const {items,subtotal}=cart;const {user,profile}=useAuth();const {pricing}=usePricing();const navigate=useNavigate();
   const [submitError,setSubmitError]=useState('');
   const [customerErrors,setCustomerErrors]=useState({fullName:'',contact:''});
-  const [paymentProof,setPaymentProof]=useState(null);const [paymentProofPreview,setPaymentProofPreview]=useState('');const [paymentProofError,setPaymentProofError]=useState('');const [validatingPaymentProof,setValidatingPaymentProof]=useState(false);
+  const [paymentProof,setPaymentProof]=useState(null);const [paymentProofPreview,setPaymentProofPreview]=useState('');const [paymentProofError,setPaymentProofError]=useState('');const [paymentReferenceError,setPaymentReferenceError]=useState('');const [validatingPaymentProof,setValidatingPaymentProof]=useState(false);
   const [systemSettings,setSystemSettings]=useState(SYSTEM_DEFAULTS);
   const [availableAreas,setAvailableAreas]=useState(deliveryAreas);
   const [addresses,setAddresses]=useState([]);const [selectedAddress,setSelectedAddress]=useState('');const [addressMode,setAddressMode]=useState('loading');const [draftReady,setDraftReady]=useState(false);const [requestKey,setRequestKey]=useState(()=>crypto.randomUUID());
@@ -141,12 +143,16 @@ export function CheckoutPage(){
   const set=(key,value)=>setForm(current=>({...current,[key]:value}));
   const setFulfillment=value=>setForm(current=>{const allowed=customerPaymentMethods(systemSettings.payments).filter(method=>value==='delivery'||method!=='cod');const payment=allowed.includes(current.payment)?current.payment:(allowed[0]||'');const targetDate=value==='delivery'&&Boolean(systemSettings.ordering?.allowDeliveryTomorrow)?(current.scheduleDate||manilaDate()):manilaDate();const nextTime=value==='pickup'?(pickupSlots[0]?.id||''):(scheduleSlots(targetDate,'delivery',systemSettings.ordering)[0]?.id||'10:00');return {...current,fulfillment:value,payment,paymentReference:payment===current.payment?current.paymentReference:'',scheduleDate:targetDate,scheduleTime:nextTime}});
   const clearPaymentProof=()=>{if(paymentProofPreview)URL.revokeObjectURL(paymentProofPreview);setPaymentProof(null);setPaymentProofPreview('');setPaymentProofError('');setValidatingPaymentProof(false)}
-  const setPayment=value=>{if(value===form.payment)return;setForm(current=>({...current,payment:value,paymentReference:''}));clearPaymentProof()};
+  const setPayment=value=>{if(value===form.payment)return;setForm(current=>({...current,payment:value,paymentReference:''}));setPaymentReferenceError('');clearPaymentProof()};
   const handleReferenceBlur=async ref=>{
     const cleanRef=String(ref||'').trim()
     if(!cleanRef)return
-    const isGcash=form.payment==='gcash'
-    if(isGcash?cleanRef.length===13:cleanRef.length>=6){
+    if(!validPaymentReference(form.payment,cleanRef)){
+      setPaymentReferenceError(paymentReferenceMessage(form.payment))
+      return
+    }
+    setPaymentReferenceError('')
+    if(cleanRef){
       try{
         const available=await checkCustomerPaymentReference(cleanRef)
         if(!available){
@@ -173,16 +179,18 @@ export function CheckoutPage(){
       await validateImageFile(next,{label:'Payment proof'})
       const ocrResult=await extractReferenceNumberFromReceipt(next)
       if(ocrResult?.success&&ocrResult?.referenceNumber){
-        const isGcash=form.payment==='gcash'
-        const cleaned=isGcash?ocrResult.referenceNumber.replace(/\D/g,'').slice(0,13):ocrResult.referenceNumber.slice(0,30)
+        const cleaned=ocrResult.referenceNumber.replace(/\D/g,'').slice(0,form.payment==='bank_transfer'?25:13)
         set('paymentReference',cleaned)
-        try{
-          const available=await checkCustomerPaymentReference(cleaned)
-          if(!available){
-            setPaymentProofError(`Reference number ${cleaned} has already been used by another customer. Please enter a valid, unused reference number.`)
+        setPaymentReferenceError(validPaymentReference(form.payment,cleaned)?'':paymentReferenceMessage(form.payment))
+        if(validPaymentReference(form.payment,cleaned)){
+          try{
+            const available=await checkCustomerPaymentReference(cleaned)
+            if(!available){
+              setPaymentProofError(`Reference number ${cleaned} has already been used by another customer. Please enter a valid, unused reference number.`)
+            }
+          }catch(err){
+            console.warn('[ocr] reference duplicate check:',err)
           }
-        }catch(err){
-          console.warn('[ocr] reference duplicate check:',err)
         }
       }
     }catch(cause){
@@ -211,7 +219,8 @@ export function CheckoutPage(){
       if(!selectedArea){setSubmitError('We do not deliver outside Quezon City for now. Please select an address within Quezon City.');return}
       if(Boolean(systemSettings.ordering?.allowDeliveryTomorrow)&&!form.scheduleTime){setSubmitError(`Choose an available delivery time for ${form.scheduleDate===manilaDate(1)?'tomorrow':'today'}.`);return}
     }
-    if(['gcash','bank_transfer'].includes(form.payment)&&!form.paymentReference.trim()){setPaymentProofError('Enter the reference number from your payment receipt.');return}
+    if(['gcash','bank_transfer'].includes(form.payment)&&!validPaymentReference(form.payment,form.paymentReference)){setPaymentReferenceError(paymentReferenceMessage(form.payment));return}
+    setPaymentReferenceError('')
     if(['gcash','bank_transfer'].includes(form.payment)&&!paymentProof){setPaymentProofError('Upload your payment proof before reviewing the order.');return}
     if(['gcash','bank_transfer'].includes(form.payment)&&form.paymentReference.trim()){
       try{
@@ -238,7 +247,7 @@ export function CheckoutPage(){
     <CheckoutSection n="1" title="Customer information"><div className="form-grid"><Field label="Full name" value={form.fullName} error={customerErrors.fullName} onChange={value=>{set('fullName',sanitizePersonName(value,60));setCustomerErrors(current=>({...current,fullName:''}))}} onBlur={()=>setCustomerErrors(current=>({...current,fullName:isTwoWordPersonName(form.fullName)?'':'Enter your first and last name (at least 2 words).'}))} maxLength={60} pattern="\\S+(\\s+\\S+)+" title="Enter your first and last name (at least 2 words)."/><Field label="Contact number" type="tel" value={form.contact} error={customerErrors.contact} onChange={value=>{set('contact',normalizePhone(value));setCustomerErrors(current=>({...current,contact:''}))}} onBlur={()=>setCustomerErrors(current=>({...current,contact:isValidPhone(form.contact)?'':'Enter a valid contact number starting with 09 (11 digits).'}))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Contact number must contain 11 digits and start with 09."/></div>{submitError&&<p className="field-hint error">{submitError}</p>}</CheckoutSection>
     <CheckoutSection n="2" title="Fulfillment"><div className="fulfillment-controls"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/>{form.fulfillment==='delivery'&&Boolean(systemSettings.ordering?.allowDeliveryTomorrow)&&<Choice title="Delivery date" options={[{id:manilaDate(),name:'Today'},{id:manilaDate(1),name:'Tomorrow'}]} value={form.scheduleDate||manilaDate()} onChange={value=>set('scheduleDate',value)}/>}{form.fulfillment==='delivery'&&Boolean(systemSettings.ordering?.allowDeliveryTomorrow)&&<SelectField label={`Delivery time (${form.scheduleDate===manilaDate(1)?'tomorrow':'today'})`} value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={deliverySlots} placeholder={deliverySlots.length?'Choose a time':`No delivery times available ${form.scheduleDate===manilaDate(1)?'tomorrow':'today'}`} disabled={!deliverySlots.length}/>}{form.fulfillment==='pickup'&&<SelectField label="Pickup time (today)" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={pickupSlots} placeholder={pickupSlots.length?'Choose a time':'No pickup times available today'} disabled={!pickupSlots.length}/>}</div>
     {form.fulfillment==='delivery'?<><fieldset className={`address-source-picker${addresses.length?' has-saved-addresses':''}`}><legend>Delivery address</legend><div>{addresses.length>0&&<button type="button" className={addressMode==='saved'?'active':''} onClick={()=>chooseAddressMode('saved')} aria-pressed={addressMode==='saved'}><span><MapPin size={18}/></span><b>Use saved address</b><small>{defaultAddress?(defaultAddress.label||'Default address'):`${addresses.length} saved address${addresses.length===1?'':'es'}`}</small></button>}<button type="button" className={addressMode==='new'?'active':''} onClick={()=>chooseAddressMode('new')} aria-pressed={addressMode==='new'}><span><Pencil size={18}/></span><b>{addresses.length?'Enter a new address':'Enter your delivery address'}</b>{addresses.length>0&&<small>Search or pin on the map</small>}</button></div></fieldset><DeliveryLocationPicker key={`${addressMode}-${selectedAddress||'new'}`} initialAddress={addressMode==='saved'&&addresses.length>0?form.address:''} address={form.address} barangay={form.barangay} selectedArea={selectedArea} onAddressChange={value=>set('address',value)} onBarangayChange={value=>set('barangay',value)} onCoordinatesChange={coords=>set('coordinates',coords)} />{form.fulfillment==='delivery'&&form.address.trim()&&!selectedArea&&<p className="field-hint error">We do not deliver outside Quezon City for now. Please select an address within Quezon City.</p>}</>:<PickupStoreLocation/>}<Field label={form.fulfillment==='delivery'?'Delivery instructions':'Pickup note (optional)'} value={form.instructions} onChange={value=>set('instructions',value)} maxLength={300} required={false}/></CheckoutSection>
-    <CheckoutSection n="3" title="Payment"><Choice title="Payment method" options={customerPaymentMethods(systemSettings.payments).filter(method=>form.fulfillment==='delivery'||method!=='cod').map(method=>({id:method,name:method==='cod'?'Cash on delivery':method==='bank_transfer'?'Bank transfer':method==='paymongo'?'PayMongo':method==='qrph'?'QRPh via PayMongo':'GCash'}))} value={form.payment} onChange={setPayment}/><CheckoutPaymentDetails payment={form.payment} paymentConfig={systemSettings.payments} total={total} referenceNumber={form.paymentReference} onReferenceChange={value=>{set('paymentReference',value);if(paymentProofError&&paymentProofError.includes('already been used')){setPaymentProofError('')}}} onReferenceBlur={handleReferenceBlur} proof={paymentProof} previewUrl={paymentProofPreview} proofError={paymentProofError} validatingProof={validatingPaymentProof} onProofChange={choosePaymentProof} onProofClear={clearPaymentProof}/></CheckoutSection>
+    <CheckoutSection n="3" title="Payment"><Choice title="Payment method" options={customerPaymentMethods(systemSettings.payments).filter(method=>form.fulfillment==='delivery'||method!=='cod').map(method=>({id:method,name:method==='cod'?'Cash on delivery':method==='bank_transfer'?'Bank transfer':method==='paymongo'?'PayMongo':method==='qrph'?'QRPh via PayMongo':'GCash'}))} value={form.payment} onChange={setPayment}/><CheckoutPaymentDetails payment={form.payment} paymentConfig={systemSettings.payments} total={total} referenceNumber={form.paymentReference} referenceError={paymentReferenceError} onReferenceChange={value=>{set('paymentReference',value);if(validPaymentReference(form.payment,value))setPaymentReferenceError('');if(paymentProofError&&paymentProofError.includes('already been used'))setPaymentProofError('')}} onReferenceBlur={handleReferenceBlur} proof={paymentProof} previewUrl={paymentProofPreview} proofError={paymentProofError} validatingProof={validatingPaymentProof} onProofChange={choosePaymentProof} onProofClear={clearPaymentProof}/></CheckoutSection>
     {systemSettings.ordering.storeStatus!=='open'&&<p className="field-hint error">{systemSettings.ordering.closureMessage}</p>}
     {cart.checkingAvailability?<p className="checkout-stock-refresh" role="status">Checking current item availability…</p>:null}
     <button type="submit" className="primary-button checkout-submit" disabled={cart.checkingAvailability||validatingPaymentProof||systemSettings.ordering.storeStatus!=='open'||!form.payment||(form.fulfillment==='delivery'&&!selectedArea)}>Review order · {money(total)} <ArrowRight/></button>
@@ -258,7 +267,7 @@ function PickupStoreLocation(){
     <div className="pickup-location-actions"><button type="button" onClick={copyAddress}><Copy size={14}/>{copied?'Copied':'Copy address'}</button><a href={mapsUrl} target="_blank" rel="noreferrer"><ExternalLink size={14}/>Open in Google Maps</a></div>
   </div>
 }
-function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onReferenceChange,onReferenceBlur,proof,previewUrl,proofError,validatingProof,onProofChange,onProofClear}){
+function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,referenceError,onReferenceChange,onReferenceBlur,proof,previewUrl,proofError,validatingProof,onProofChange,onProofClear}){
   const proofInputRef=useRef(null)
   if(payment==='cod')return <div className="checkout-payment-cod"><Info size={18}/><p><b>Pay when your order arrives.</b><span>Please prepare the exact amount whenever possible. Cash on delivery is available up to {money(Number(paymentConfig.codMaximum||1000))}.</span></p></div>
   if(payment==='paymongo'||payment==='qrph')return <section className="checkout-payment-details" aria-live="polite" aria-labelledby="checkout-paymongo-title"><div className="checkout-payment-details-head"><span><Lock size={19}/></span><div><h3 id="checkout-paymongo-title">Pay with PayMongo</h3></div><b>{money(total)}</b></div><div className="checkout-payment-instructions"><p>Continue to PayMongo after reviewing your order to complete payment securely.</p></div></section>
@@ -267,7 +276,7 @@ function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onR
   const label=isGcash?'GCash':'Bank transfer'
   const qr=isGcash?(paymentConfig.gcashQrUrl||'/assets/img/qr.jpg'):(paymentConfig.bankQrUrl||'/assets/img/qr1.jpg')
   const instructions=isGcash?paymentConfig.gcashInstructions:paymentConfig.bankInstructions
-  const changeReference=value=>onReferenceChange(isGcash?value.replace(/\D/g,'').slice(0,13):value.replace(/[^A-Za-z0-9-]/g,'').slice(0,30))
+  const changeReference=value=>onReferenceChange(value.replace(/\D/g,'').slice(0,isGcash?13:25))
   return <section className="checkout-payment-details" aria-live="polite" aria-labelledby="checkout-payment-details-title">
     <div className="checkout-payment-details-head"><span><img src={isGcash?'/images/gcashpic1.png':'/images/maribank1.png'} alt=""/></span><div><h3 id="checkout-payment-details-title">Pay with {label}</h3></div><b>{money(total)}</b></div>
     <div className="checkout-payment-columns">
@@ -286,7 +295,7 @@ function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,onR
       </div>
       <div className="checkout-payment-column checkout-payment-column-proof">
         <div className="checkout-proof-field"><span>Payment screenshot</span><input ref={proofInputRef} id="checkout-proof-upload" className="proof-file-input" type="file" accept={IMAGE_UPLOAD_ACCEPT} tabIndex={-1} aria-hidden="true" onClick={event=>{event.currentTarget.value=''}} onChange={onProofChange}/><button type="button" className={`proof-dropzone${previewUrl?' has-preview':''}${validatingProof?' is-scanning':''}`} aria-describedby={previewUrl?undefined:'checkout-proof-help'} onClick={()=>proofInputRef.current?.click()}>{previewUrl?<><img className="proof-preview-image" src={previewUrl} alt="Selected payment proof preview"/>{validatingProof&&<span className="inline-proof-scanning"><span className="inline-proof-scan-line"/><RotateCcw className="spinning" size={22}/>Scanning receipt…</span>}<span className="proof-preview-action"><Camera size={17}/>{validatingProof?'Reading reference…':'Change screenshot'}</span></>:<><Camera/><strong>Upload screenshot</strong><small id="checkout-proof-help">JPG, PNG, or WEBP</small></>}</button>{proof&&<div className="proof-file" aria-live="polite"><span>{proof.name}</span><button type="button" onClick={onProofClear} disabled={validatingProof}>Remove</button></div>}{proofError&&<p className="field-hint error" role="alert">{proofError}</p>}</div>
-        <label className="field checkout-reference-field"><span>{label} reference number</span><input required type="text" value={referenceNumber} onChange={event=>changeReference(event.target.value)} onBlur={()=>onReferenceBlur?.(referenceNumber)} inputMode={isGcash?'numeric':'text'} autoComplete="off" maxLength={isGcash?13:30} minLength={isGcash?13:6} pattern={isGcash?'[0-9]{13}':'[A-Za-z0-9-]{6,30}'} placeholder={isGcash?'Enter 13-digit reference':'Enter bank reference'} title={isGcash?'Enter exactly 13 digits from your GCash receipt.':'Enter 6 to 30 letters, numbers, or hyphens from your bank receipt.'}/></label>
+        <label className="field checkout-reference-field"><span>{label} reference number</span><input required type="text" value={referenceNumber} onChange={event=>changeReference(event.target.value)} onBlur={()=>onReferenceBlur?.(referenceNumber)} inputMode="numeric" autoComplete="off" maxLength={isGcash?13:25} minLength={isGcash?13:10} pattern={isGcash?'[0-9]{13}':'[0-9]{10,25}'} placeholder={isGcash?'Enter 13-digit reference':'Enter 10-25 digit reference'} title={paymentReferenceMessage(payment)} aria-invalid={Boolean(referenceError)} aria-describedby={referenceError?'checkout-reference-error':undefined}/>{referenceError&&<small id="checkout-reference-error" className="field-error-message" role="alert">{referenceError}</small>}</label>
       </div>
     </div>
   </section>

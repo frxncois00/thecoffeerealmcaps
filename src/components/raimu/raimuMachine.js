@@ -9,6 +9,7 @@ export const RAIMU_TIMINGS = Object.freeze({
   bubble: 4_500,
   greeting: 2_400,
   attention: 600,
+  listening: 1_800,
   talking: 1_800,
   success: 1_400,
   error: 2_600,
@@ -35,6 +36,7 @@ export function createRaimuMachine({
   let session = null
   let sequence = 0
   let queuedReaction = null
+  let context = { storeOpen: undefined, goalDay: null }
   const listeners = new Set()
   const timers = new Map()
   const bubbles = []
@@ -156,6 +158,19 @@ export function createRaimuMachine({
     getSnapshot: () => snapshot,
     subscribe: (listener) => { listeners.add(listener); return () => listeners.delete(listener) },
     setState, say, reactTo, clearBubbles,
+    updateContext({ storeOpen, sales, goal, day } = {}) {
+      if (typeof storeOpen === 'boolean') {
+        const justOpened = context.storeOpen === false && storeOpen
+        context.storeOpen = storeOpen
+        if (justOpened) reactTo('store-open')
+      }
+      // The host supplies its business-day key and configured target. There is
+      // no invented sales target, and a reached goal celebrates once per day.
+      if (day && Number.isFinite(sales) && Number.isFinite(goal) && goal > 0 && sales >= goal && context.goalDay !== day) {
+        context.goalDay = day
+        reactTo('sales-goal')
+      }
+    },
     dismissBubble: nextBubble,
     wake() {
       if (!running()) return
@@ -181,6 +196,7 @@ export function createRaimuMachine({
         Array.from(timers.keys()).forEach(clear)
         bubbles.length = 0
         queuedReaction = null
+        context = { storeOpen: undefined, goalDay: null }
         session = sessionKey
         publish({ state: 'idle', bubble: null, blink: false, earTwitch: false })
       }

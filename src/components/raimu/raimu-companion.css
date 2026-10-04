@@ -123,10 +123,10 @@
 .rc-status > span { width: 5px; height: 5px; border-radius: 50%; background: var(--rc-primary); }
 .rc-log { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px 18px; scrollbar-width: thin; scrollbar-color: var(--mgmt-border-strong) transparent; scroll-behavior: auto; }
 .rc-log:focus-visible { outline-offset: -4px !important; }
-.rc-empty { min-height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; padding: 6px 0 12px; }
-.rc-empty-icon { width: 51px; height: 51px; display: grid; place-items: center; border: 1px solid var(--rc-border); background: var(--rc-mint); border-radius: 18px; color: var(--rc-primary); margin-bottom: 16px; }
-.rc-empty h3 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -.025em; color: var(--mgmt-heading); }
-.rc-empty p { margin: 9px 0 20px; font-size: 12px; line-height: 1.75; color: var(--rc-muted); }
+.rc-empty { min-height: 100%; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; }
+.rc-empty-icon { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid var(--rc-border); background: var(--rc-mint); border-radius: 14px; color: var(--rc-primary); margin-bottom: 12px; flex-shrink: 0; }
+.rc-empty h3 { margin: 0; font-size: 17px; line-height: 1.25; font-weight: 650; letter-spacing: -.025em; color: var(--mgmt-heading); }
+.rc-empty p { margin: 8px 0 18px; font-size: 12px; line-height: 1.6; color: var(--rc-muted); }
 .rc-prompts { display: grid; width: 100%; gap: 8px; }
 .rc-prompts button { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 13px; min-height: 44px; background: var(--rc-surface); color: var(--rc-text); border: 1px solid var(--rc-border); border-radius: 11px; font-size: 12px; text-align: left; }
 .rc-prompts button:hover { background: var(--rc-mint); transform: translateY(-1px); }
@@ -141,12 +141,14 @@
 .rc-report-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
 .rc-report-actions button { display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 12px; border: 1px solid var(--rc-border); border-radius: 9px; background: var(--rc-surface); color: var(--rc-primary); font-size: 12px; }
 .rc-report-actions button:hover { background: var(--rc-mint); }
-.rc-typing { display: flex; align-items: center; gap: 9px; padding: 9px 2px; color: var(--rc-muted); font-size: 11px; }
+.rc-typing { display: flex; align-items: center; gap: 9px; width: fit-content; padding: 9px 12px; border-radius: 4px 13px 13px; background: var(--rc-mint); color: var(--rc-muted); font-size: 11px; }
 .rc-dots { display: inline-flex; align-items: center; justify-content: center; gap: 5px; height: 22px; color: var(--rc-primary); }
 .rc-dots i { display: block; width: 5px; height: 5px; background: currentColor; border-radius: 50%; animation: rc-dot 1.5s var(--rc-sine) infinite; }
 .rc-dots i:nth-child(2) { animation-delay: 160ms; }
 .rc-dots i:nth-child(3) { animation-delay: 320ms; }
 .rc-latest { align-self: center; display: flex; align-items: center; gap: 5px; min-height: 44px; border: 1px solid var(--rc-border); border-radius: 12px; padding: 0 14px; background: var(--rc-mint); color: var(--rc-primary); font-size: 12px !important; }
+.rc-inline-bubble { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 16px 8px; padding-left: 12px; border: 1px solid var(--rc-border); border-radius: 12px; background: var(--rc-mint); color: var(--rc-text); font-size: 12px; }
+.rc-inline-bubble button { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--rc-muted); }
 .rc-composer { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin: 0 16px 0; padding: 6px; background: var(--mgmt-input); border: 1px solid var(--rc-border); border-radius: 16px; }
 .rc-composer:focus-within { border-color: var(--rc-primary); }
 .rc-composer input { flex: 1; min-width: 0; height: 44px; border: 0; padding: 0 8px; background: transparent; color: var(--rc-text); font: inherit; font-size: 16px; }
