@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { fetchFinishedProducts, fetchIngredients } from './opsInventoryService'
+import { fetchIngredients } from './opsInventoryService'
 
 function purchaseUnitFactor(baseUnit, purchaseUnit) {
   const base = String(baseUnit || '').toLowerCase()
@@ -14,7 +14,7 @@ function purchaseUnitFactor(baseUnit, purchaseUnit) {
 
 export const PURCHASE_ORDER_STATUSES = [
   'draft', 'pending_approval', 'approved', 'rejected', 'sent',
-  'partially_received', 'received', 'disputed', 'closed', 'cancelled',
+  'pending_receiving_review', 'approved_for_payment', 'payment_review', 'disputed', 'closed', 'cancelled',
 ]
 
 export async function fetchPurchaseOrders() {
@@ -27,10 +27,9 @@ export async function fetchPurchaseOrders() {
 }
 
 export async function fetchPurchaseOrderOptions() {
-  const [ingredients, products] = await Promise.all([fetchIngredients(), fetchFinishedProducts()])
+  const ingredients = await fetchIngredients()
   return [
     ...ingredients.map((item) => ({ id: item.id, itemType: 'ingredient', name: item.name, unit: item.unit, quantity: item.quantity, minStockLevel: item.minStockLevel, highStockLevel: item.highStockLevel, supplier: item.supplier || '' })),
-    ...products.map((item) => ({ id: item.id, itemType: 'finished_product', name: item.name, unit: item.unit, quantity: item.quantity, minStockLevel: item.minStockLevel, highStockLevel: item.highStockLevel, supplier: item.supplier || '' })),
   ].sort((a, b) => a.name.localeCompare(b.name))
 }
 

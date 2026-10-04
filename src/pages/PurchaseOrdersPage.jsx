@@ -1,5 +1,8 @@
 import { useEffect, useId, useMemo, useState } from 'react'
 import { AlertTriangle, Check, ClipboardCheck, FileImage, FileText, ImagePlus, Package, PackageCheck, Plus, ReceiptText, Send, ShieldAlert, Store, Trash2, Upload, X } from 'lucide-react'
+import PurchaseStockBoard from '../components/PurchaseStockBoard'
+import { pricePerPurchaseUnit, updatePurchaseLine } from '../utils/purchaseLinePricing'
+import { needsRestock, suggestedQuantity } from '../utils/purchaseStock'
 import AppShell from '../components/AppShell'
 import { useAuth } from '../context/AuthContext'
 import { describeError } from '../utils/describeError'
@@ -10,9 +13,9 @@ import {
 } from '../services/purchaseOrderService'
 
 const STATUS_META = {
-  draft: ['Draft', 'neutral'], pending_approval: ['Pending Approval', 'amber'], approved: ['Approved', 'blue'],
-  rejected: ['Rejected', 'red'], sent: ['Sent', 'purple'], partially_received: ['Partially Received', 'amber'],
-  received: ['Received', 'green'], pending_receiving_review: ['Receiving Review', 'amber'], approved_for_payment: ['Approved for Payment', 'blue'], payment_review: ['Payment Review', 'amber'], disputed: ['Disputed', 'red'], closed: ['Closed', 'green'], cancelled: ['Cancelled', 'neutral'],
+  draft: ['Draft', 'neutral'], pending_approval: ['Pending Approval', 'amber'], approved: ['Ready to send', 'blue'],
+  rejected: ['Needs revision', 'red'], sent: ['Awaiting delivery', 'purple'], partially_received: ['Awaiting delivery (legacy)', 'amber'],
+  received: ['Received (legacy)', 'neutral'], pending_receiving_review: ['Inspection review', 'amber'], approved_for_payment: ['Awaiting payment', 'blue'], payment_review: ['Payment verification', 'amber'], disputed: ['Disputed', 'red'], closed: ['Completed', 'green'], cancelled: ['Cancelled', 'neutral'],
 }
 
 const EMPTY_DRAFT = { id: '', supplierName: '', supplierContact: '', requestedDeliveryDate: '', items: [{ itemType: 'ingredient', itemId: '', purchaseUnit: '', quantityOrdered: '', estimatedTotalCost: '' }] }
@@ -34,7 +37,7 @@ function unitFactor(baseUnit, purchaseUnit) {
 function purchaseDisplay(baseUnit, baseQuantity) {
   const quantity = Number(baseQuantity || 0)
   const larger = unitChoices(baseUnit).filter((choice) => choice.factor > 1).sort((a, b) => b.factor - a.factor)[0]
-  return larger && quantity >= larger.factor ? { unit: larger.value, quantity: quantity / larger.factor } : { unit: baseUnit, quantity }
+  return larger && quantity >= larger.factor ? { unit: larger.value, quantity: quantity / larger.factor } : { unit: unitChoices(baseUnit)[0].value, quantity }
 }
 
 function labelFor(status) { return STATUS_META[status]?.[0] || status }
@@ -50,6 +53,7 @@ function emptyDraftFromOrder(order) {
 export default function PurchaseOrdersPage({ role = 'staff' }) {
   const isAdmin = role === 'admin'
   const [orders, setOrders] = useState([])
+  const [stockSelection, setStockSelection] = useState([])
   const [options, setOptions] = useState([])
   const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -64,14 +68,30 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [formOpen, setFormOpen] = useState(false)
-  const [supplierPickerOpen, setSupplierPickerOpen] = useState(false)
-  const [supplierChoices, setSupplierChoices] = useState([])
+
   const [supplierOpen, setSupplierOpen] = useState(false)
   const [draft, setDraft] = useState(EMPTY_DRAFT)
   const [action, setAction] = useState(null)
   const [receivingOpen, setReceivingOpen] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [issueOpen, setIssueOpen] = useState(false)
+
+  useEffect(() => {
+    const dialogs = document.querySelectorAll('.po-modal[role="dialog"], .po-drawer[role="dialog"]')
+    const dialog = dialogs[dialogs.length - 1]
+    if (!dialog) return
+    const previous = document.activeElement
+    const focusable = () => [...dialog.querySelectorAll('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]')].filter((element) => element.getClientRects().length)
+    focusable()[0]?.focus()
+    function trap(event) {
+      if (event.key !== 'Tab') return
+      const elements = focusable(), first = elements[0], last = elements[elements.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+    }
+    dialog.addEventListener('keydown', trap)
+    return () => { dialog.removeEventListener('keydown', trap); if (previous?.isConnected) previous.focus() }
+  }, [selectedId, formOpen, receivingOpen, paymentOpen, issueOpen, supplierOpen, action?.type])
 
   const load = async () => {
     setLoading(true)
@@ -88,7 +108,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   useEffect(() => { load() }, [])
 
   const selected = orders.find((order) => order.id === selectedId) || null
-  const lowStockItems = useMemo(() => options.filter((item) => item.itemType === 'ingredient' && Number(item.quantity || 0) <= Number(item.minStockLevel || 0)), [options])
+  const lowStockItems = useMemo(() => options.filter(needsRestock), [options])
   const lowStockCount = lowStockItems.length
   const counts = useMemo(() => orders.reduce((acc, order) => { acc[order.status] = (acc[order.status] || 0) + 1; return acc }, {}), [orders])
   const filtered = useMemo(() => {
@@ -126,43 +146,24 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   function openCreateForSupplier(supplierName, lowStock) {
     const supplier = suppliers.find((entry) => entry.name === supplierName)
     const suggested = (lowStock || []).map((item) => ({
-      itemType: item.itemType, itemId: item.id, purchaseUnit: item.unit || 'piece',
-      quantityOrdered: Math.max(Number(item.highStockLevel || 0) - Number(item.quantity || 0), 1), estimatedTotalCost: '',
+      itemType: item.itemType, itemId: item.id, purchaseUnit: purchaseDisplay(item.unit, suggestedQuantity(item)).unit,
+      quantityOrdered: purchaseDisplay(item.unit, suggestedQuantity(item)).quantity, estimatedTotalCost: '',
     }))
     setDraft({ ...EMPTY_DRAFT, supplierName: supplierName === 'Unassigned supplier' ? '' : supplierName, supplierContact: supplier?.contact || '', items: suggested.length ? suggested : EMPTY_DRAFT.items })
-    setSupplierPickerOpen(false)
     setFormOpen(true)
   }
-  function openCreate() {
-    // Start from the inventory exceptions so staff only confirms quantities and price.
-    const lowStock = options.filter((item) => item.itemType === 'ingredient' && Number(item.quantity || 0) <= Number(item.minStockLevel || 0))
-    const groups = lowStock.reduce((acc, item) => {
-      const supplierName = getSupplierForItem(item) || 'Unassigned supplier'
-      acc[supplierName] = [...(acc[supplierName] || []), item]
-      return acc
-    }, {})
-    const choices = Object.entries(groups).map(([name, items]) => ({ name, items }))
-    if (choices.length > 1) {
-      setSupplierChoices(choices)
-      setSupplierPickerOpen(true)
-      return
-    }
-    if (choices.length === 1) {
-      openCreateForSupplier(choices[0].name, choices[0].items)
-      return
-    }
-    openCreateForSupplier('', [])
-  }
+  function openCreate() { openCreateForSupplier('', []) }
   async function saveSupplierRecord(payload) { await saveSupplier(payload); await load(); announce('Supplier saved.') }
   function openEdit(order) { setDraft(emptyDraftFromOrder(order)); setFormOpen(true) }
   async function saveDraft(payload) {
     try {
       const id = await savePurchaseOrder({ ...payload, options })
       setFormOpen(false)
+      setStockSelection((current) => current.filter((key) => !payload.items.some((item) => `${item.itemType}:${item.itemId}` === key)))
       await load()
       setSelectedId(id)
       announce(payload.submit ? 'Purchase order submitted.' : 'Draft saved.')
-    } catch (cause) { setError(describeError(cause, 'Purchase order could not be saved.')) }
+    } catch (cause) { throw new Error(describeError(cause, 'Purchase order could not be saved.')) }
   }
   async function runAction() {
     if (!action || !selected) return
@@ -172,8 +173,8 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
       if (action.type === 'send') await markPurchaseOrderSent(selected.id, action.note)
       if (action.type === 'close') await closePurchaseOrder(selected.id, action.note)
       if (action.type === 'cancel') await cancelPurchaseOrder(selected.id, action.note)
-      if (action.type === 'receiving-review') await reviewReceiving(true, action.note)
-      if (action.type === 'payment-review') await verifyPayment(true, action.note)
+      if (action.type === 'receiving-review') { await reviewReceiving(true, action.note); return }
+      if (action.type === 'payment-review') { await verifyPayment(true, action.note); return }
       setAction(null)
       await load()
       announce(action.type === 'approve' ? 'Purchase order approved.' : `${action.type[0].toUpperCase()}${action.type.slice(1)} action saved.`)
@@ -199,20 +200,15 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
       {error ? <div className="po-alert is-error" role="alert">{error}<button type="button" onClick={() => setError('')} aria-label="Dismiss error"><X size={15} /></button></div> : null}
       {notice ? <div className="po-alert is-success" role="status"><Check size={15} />{notice}</div> : null}
 
-      {lowStockCount > 0 ? (
-        <LowStockSlideshow
-          items={lowStockItems}
-          getSupplier={getSupplierForItem}
-          onOrder={(supplierName, items) => openCreateForSupplier(supplierName, items)}
-          isAdmin={isAdmin}
-        />
-      ) : null}
+      <PurchaseStockBoard selected={stockSelection} setSelected={setStockSelection} items={lowStockItems} loading={loading} isAdmin={isAdmin} getSupplier={getSupplierForItem} onCreate={openCreateForSupplier} />
 
       <section className="po-summary" aria-label="Purchase order summary">
         <Summary label="Pending Approval" value={counts.pending_approval || 0} tone="amber" icon={<AlertTriangle size={18} />} detail="Needs review" />
         <Summary label="Approved" value={counts.approved || 0} tone="blue" icon={<Check size={18} />} detail="Ready to send" />
         <Summary label="In Receiving" value={(counts.sent || 0) + (counts.partially_received || 0)} tone="purple" icon={<PackageCheck size={18} />} detail="Open deliveries" />
-        <Summary label="Closed" value={counts.closed || 0} tone="green" icon={<Package size={18} />} detail="Completed orders" />
+        <Summary label="Completed" value={counts.closed || 0} tone="green" icon={<Package size={18} />} detail="Completed orders" />
+        <Summary label="Inspection review" value={counts.pending_receiving_review || 0} tone="amber" icon={<ShieldAlert size={18} />} detail="Admin checks delivery" />
+        <Summary label="Payments" value={(counts.approved_for_payment || 0) + (counts.payment_review || 0)} tone="blue" icon={<ReceiptText size={18} />} detail="Admin records and verifies" />
       </section>
 
       <section className="po-toolbar">
@@ -221,7 +217,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
         <select value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)} aria-label="Filter purchase orders by supplier"><option value="all">All suppliers</option>{suppliersInOrders.map((supplier) => <option value={supplier} key={supplier}>{supplier}</option>)}</select>
         <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Sort purchase orders"><option value="updated-desc">Sort: Recently updated</option><option value="delivery-asc">Sort: Delivery date</option><option value="name">Sort: Supplier name</option><option value="status">Sort: Status</option></select>
         <label className="po-date-filter"><span>Delivery from</span><input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} aria-label="Show purchase orders from delivery date" /></label>
-        {!isAdmin ? <><button type="button" className="ops-secondary-action" onClick={() => setSupplierOpen(true)}><Store size={16} /> Suppliers</button><button type="button" className="ops-main-action" onClick={openCreate}><Plus size={16} /> Generate P.O.{lowStockCount ? ` (${lowStockCount})` : ''}</button></> : null}
+        {!isAdmin ? <><button type="button" className="ops-secondary-action" onClick={() => setSupplierOpen(true)}><Store size={16} /> Suppliers</button><button type="button" className="ops-main-action" onClick={openCreate}><Plus size={16} /> Create custom order</button></> : null}
       </section>
 
         <section className="po-table-panel">
@@ -232,9 +228,9 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
       <footer className="po-pagination"><span>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filtered.length)} of {filtered.length}</span><label>Rows<select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label><div><button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>‹</button><b>Page {page} of {pageCount}</b><button type="button" aria-label="Next page" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)}>›</button></div></footer>
 
       {selected ? <PurchaseOrderDrawer order={selected} isAdmin={isAdmin} onClose={() => setSelectedId('')} onEdit={() => openEdit(selected)} onSubmit={() => saveDraft({ ...emptyDraftFromOrder(selected), submit: true })} onApprove={() => setAction({ type: 'approve', title: 'Approve purchase order', label: 'Approve', note: '' })} onReject={() => setAction({ type: 'reject', title: 'Reject purchase order', label: 'Reject', note: '' })} onSend={() => setAction({ type: 'send', title: 'Mark as sent', label: 'Mark Sent', note: selected.supplierReference || '' })} onReceive={() => setReceivingOpen(true)} onPayment={() => setPaymentOpen(true)} onReviewReceiving={() => setAction({ type: 'receiving-review', title: 'Review receiving', label: 'Approve receiving', note: '' })} onReviewPayment={() => setAction({ type: 'payment-review', title: 'Verify payment', label: 'Verify payment', note: '' })} onCloseOrder={() => setAction({ type: 'close', title: 'Close purchase order', label: 'Close PO', note: '' })} onCancel={() => setAction({ type: 'cancel', title: 'Cancel purchase order', label: 'Cancel PO', note: '' })} /> : null}
-      {supplierPickerOpen ? <SupplierPickerModal choices={supplierChoices} onClose={() => setSupplierPickerOpen(false)} onSelect={(choice) => openCreateForSupplier(choice.name, choice.items)} onBlankOrder={() => openCreateForSupplier('', [])} /> : null}
-      {formOpen ? <PurchaseOrderForm draft={draft} options={options} suppliers={suppliers} onClose={() => setFormOpen(false)} onSave={saveDraft} /> : null}
-      {supplierOpen ? <SupplierModal options={options} suppliers={suppliers} onClose={() => setSupplierOpen(false)} onSave={async (payload) => { await saveSupplierRecord(payload); setSupplierOpen(false) }} /> : null}
+
+      {formOpen ? <PurchaseOrderForm draft={draft} options={options.filter((option) => option.itemType === 'ingredient')} suppliers={suppliers} onClose={() => setFormOpen(false)} onSave={saveDraft} /> : null}
+      {supplierOpen ? <SupplierModal options={options.filter((option) => option.itemType === 'ingredient')} suppliers={suppliers} onClose={() => setSupplierOpen(false)} onSave={async (payload) => { await saveSupplierRecord(payload); setSupplierOpen(false) }} /> : null}
       {receivingOpen && selected ? <ReceivingModal order={selected} onClose={() => setReceivingOpen(false)} onSave={submitReceiving} onReport={() => setIssueOpen(true)} /> : null}
       {issueOpen && selected ? <IssueReportModal order={selected} onClose={() => setIssueOpen(false)} onSave={reportIssue} /> : null}
       {paymentOpen && selected ? <PaymentModal order={selected} onClose={() => setPaymentOpen(false)} onSave={submitPayment} /> : null}
@@ -247,22 +243,25 @@ function Summary({ label, value, tone, icon, detail }) { return <article classNa
 function StatusBadge({ status }) { return <span className={`po-status po-status-${toneFor(status)}`}>{labelFor(status)}</span> }
 
 function PurchaseOrderDrawer({ order, isAdmin, onClose, onEdit, onSubmit, onApprove, onReject, onSend, onReceive, onPayment, onReviewReceiving, onReviewPayment, onCloseOrder, onCancel }) {
-  const canEdit = !isAdmin && order.status === 'draft'
-  const canSend = !isAdmin && order.status === 'approved'
+  const canEdit = !isAdmin && ['draft', 'rejected'].includes(order.status)
+  const canSend = order.status === 'approved'
   const canReceive = !isAdmin && ['sent', 'partially_received', 'disputed'].includes(order.status)
-  const canPayment = !isAdmin && order.status === 'approved_for_payment'
+  const canPayment = isAdmin && order.status === 'approved_for_payment'
   const canReviewReceiving = isAdmin && order.status === 'pending_receiving_review'
   const canReviewPayment = isAdmin && order.status === 'payment_review'
   const canClose = false
   return <><button type="button" className="po-drawer-backdrop" onClick={onClose} aria-label="Close purchase order details" /><aside className="po-drawer" role="dialog" aria-modal="true" aria-label={`Purchase order ${order.po_number}`} onClick={(event) => event.stopPropagation()}>
     <header><button type="button" className="po-close" onClick={onClose} aria-label="Close purchase order"><X size={18} /></button><div className="po-drawer-title"><div><span>Purchase order</span><h2>{order.po_number}</h2></div><StatusBadge status={order.status} /></div></header>
     <div className="po-drawer-body">
+      <div className="po-stage-guidance"><strong>{labelFor(order.status)}</strong><p>{{ draft: 'Staff: complete the order and submit it for approval.', pending_approval: 'Admin: review quantities, estimated costs, and the requested delivery date.', approved: 'Staff or admin: send the approved order to the supplier, then record it as sent.', sent: 'Staff: inspect the delivery and attach the invoice and delivery evidence.', pending_receiving_review: 'Admin: compare accepted quantities and delivery evidence with the supplier invoice.', approved_for_payment: 'Admin: record the supplier payment and attach the receipt.', payment_review: 'Admin: verify the payment. Accepted quantities will be added to inventory once.', closed: 'Payment verified. Accepted items have been added to inventory.', rejected: 'Staff: revise the order using the admin feedback, then resubmit.', disputed: 'Staff: resolve delivery issues with the supplier, then submit the corrected inspection.' }[order.status] || 'Review the activity and documents for this order.'}</p>{order.rejection_reason && <p>Review note: {order.rejection_reason}</p>}{order.receiving_review_note && <p>Inspection note: {order.receiving_review_note}</p>}</div>
+      {order.status === 'payment_review' && <div className="po-payment-summary"><span>Payment to verify · {order.payment_method}</span><strong>{money(order.payment_amount)}</strong><small>{order.payment_reference || 'No reference recorded'}</small></div>}
+
       <div className="po-detail-grid"><div><span>Supplier</span><b>{order.supplierName}</b></div><div><span>Delivery date</span><b>{dateLabel(order.requestedDeliveryDate)}</b></div><div><span>Created by</span><b>{order.createdByName || '—'}</b></div><div><span>Estimated total</span><b>{money(totalFor(order))}</b></div></div>
       <div className="po-section-heading"><h3>Items</h3><span>{order.items.length} lines</span></div>
       <div className="po-lines"><table><thead><tr><th>Item</th><th>Ordered</th><th>Accepted</th><th>Cost</th></tr></thead><tbody>{order.items.map((item) => <tr key={item.id}><td><b>{item.item_name}</b><small>{item.unit}</small></td><td>{qty(item.quantityOrdered)}</td><td>{qty(item.acceptedQuantity)}</td><td>{money(item.actualUnitCost === '' ? item.estimatedUnitCost : item.actualUnitCost)}</td></tr>)}</tbody></table></div>
       {order.documents?.length ? <div className="po-document-list"><div className="po-section-heading"><h3>Attached documents</h3></div>{Array.from(new Map(order.documents.map((document) => [`${String(document.file_name || '').trim().toLowerCase()}|${String(document.document_type || '').trim().toLowerCase()}`, document])).values()).map((document) => <div key={`${document.file_name}|${document.document_type}`}><DocumentLink document={document} /><small>{document.document_type.replaceAll('_', ' ')}</small></div>)}</div> : null}
       <div className="po-actions">
-        {canEdit ? <button type="button" className="ops-secondary-action" onClick={onEdit}>Edit draft</button> : null}
+        {canEdit ? <button type="button" className="ops-secondary-action" onClick={onEdit}>{order.status === 'rejected' ? 'Revise order' : 'Edit draft'}</button> : null}
         {canEdit ? <button type="button" className="ops-main-action" onClick={onSubmit}>Submit for approval</button> : null}
         {isAdmin && order.status === 'pending_approval' ? <><button type="button" className="ops-destructive-action" onClick={onReject}>Reject</button><button type="button" className="ops-main-action" onClick={onApprove}>Approve</button></> : null}
         {canSend ? <button type="button" className="ops-main-action" onClick={onSend}><Send size={15} /> Mark Sent</button> : null}
@@ -279,21 +278,6 @@ function PurchaseOrderDrawer({ order, isAdmin, onClose, onEdit, onSubmit, onAppr
   </aside></>
 }
 
-function LegacyPurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
-  const [values, setValues] = useState(draft)
-  const selectedSupplier = suppliers.find((supplier) => supplier.name === values.supplierName) || null
-  const [itemSearches, setItemSearches] = useState({})
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const set = (key, value) => setValues((current) => ({ ...current, [key]: value }))
-  const setLine = (index, key, value) => setValues((current) => ({ ...current, items: current.items.map((line, itemIndex) => itemIndex === index ? { ...line, [key]: value } : line) }))
-  async function submit(event, submit) {
-    event.preventDefault(); setError(''); if (values.items.some((item) => !item.itemId)) { setError('Select an ingredient from the list for every line.'); return } setSubmitting(true)
-    try { await onSave({ ...values, submit }) } catch (cause) { setError(cause.message || 'Could not save purchase order.') } finally { setSubmitting(false) }
-  }
-  return <div className="po-modal-backdrop"><section className="po-modal po-form-modal" role="dialog" aria-modal="true" aria-label={values.id ? 'Edit purchase order' : 'New purchase order'}><header><div><span>Inventory purchasing</span><h2>{values.id ? 'Edit Draft PO' : 'New Purchase Order'}</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><form onSubmit={(event) => submit(event, false)}><div className="po-form-grid"><Field label="Supplier" required><input value={values.supplierName} onChange={(event) => set('supplierName', event.target.value)} maxLength={120} required /></Field><Field label="Supplier contact"><input value={values.supplierContact} onChange={(event) => set('supplierContact', event.target.value)} maxLength={120} /></Field><Field label="Requested delivery"><input type="date" value={values.requestedDeliveryDate} onChange={(event) => set('requestedDeliveryDate', event.target.value)} /></Field><Field label="Reason"><input value={values.reason} onChange={(event) => set('reason', event.target.value)} maxLength={160} /></Field></div><Field label="Notes"><textarea rows="2" value={values.notes} onChange={(event) => set('notes', event.target.value)} maxLength={500} /></Field><div className="po-section-heading"><h3>Items</h3><button type="button" className="ops-secondary-action compact" onClick={() => setValues((current) => ({ ...current, items: [...current.items, { itemType: 'ingredient', itemId: '', quantityOrdered: '', estimatedUnitCost: '' }] }))}><Plus size={14} /> Add line</button></div><div className="po-form-lines">{values.items.map((line, index) => { const selectedOption = options.find((option) => option.id === line.itemId && option.itemType === line.itemType); return <div className="po-form-line" key={`${index}-${line.itemId}`}><div className="po-line-item"><IngredientCombobox options={options.filter((option) => option.itemType === 'ingredient')} value={itemSearches[index] || selectedOption?.name || ''} placeholder="Select or search ingredient" ariaLabel={`Select ingredient for line ${index + 1}`} onChange={(value) => setItemSearches((current) => ({ ...current, [index]: value }))} onSelect={(item) => { setLine(index, 'itemType', item.itemType); setLine(index, 'itemId', item.id); setItemSearches((current) => ({ ...current, [index]: item.name })); if (!values.supplierName) set('supplierName', item.supplier) }} /></div><input type="number" min="0.01" step="0.01" placeholder="Qty" aria-label="Quantity ordered" value={line.quantityOrdered} onChange={(event) => setLine(index, 'quantityOrdered', event.target.value)} required /><input type="number" min="0" step="0.01" placeholder="Est. cost" aria-label="Estimated unit cost" value={line.estimatedUnitCost} onChange={(event) => setLine(index, 'estimatedUnitCost', event.target.value)} /><button type="button" className="po-line-remove" onClick={() => setValues((current) => ({ ...current, items: current.items.length === 1 ? current.items : current.items.filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Remove line"><X size={16} /></button></div> })}</div>{error ? <p className="po-inline-error">{error}</p> : null}<footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-secondary-action" disabled={submitting}>Save Draft</button><button type="button" className="ops-main-action" disabled={submitting} onClick={(event) => submit(event, true)}>Submit for Approval</button></footer></form></section></div>
-}
-
 function ReceivingModal({ order, onClose, onSave, onReport }) {
   const [lines, setLines] = useState(order.items.map((item) => ({ ...item })))
   const [notes, setNotes] = useState(order.receiving_notes || '')
@@ -306,9 +290,9 @@ function ReceivingModal({ order, onClose, onSave, onReport }) {
     event.preventDefault()
     setError('')
     const incomplete = lines.some((line) => line.receivedQuantity === '' || line.acceptedQuantity === '' || line.actualUnitCost === '')
-    if (incomplete) { const message = 'Complete Received, Accepted, and Actual cost for every item before saving.'; setError(message); window.alert(message); return }
+    if (incomplete) { const message = 'Complete Received, Accepted, and Actual cost for every item before saving.'; setError(message); return }
     setSaving(true)
-    if (!proof || !invoice) { const message = 'Upload proof of items received and the supplier invoice before submitting.'; setError(message); window.alert(message); return }
+    if (!proof || !invoice) { const message = 'Upload proof of items received and the supplier invoice before submitting.'; setError(message); return }
     try { await onSave(lines, notes, { proof, invoice }) } finally { setSaving(false) }
   }
   return <div className="po-modal-backdrop">
@@ -318,13 +302,13 @@ function ReceivingModal({ order, onClose, onSave, onReport }) {
         <div className="po-receiving-steps">
           <div className="po-receiving-step is-active"><b>1</b><span><strong>Check quantities</strong><small>What arrived and what is usable</small></span></div>
           <div className="po-receiving-step"><b>2</b><span><strong>Record exceptions</strong><small>Damaged or missing items</small></span></div>
-          <div className="po-receiving-step"><b>3</b><span><strong>Save receiving</strong><small>Update inventory</small></span></div>
+          <div className="po-receiving-step"><b>3</b><span><strong>Submit inspection</strong><small>Admin reviews before payment</small></span></div>
         </div>
         {lines.map((line, index) => <section className="po-receive-card" key={line.id}>
-          <div className="po-receive-card-head"><div><h3>{line.item_name}</h3><p>Ordered <strong>{qty(line.quantityOrdered)} {line.unit}</strong> <span>· inventory unit</span></p></div><label className="po-inline-expiry">Expiry date<input type="date" value={line.expirationDate} onChange={(event) => setLine(index, 'expirationDate', event.target.value)} /></label><span className="po-receive-status">Line {index + 1}</span></div>
-          <div className="po-receive-instruction">Enter quantities in <strong>{line.unit}</strong>. Accepted quantity is what will be added to inventory.</div>
+          <div className="po-receive-card-head"><div><h3>{line.item_name}</h3><p>Ordered <strong>{qty(line.quantityOrdered)} {line.unit}</strong> <span>· inventory unit</span></p></div><span className="po-receive-status">Line {index + 1}</span></div>
+          <div className="po-receive-instruction">Enter quantities in <strong>{line.unit}</strong>. Accepted quantity enters inventory only after admin verifies payment.</div>
           <div className="po-receive-groups">
-            <fieldset className="po-receive-group po-receive-group-primary"><legend>What arrived</legend><label>Received <input type="number" min="0" step="0.01" value={line.receivedQuantity} onChange={(event) => setLine(index, 'receivedQuantity', event.target.value)} required /></label><label>Accepted into stock <input type="number" min="0" step="0.01" value={line.acceptedQuantity} onChange={(event) => setLine(index, 'acceptedQuantity', event.target.value)} required /></label><small>Accepted cannot be greater than received.</small></fieldset>
+            <fieldset className="po-receive-group po-receive-group-primary"><legend>What arrived</legend><label>Received <input type="number" min="0" step="0.01" value={line.receivedQuantity} onChange={(event) => setLine(index, 'receivedQuantity', event.target.value)} required /></label><label>Accepted quantity <input type="number" min="0" step="0.01" value={line.acceptedQuantity} onChange={(event) => setLine(index, 'acceptedQuantity', event.target.value)} required /></label><small>Accepted cannot be greater than received.</small></fieldset>
             <fieldset className="po-receive-group po-receive-group-exceptions"><legend>Exceptions</legend><label>Damaged <input type="number" min="0" step="0.01" value={line.damagedQuantity} onChange={(event) => setLine(index, 'damagedQuantity', event.target.value)} /></label><label>Missing <input type="number" min="0" step="0.01" value={line.missingQuantity} onChange={(event) => setLine(index, 'missingQuantity', event.target.value)} /></label></fieldset>
             <fieldset className="po-receive-group po-receive-group-trace"><legend>Traceability</legend><label>Actual cost / {line.unit}<input type="number" min="0" step="0.01" value={line.actualUnitCost} onChange={(event) => setLine(index, 'actualUnitCost', event.target.value)} required /></label><label>Batch / lot<input value={line.batchNumber} onChange={(event) => setLine(index, 'batchNumber', event.target.value)} /></label><label>Expiry date<input type="date" value={line.expirationDate} onChange={(event) => setLine(index, 'expirationDate', event.target.value)} /></label></fieldset>
           </div>
@@ -430,9 +414,12 @@ function DocumentLink({ document }) {
 }
 
 function ActionModal({ action, onClose, onChange, onConfirm, onReturn }) {
+  const [busy, setBusy] = useState(false)
+  async function perform(callback) { if (busy) return; setBusy(true); try { await callback() } finally { setBusy(false) } }
+
   const needsNote = ['reject', 'send', 'close', 'cancel', 'receiving-review', 'payment-review'].includes(action.type)
   const review = ['receiving-review', 'payment-review'].includes(action.type)
-  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal" role="dialog" aria-modal="true" aria-label={action.title}><header><h2>{action.title}</h2><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header>{needsNote ? <Field label={action.type === 'send' ? 'Supplier reference' : action.type === 'reject' ? 'Rejection reason' : 'Review note'} required={action.type === 'reject'}><textarea rows="3" value={action.note} onChange={(event) => onChange(event.target.value)} required={action.type === 'reject'} /></Field> : <p className="po-confirm-line">Confirm {action.title.toLowerCase()}.</p>}<footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button>{review ? <button type="button" className="ops-destructive-action" onClick={onReturn}>Return for correction</button> : null}<button type="button" className={action.type === 'reject' || action.type === 'cancel' ? 'ops-destructive-action' : 'ops-main-action'} onClick={onConfirm}>{action.label}</button></footer></section></div>
+  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal" role="dialog" aria-modal="true" aria-label={action.title}><header><h2>{action.title}</h2><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header>{needsNote ? <Field label={action.type === 'send' ? 'Supplier reference' : action.type === 'reject' ? 'Rejection reason' : 'Review note'} required={action.type === 'reject'}><textarea rows="3" value={action.note} onChange={(event) => onChange(event.target.value)} required={action.type === 'reject'} /></Field> : <p className="po-confirm-line">Confirm {action.title.toLowerCase()}.</p>}<footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button>{review ? <button type="button" className="ops-destructive-action" disabled={busy || !action.note.trim()} onClick={() => perform(onReturn)}>Return for correction</button> : null}<button type="button" className={action.type === 'reject' || action.type === 'cancel' ? 'ops-destructive-action' : 'ops-main-action'} disabled={busy || (action.type === 'reject' && !action.note.trim())} onClick={() => perform(onConfirm)}>{busy ? 'Saving…' : action.label}</button></footer></section></div>
 }
 function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
   const [values, setValues] = useState(draft)
@@ -442,7 +429,7 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
   const [previewOpen, setPreviewOpen] = useState(false)
   const selectedSupplier = suppliers.find((supplier) => supplier.name === values.supplierName) || null
   const set = (key, value) => setValues((current) => ({ ...current, [key]: value }))
-  const setLine = (index, key, value) => setValues((current) => ({ ...current, items: current.items.map((line, itemIndex) => itemIndex === index ? { ...line, [key]: value } : line) }))
+  const setLine = (index, key, value) => setValues((current) => ({ ...current, items: current.items.map((line, itemIndex) => itemIndex === index ? updatePurchaseLine(line, key, value) : line) }))
   useEffect(() => {
     const hasSelectedItems = values.items.some((item) => item.itemId)
     const isBlankPlaceholder = values.items.length === 1 && !values.items[0].itemId
@@ -451,7 +438,7 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
       const itemType = item.item_type === 'finished_product' ? 'finished_product' : 'ingredient'
       const itemId = item.ingredient_id || item.finished_product_id
       const option = options.find((entry) => entry.itemType === itemType && String(entry.id) === String(itemId))
-      return option ? { itemType: option.itemType, itemId: option.id, purchaseUnit: option.unit, quantityOrdered: '', estimatedTotalCost: '' } : null
+      return option ? { itemType: option.itemType, itemId: option.id, purchaseUnit: unitChoices(option.unit)[0].value, quantityOrdered: '', estimatedTotalCost: '' } : null
     }).filter(Boolean)
     if (savedItems.length) {
       setValues((current) => ({ ...current, items: savedItems }))
@@ -462,15 +449,15 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
     event.preventDefault(); setError('')
     if (!values.supplierName.trim()) { setError('Select a supplier.'); return }
     if (values.items.some((item) => !item.itemId)) { setError('Select an ingredient from the list for every line.'); return }
-    if (values.items.some((item) => !item.purchaseUnit || Number(item.quantityOrdered) <= 0 || item.estimatedTotalCost === '' || Number(item.estimatedTotalCost) < 0)) { setError('Complete the unit, quantity, and total price for every item line.'); return }
+    if (values.items.some((item) => !item.purchaseUnit || (!Number.isFinite(Number(item.quantityOrdered)) || Number(item.quantityOrdered) <= 0) || item.estimatedTotalCost === '' || (!Number.isFinite(Number(item.estimatedTotalCost)) || Number(item.estimatedTotalCost) < 0))) { setError('Complete the unit, quantity, and total price for every item line.'); return }
     if (shouldSubmit) { setPreviewOpen(true); return }
     setSubmitting(true)
     try { await onSave({ ...values, submit: shouldSubmit }) } catch (cause) { setError(cause.message || 'Could not save purchase order.') } finally { setSubmitting(false) }
   }
-  if (previewOpen) return <PurchaseOrderPreview values={values} options={options} onBack={() => setPreviewOpen(false)} onConfirm={async () => { setPreviewOpen(false); setSubmitting(true); try { await onSave({ ...values, submit: true }) } catch (cause) { setError(cause.message || 'Could not submit purchase order.') } finally { setSubmitting(false) } }} submitting={submitting} />
+  if (previewOpen) return <PurchaseOrderPreview values={values} options={options.filter((option) => option.itemType === 'ingredient')} onBack={() => setPreviewOpen(false)} onConfirm={async () => { setPreviewOpen(false); setSubmitting(true); try { await onSave({ ...values, submit: true }) } catch (cause) { setError(cause.message || 'Could not submit purchase order.') } finally { setSubmitting(false) } }} submitting={submitting} />
   return <div className="po-modal-backdrop">
     <section className="po-modal po-form-modal" role="dialog" aria-modal="true" aria-label={values.id ? 'Edit purchase order' : 'New purchase order'}>
-      <header><div><span>Inventory purchasing</span><h2>{values.id ? 'Edit Draft PO' : 'New Purchase Order'}</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header>
+      <header><div><span>Inventory purchasing</span><h2>{values.id ? 'Edit purchase order' : 'New Purchase Order'}</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header>
       <form onSubmit={(event) => submit(event, false)}>
         <div className="po-create-grid">
           <section className="po-create-supplier">
@@ -491,11 +478,11 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
               const perUnit = Number(line.quantityOrdered) > 0 ? Number(line.estimatedTotalCost || 0) / Number(line.quantityOrdered) : 0
               const factor = unitFactor(selectedOption?.unit, purchaseUnit)
               return <div className="po-form-line po-order-line" key={`${index}-${line.itemId}`}>
-                <div className="po-line-item"><IngredientCombobox options={options.filter((option) => option.itemType === 'ingredient')} value={itemSearches[index] || selectedOption?.name || ''} placeholder="Select ingredient" ariaLabel={`Select ingredient for line ${index + 1}`} onChange={(value) => setItemSearches((current) => ({ ...current, [index]: value }))} onSelect={(item) => { setLine(index, 'itemType', item.itemType); setLine(index, 'itemId', item.id); setLine(index, 'purchaseUnit', item.unit); setItemSearches((current) => ({ ...current, [index]: item.name })) }} /></div>
+                <div className="po-line-item"><IngredientCombobox options={options.filter((option) => option.itemType === 'ingredient')} value={itemSearches[index] || selectedOption?.name || ''} placeholder="Select item" ariaLabel={`Select item for line ${index + 1}`} onChange={(value) => setItemSearches((current) => ({ ...current, [index]: value }))} onSelect={(item) => { setLine(index, 'itemType', item.itemType); setLine(index, 'itemId', item.id); setLine(index, 'purchaseUnit', unitChoices(item.unit)[0].value); setItemSearches((current) => ({ ...current, [index]: item.name })) }} /></div>
                 <select value={purchaseUnit} onChange={(event) => setLine(index, 'purchaseUnit', event.target.value)} aria-label="Purchase unit" required disabled={!selectedOption}><option value="">Unit</option>{choices.map((choice) => <option value={choice.value} key={choice.value}>{choice.value}</option>)}</select>
                 <input type="number" min="0.001" step="0.001" placeholder="Qty" aria-label="Purchase quantity" value={line.quantityOrdered} onChange={(event) => setLine(index, 'quantityOrdered', event.target.value)} required />
                 <input type="number" min="0" step="0.01" placeholder="₱ Total" aria-label="Estimated total price" value={line.estimatedTotalCost} onChange={(event) => setLine(index, 'estimatedTotalCost', event.target.value)} required />
-                <output className="po-price-per-unit" aria-label="Price per purchase unit">{line.quantityOrdered && line.estimatedTotalCost !== '' ? `₱${perUnit.toFixed(2)} / ${purchaseUnit}` : '—'}</output>
+                <input type="number" min="0" step="any" inputMode="decimal" placeholder={`₱ / ${purchaseUnit || 'unit'}`} aria-label="Price per purchase unit" title={`Price per ${purchaseUnit || 'purchase unit'}`} value={pricePerPurchaseUnit(line)} onChange={(event) => setLine(index, 'purchaseUnitPrice', event.target.value)} />
                 <button type="button" className="po-line-remove" onClick={() => setValues((current) => ({ ...current, items: current.items.length === 1 ? current.items : current.items.filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Remove line"><X size={16} /></button>
               </div>
             })}</div>
@@ -509,13 +496,14 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
 }
 
 function PaymentModal({ order, onClose, onSave }) {
-  const [amount, setAmount] = useState(String(totalFor(order)))
+  const approvedTotal = order.items.reduce((sum, item) => sum + Number(item.acceptedQuantity || 0) * Number(item.actualUnitCost === '' ? item.estimatedUnitCost : item.actualUnitCost), 0)
+  const [amount, setAmount] = useState(String(approvedTotal))
   const [method, setMethod] = useState('Cash')
   const [reference, setReference] = useState('')
   const [receipt, setReceipt] = useState(null)
   const [saving, setSaving] = useState(false)
   async function submit(event) { event.preventDefault(); if (!receipt) return; setSaving(true); try { await onSave({ amount, method, reference, receipt }) } finally { setSaving(false) } }
-  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal" role="dialog" aria-modal="true" aria-label="Submit supplier payment"><header><div><span>{order.po_number}</span><h2>Submit payment</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><form onSubmit={submit}><div className="po-payment-summary"><span>Approved amount</span><strong>{money(totalFor(order))}</strong></div><Field label="Amount paid" required><input type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></Field><Field label="Payment method" required><select value={method} onChange={(event) => setMethod(event.target.value)}><option>Cash</option><option>Bank transfer</option><option>Gcash</option><option>Card</option></select></Field><Field label="Payment reference"><input value={reference} onChange={(event) => setReference(event.target.value)} /></Field><Field label="Supplier receipt" required><input type="file" accept="image/*,application/pdf" onChange={(event) => setReceipt(event.target.files?.[0] || null)} required /></Field><footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-main-action" disabled={saving}>{saving ? 'Submitting…' : 'Submit for verification'}</button></footer></form></section></div>
+  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal" role="dialog" aria-modal="true" aria-label="Submit supplier payment"><header><div><span>{order.po_number}</span><h2>Record supplier payment</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><form onSubmit={submit}><div className="po-payment-summary"><span>Approved amount</span><strong>{money(approvedTotal)}</strong></div><p className="po-payment-help">Record the receipt, then verify payment to add accepted items to inventory.</p><Field label="Amount paid" required><input type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></Field><Field label="Payment method" required><select value={method} onChange={(event) => setMethod(event.target.value)}><option>Cash</option><option>Bank transfer</option><option>Gcash</option><option>Card</option></select></Field><Field label="Payment reference"><input value={reference} onChange={(event) => setReference(event.target.value)} /></Field><Field label="Supplier receipt" required><input type="file" accept="image/*,application/pdf" onChange={(event) => setReceipt(event.target.files?.[0] || null)} required /></Field><footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-main-action" disabled={saving}>{saving ? 'Submitting…' : 'Submit for verification'}</button></footer></form></section></div>
 }
 
 function PurchaseOrderPreview({ values, options, onBack, onConfirm, submitting }) {
@@ -526,7 +514,7 @@ function IngredientCombobox({ options, value, placeholder, ariaLabel, onChange, 
   const [open, setOpen] = useState(false)
   const query = value.trim().toLowerCase()
   const visible = options.filter((option) => !query || option.name.toLowerCase().includes(query))
-  return <div className="po-combobox"><div className="po-item-search"><FileText size={14} /><input value={value} onFocus={() => setOpen(true)} onChange={(event) => { onChange(event.target.value); setOpen(true) }} placeholder={placeholder} aria-label={ariaLabel} required /><button type="button" aria-label="Show ingredient options" onMouseDown={(event) => event.preventDefault()} onClick={() => setOpen((current) => !current)}>⌄</button></div>{open ? <div className="po-combobox-menu" role="listbox">{visible.length ? visible.map((option) => <button type="button" role="option" key={option.id} onMouseDown={(event) => event.preventDefault()} onClick={() => { onSelect(option); setOpen(false) }}><span>{option.name}</span><small>{option.unit} · stock {qty(option.quantity)}</small></button>) : <span className="po-combobox-empty">No ingredients found</span>}</div> : null}</div>
+  return <div className="po-combobox"><div className="po-item-search"><FileText size={14} /><input value={value} onFocus={() => setOpen(true)} onChange={(event) => { onChange(event.target.value); setOpen(true) }} placeholder={placeholder} aria-label={ariaLabel} required /><button type="button" aria-label="Show ingredient options" onMouseDown={(event) => event.preventDefault()} onClick={() => setOpen((current) => !current)}>⌄</button></div>{open ? <div className="po-combobox-menu" role="listbox">{visible.length ? visible.map((option) => <button type="button" role="option" key={`${option.itemType}:${option.id}`} onMouseDown={(event) => event.preventDefault()} onClick={() => { onSelect(option); setOpen(false) }}><span>{option.name}</span><small>{option.unit} · stock {qty(option.quantity)}</small></button>) : <span className="po-combobox-empty">No items found</span>}</div> : null}</div>
 }
 
 function SupplierModal({ options, suppliers = [], onClose, onSave }) {
@@ -540,90 +528,3 @@ function SupplierModal({ options, suppliers = [], onClose, onSave }) {
   return <div className="po-modal-backdrop"><section className="po-modal po-supplier-modal" role="dialog" aria-modal="true" aria-label="Manage suppliers"><header><div><span>Inventory purchasing</span><h2>Suppliers</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><div className="po-supplier-layout"><aside className="po-supplier-list"><div className="po-supplier-list-head"><b>Saved suppliers</b><button type="button" className="ops-secondary-action compact" onClick={startNew}><Plus size={14} /> Add</button></div>{suppliers.length ? suppliers.map((supplier) => <button type="button" className={`po-supplier-row ${activeId === supplier.id ? 'is-active' : ''}`} key={supplier.id} onClick={() => editSupplier(supplier)}><span><b>{supplier.name}</b><small>{supplier.contact || 'No contact saved'}</small></span><span className="po-supplier-edit">Edit</span></button>) : <p className="po-supplier-empty">No suppliers saved.</p>}</aside><form className="po-supplier-form" onSubmit={submit}><div className="po-supplier-form-title"><div><span>{activeId ? 'Edit supplier' : 'Add supplier'}</span><h3>{activeId ? name : 'New supplier'}</h3></div>{activeId ? <button type="button" className="ops-secondary-action compact" onClick={startNew}>New</button> : null}</div><Field label="Supplier name" required><input value={name} onChange={(event) => setName(event.target.value)} required maxLength={120} /></Field><Field label="Contact number or email"><input value={contact} onChange={(event) => setContact(event.target.value)} maxLength={160} /></Field><Field label="Previously supplied ingredients"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search ingredients" aria-label="Search supplied ingredients" /></Field><div className="po-supplier-items">{visible.map((item) => <label key={`${item.itemType}:${item.id}`}><input type="checkbox" checked={selected.includes(`${item.itemType}:${item.id}`)} onChange={() => toggleItem(item)} /><span>{item.name}</span><small>{item.unit}</small></label>)}</div>{error ? <p className="po-inline-error">{error}</p> : null}<footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-main-action" disabled={saving}>{activeId ? 'Save Changes' : 'Save Supplier'}</button></footer></form></div></section></div>
 }
 function Field({ label, required, children }) { return <label className="po-field"><span>{label}{required ? ' *' : ''}</span>{children}</label> }
-
-function SupplierPickerModal({ choices, onClose, onSelect, onBlankOrder }) {
-  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal" role="dialog" aria-modal="true" aria-label="Choose supplier"><header><div><span>Low-stock items</span><h2>Choose supplier</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><div className="po-picker-list">{choices.map((choice) => <button type="button" className="po-picker-option" key={choice.name} onClick={() => onSelect(choice)}><span><b>{choice.name}</b><small>{choice.items.length} {choice.items.length === 1 ? 'item' : 'items'} ready to order</small></span><span aria-hidden="true">›</span></button>)}<button type="button" className="po-picker-option" onClick={onBlankOrder}><span><b>Custom order</b><small>Order custom items from scratch</small></span><span aria-hidden="true">›</span></button></div><footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button></footer></section></div>
-}
-
-function LowStockSlideshow({ items = [], getSupplier, onOrder, isAdmin }) {
-  const [index, setIndex] = useState(0)
-  const [isPaused, setIsPaused] = useState(false)
-
-  useEffect(() => {
-    if (items.length <= 1 || isPaused) return undefined
-    const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % items.length)
-    }, 3500)
-    return () => clearInterval(timer)
-  }, [items.length, isPaused])
-
-  const safeIndex = index < items.length ? index : 0
-  const item = items[safeIndex]
-  if (!item) return null
-
-  const supplier = getSupplier ? getSupplier(item) : (item.supplier || '')
-  const isOut = Number(item.quantity || 0) <= 0
-  const suggested = Math.max(Number(item.highStockLevel || 0) - Number(item.quantity || 0), 1)
-
-  return (
-    <div
-      className="po-slideshow-banner"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      role="region"
-      aria-label="Low stock alerts slideshow"
-    >
-      <div className="po-slideshow-left">
-        <span className="po-slideshow-badge">
-          <span className="po-slideshow-dot" />
-          {isOut ? 'Out of stock' : 'Low stock'}
-        </span>
-        <div className="po-slideshow-body">
-          <span className="po-slideshow-name">{item.name}</span>
-          <span className="po-slideshow-details">
-            Current: <b>{qty(item.quantity)} {item.unit}</b>
-            <span className="po-slideshow-sep">·</span>
-            Min: <b>{qty(item.minStockLevel)} {item.unit}</b>
-            <span className="po-slideshow-sep">·</span>
-            Suggested: <b>+{suggested} {item.unit}</b>
-          </span>
-          {supplier ? (
-            <span className="po-slideshow-supplier">
-              Supplier: <b>{supplier}</b>
-            </span>
-          ) : null}
-        </div>
-      </div>
-      <div className="po-slideshow-controls">
-        {items.length > 1 ? (
-          <div className="po-slideshow-pager">
-            <button
-              type="button"
-              onClick={() => setIndex((prev) => (prev - 1 + items.length) % items.length)}
-              aria-label="Previous low stock item"
-            >
-              ‹
-            </button>
-            <span>{safeIndex + 1} / {items.length}</span>
-            <button
-              type="button"
-              onClick={() => setIndex((prev) => (prev + 1) % items.length)}
-              aria-label="Next low stock item"
-            >
-              ›
-            </button>
-          </div>
-        ) : null}
-        {!isAdmin ? (
-          <button
-            type="button"
-            className="po-slideshow-btn"
-            onClick={() => onOrder(supplier, [item])}
-          >
-            Order Item ›
-          </button>
-        ) : null}
-      </div>
-    </div>
-  )
-}
