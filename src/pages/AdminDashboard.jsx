@@ -130,18 +130,6 @@ const transactionRowVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { duration: 0.28, ease: 'easeOut' } },
 }
-const sparkAreaVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: kpiGraphDuration * 0.8, delay: 0.15 } },
-}
-const sparkLineVariants = {
-  hidden: { pathLength: 0, opacity: 0 },
-  visible: { pathLength: 1, opacity: 1, transition: { duration: kpiGraphDuration, ease: [0.16, 1, 0.3, 1] } },
-}
-const sparkDotVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.35, delay: kpiGraphDuration - 0.35 } },
-}
 const statusSegmentVariants = {
   hidden: ({ offset, circumference }) => ({
     opacity: 0,
@@ -246,10 +234,6 @@ function smoothSparklineGeometry(points, x, y) {
   }
 }
 
-function smoothSparklinePath(points, x, y) {
-  return smoothSparklineGeometry(points, x, y).path
-}
-
 export default function AdminDashboard() {
   const { pathname } = useLocation()
   if (pathname === '/admin/team') return <Navigate to="/admin/users-access/users" replace />
@@ -352,10 +336,10 @@ function DashboardContent({ metrics }) {
     <motion.section className="ad-kpi-section" aria-labelledby="today-heading" variants={itemVariants}>
       <h2 className="sr-only" id="today-heading">Today's overview</h2>
       <motion.div className="ad-kpi-grid ad-reference-kpis" variants={microContainerVariants}>
-        <KpiCard icon={CircleDollarSign} label="Net sales" value={metrics.totalSales} valueFormat={money} comparison={metrics.salesChangePct} detail="vs yesterday" tone="green" trend={metrics.salesTrend} trendLabel="Net sales trend for the last 14 days" />
-        <KpiCard icon={ShoppingBag} label="Orders" value={metrics.totalOrders} valueFormat={formatCount} detail={`${metrics.completedOrders} completed`} tone="cream" trend={metrics.ordersTrend} trendLabel="Orders trend for the last 14 days" />
-        <KpiCard icon={WalletCards} label="Average order" value={metrics.avgOrderValue} valueFormat={money} detail="Paid completed orders" tone="blue" trend={metrics.averageOrderTrend} trendLabel="Average order trend for the last 14 days" />
-        <KpiCard icon={Boxes} label="Items sold" value={metrics.itemsSold} valueFormat={formatCount} detail="Completed paid orders" tone="blue" trend={metrics.itemsTrend} trendLabel="Items sold trend for the last 14 days" />
+        <KpiCard icon={CircleDollarSign} label="Net Revenue" value={metrics.totalSales} valueFormat={money} detail="No previous-period data" tone="net-revenue" />
+        <KpiCard icon={ShoppingBag} label="Completed Paid Orders" value={metrics.completedOrders} valueFormat={formatCount} detail="No previous-period data" />
+        <KpiCard icon={WalletCards} label="Average Order Value" value={metrics.avgOrderValue} valueFormat={money} detail="No previous-period data" />
+        <KpiCard icon={Boxes} label="Items Sold" value={metrics.itemsSold} valueFormat={formatCount} detail="No previous-period data" />
       </motion.div>
     </motion.section>
 
@@ -455,9 +439,8 @@ function Panel({ title, detail, action, className = '', motionVariants = cardIte
   return <PanelElement className={`ad-panel ${className}`} {...motionProps}><header><div><h2>{title}</h2><p>{detail}</p></div>{action}</header><div className="ad-panel-body">{children}</div></PanelElement>
 }
 
-function KpiCard({ icon: Icon, label, value, valueFormat = formatCount, comparison, detail, tone, trend, trendLabel }) {
-  const up = comparison >= 0
-  return <motion.article className={`ad-kpi-card is-${tone}`} variants={cardItemVariants}><div className="ad-kpi-top"><span><Icon size={19} /></span><small>{label}</small></div><strong><AnimatedMetric value={value} format={valueFormat} duration={numberCountDuration} /></strong><footer>{comparison !== undefined && <span className={up ? 'is-up' : 'is-down'}>{up ? <TrendingUp size={14} /> : <TrendingDown size={14} />}{percentage(comparison)}</span>}<small>{detail}</small></footer>{trend?.length > 1 && <MiniTrend values={trend.map((point) => point.total)} tone={tone} label={trendLabel || `${label} trend`} />}</motion.article>
+function KpiCard({ icon: Icon, label, value, valueFormat = formatCount, detail, tone }) {
+  return <motion.article className={`ad-kpi-card${tone ? ` is-${tone}` : ''}`} variants={cardItemVariants}><div className="ad-kpi-top"><span><Icon size={19} /></span><small>{label}</small></div><strong><AnimatedMetric value={value} format={valueFormat} duration={numberCountDuration} /></strong><footer><small>{detail}</small></footer></motion.article>
 }
 
 function AnimatedMetric({ value, format = formatCount, duration = 0.7 }) {
@@ -475,27 +458,6 @@ function AnimatedMetric({ value, format = formatCount, duration = 0.7 }) {
   }, [duration, motionValue, reducedMotion, target])
 
   return <motion.span>{displayValue}</motion.span>
-}
-
-function MiniTrend({ values = [], tone, label }) {
-  const safeValues = values.filter((value) => Number.isFinite(value))
-  const points = safeValues.length > 1 ? safeValues : [0, 0]
-  const width = 180, height = 64, inset = { left: 3, right: 3, top: 8, bottom: 8 }
-  const min = Math.min(...points)
-  const max = Math.max(...points)
-  const spread = max - min || Math.max(Math.abs(max) * .2, 1)
-  const floor = min - (spread - (max - min)) / 2
-  const x = (index) => inset.left + (index / Math.max(1, points.length - 1)) * (width - inset.left - inset.right)
-  const y = (value) => inset.top + (1 - (value - floor) / spread) * (height - inset.top - inset.bottom)
-  const line = smoothSparklinePath(points, x, y)
-  const area = `${line} L ${x(points.length - 1)} ${height - inset.bottom} L ${x(0)} ${height - inset.bottom} Z`
-  const gradientId = `ad-spark-${tone}-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`
-  return <svg className={`ad-kpi-sparkline is-${tone}`} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} preserveAspectRatio="none">
-    <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="currentColor" stopOpacity=".25" /><stop offset="1" stopColor="currentColor" stopOpacity="0" /></linearGradient></defs>
-    <motion.path className="ad-kpi-spark-area" d={area} fill={`url(#${gradientId})`} variants={sparkAreaVariants} />
-    <motion.path className="ad-kpi-spark-line" d={line} vectorEffect="non-scaling-stroke" variants={sparkLineVariants} />
-    <motion.circle className="ad-kpi-spark-dot" cx={x(points.length - 1)} cy={y(points[points.length - 1])} r="3.5" variants={sparkDotVariants} />
-  </svg>
 }
 
 function FulfillmentOrdersChart({ counts }) {

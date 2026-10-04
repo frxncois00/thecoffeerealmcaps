@@ -165,7 +165,7 @@ export default function AdminInventoryPage() {
         <article className="inv-summary-card tone-neutral"><span className="inv-summary-icon"><Package size={18} /></span><span className="inv-summary-copy"><span>Total Records</span><small>Tracked inventory</small></span><b>{items.length}</b></article>
       </div>
 
-      <div className="inv-toolbar inv-monitoring-toolbar">
+      <div className={`inv-toolbar inv-monitoring-toolbar${config.hasType ? ' has-type-filter' : ''}`}>
         <label className="ops-search">
           <Search size={17} /><span className="sr-only">Search {config.label.toLowerCase()}</span>
           <input value={search} onChange={(event) => { setSearch(event.target.value.slice(0, 100)); setPage(1) }} maxLength={100} placeholder={`Search ${config.label.toLowerCase()}…`} />

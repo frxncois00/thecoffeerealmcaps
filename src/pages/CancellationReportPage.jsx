@@ -1,17 +1,16 @@
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import {
   ArrowDown, ArrowUp, Ban, CalendarDays, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
-  Download, FileSearch, FileText, Filter, MoreVertical, PhilippinePeso, ReceiptText, RefreshCw,
+  Download, Eye, FileSearch, FileText, Filter, PhilippinePeso, ReceiptText, RefreshCw,
   RotateCcw, Search, ShieldAlert, SlidersHorizontal, Undo2, UserRound, X,
 } from 'lucide-react'
-import AppShell from '../components/AppShell'
+import { ReportShell as AppShell, Segments, Insights } from '../components/reports/ReportUI'
 import { usePricing } from '../context/usePricing'
 import { describeError } from '../utils/describeError'
 import { money } from '../utils/money'
 import { buildVatExemptOrderBreakdown, formatVatRate } from '../utils/pricing'
 import {
-  buildCancellationTrend, computeCancellationSummary, exportCancellationReportToPdf,
+  computeCancellationSummary, exportCancellationReportToPdf,
   exportCancellationReportToXlsx, fetchCancellationReportRecords, filterByDateRange,
   ORDER_TYPE_LABEL, PAYMENT_LABEL,
   REFUND_STATUS_LABEL,
@@ -138,72 +137,21 @@ function CompactEmpty({ type = 'cancellation', text }) {
   return <div className="cancel-empty-mini"><span><Icon size={20} /></span><p>{text}</p></div>
 }
 
-function BreakdownChart({ title, subtitle, data, type, colors = ['#315c45', '#6e8d77', '#a8b8aa', '#c8a86b', '#9a6b5f'] }) {
+function BreakdownChart({ title, subtitle, data, type, colors = ['#C2362B'], limitRows = false }) {
   const entries = Object.entries(data || {}).sort((a, b) => b[1] - a[1])
   const total = entries.reduce((sum, [, value]) => sum + value, 0)
   return (
     <article className="panel cancel-panel cancel-breakdown-panel">
-      <div className="panel-head"><div><span>{title}</span><small>{subtitle}</small></div>{total > 0 && <b className="cancel-panel-total">{total}</b>}</div>
+      <div className="panel-head"><div><h2>{title}</h2><small>{subtitle}</small></div>{total > 0 && <b className="cancel-panel-total">{total}</b>}</div>
       {!entries.length ? <CompactEmpty type={type} text={`No ${type === 'refund' ? 'refunds' : 'cancellations'} recorded for this period.`} /> : (
-        <ul className="cancel-bars">
-          {entries.slice(0, 5).map(([label, value], index) => (
+        <ul className={`cancel-bars${limitRows ? ' is-five-row-scroll' : ''}`} tabIndex={limitRows ? 0 : undefined} aria-label={limitRows ? `${title}, scroll for more` : undefined}>
+          {entries.map(([label, value], index) => (
             <li key={`${label}-${value}`} className="cancel-bar-row" style={{ '--cancel-bar-delay': `${index * 70}ms` }}>
               <div><span title={label}>{label}</span><b>{value} <small>{total ? Math.round((value / total) * 100) : 0}%</small></b></div>
               <i role="img" aria-label={`${label}: ${value} ${type === 'refund' ? 'refunds' : 'cancellations'}`}><span style={{ '--cancel-bar-width': `${(value / entries[0][1]) * 100}%`, background: colors[index % colors.length] }} /></i>
             </li>
           ))}
         </ul>
-      )}
-    </article>
-  )
-}
-
-function TrendChart({ points, granularity, onGranularityChange, view }) {
-  const [hoverIndex, setHoverIndex] = useState(null)
-  const width = 760
-  const height = 230
-  const inset = { left: 34, right: 16, top: 20, bottom: 34 }
-  const chartWidth = width - inset.left - inset.right
-  const chartHeight = height - inset.top - inset.bottom
-  const seriesKey = view === 'refunds' ? 'refunds' : 'cancellations'
-  const seriesLabel = view === 'refunds' ? 'Completed refunds' : 'Cancellations'
-  const maximum = Math.max(1, ...points.map((point) => point[seriesKey]))
-  const xFor = (index) => inset.left + (points.length <= 1 ? chartWidth / 2 : (index / (points.length - 1)) * chartWidth)
-  const yFor = (value) => inset.top + chartHeight - (value / maximum) * chartHeight
-  const pathFor = (key) => points.map((point, index) => `${index ? 'L' : 'M'} ${xFor(index)} ${yFor(point[key])}`).join(' ')
-  const labels = points.length > 8 ? points.filter((_, index) => index % Math.ceil(points.length / 7) === 0 || index === points.length - 1) : points
-  const activePoint = hoverIndex == null ? null : points[hoverIndex]
-  const chartKey = `${view}:${points.map((point) => `${point.key}:${point[seriesKey]}`).join('|')}`
-  const areaPath = `${pathFor(seriesKey)} L ${xFor(points.length - 1)} ${inset.top + chartHeight} L ${xFor(0)} ${inset.top + chartHeight} Z`
-
-  return (
-    <article className="panel cancel-panel cancel-trend-panel">
-      <div className="panel-head">
-        <div><span>{seriesLabel} trend</span><small>Activity across the selected period</small></div>
-        <div className="cancel-segmented" aria-label="Trend interval">
-          {['day', 'week', 'month'].map((item) => <button type="button" className={granularity === item ? 'active' : ''} onClick={() => onGranularityChange(item)} key={item}>{startCase(item)}</button>)}
-        </div>
-      </div>
-      {!points.some((point) => point[seriesKey]) ? <CompactEmpty type={view === 'refunds' ? 'refund' : 'cancellation'} text={`No ${seriesLabel.toLowerCase()} to chart in this period.`} /> : (
-        <div className="cancel-trend-chart">
-          <svg key={chartKey} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${seriesLabel} trend chart`}>
-            {[0, .25, .5, .75, 1].map((position) => <line key={position} x1={inset.left} x2={width - inset.right} y1={inset.top + chartHeight * position} y2={inset.top + chartHeight * position} className="cancel-grid-line" />)}
-            {activePoint && <line x1={xFor(hoverIndex)} x2={xFor(hoverIndex)} y1={inset.top} y2={inset.top + chartHeight} className="cancel-hover-guide" />}
-            <defs><linearGradient id={`cancelTrendArea-${view}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" className={`cancel-area-stop-${view === 'refunds' ? 'refunded' : 'cancelled'}`} /><stop offset="1" className="cancel-area-stop-end" /></linearGradient></defs>
-            <path d={areaPath} className={`cancel-area cancel-area-${view === 'refunds' ? 'refunded' : 'cancelled'}`} fill={`url(#cancelTrendArea-${view})`} />
-            <path pathLength="1" d={pathFor(seriesKey)} className={`cancel-line cancel-line-${view === 'refunds' ? 'refunded' : 'cancelled'} cancel-animated-path`} />
-            {points.map((point, index) => <g key={`${point.key}-${point[seriesKey]}`} className="cancel-chart-point" style={{ '--cancel-point-delay': `${Math.min(index, 8) * 55 + 130}ms` }}>
-              <circle cx={xFor(index)} cy={yFor(point[seriesKey])} r={hoverIndex === index ? 5.5 : 4} className={`cancel-dot cancel-dot-${view === 'refunds' ? 'refunded' : 'cancelled'}${hoverIndex === index ? ' is-active' : ''}`}><title>{point.label}: {point[seriesKey]} {seriesLabel.toLowerCase()}</title></circle>
-              <circle cx={xFor(index)} cy={yFor(point[seriesKey])} r="22" fill="transparent" tabIndex={0} role="img" aria-label={`${point.label}: ${point[seriesKey]} ${seriesLabel.toLowerCase()}`} onMouseEnter={() => setHoverIndex(index)} onMouseLeave={() => setHoverIndex((current) => current === index ? null : current)} onFocus={() => setHoverIndex(index)} onBlur={() => setHoverIndex((current) => current === index ? null : current)} />
-            </g>)}
-            {labels.map((point) => {
-              const index = points.indexOf(point)
-              return <text key={`label-${point.key}`} x={xFor(index)} y={height - 8} textAnchor="middle" className="cancel-axis-label">{point.label}</text>
-            })}
-          </svg>
-          {activePoint && <div className="dash-chart-tooltip cancel-chart-tooltip" style={{ left: `${(xFor(hoverIndex) / width) * 100}%`, top: `${(yFor(activePoint[seriesKey]) / height) * 100}%` }}><b>{activePoint.label}</b><span>{activePoint[seriesKey]} {seriesLabel.toLowerCase()}</span></div>}
-          <div className="cancel-chart-legend"><span><i className={view === 'refunds' ? 'refunded' : 'cancelled'} />{seriesLabel}</span></div>
-        </div>
       )}
     </article>
   )
@@ -242,7 +190,7 @@ function RecordDrawer({ record, onClose, view }) {
   return <div className="ops-drawer-backdrop cancel-drawer-backdrop" onMouseDown={onClose}>
     <aside className="ops-drawer txn-drawer cancel-drawer" role="dialog" aria-modal="true" aria-label={`${view === 'refunds' ? 'Refund' : 'Cancellation'} record ${record.orderNumber}`} onMouseDown={(event) => event.stopPropagation()}>
       <header><div><span className="eyebrow">{view === 'refunds' ? 'Refund record' : 'Cancellation record'}</span><h2>{record.orderNumber}</h2><small>{record.receiptNumber || 'No receipt reference'}</small></div><button type="button" onClick={onClose} aria-label="Close details"><X size={19} /></button></header>
-      <div className="ops-drawer-body">
+      <div className="ops-drawer-body cancel-drawer-body">
         <section>
           <div className="cancel-drawer-statuses"><StatusBadge type="order" value={record.isVoided ? 'Voided' : record.status} /><StatusBadge type="refund" value={REFUND_STATUS_LABEL[record.refundStatus] || startCase(record.refundStatus)} /></div>
           <div className="txn-detail-grid">
@@ -272,7 +220,6 @@ function RecordsSkeleton() {
 }
 
 export default function CancellationReportPage() {
-  const navigate = useNavigate()
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -281,7 +228,6 @@ export default function CancellationReportPage() {
   const [preset, setPreset] = useManagementSessionState('admin:cancellations:preset', '7')
   const [customFrom, setCustomFrom] = useManagementSessionState('admin:cancellations:from', formatInputDate(new Date(Date.now() - 6 * 86400000)))
   const [customTo, setCustomTo] = useManagementSessionState('admin:cancellations:to', formatInputDate(new Date()))
-  const [granularity, setGranularity] = useManagementSessionState('admin:cancellations:granularity', 'day')
   const [search, setSearch] = useManagementSessionState('admin:cancellations:search', '')
   const [filtersOpen, setFiltersOpen] = useManagementSessionState('admin:cancellations:filters-open', false)
   const [reason, setReason] = useManagementSessionState('admin:cancellations:reason', 'all')
@@ -297,7 +243,6 @@ export default function CancellationReportPage() {
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [exporting, setExporting] = useState('')
   const [exportError, setExportError] = useState('')
-  const [rowMenuId, setRowMenuId] = useState('')
   const [detailRecord, setDetailRecord] = useManagementSessionState('admin:cancellations:drawer', null)
   const deferredSearch = useDeferredValue(search)
   const range = useReportRange(preset, customFrom, customTo)
@@ -318,7 +263,7 @@ export default function CancellationReportPage() {
 
   useEffect(() => { load() }, [])
   useEffect(() => {
-    const closeMenu = () => { setRowMenuId(''); setExportMenuOpen(false) }
+    const closeMenu = () => setExportMenuOpen(false)
     document.addEventListener('click', closeMenu)
     return () => document.removeEventListener('click', closeMenu)
   }, [])
@@ -346,7 +291,6 @@ export default function CancellationReportPage() {
   const filteredPrevious = useMemo(() => activePrevious.filter(filterRecord), [activePrevious, filterRecord])
   const summary = useMemo(() => computeCancellationSummary(filteredCurrent, filteredPrevious), [filteredCurrent, filteredPrevious])
   const refundSummary = useMemo(() => computeRefundSummary(filteredCurrent, filteredPrevious), [filteredCurrent, filteredPrevious])
-  const trend = useMemo(() => buildCancellationTrend(filteredCurrent, range.from, range.to, granularity), [filteredCurrent, range, granularity])
 
   const reasons = useMemo(() => [...new Set(cancellationCurrent.map((record) => record.cancellationReason))].sort(), [cancellationCurrent])
   const cancelledByOptions = useMemo(() => [...new Set(cancellationCurrent.map((record) => record.cancelledByKey))].sort(), [cancellationCurrent])
@@ -373,7 +317,6 @@ export default function CancellationReportPage() {
   const switchTab = (tab) => {
     setActiveTab(tab)
     setFiltersOpen(false)
-    setRowMenuId('')
     setExportMenuOpen(false)
     setExportError('')
     setDetailRecord(null)
@@ -404,9 +347,11 @@ export default function CancellationReportPage() {
     }
   }
   const onTabKeyDown = (event) => {
-    if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
     event.preventDefault()
-    switchTab(activeTab === 'cancellations' ? 'refunds' : 'cancellations')
+    const next = event.key === 'Home' ? 'cancellations' : event.key === 'End' ? 'refunds' : activeTab === 'cancellations' ? 'refunds' : 'cancellations'
+    switchTab(next)
+    document.getElementById(`${next}-tab`)?.focus()
   }
 
   const titleTabs = (
@@ -420,10 +365,11 @@ export default function CancellationReportPage() {
     </div>
   )
 
-  return <AppShell role="admin" title="Cancellations & Refunds" titleActions={titleTabs} onRefresh={load}>
+  return <AppShell role="admin" title="Cancellations & Refunds" rangeLabel={range.label} onRefresh={load}>
+    <div className="rp-page-tabs">{titleTabs}</div>
     <section className="cancel-range-toolbar report-filter-bar" aria-label="Report date range">
       <div className="cancel-range-display report-filter-label"><CalendarDays size={16} aria-hidden="true" /><span><b>Report range</b><small>{range.label}</small></span></div>
-      <div className="cancel-presets report-filter-presets is-four" role="group" aria-label="Cancellation and refund report period">{PRESETS.map(([value, label]) => <button type="button" className={preset === value ? 'active' : ''} aria-pressed={preset === value} aria-expanded={value === 'custom' ? preset === value : undefined} aria-controls={value === 'custom' ? 'cancellation-report-custom-range' : undefined} onClick={() => setPreset(value)} key={value}>{label}</button>)}</div>
+      <Segments label="Cancellation and refund report period" options={PRESETS} value={preset} onChange={setPreset} />
       <div className="report-filter-actions is-two">
         <div className="inv-overflow cancel-export-control report-filter-export-wrap">
           <button className="ops-main-action inv-record-btn cancel-export report-filter-export" type="button" disabled={loading || searchedRecords.length === 0 || Boolean(exporting)} aria-label={`Export ${activeTab === 'refunds' ? 'refunds' : 'cancellations'} report`} aria-haspopup="menu" aria-expanded={exportMenuOpen} onClick={(event) => { event.stopPropagation(); setExportMenuOpen((open) => !open) }}>
@@ -434,7 +380,7 @@ export default function CancellationReportPage() {
             <button type="button" role="menuitem" onClick={runExportXlsx}><FileText size={14} /> Export as XLSX</button>
           </div>}
         </div>
-        <button type="button" className="cancel-filter-toggle report-filter-toggle" aria-expanded={filtersOpen} aria-controls="cancellation-report-extra-filters" onClick={() => setFiltersOpen((open) => !open)}><Filter size={15} /> {filtersOpen ? 'Hide filters' : 'More filters'}{activeFilterCount > 0 && <span>{activeFilterCount}</span>}</button>
+        <button type="button" className="cancel-filter-toggle report-filter-toggle" aria-expanded={filtersOpen} aria-controls="cancellation-report-extra-filters" onClick={() => setFiltersOpen((open) => !open)}><Filter size={15} /> Filters{activeFilterCount > 0 && <span>{activeFilterCount}</span>}</button>
       </div>
     </section>
     {preset === 'custom' && <div className="report-filter-popout cancel-custom-popout" id="cancellation-report-custom-range" role="group" aria-label="Custom cancellation and refund report date range"><div className="report-filter-popout-copy"><CalendarDays size={15} aria-hidden="true" /><span><b>Custom date range</b><small>Choose the start and end dates for this report.</small></span></div><div className="cancel-custom-range report-filter-date-range"><label>From<input type="date" value={customFrom} max={customTo} onChange={(event) => setCustomFrom(event.target.value)} /></label><span>to</span><label>To<input type="date" value={customTo} min={customFrom} onChange={(event) => setCustomTo(event.target.value)} /></label></div></div>}
@@ -455,6 +401,13 @@ export default function CancellationReportPage() {
     {exportError && <div className="cancel-export-error" role="alert"><ShieldAlert size={16} /><span>{exportError}</span><button type="button" onClick={() => setExportError('')} aria-label="Dismiss export error"><X size={14} /></button></div>}
     {loading ? <RecordsSkeleton /> : <div className="cancel-report-enter" id={`${activeTab}-panel`} role="tabpanel" aria-labelledby={`${activeTab}-tab`}>
       {truncated && <p className="cancel-limit-note">Showing the newest 5,000 cancellation and refund events.</p>}
+      <Insights items={activeTab === 'cancellations' ? [
+        filteredCurrent.length > 0 && filteredCurrent.filter((record) => ['staff', 'cashier'].includes(record.cancelledByKey)).length / filteredCurrent.length > .5 && { tone: 'warning', title: 'Staff initiated most cancellations', detail: 'More than half of cancellations came from staff. Review the reasons and order workflow.' },
+        filteredCurrent.some((record) => /^(test|gg|n\/?a)$/i.test(record.cancellationReason.trim()) || record.cancellationReason.trim().length < 4) && { tone: 'warning', title: 'Some cancellation reasons need clarity', detail: 'Placeholder or very short reasons were recorded. Consider a preset reason list.' },
+      ] : [
+        refundSummary.needsAction > 0 && { tone: 'warning', title: refundSummary.needsAction + ' refunds need action', detail: 'Review, send, or confirm these payment returns.' },
+        refundSummary.failed > 0 && { tone: 'warning', title: refundSummary.failed + ' failed refunds', detail: 'Review the payment return and follow up with the customer.' },
+      ]} />
       {activeTab === 'cancellations' ? <section className="cancel-metric-grid">
         <MetricCard icon={Ban} label="Cancelled Orders" value={summary.cancelledOrders.toLocaleString('en-PH')} change={summary.comparison.cancelled} tone="rose" />
         <MetricCard icon={PhilippinePeso} label="Cancelled Value" value={money(summary.cancelledValue)} change={summary.comparison.value} tone="sage" detail="Order value before any refund" />
@@ -468,14 +421,13 @@ export default function CancellationReportPage() {
       </section>}
 
       <section className="cancel-insight-grid">
-        <TrendChart points={trend} granularity={granularity} onGranularityChange={setGranularity} view={activeTab} />
         <div className="cancel-insight-stack">
           {activeTab === 'cancellations' ? <>
-            <BreakdownChart title="Cancellation Reasons" subtitle="Why orders were stopped" data={summary.cancellationReasons} type="cancellation" />
-            <BreakdownChart title="Cancelled By" subtitle="Responsible role or source" data={summary.cancelledBy} type="cancellation" />
+            <BreakdownChart title="Cancellation Reasons" subtitle="Why orders were stopped" data={summary.cancellationReasons} type="cancellation" limitRows />
+            <BreakdownChart title="Cancelled By" subtitle="Responsible role or source" data={summary.cancelledBy} type="cancellation" limitRows />
           </> : <>
-            <BreakdownChart title="Refund Status" subtitle="Current payment return workflow" data={summary.refundStatuses} type="refund" colors={['#315c45', '#c8a86b', '#9b8cf2', '#a33b35', '#a8b8aa']} />
-            <BreakdownChart title="Refund Reasons" subtitle="Why payments were returned" data={summary.refundReasons} type="refund" colors={['#c8a86b', '#927d56', '#c9b989', '#725b46']} />
+            <BreakdownChart title="Refund Status" subtitle="Current payment return workflow" data={summary.refundStatuses} type="refund" colors={['#2E6B47', '#3F7A5A', '#B08D57']} />
+            <BreakdownChart title="Refund Reasons" subtitle="Why payments were returned" data={summary.refundReasons} type="refund" colors={['#3F7A5A']} />
           </>}
         </div>
       </section>
@@ -492,12 +444,11 @@ export default function CancellationReportPage() {
         {activeFilterCount > 0 && <div className="cancel-active-filters"><SlidersHorizontal size={14} /><span>{activeFilterCount} active filter{activeFilterCount === 1 ? '' : 's'}</span><button type="button" onClick={resetFilters}>Clear all</button></div>}
 
         <div className="cancel-table-wrap">
-          <table className={`cancel-table is-${activeTab}`}><thead>{activeTab === 'cancellations' ? <tr><th>Order</th><th>Customer</th><th>Order Type</th><th>Order Value</th><th>Reason</th><th>Cancelled By</th><th>Date & Time</th><th><span className="sr-only">Actions</span></th></tr> : <tr><th>Order / Customer</th><th>Payment</th><th>Refund Amount</th><th>Status</th><th>Method / Reference</th><th>Requested / Completed</th><th><span className="sr-only">Actions</span></th></tr>}</thead>
+          <table className={`cancel-table is-${activeTab}`}><thead>{activeTab === 'cancellations' ? <tr><th>Order</th><th>Customer</th><th>Value</th><th>Reason</th><th>Cancelled By</th><th>Date & Time</th><th><span className="sr-only">Actions</span></th></tr> : <tr><th>Order / Customer</th><th>Payment</th><th>Refund Amount</th><th>Status</th><th>Method / Reference</th><th>Requested / Completed</th><th><span className="sr-only">Actions</span></th></tr>}</thead>
             <tbody>{pageRecords.map((record) => <tr key={record.id} onClick={() => setDetailRecord(record)} tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter') setDetailRecord(record) }}>
               {activeTab === 'cancellations' ? <>
-                <td><b>{record.orderNumber}</b><small>{record.receiptNumber || 'No receipt'}</small></td>
+                <td><b>{record.orderNumber}</b><small>{ORDER_TYPE_LABEL[record.orderType] || startCase(record.orderType)}</small></td>
                 <td><b>{record.customerName}</b><small>{record.customerEmail || record.customerPhone || 'Guest / no contact'}</small></td>
-                <td>{ORDER_TYPE_LABEL[record.orderType] || startCase(record.orderType)}<small>{record.orderSource === 'customer_pos' ? 'Online' : 'In store'}</small></td>
                 <td className="cancel-amount"><b>{money(record.originalAmount)}</b>{record.refundAmount > 0 && <small>{money(record.refundAmount)} refunded</small>}</td>
                 <td className="cancel-reason-cell"><span title={record.cancellationReason}>{record.cancellationReason}</span>{record.cancellationNotes && <small title={record.cancellationNotes}>{record.cancellationNotes}</small>}</td>
                 <td><b>{record.cancelledBy}</b><small>{startCase(record.cancelledByKey)}</small></td>
@@ -510,16 +461,16 @@ export default function CancellationReportPage() {
                 <td><b>{record.refundMethod ? startCase(record.refundMethod) : 'Not recorded'}</b><small>{record.refundReference || 'No reference yet'}</small></td>
                 <td><b>{record.refundRequestedAt ? formatDateTime(record.refundRequestedAt) : 'Not recorded'}</b><small>{record.refundProcessedAt ? `Completed ${formatDateTime(record.refundProcessedAt)}` : 'Awaiting completion'}</small></td>
               </>}
-              <td className="cancel-action-cell" onClick={(event) => event.stopPropagation()}><button type="button" className="cancel-more" aria-label={`Actions for ${record.orderNumber}`} aria-expanded={rowMenuId === record.id} onClick={(event) => { event.stopPropagation(); setRowMenuId((value) => value === record.id ? '' : record.id) }}><MoreVertical size={17} /></button>{rowMenuId === record.id && <div className="cancel-row-menu" onClick={(event) => event.stopPropagation()}><button type="button" onClick={() => { setDetailRecord(record); setRowMenuId('') }}><FileSearch size={15} /> View Details</button><button type="button" onClick={() => navigate('/admin/transactions')}><ReceiptText size={15} /> Transaction History</button></div>}</td>
+              <td className="cancel-action-cell" onClick={(event) => event.stopPropagation()}><button type="button" className="cancel-more" aria-label={`View ${activeTab === 'refunds' ? 'refund' : 'cancellation'} details for ${record.orderNumber}`} onClick={() => setDetailRecord(record)}><Eye size={17} aria-hidden="true" /></button></td>
             </tr>)}</tbody>
           </table>
         </div>
 
         <div className="cancel-mobile-records">{pageRecords.map((record) => <button type="button" className="cancel-mobile-card" key={record.id} onClick={() => setDetailRecord(record)}><div><span>{record.orderNumber}</span><b>{money(activeTab === 'refunds' ? record.refundDisplayAmount : record.originalAmount)}</b></div><strong>{record.customerName}</strong><small>{activeTab === 'refunds' ? `${record.refundMethod ? startCase(record.refundMethod) : 'Method pending'} · ${record.refundReference || 'No reference yet'}` : record.cancellationReason}</small><div>{activeTab === 'refunds' ? <StatusBadge type="refund" value={REFUND_STATUS_LABEL[record.refundStatus] || startCase(record.refundStatus)} /> : <StatusBadge type="order" value={record.isVoided ? 'Voided' : record.status} />}</div><footer><span>{activeTab === 'refunds' ? PAYMENT_LABEL[record.paymentMethod] || startCase(record.paymentMethod) : record.cancelledBy}</span><time>{formatDateTime(activeTab === 'refunds' ? record.refundProcessedAt || record.refundRequestedAt || record.eventDate : record.cancelledAt || record.eventDate)}</time></footer></button>)}</div>
 
-        {!pageRecords.length && <div className="cancel-empty-state"><span>{activeTab === 'refunds' ? <Undo2 size={27} /> : <FileSearch size={27} />}</span><h3>No {activeTab} records found</h3><p>{activeCurrent.length ? 'Try adjusting the search or filters.' : `There are no ${activeTab} in this date range.`}</p>{(activeFilterCount > 0 || search) && <button type="button" className="button button-soft" onClick={() => { resetFilters(); setSearch('') }}>Clear filters</button>}</div>}
+        {!pageRecords.length && <div className="cancel-empty-state"><span>{activeTab === 'refunds' ? <Undo2 size={18} /> : <FileSearch size={18} />}</span><p>{activeCurrent.length ? 'Try adjusting the search or filters.' : `There are no ${activeTab} in this date range.`}</p>{(activeFilterCount > 0 || search) && <button type="button" className="button button-soft" onClick={() => { resetFilters(); setSearch('') }}>Clear filters</button>}</div>}
 
-        {searchedRecords.length > 0 && <footer className="cancel-pagination"><div><span>Rows per page</span><select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>{PAGE_SIZES.map((size) => <option value={size} key={size}>{size}</option>)}</select></div><span>Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, searchedRecords.length)} of {searchedRecords.length}</span><div className="cancel-page-buttons"><button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} aria-label="Previous page"><ChevronLeft size={16} /></button><b>Page {page} of {pageCount}</b><button type="button" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)} aria-label="Next page"><ChevronRight size={16} /></button></div></footer>}
+        {searchedRecords.length > 0 && <footer className="cancel-pagination"><div><span>Rows per page</span><select aria-label="Rows per page" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>{PAGE_SIZES.map((size) => <option value={size} key={size}>{size}</option>)}</select></div><span>Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, searchedRecords.length)} of {searchedRecords.length}</span><div className="cancel-page-buttons"><button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} aria-label="Previous page"><ChevronLeft size={16} /></button><b>Page {page} of {pageCount}</b><button type="button" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)} aria-label="Next page"><ChevronRight size={16} /></button></div></footer>}
       </section>
     </div>}
     {detailRecord && <RecordDrawer record={detailRecord} view={activeTab} onClose={() => setDetailRecord(null)} />}
