@@ -18,6 +18,8 @@ import {
 import { clearManagementSessionState, requestManagementDataRefresh, useManagementSessionState, writeManagementSessionState } from '../hooks/useManagementSessionState'
 import StaffOrderToastContainer from './notifications/StaffOrderToastContainer'
 import { playOrderChime } from '../utils/notificationSound'
+import { raimu } from './raimu/raimuMachine'
+import { readRaimuPreference, saveRaimuPreference } from './raimu/useRaimu'
 
 
 const adminGroups = [
@@ -59,7 +61,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   const [now, setNow] = useState(() => new Date())
   const [notificationsOpen, setNotificationsOpen] = useManagementSessionState(`${role}:shell:notifications-open`, false)
   const [refreshing, setRefreshing] = useState(false)
-  const [raimuVisible, setRaimuVisible] = useState(() => window.localStorage.getItem('raimu-visible') === 'true')
+  const [raimuVisible, setRaimuVisible] = useState(() => readRaimuPreference('raimu-visible', 'true') !== 'false')
   const [notifications, setNotifications] = useState([])
   const [staffPreferences, setStaffPreferences] = useState(getCachedStaffPreferences)
   const notificationAnchorRef = useRef(null)
@@ -90,9 +92,16 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   useEffect(() => {
     if (visibleNotificationCount > prevNotificationCountRef.current) {
       triggerBellRing()
+      raimu.reactTo('notification')
     }
     prevNotificationCountRef.current = visibleNotificationCount
   }, [visibleNotificationCount])
+
+  useEffect(() => {
+    const syncRaimu = (event) => setRaimuVisible(event.detail?.visible !== false)
+    window.addEventListener('raimu-visibility-change', syncRaimu)
+    return () => window.removeEventListener('raimu-visibility-change', syncRaimu)
+  }, [])
 
 
   useEffect(() => {
@@ -370,7 +379,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   const toggleRaimu = () => {
     const visible = !raimuVisible
     setRaimuVisible(visible)
-    window.localStorage.setItem('raimu-visible', String(visible))
+    saveRaimuPreference('raimu-visible', visible)
     window.dispatchEvent(new CustomEvent('raimu-visibility-change', { detail: { visible } }))
   }
 

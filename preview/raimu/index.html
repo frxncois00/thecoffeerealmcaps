@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Raimu Companion · Local preview</title>
+    <style>
+      body { margin: 0; font-family: 'DM Sans', system-ui, sans-serif; }
+      .studio { min-height: 100dvh; padding: clamp(20px, 5vw, 64px); background: var(--mgmt-input); color: var(--mgmt-text); }
+      .studio .kicker { font-size: 11px; letter-spacing: .15em; color: var(--mgmt-primary); text-transform: uppercase; font-weight: 700; }
+      .studio h1 { font-size: clamp(26px, 4vw, 42px); letter-spacing: -.04em; margin: 10px 0; }
+      .studio > p { max-width: 560px; color: var(--mgmt-muted); line-height: 1.6; font-size: 14px; }
+      .studio-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 840px; margin: 28px 0; }
+      .studio-controls button, .studio-controls select { min-height: 44px; padding: 0 12px; background: var(--mgmt-surface); color: var(--mgmt-text); border: 1px solid var(--mgmt-border); border-radius: 10px; font: inherit; font-size: 12px; }
+      .studio-controls label { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+      .studio button:focus-visible, .studio select:focus-visible { outline: 3px solid var(--mgmt-primary); outline-offset: 3px; }
+      .pose-grid.raimu-companion { position: static; inset: auto; z-index: auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; max-width: 920px; pointer-events: auto; }
+      .pose-card { border: 1px solid var(--mgmt-border); border-radius: 20px; background: var(--mgmt-surface); padding: 14px; text-align: center; }
+      .pose-card .rc-cat { width: 128px; height: 138px; margin: auto; }
+      .pose-card button { border: 0; min-height: 44px; background: transparent; color: var(--mgmt-text); text-transform: capitalize; font: inherit; font-size: 12px; }
+      .studio-note { margin-top: 26px; padding-bottom: 160px; }
+      @media(max-width: 500px) { .pose-grid.raimu-companion { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pose-card { padding: 10px 4px; } }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./main.jsx"></script>
+  </body>
+</html>

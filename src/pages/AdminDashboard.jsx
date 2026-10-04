@@ -23,6 +23,7 @@ import { computeDashboardMetrics, fetchDashboardData } from '../services/adminDa
 import { describeError } from '../utils/describeError'
 import { money } from '../utils/money'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { raimu } from '../components/raimu/raimuMachine'
 
 const adminPageTitles = {
   '/admin': 'Dashboard',
@@ -295,10 +296,14 @@ function AdminDashboardHome() {
   useEffect(() => { load() }, [load])
 
   useEffect(() => {
+    if (metrics) raimu.updateContext({ storeOpen: metrics.storeStatus === 'open' })
+  }, [metrics])
+
+  useEffect(() => {
     if (!isSupabaseConfigured) return undefined
     const refresh = () => load({ quiet: true })
     const channel = supabase.channel('admin-dashboard-live')
-    ;['orders', 'payments', 'refunds', 'inventory_stock', 'menu_items'].forEach((table) => {
+    ;['orders', 'payments', 'refunds', 'inventory_stock', 'menu_items', 'portal_configuration'].forEach((table) => {
       channel.on('postgres_changes', { event: '*', schema: 'public', table }, refresh)
     })
     channel.subscribe()

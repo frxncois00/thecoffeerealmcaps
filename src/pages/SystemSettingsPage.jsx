@@ -1,6 +1,7 @@
 import { AlertTriangle, Check, Clock3, CreditCard, Database, Image, Info, MapPin, Percent, RotateCcw, Save, ShieldCheck, ShoppingBag, Store, Upload } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import AppShell from '../components/AppShell'
+import { raimu } from '../components/raimu/raimuMachine'
 import { describeError } from '../utils/describeError'
 import { EMAIL_MAX_LENGTH, isValidEmail, isValidPhone, sanitizeCatalogText, sanitizeDigits, sanitizePersonName, sanitizePhone } from '../utils/inputValidation'
 import { IMAGE_UPLOAD_ACCEPT, validateImageFile } from '../utils/imageUpload'
@@ -38,6 +39,7 @@ export default function SystemSettingsPage() {
     setLoading(true)
     try {
       const [configuration, deliveryZones] = await Promise.all([fetchPortalConfiguration('system'), fetchDeliveryZoneSettings()])
+      raimu.updateContext({ storeOpen: configuration.values.ordering?.storeStatus === 'open' })
        setSettings((current) => ({ ...current, ...configuration.values, store: { ...current.store, ...configuration.values.store, phone: sanitizePhone(configuration.values.store?.phone || '') } })); setZones(deliveryZones); setUpdatedAt(configuration.updatedAt); setSetupRequired(configuration.setupRequired); setError('')
     } catch (cause) { setError(describeError(cause, 'System settings could not be loaded.')) }
     finally { setLoading(false) }
@@ -58,6 +60,7 @@ export default function SystemSettingsPage() {
         const result = await savePaymentConfiguration(settings.payments, qrFiles)
         setSettings((current) => ({ ...current, payments: result.settings })); setQrFiles({ gcash: null, bank_transfer: null }); setUpdatedAt(result.row.updated_at); setSetupRequired(false)
       } else { const row = await savePortalConfiguration('system', key, settings[key], key !== 'security'); setUpdatedAt(row.updated_at); setSetupRequired(false) }
+      if (key === 'ordering') raimu.updateContext({ storeOpen: settings.ordering.storeStatus === 'open' })
       setNotice(`${SECTIONS.find(([id]) => id === key)?.[1] || 'Settings'} saved.`)
     } catch (cause) { setError(describeError(cause, 'These settings could not be saved.')) }
     finally { setSaving(false) }
