@@ -58,6 +58,8 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [supplierFilter, setSupplierFilter] = useState('all')
+  const [sortBy, setSortBy] = useState('updated-desc')
+  const [dateFrom, setDateFrom] = useState('')
   const [selectedId, setSelectedId] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -91,15 +93,22 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   const counts = useMemo(() => orders.reduce((acc, order) => { acc[order.status] = (acc[order.status] || 0) + 1; return acc }, {}), [orders])
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase()
-    return orders.filter((order) => {
+    const result = orders.filter((order) => {
       if (statusFilter !== 'all' && order.status !== statusFilter) return false
       if (supplierFilter !== 'all' && order.supplierName !== supplierFilter) return false
+      if (dateFrom && (!order.requestedDeliveryDate || order.requestedDeliveryDate < dateFrom)) return false
       return !term || [order.po_number, order.supplierName].some((value) => String(value || '').toLowerCase().includes(term))
     })
-  }, [orders, query, statusFilter, supplierFilter])
+    return result.sort((left, right) => {
+      if (sortBy === 'name') return String(left.supplierName || '').localeCompare(String(right.supplierName || ''))
+      if (sortBy === 'status') return labelFor(left.status).localeCompare(labelFor(right.status))
+      if (sortBy === 'delivery-asc') return String(left.requestedDeliveryDate || '9999').localeCompare(String(right.requestedDeliveryDate || '9999'))
+      return new Date(right.updatedAt || right.created_at || 0) - new Date(left.updatedAt || left.created_at || 0)
+    })
+  }, [orders, query, statusFilter, supplierFilter, sortBy, dateFrom])
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
   const pageOrders = filtered.slice((page - 1) * pageSize, page * pageSize)
-  useEffect(() => { setPage(1) }, [query, statusFilter, supplierFilter, pageSize])
+  useEffect(() => { setPage(1) }, [query, statusFilter, supplierFilter, sortBy, dateFrom, pageSize])
   const suppliersInOrders = useMemo(() => [...new Set(orders.map((order) => order.supplierName).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [orders])
 
   function announce(message) { setNotice(message); window.setTimeout(() => setNotice(''), 4500) }
@@ -210,11 +219,13 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
         <div className="po-toolbar-search"><FileText size={16} /><input value={query} onChange={(event) => setQuery(event.target.value.slice(0, 80))} placeholder="Search PO or supplier" aria-label="Search purchase orders" /></div>
         <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter purchase orders by status"><option value="all">All statuses</option>{Object.entries(STATUS_META).map(([value, [label]]) => <option value={value} key={value}>{label}</option>)}</select>
         <select value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)} aria-label="Filter purchase orders by supplier"><option value="all">All suppliers</option>{suppliersInOrders.map((supplier) => <option value={supplier} key={supplier}>{supplier}</option>)}</select>
+        <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} aria-label="Sort purchase orders"><option value="updated-desc">Sort: Recently updated</option><option value="delivery-asc">Sort: Delivery date</option><option value="name">Sort: Supplier name</option><option value="status">Sort: Status</option></select>
+        <label className="po-date-filter"><span>Delivery from</span><input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} aria-label="Show purchase orders from delivery date" /></label>
         {!isAdmin ? <><button type="button" className="ops-secondary-action" onClick={() => setSupplierOpen(true)}><Store size={16} /> Suppliers</button><button type="button" className="ops-main-action" onClick={openCreate}><Plus size={16} /> Generate P.O.{lowStockCount ? ` (${lowStockCount})` : ''}</button></> : null}
       </section>
 
-      <section className="po-table-panel">
-        <div className="po-table-scroll"><table className="po-table"><thead><tr><th>PO number</th><th>Supplier</th><th>Delivery</th><th>Items</th><th>Estimated total</th><th>Status</th><th>Updated</th><th /></tr></thead><tbody>
+        <section className="po-table-panel">
+        <div className="po-table-scroll"><table className="po-table"><thead><tr><th>PO number</th><th>Supplier</th><th>Delivery</th><th>Items</th><th>Estimated total</th><th>Status</th><th>Updated</th><th className="po-actions-heading">Actions</th></tr></thead><tbody>
           {loading ? <tr><td colSpan="8" className="po-empty">Loading…</td></tr> : pageOrders.length ? pageOrders.map((order) => <tr key={order.id} onClick={() => setSelectedId(order.id)} className={selectedId === order.id ? 'is-selected' : ''}><td><b>{order.po_number}</b><small>{dateTimeLabel(order.created_at)}</small></td><td>{order.supplierName}</td><td>{dateLabel(order.requestedDeliveryDate)}</td><td>{order.items.length}</td><td>{money(totalFor(order))}</td><td><StatusBadge status={order.status} /></td><td>{dateTimeLabel(order.updatedAt)}</td><td><button type="button" className="ops-secondary-action compact" onClick={(event) => { event.stopPropagation(); setSelectedId(order.id) }}>View</button></td></tr>) : <tr><td colSpan="8" className="po-empty">No purchase orders found.</td></tr>}
         </tbody></table></div>
       </section>
@@ -249,7 +260,7 @@ function PurchaseOrderDrawer({ order, isAdmin, onClose, onEdit, onSubmit, onAppr
       <div className="po-detail-grid"><div><span>Supplier</span><b>{order.supplierName}</b></div><div><span>Delivery date</span><b>{dateLabel(order.requestedDeliveryDate)}</b></div><div><span>Created by</span><b>{order.createdByName || '—'}</b></div><div><span>Estimated total</span><b>{money(totalFor(order))}</b></div></div>
       <div className="po-section-heading"><h3>Items</h3><span>{order.items.length} lines</span></div>
       <div className="po-lines"><table><thead><tr><th>Item</th><th>Ordered</th><th>Accepted</th><th>Cost</th></tr></thead><tbody>{order.items.map((item) => <tr key={item.id}><td><b>{item.item_name}</b><small>{item.unit}</small></td><td>{qty(item.quantityOrdered)}</td><td>{qty(item.acceptedQuantity)}</td><td>{money(item.actualUnitCost === '' ? item.estimatedUnitCost : item.actualUnitCost)}</td></tr>)}</tbody></table></div>
-      {order.documents?.length ? <div className="po-document-list"><div className="po-section-heading"><h3>Attached documents</h3></div>{order.documents.map((document) => <div key={document.id}><Upload size={14} /><DocumentLink document={document} /><small>{document.document_type.replaceAll('_', ' ')}</small></div>)}</div> : null}
+      {order.documents?.length ? <div className="po-document-list"><div className="po-section-heading"><h3>Attached documents</h3></div>{Array.from(new Map(order.documents.map((document) => [`${String(document.file_name || '').trim().toLowerCase()}|${String(document.document_type || '').trim().toLowerCase()}`, document])).values()).map((document) => <div key={`${document.file_name}|${document.document_type}`}><DocumentLink document={document} /><small>{document.document_type.replaceAll('_', ' ')}</small></div>)}</div> : null}
       <div className="po-actions">
         {canEdit ? <button type="button" className="ops-secondary-action" onClick={onEdit}>Edit draft</button> : null}
         {canEdit ? <button type="button" className="ops-main-action" onClick={onSubmit}>Submit for approval</button> : null}
@@ -411,9 +422,11 @@ function DocumentUpload({ label, hint, files = [], onChange, accept = 'image/*,a
 }
 
 function DocumentLink({ document }) {
-  const [opening, setOpening] = useState(false)
-  async function open() { setOpening(true); try { const url = await getPurchaseOrderDocumentUrl(document.storage_path); if (url) window.open(url, '_blank', 'noopener,noreferrer') } finally { setOpening(false) } }
-  return <button type="button" className="po-document-link" onClick={open} disabled={opening}>{opening ? 'Opening…' : document.file_name}</button>
+  const [url, setUrl] = useState('')
+  const isImage = /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(document.file_name || '') || String(document.mime_type || '').startsWith('image/')
+  useEffect(() => { let active = true; getPurchaseOrderDocumentUrl(document.storage_path).then((nextUrl) => { if (active) setUrl(nextUrl || '') }).catch(() => {}); return () => { active = false } }, [document.storage_path])
+  function open() { if (url) window.open(url, '_blank', 'noopener,noreferrer') }
+  return <span className="po-document-entry">{isImage && url ? <button type="button" className="po-document-preview" onClick={open} aria-label={`Preview ${document.file_name}`}><img src={url} alt="" loading="lazy" /></button> : <Upload size={14} />}<button type="button" className="po-document-link" onClick={open} disabled={!url}>{document.file_name}</button></span>
 }
 
 function ActionModal({ action, onClose, onChange, onConfirm, onReturn }) {

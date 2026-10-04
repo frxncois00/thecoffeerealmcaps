@@ -1,0 +1,99 @@
+/* Geometry is shared with light mode in admin-reference and report-theme. */
+.app-layout.legacy-admin[data-theme="dark"] {
+  --admin-scheme:dark;
+  --admin-canvas:#131413;--admin-surface:#181a19;--admin-subtle:#1e1f1e;--admin-green-surface:#005d3b;
+  --admin-emerald:#005d3b;--admin-emerald-hover:#087448;--admin-emerald-line:#23835b;
+  --admin-orange:#d97757;--admin-orange-soft:#3a2923;
+  --admin-red-soft:#3d2025;--admin-blue:#a7c9f3;--admin-blue-soft:#1d304b;
+  --admin-line:#282a29;--admin-ink:#f0f1eb;--admin-muted:#b9c1b9;
+  --admin-danger:#ffb4ae;--admin-warning:#efad91;
+  --mgmt-canvas:var(--admin-canvas);--mgmt-surface:var(--admin-surface);--mgmt-elevated:var(--admin-subtle);
+  --mgmt-subtle:var(--admin-subtle);--mgmt-hover:#242624;--mgmt-input:var(--admin-canvas);
+  --mgmt-heading:var(--admin-ink);--mgmt-text:#e2e6df;--mgmt-muted:var(--admin-muted);
+  --mgmt-faint:#a5b0a7;--mgmt-border:var(--admin-line);--mgmt-border-strong:#565c58;
+  --mgmt-primary:#72d3a5;--mgmt-primary-strong:#98e4bd;--mgmt-on-primary:#17251c;
+  --mgmt-danger:var(--admin-danger);--mgmt-danger-soft:var(--admin-red-soft);
+  --mgmt-warning:var(--admin-warning);--mgmt-warning-soft:var(--admin-orange-soft);
+  --mgmt-success:#72d3a5;--mgmt-success-soft:#173c2d;
+  --mgmt-highlight:transparent;--mgmt-shadow:0 2px 8px #0002;--mgmt-shadow-high:0 12px 30px #0004;
+  --rp-shadow:var(--mgmt-shadow);background:var(--admin-canvas);
+}
+.app-layout.legacy-admin[data-theme="dark"] {
+  background: var(--admin-canvas);
+}
+.app-layout.legacy-admin[data-theme="dark"]:is(.legacy-admin,.report-workspace) .internal-main {background-color:var(--admin-canvas);background-image:none}
+.app-layout.legacy-admin[data-theme="dark"] .internal-sidebar {
+  background: var(--admin-canvas);
+  border-color: var(--admin-line);
+}
+.app-layout.legacy-admin[data-theme="dark"] .internal-brand h2 {
+  color: var(--admin-ink);
+}
+.app-layout.legacy-admin[data-theme="dark"] .internal-brand p {
+  color: var(--admin-muted);
+}
+.app-layout.legacy-admin[data-theme="dark"] .internal-group-label {
+  color: var(--admin-muted);
+}
+.app-layout.legacy-admin[data-theme="dark"] .internal-sidebar nav a {
+  color: var(--admin-muted);
+}
+.app-layout.legacy-admin[data-theme="dark"] .internal-sidebar nav a:hover {
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+}
+.app-layout.legacy-admin[data-theme="dark"] .internal-sidebar nav a.active {
+  background: var(--admin-emerald);
+  color: #f0f1eb;
+}
+.app-layout.legacy-admin[data-theme="dark"] .internal-sidebar nav a.active::before {
+  background: var(--mgmt-primary);
+}
+.app-layout.legacy-admin[data-theme="dark"] .sidebar-staff-profile {
+  background: var(--admin-surface);
+  border-color: var(--admin-line);
+  color: var(--admin-ink);
+}
+.app-layout.legacy-admin[data-theme="dark"] .sidebar-staff-profile strong {
+  color: var(--admin-ink);
+}
+.app-layout.legacy-admin[data-theme="dark"] .sidebar-staff-profile small {
+  color: var(--admin-muted);
+}
+.app-layout.legacy-admin[data-theme="dark"] .sidebar-exit {
+  color: var(--admin-muted);
+}
+.app-layout.legacy-admin[data-theme="dark"] .sidebar-exit:hover {
+  background: var(--admin-surface);
+  color: var(--admin-ink);
+}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.panel,.ad-panel,.ad-kpi-card,.ua-module,.ac-editor-section,.po-table-panel,.rp-card,.rp-metric,.ir-metric,.cancel-metric,.ua-summary-card,.inv-summary-card,.txn-report-total,.txn-report-stat,.inv-table-card,.txn-ledger-shell,.module-table-card,.staff-settings-card) {background:var(--admin-surface);box-shadow:var(--mgmt-shadow)}
+.app-layout.legacy-admin[data-theme="dark"] :is(.ua-modal,.ua-drawer,.po-modal,.po-drawer,.ac-modal,.ops-drawer,.txn-drawer,.cancel-drawer,.ir-drawer,.benefit-review-panel,.staff-settings-card) {background:var(--admin-surface);color:var(--admin-ink);border-color:var(--admin-line)}
+.app-layout.legacy-admin[data-theme="dark"] :is(.ua-modal,.ua-drawer,.po-modal,.po-drawer,.ac-modal,.ops-drawer,.txn-drawer,.cancel-drawer,.ir-drawer) :is(header,footer,section,fieldset,.po-detail-grid>div,.po-lines,.ua-details>div,.po-upload-card,.po-receive-card) {background:var(--admin-surface);border-color:var(--admin-line)}
+.app-layout.legacy-admin[data-theme="dark"] :is(.ua-modal,.ua-drawer,.po-modal,.po-drawer,.ac-modal,.ops-drawer,.txn-drawer,.cancel-drawer,.ir-drawer) :is(h2,h3,h4,b,strong,label,legend,dd) {color:var(--admin-ink)}
+.app-layout.legacy-admin[data-theme="dark"] :is(.ua-modal,.ua-drawer,.po-modal,.po-drawer,.ac-modal,.ops-drawer,.txn-drawer,.cancel-drawer,.ir-drawer) :is(p,small,dt) {color:var(--admin-muted)}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea,.po-toolbar-search,.ua-search,.ac-feedback-candidates) {background:var(--admin-canvas);color:var(--admin-ink);border-color:var(--admin-line);color-scheme:dark}
+.app-layout.legacy-admin[data-theme="dark"] ::placeholder {color:#a5b0a7;opacity:1}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.ops-main-action,.ua-primary-action,.ac-primary-button,.legacy-primary,.ac-approval-approve,.srp-export-btn,.button-dark,.po-primary) {background:var(--admin-emerald);color:#f0f1eb;border-color:var(--admin-emerald-line)}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.ops-main-action,.ua-primary-action,.ac-primary-button,.legacy-primary,.ac-approval-approve,.srp-export-btn,.button-dark,.po-primary):hover:not(:disabled) {background:var(--admin-emerald-hover);color:#fff}
+.app-layout.legacy-admin[data-theme="dark"] :is(.ops-secondary-action,.ua-secondary-action,.ua-row-action,.ac-secondary-button) {background:var(--admin-subtle);color:#f0f1eb;border-color:var(--admin-line)}
+.app-layout.legacy-admin[data-theme="dark"] :is(.ac-feedback-candidates b,.ac-feedback-candidates p,.po-document-link) {color:var(--admin-ink)}
+
+/* Semantic accents & status badges: solid deep shades with crisp contrast and reduced roundness */
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.status-chip, .inv-status, .po-status, .ad-order-status, .benefit-badge, .rp-pill) {border-radius: 7px;}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.status-chip--attention, .status-chip--preparing, .inv-status.tone-amber, .po-status-amber, .rp-pill.warning, .ad-order-status:is(.is-order-received,.is-awaiting-payment-verification,.is-pending-confirmation,.is-pending), .benefit-badge.is-pending) {background: #854d0e; border-color: #a16207; color: #ffffff;}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.status-chip--completed, .status-chip--received, .inv-status.tone-green, .po-status-green, .rp-pill.growing, .ad-order-status:is(.is-completed,.is-received), .benefit-badge.is-approved) {background: #14532d; border-color: #166534; color: #ffffff;}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.status-chip--cancelled, .inv-status.tone-red, .po-status-red, .rp-pill.danger, .ad-order-status:is(.is-cancelled,.is-voided), .benefit-badge.is-rejected) {background: #7f1d1d; border-color: #991b1b; color: #ffffff;}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.status-chip--delivery, .ad-order-status:is(.is-preparing,.is-out-for-delivery), .rp-pill.info) {background: #0e4a60; border-color: #0d5f7b; color: #ffffff;}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.status-chip--pickup, .po-status-purple, .ad-order-status.is-ready-for-pickup, .benefit-badge.is-resubmission) {background: #3730a3; border-color: #4338ca; color: #ffffff;}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.status-chip--confirmed, .inv-status.tone-blue, .po-status-blue) {background: #1e3a8a; border-color: #1d4ed8; color: #ffffff;}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.status-chip--neutral, .inv-status.tone-neutral, .po-status-neutral, .benefit-badge:not([class*="is-"])) {background: #272f37; border-color: #3b4654; color: #e2e8f0;}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.ac-change-badge--updated) {background:var(--admin-orange-soft);color:var(--admin-warning);border-color:#88503b}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.ua-result--failed,.ops-destructive-action,.ua-danger-action) {background:var(--admin-red-soft);color:var(--admin-danger);border-color:#8e4851}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.ac-change-badge--price) {background:var(--admin-blue-soft);color:var(--admin-blue);border-color:#496b97}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.ua-result--success,.ac-change-badge--new) {background:#173c2d;color:#96dfb8;border-color:var(--admin-emerald-line)}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main .ua-result--warning {color:var(--admin-warning)}
+.app-layout.legacy-admin[data-theme="dark"] .internal-utility-button.raimu-toggle {color:var(--admin-warning);background:var(--admin-orange-soft);border-color:#88503b}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main .rp-track>i {background:var(--admin-emerald-hover)}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main .rp-track>i.series-1 {background:var(--admin-orange)}
+.app-layout.legacy-admin[data-theme="dark"] .internal-main .rp-track>i.series-2 {background:#527fb1}

@@ -126,10 +126,10 @@ function UserManagementModule({ refreshSignal, employeeOpen, setEmployeeOpen }) 
     </header>
 
     <div className="ua-summary" aria-label="Employee summary">
-      <article className="ua-summary-card tone-green"><div className="ua-summary-copy"><span>Total employees</span><small>All active employee accounts</small></div><b>{counts.total}</b></article>
-      <article className="ua-summary-card tone-blue"><div className="ua-summary-copy"><span>Administrators</span><small>Full portal access</small></div><b>{counts.admins}</b></article>
-      <article className="ua-summary-card tone-purple"><div className="ua-summary-copy"><span>Operations staff</span><small>Inventory and order operations</small></div><b>{counts.operations}</b></article>
-      <article className="ua-summary-card tone-amber"><div className="ua-summary-copy"><span>Cashiers</span><small>Point-of-sale access</small></div><b>{counts.cashiers}</b></article>
+      <article className="ua-summary-card tone-green"><span>Total employees</span><b>{counts.total}</b><small>All active employee accounts</small></article>
+      <article className="ua-summary-card tone-blue"><span>Administrators</span><b>{counts.admins}</b><small>Full portal access</small></article>
+      <article className="ua-summary-card tone-purple"><span>Operations staff</span><b>{counts.operations}</b><small>Inventory and order operations</small></article>
+      <article className="ua-summary-card tone-amber"><span>Cashiers</span><b>{counts.cashiers}</b><small>Point-of-sale access</small></article>
     </div>
 
     <div className="ua-toolbar">

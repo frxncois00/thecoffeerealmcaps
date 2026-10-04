@@ -16,5 +16,5 @@ export default function MenuApprovalsPage() {
       setError(describeError(cause, 'The approval decision could not be saved.'))
     }
   }
-  return <AppShell role="admin" title="Menu Approvals" eyebrow="Operations"><div className="menu-approvals-page">{error ? <p className="form-error" role="alert">{error}</p> : null}{notice ? <p className="form-success" role="status">{notice}</p> : null}<MenuApprovalsQueue onAction={handleAction} compact /></div></AppShell>
+  return <AppShell role="admin" title="Menu Approvals" eyebrow="Operations" hidePageHeader><div className="menu-approvals-page">{error ? <p className="form-error" role="alert">{error}</p> : null}{notice ? <p className="form-success" role="status">{notice}</p> : null}<MenuApprovalsQueue onAction={handleAction} compact /></div></AppShell>
 }

@@ -1,6 +1,8 @@
 import { BarChart3, Bell, Bot, Boxes, CalendarDays, CheckCheck, ClipboardCheck, ClipboardList, Coffee, FileBarChart, LayoutDashboard, LogOut, MenuSquare, Moon, ReceiptText, RefreshCw, Settings, ShieldCheck, Sun, Trash2, Users, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+
+const rememberedSidebarNavScroll = { admin: null, staff: null }
 import { signOutPortal } from '../lib/auth'
 import LogoutConfirmModal from './auth/LogoutConfirmModal'
 import { useLogoutTransition } from '../context/LogoutTransitionContext'
@@ -48,7 +50,7 @@ async function submitterName(id) {
   return data?.full_name || data?.username || 'a staff member'
 }
 
-export default function AppShell({ role, title, eyebrow, children, actions, titleActions, onRefresh, onNotifications, notificationCount = 0 }) {
+export default function AppShell({ role, title, eyebrow, children, actions, titleActions, onRefresh, onNotifications, notificationCount = 0, reportMode = false, hidePageHeader = false }) {
   const groups = role === 'admin' ? adminGroups : staffGroups
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -63,6 +65,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   const [notifications, setNotifications] = useState([])
   const [staffPreferences, setStaffPreferences] = useState(getCachedStaffPreferences)
   const notificationAnchorRef = useRef(null)
+  const navRef = useRef(null)
   const { preference, resolvedTheme, setPreference } = useTheme()
   const { profile, user } = useAuth()
   const accountRoleLabel = role === 'admin' ? 'Administrator' : 'Operation Staff'
@@ -116,6 +119,31 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
       window.removeEventListener('scroll', rememberPosition)
     }
   }, [pathname])
+
+  useLayoutEffect(() => {
+    const nav = navRef.current
+    if (!nav) return
+    const saved = rememberedSidebarNavScroll[role] ?? (window.sessionStorage.getItem(`tcr:sidebar-nav-scroll:${role}`) ? Number(window.sessionStorage.getItem(`tcr:sidebar-nav-scroll:${role}`)) : null)
+    if (saved !== null && !Number.isNaN(saved)) {
+      nav.scrollTop = saved
+    }
+    const activeLink = nav.querySelector('a.active')
+    if (activeLink) {
+      activeLink.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      rememberedSidebarNavScroll[role] = nav.scrollTop
+      try {
+        window.sessionStorage.setItem(`tcr:sidebar-nav-scroll:${role}`, String(nav.scrollTop))
+      } catch {}
+    }
+  }, [pathname, role])
+
+  const handleNavScroll = (e) => {
+    const top = e.currentTarget.scrollTop
+    rememberedSidebarNavScroll[role] = top
+    try {
+      window.sessionStorage.setItem(`tcr:sidebar-nav-scroll:${role}`, String(top))
+    } catch {}
+  }
 
   useEffect(() => {
     if (!['staff', 'admin'].includes(role) || !user?.id) return undefined
@@ -452,10 +480,10 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
     ['dark', 'Dark theme', Moon],
   ]
 
-  return <div className={`app-layout legacy-${role}`} data-theme={resolvedTheme} data-staff-density={staffPreferences.table_density} data-staff-contrast={String(staffPreferences.high_contrast)} data-staff-overdue={role === 'staff' ? String(staffPreferences.overdue_highlighting) : undefined}>
+  return <div className={`app-layout legacy-${role}${reportMode ? ' report-workspace' : ''}`} data-theme={resolvedTheme} data-staff-density={staffPreferences.table_density} data-staff-contrast={String(staffPreferences.high_contrast)} data-staff-overdue={role === 'staff' ? String(staffPreferences.overdue_highlighting) : undefined}>
     <aside className="sidebar internal-sidebar">
       <div className="internal-brand"><img src="/images/coffeerealmlogo.png" alt="The Coffee Realm logo"/><div><h2>The Coffee Realm</h2>{role === 'admin' && <p>Admin Portal</p>}</div></div>
-      <nav aria-label={`${role} navigation`}>{groups.map(group => <div className="internal-nav-group" key={group.label || group.links[0][1]}>{group.label && <span className="internal-group-label">{group.label}</span>}{group.links.map(([label,to,Icon]) => <NavLink key={to} to={to} end={to === `/${role}`} title={label}><Icon size={20}/><span>{label}</span></NavLink>)}</div>)}</nav>
+      <nav ref={navRef} onScroll={handleNavScroll} aria-label={`${role} navigation`}>{groups.map(group => <div className="internal-nav-group" key={group.label || group.links[0][1]}>{group.label && <span className="internal-group-label">{group.label}</span>}{group.links.map(([label,to,Icon]) => <NavLink key={to} to={to} end={to === `/${role}`} title={label} onClick={() => { if (navRef.current) { rememberedSidebarNavScroll[role] = navRef.current.scrollTop } }}><Icon size={20}/><span>{label}</span></NavLink>)}</div>)}</nav>
       <div className="sidebar-footer-stack">
         <div className="sidebar-theme-switcher" role="group" aria-label="Theme options">
           {themeOptions.map(([value, label, Icon]) => <button key={value} type="button" className={resolvedTheme === value ? 'active' : ''} aria-label={label} aria-pressed={resolvedTheme === value} title={`${label}${preference ? '' : ' (system preference)'}`} onClick={() => setPreference(value)}><Icon size={18} aria-hidden="true"/></button>)}
@@ -467,7 +495,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
         <button className="sidebar-exit" type="button" onClick={() => setLogoutOpen(true)}><LogOut size={19}/><span>Logout</span></button>
       </div>
     </aside>
-    <main className="app-main internal-main"><header className={`page-header internal-page-header${eyebrow ? '' : ' is-compact'}${role === 'admin' ? ' is-admin-surface-header' : ''}`}><div><div className={`internal-title-row${titleActions ? ' has-title-actions' : ''}`}><h1>{title}</h1>{titleActions}</div>{eyebrow && <span>{eyebrow}</span>}</div><div className="header-actions"><div className="internal-utility-bar" aria-label="Workspace utilities"><div className="internal-live-datetime">{role === 'admin' && title === 'Dashboard' && <CalendarDays size={16} aria-hidden="true" />}<div className="internal-live-datetime-copy"><span>{new Intl.DateTimeFormat('en-PH', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }).format(now)}</span><b>{new Intl.DateTimeFormat('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }).format(now)} PHT</b></div></div><button type="button" className={`internal-utility-button raimu-toggle${raimuVisible ? ' is-active' : ''}`} aria-label={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} aria-pressed={raimuVisible} title={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} onClick={toggleRaimu}><Bot size={18} aria-hidden="true" /></button><div className={`internal-notification-anchor ${bellAnimated ? 'is-ringing' : ''}`} ref={notificationAnchorRef}><button type="button" className="internal-utility-button" aria-label={`Open notifications${visibleNotificationCount ? `, ${visibleNotificationCount} unread` : ''}`} aria-expanded={['staff', 'admin'].includes(role) ? notificationsOpen : undefined} aria-controls={role === 'staff' ? 'staff-notification-center' : undefined} title="Notifications" onClick={openNotifications}><Bell size={18} />{visibleNotificationCount > 0 && <span className={`internal-utility-badge ${bellAnimated ? 'is-popping' : ''}`}>{visibleNotificationCount > 99 ? '99+' : visibleNotificationCount}</span>}</button>{['staff', 'admin'].includes(role) && notificationsOpen && <aside className="staff-notification-center" id="staff-notification-center" role="dialog" aria-modal="false" aria-labelledby="staff-notification-title"><header><div><span>Notification center</span><h2 id="staff-notification-title">Recent activity</h2></div><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={18} /></button></header><div className="staff-notification-actions"><button type="button" onClick={readAllNotifications} disabled={!unreadNotificationCount}><CheckCheck size={16} />Read all</button><button type="button" className="is-destructive" onClick={clearNotifications} disabled={!visibleNotifications.length}><Trash2 size={16} />Clear</button></div><div className="staff-notification-list">{visibleNotifications.length ? visibleNotifications.map((notification) => <button type="button" className={notification.read ? 'is-read' : 'is-unread'} data-category={notification.category} key={notification.id} onClick={() => void openNotification(notification)}><i aria-hidden="true" /><span><b>{notification.title}</b><small>{notification.message}</small><time dateTime={notification.createdAt}>{notificationTime(notification.createdAt)}</time></span></button>) : <div className="staff-notification-empty"><Bell size={22} /><b>{role === 'admin' && notificationCount > 0 ? `${notificationCount} items need attention` : 'You’re all caught up'}</b><span>{role === 'admin' && notificationCount > 0 ? 'Review the dashboard attention cards for details.' : 'Operational alerts will stack here as they arrive.'}</span></div>}</div><footer><button type="button" onClick={() => { setNotificationsOpen(false); navigate(role === 'admin' ? '/admin/preferences' : '/staff/settings') }}>Notification settings</button></footer></aside>}</div><button type="button" className="internal-utility-button" aria-label={refreshing ? 'Refreshing current page data' : 'Refresh current page data'} aria-busy={refreshing} title={refreshing ? 'Refreshing data…' : 'Refresh data'} onClick={refreshPage} disabled={refreshing}><RefreshCw size={18} className={refreshing ? 'spin' : ''} /></button></div>{actions}</div></header>{children}</main>
+    <main className="app-main internal-main">{!hidePageHeader && <header className={`page-header internal-page-header${eyebrow ? '' : ' is-compact'}${role === 'admin' ? ' is-admin-surface-header' : ''}`}><div><div className={`internal-title-row${titleActions ? ' has-title-actions' : ''}`}><h1>{title}</h1>{titleActions}</div>{eyebrow && <span>{eyebrow}</span>}</div><div className="header-actions"><div className="internal-utility-bar" aria-label="Workspace utilities"><div className="internal-live-datetime">{role === 'admin' && title === 'Dashboard' && <CalendarDays size={16} aria-hidden="true" />}<div className="internal-live-datetime-copy"><span>{new Intl.DateTimeFormat('en-PH', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', ...(reportMode ? { timeZone: 'Asia/Manila' } : {}) }).format(now)}</span><b>{new Intl.DateTimeFormat('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true, ...(reportMode ? { timeZone: 'Asia/Manila' } : {}) }).format(now)} PHT</b></div></div><button type="button" className={`internal-utility-button raimu-toggle${raimuVisible ? ' is-active' : ''}`} aria-label={reportMode ? 'AI assistant' : raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} aria-pressed={raimuVisible} title={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} onClick={toggleRaimu}><Bot size={18} aria-hidden="true" /></button><div className={`internal-notification-anchor ${bellAnimated ? 'is-ringing' : ''}`} ref={notificationAnchorRef}><button type="button" className="internal-utility-button" aria-label={reportMode ? `Notifications${visibleNotificationCount ? `, ${visibleNotificationCount} unread` : ''}` : `Open notifications${visibleNotificationCount ? `, ${visibleNotificationCount} unread` : ''}`} aria-expanded={['staff', 'admin'].includes(role) ? notificationsOpen : undefined} aria-controls={role === 'staff' ? 'staff-notification-center' : undefined} title="Notifications" onClick={openNotifications}><Bell size={18} />{visibleNotificationCount > 0 && <span className={`internal-utility-badge ${bellAnimated ? 'is-popping' : ''}`}>{visibleNotificationCount > 99 ? '99+' : visibleNotificationCount}</span>}</button>{['staff', 'admin'].includes(role) && notificationsOpen && <aside className="staff-notification-center" id="staff-notification-center" role="dialog" aria-modal="false" aria-labelledby="staff-notification-title"><header><div><span>Notification center</span><h2 id="staff-notification-title">Recent activity</h2></div><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={18} /></button></header><div className="staff-notification-actions"><button type="button" onClick={readAllNotifications} disabled={!unreadNotificationCount}><CheckCheck size={16} />Read all</button><button type="button" className="is-destructive" onClick={clearNotifications} disabled={!visibleNotifications.length}><Trash2 size={16} />Clear</button></div><div className="staff-notification-list">{visibleNotifications.length ? visibleNotifications.map((notification) => <button type="button" className={notification.read ? 'is-read' : 'is-unread'} data-category={notification.category} key={notification.id} onClick={() => void openNotification(notification)}><i aria-hidden="true" /><span><b>{notification.title}</b><small>{notification.message}</small><time dateTime={notification.createdAt}>{notificationTime(notification.createdAt)}</time></span></button>) : <div className="staff-notification-empty"><Bell size={22} /><b>{role === 'admin' && notificationCount > 0 ? `${notificationCount} items need attention` : 'You’re all caught up'}</b><span>{role === 'admin' && notificationCount > 0 ? 'Review the dashboard attention cards for details.' : 'Operational alerts will stack here as they arrive.'}</span></div>}</div><footer><button type="button" onClick={() => { setNotificationsOpen(false); navigate(role === 'admin' ? '/admin/preferences' : '/staff/settings') }}>Notification settings</button></footer></aside>}</div><button type="button" className="internal-utility-button" aria-label={reportMode ? 'Refresh data' : refreshing ? 'Refreshing current page data' : 'Refresh current page data'} aria-busy={refreshing} title={refreshing ? 'Refreshing data…' : 'Refresh data'} onClick={refreshPage} disabled={refreshing}><RefreshCw size={18} className={refreshing ? 'spin' : ''} /></button></div>{actions}</div></header>}{children}</main>
     {role === 'staff' && (
       <StaffOrderToastContainer
         toasts={orderToasts}
