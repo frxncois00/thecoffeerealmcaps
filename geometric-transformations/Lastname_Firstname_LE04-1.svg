@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" width="1000" height="700" viewBox="0 0 1000 700" version="1.1">
+  <title>Geometric Transformations</title>
+  <desc>Four grouped geometric robots show an original object, a translation, proportional scaling to 150 percent, and a 30 degree counterclockwise rotation.</desc>
+  <rect width="1000" height="700" fill="#ffffff"/>
+  <g aria-label="Page heading" font-family="Arial, Helvetica, sans-serif" fill="#18223c">
+    <text x="42" y="52" font-size="29" font-weight="700">GEOMETRIC TRANSFORMATIONS</text>
+    <text x="43" y="76" font-size="13" fill="#59647c">Four copies of one grouped geometric character · 1000 × 700 px RGB</text>
+  </g>
+  <line x1="42" y1="90" x2="958" y2="90" stroke="#d9e2ee" stroke-width="2"/>
+
+  <defs>
+    <g id="geometric-character" stroke="#18223c" stroke-width="3" stroke-linejoin="round">
+      <rect x="55" y="5" width="10" height="14" rx="2" fill="#ffbd59"/>
+      <circle cx="60" cy="5" r="5" fill="#ffbd59"/>
+      <rect x="25" y="18" width="70" height="44" rx="10" fill="#61d3df"/>
+      <circle cx="17" cy="39" r="7" fill="#ffbd59"/>
+      <circle cx="103" cy="39" r="7" fill="#ffbd59"/>
+      <circle cx="46" cy="40" r="6" fill="#18223c" stroke="none"/>
+      <circle cx="74" cy="40" r="6" fill="#18223c" stroke="none"/>
+      <path d="M51 53 Q60 59 69 53" fill="none" stroke-linecap="round"/>
+      <rect x="22" y="66" width="76" height="51" rx="8" fill="#5067c8"/>
+      <rect x="1.5" y="73" width="17" height="38" rx="8" fill="#61d3df"/>
+      <rect x="101.5" y="73" width="17" height="38" rx="8" fill="#61d3df"/>
+      <circle cx="60" cy="90" r="15" fill="#ffbd59"/>
+      <path d="M60 78 L63 86 L72 86 L65 92 L68 101 L60 96 L52 101 L55 92 L48 86 L57 86 Z" fill="#ffffff" stroke="none"/>
+      <rect x="34" y="117" width="18" height="22" rx="5" fill="#61d3df"/>
+      <rect x="68" y="117" width="18" height="22" rx="5" fill="#61d3df"/>
+    </g>
+  </defs>
+
+  <g id="object-1-original" aria-label="Object 1 original, upper-left at 100,100" transform="translate(100 100)">
+    <use href="#geometric-character"/>
+  </g>
+  <g id="object-2-translation" aria-label="Object 2 translated from 400,100 by 200,100 to 600,200" transform="translate(600 200)">
+    <use href="#geometric-character"/>
+  </g>
+  <g id="object-3-scaling" aria-label="Object 3, 150 percent scale, upper-left at 100,400" transform="translate(100 400) scale(1.5)">
+    <use href="#geometric-character"/>
+  </g>
+  <g id="object-4-rotation" aria-label="Object 4, rotated 30 degrees counterclockwise after positioning at 500,400" transform="translate(500 400) rotate(-30 60 70)">
+    <use href="#geometric-character"/>
+  </g>
+
+  <g font-family="Arial, Helvetica, sans-serif" fill="#18223c">
+    <text x="100" y="260" font-size="17" font-weight="700">01  ORIGINAL</text>
+    <text x="100" y="279" font-size="12" fill="#59647c">x 100 · y 100 · 120 × 140 px</text>
+    <text x="600" y="360" font-size="17" font-weight="700">02  TRANSLATION</text>
+    <text x="600" y="379" font-size="12" fill="#59647c">x 600 · y 200 · +200 x, +100 y</text>
+    <text x="100" y="640" font-size="17" font-weight="700">03  SCALING</text>
+    <text x="100" y="659" font-size="12" fill="#59647c">x 100 · y 400 · 150% proportional</text>
+    <text x="500" y="590" font-size="17" font-weight="700">04  ROTATION</text>
+    <text x="500" y="609" font-size="12" fill="#59647c">initial x 500 · y 400 · 30° CCW</text>
+  </g>
+</svg>

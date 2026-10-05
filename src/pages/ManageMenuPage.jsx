@@ -140,7 +140,7 @@ export default function ManageMenuPage() {
       if (tab === 'available' && !item.available) return false
       if (tab === 'unavailable' && item.available) return false
       if (subcategoryFilter !== 'all' && item.subcategoryId !== subcategoryFilter) return false
-      if (q && !item.name.toLowerCase().includes(q) && !item.description.toLowerCase().includes(q)) return false
+      if (q && ![item.itemCode, item.name, item.description].some((value) => value.toLowerCase().includes(q))) return false
       if (customizableFilter === 'customizable' && !(item.allowIce || item.allowSugar || item.allowAddons || item.temperatureType === 'flexible')) return false
       if (customizableFilter === 'fixed' && (item.allowIce || item.allowSugar || item.allowAddons || item.temperatureType === 'flexible')) return false
       if (min !== null && item.price < min) return false
@@ -491,7 +491,7 @@ function MenuItemCard({ item, view, busy, selected, onToggleSelect, menuOpen, on
         </div>
       </div>
       <div className="menu-card-body">
-        <p className="menu-card-eyebrow">{item.mainCategory}{item.subcategory ? ` · ${item.subcategory}` : ''}</p>
+        <p className="menu-card-eyebrow">{item.itemCode ? `${item.itemCode} · ` : ''}{item.mainCategory}{item.subcategory ? ` · ${item.subcategory}` : ''}</p>
         <div className="menu-card-title-row">
           <b>{item.name}</b>
           {item.isBestseller && <span className="menu-badge tone-gold" title="Bestseller"><Star size={12} /></span>}
@@ -527,7 +527,7 @@ function ItemDrawer({ item, onClose, onEdit, onToggleAvailability }) {
   return (
     <div className="ops-drawer-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <aside className="ops-drawer" role="dialog" aria-modal="true" aria-labelledby="menu-drawer-title">
-        <header><div><span className="settings-kicker">{item.mainCategory}</span><h2 id="menu-drawer-title">{item.name}</h2></div><button type="button" onClick={onClose} aria-label="Close item details"><X size={20} /></button></header>
+        <header><div><span className="settings-kicker">{item.itemCode ? `${item.itemCode} · ` : ''}{item.mainCategory}</span><h2 id="menu-drawer-title">{item.name}</h2></div><button type="button" onClick={onClose} aria-label="Close item details"><X size={20} /></button></header>
         <div className="ops-drawer-body">
           <section><h3>Overview</h3>
             <p><b>{money(item.price)}</b> <span className={`inv-status tone-${item.available ? 'green' : 'red'}`}>{item.available ? 'Available' : 'Unavailable'}</span></p>
@@ -535,6 +535,7 @@ function ItemDrawer({ item, onClose, onEdit, onToggleAvailability }) {
             <p>{item.description || 'No description yet.'}</p>
           </section>
           <section><h3>Details</h3>
+            <p>Item ID: {item.itemCode || '—'}</p>
             <p>Category: {item.mainCategory} · {item.subcategory || '—'}</p>
             <p>Type: {item.itemType}</p>
             <p>Online SC/PWD discount: {item.onlineBenefitEligible ? 'Eligible' : 'Not eligible'}</p>

@@ -23,7 +23,7 @@ export default function BenefitsPage() {
     <header className="benefit-heading"><h1>Senior Citizen / PWD Verification</h1><p>Apply for verification and track your application in one place.</p></header>
     <section className="benefit-info" aria-labelledby="benefit-about-title"><Info size={26} aria-hidden="true"/><div><h2 id="benefit-about-title">About verification</h2><ul><li>Choose Senior Citizen or Person with Disability (PWD) and provide a valid ID.</li><li>Our administrators will review your information and update your application status.</li><li>Your ID is private and accessible only to you and authorized administrators. You may be asked to present your original ID when collecting an order.</li></ul></div></section>
     {loading ? <p role="status">Loading your application…</p> : error ? <div className="benefit-error" role="alert"><p>{error}</p><button className="secondary-button" onClick={reload}>Try again</button></div> : <>
-      {(!current || current.status === 'resubmission') && <ApplicationForm key={`${current?.id || 'new'}-${current?.revision || 0}`} application={current} fullName={profile?.full_name || ''} onSubmitted={value => { setSubmitted(value); reload() }} />}
+      {(!current || current.status === 'resubmission') && <ApplicationForm key={`${current?.id || 'new'}-${current?.revision || 0}`} application={current} fullName={profile?.full_name || ''} accountBirthdate={profile?.birthdate || ''} onSubmitted={value => { setSubmitted(value); reload() }} />}
       <section className="benefit-status-card" aria-labelledby="benefit-status-title" aria-live="polite"><header><div><h2 id="benefit-status-title">Application status</h2><p>Check the progress of your verification here.</p></div><button className="benefit-text-button" type="button" onClick={reload}>Refresh status</button></header>
         {!current ? <div className="benefit-empty"><FileCheck2 size={36}/><div><h3>No application submitted yet</h3><p>Complete the steps above to apply for verification.</p></div></div> : <>
           <div className="benefit-status-summary"><FileCheck2 size={30}/><div><span className={`benefit-badge is-${current.status}`}>{BENEFIT_STATUS[current.status]}</span><h3>{current.status === 'approved' ? `Verified as ${benefitKind(current.kind)}` : `${benefitKind(current.kind)} application`}</h3><p>Submitted {dateLabel(current.submitted_at)}{current.reviewed_at && ` · Reviewed ${dateLabel(current.reviewed_at)}`}</p></div></div>
@@ -41,8 +41,12 @@ function ApplicationDetails({ values }) {
   return <dl className="benefit-details"><div><dt>Applicant type</dt><dd>{benefitKind(values.kind)}</dd></div><div><dt>Full name</dt><dd>{values.full_name}</dd></div><div><dt>Date of birth</dt><dd>{values.date_of_birth}</dd></div><div><dt>ID number</dt><dd>{values.id_number}</dd></div></dl>
 }
 
-function ApplicationForm({ application, fullName, onSubmitted }) {
-  const [values, setValues] = useState({ kind: application?.kind || 'senior', full_name: application?.full_name || fullName, date_of_birth: application?.date_of_birth || '', id_number: application?.id_number || '' })
+function ApplicationForm({ application, fullName, accountBirthdate, onSubmitted }) {
+  const accountDate = accountBirthdate ? new Date(`${accountBirthdate}T00:00:00`) : null
+  const now = new Date()
+  const accountAge = accountDate ? now.getFullYear() - accountDate.getFullYear() - (now.getMonth() < accountDate.getMonth() || (now.getMonth() === accountDate.getMonth() && now.getDate() < accountDate.getDate()) ? 1 : 0) : null
+  const canApplySenior = accountAge !== null && accountAge >= 60
+  const [values, setValues] = useState({ kind: application?.kind || (canApplySenior ? 'senior' : 'pwd'), full_name: application?.full_name || fullName, date_of_birth: application?.date_of_birth || accountBirthdate || '', id_number: application?.id_number || '' })
   const [step, setStep] = useState(0)
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState('')
@@ -74,13 +78,13 @@ function ApplicationForm({ application, fullName, onSubmitted }) {
   const next = async event => {
     event.preventDefault(); setError('')
     if (busy || checkingFile) return
-    const validation = validateBenefitInformation(values)
+    const validation = validateBenefitInformation(values, new Date(), accountBirthdate)
     if (validation) { setError(validation); return }
     if (!file && !application?.document_path) { setError('Upload a clear photo of your valid ID.'); return }
     if (step === 0) { setConsent(false); move(1); return }
     if (!consent) { setError('Confirm your information and consent to verification.'); return }
     setBusy(true)
-    try { onSubmitted(await submitBenefitApplication(values, file, application?.document_path, consent)) }
+    try { onSubmitted(await submitBenefitApplication(values, file, application?.document_path, consent, accountBirthdate)) }
     catch (cause) { setError(cause.message || 'Your application could not be submitted. Please try again.') }
     finally { setBusy(false) }
   }
@@ -91,7 +95,7 @@ function ApplicationForm({ application, fullName, onSubmitted }) {
       <h2 tabIndex={-1} ref={titleRef}>{STEPS[step][0]}</h2>
       {application?.review_note && <div className="benefit-review-note"><b>Requested updates</b><p>{application.review_note}</p></div>}
       {step === 0 && <>
-        <fieldset className="benefit-kind"><legend>I am applying as <span aria-hidden="true">*</span></legend>{['senior','pwd'].map(kind => <label key={kind}><input type="radio" name="benefit-kind" checked={values.kind === kind} onChange={() => update('kind', kind)}/>{benefitKind(kind)}</label>)}</fieldset>
+        <fieldset className="benefit-kind"><legend>I am applying as <span aria-hidden="true">*</span></legend>{['senior','pwd'].map(kind => <label key={kind}><input type="radio" name="benefit-kind" checked={values.kind === kind} disabled={kind === 'senior' && !canApplySenior} onChange={() => update('kind', kind)}/>{benefitKind(kind)}{kind === 'senior' && !canApplySenior ? ' (requires age 60+)' : ''}</label>)}</fieldset>
         <label className="field"><span>Full name *</span><input required minLength={2} maxLength={60} autoComplete="name" value={values.full_name} onChange={event => update('full_name', sanitizePersonName(event.target.value))}/></label>
         <div className="benefit-form-grid"><BenefitBirthDateField value={values.date_of_birth} onChange={value => update('date_of_birth', value)} max={today}/><label className="field"><span>ID number *</span><input required type="text" inputMode="numeric" pattern="[0-9]{3,20}" minLength={3} maxLength={20} title="Enter 3–20 digits only." value={values.id_number} onChange={event => update('id_number', event.target.value.replace(/[^0-9]/g, '').slice(0,20))}/><small>Numbers only · Maximum 20 digits</small></label></div>
       </>}

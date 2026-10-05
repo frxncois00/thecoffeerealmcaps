@@ -21,8 +21,8 @@ export async function benefitDocumentUrl(path, scope = 'portal') {
   if (error) throw error
   return data.signedUrl
 }
-export async function submitBenefitApplication(values, file, existingPath, consent) {
-  const validation = validateBenefitInformation(values)
+export async function submitBenefitApplication(values, file, existingPath, consent, accountBirthdate = '') {
+  const validation = validateBenefitInformation(values, new Date(), accountBirthdate)
   if (validation) throw new Error(validation)
   if (!consent) throw new Error('Confirm your information and consent to verification.')
   const { data: { user }, error: authError } = await customerSupabase.auth.getUser()
@@ -47,6 +47,11 @@ export async function reviewBenefitApplication(application, status, note) {
   const { data, error } = await portalSupabase.rpc('review_benefit_application', {
     p_id: application.id, p_revision: application.revision, p_status: status, p_note: note.trim(),
   })
+  if (error) throw error
+  return data
+}
+export async function resetApprovedBenefitApplication(application) {
+  const { data, error } = await portalSupabase.rpc('reset_approved_benefit_application', { p_id: application.id, p_revision: application.revision })
   if (error) throw error
   return data
 }

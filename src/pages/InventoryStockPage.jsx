@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   AlertTriangle, Archive, Bell, Box, Check,
   Clock3, Package, PackageMinus, PackagePlus, PackageX, Pencil, Plus, RefreshCw, Search, X,
@@ -54,6 +55,12 @@ function timeAgo(dateString) {
 }
 
 export default function InventoryStockPage() {
+  const location = useLocation()
+  const notificationInventory = location.state?.notificationInventory
+  const initialNotificationInventory = useRef(notificationInventory)
+  const notificationItemType = notificationInventory?.itemType
+  const notificationName = notificationInventory?.name
+  const notificationOpenedAt = notificationInventory?.openedAt
   const [activeEntity, setActiveEntity] = useState('ingredient')
   const [items, setItems] = useState([])
   const [menuItems, setMenuItems] = useState([])
@@ -89,21 +96,33 @@ export default function InventoryStockPage() {
         const preferences = await fetchStaffPreferences(profile.id)
         if (!active) return
         const remembered = getRememberedStaffFilters('inventory')
-        const savedEntity = remembered?.activeEntity || preferences.inventory_tab
+        const initialTarget = initialNotificationInventory.current
+        const savedEntity = initialTarget?.itemType || remembered?.activeEntity || preferences.inventory_tab
         setActiveEntity(savedEntity === 'finished_product' ? 'finished_product' : 'ingredient')
-        setStatusFilter(remembered?.statusFilter || preferences.inventory_filter)
+        setStatusFilter(initialTarget ? 'all' : remembered?.statusFilter || preferences.inventory_filter)
         setPageSize(preferences.rows_per_page)
-        if (remembered) {
-          setSearch(remembered.search || '')
-          setCategoryFilter(remembered.categoryFilter || 'all')
-          setTypeFilter(remembered.typeFilter || 'all')
-          setSortBy(remembered.sortBy || 'name')
+        if (remembered || initialTarget) {
+          setSearch(initialTarget?.name ?? remembered?.search ?? '')
+          setCategoryFilter(initialTarget ? 'all' : remembered?.categoryFilter || 'all')
+          setTypeFilter(initialTarget ? 'all' : remembered?.typeFilter || 'all')
+          setSortBy(initialTarget ? 'name' : remembered?.sortBy || 'name')
         }
       } catch { /* Default inventory settings remain available before migration. */ }
       finally { if (active) setFiltersReady(true) }
     })
     return () => { active = false }
   }, [])
+
+  useEffect(() => {
+    if (!notificationOpenedAt) return
+    setActiveEntity(notificationItemType === 'finished_product' ? 'finished_product' : 'ingredient')
+    setSearch(notificationName || '')
+    setCategoryFilter('all')
+    setStatusFilter('all')
+    setTypeFilter('all')
+    setSortBy('name')
+    setPage(1)
+  }, [notificationItemType, notificationName, notificationOpenedAt])
 
   useEffect(() => {
     if (!filtersReady) return

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { BadgeCheck, ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { BENEFIT_STATUS, benefitKind, fetchBenefitApplications, reviewBenefitApplication } from '../services/benefitsService'
+import { BadgeCheck, ChevronLeft, ChevronRight, RotateCcw, X } from 'lucide-react'
+import { BENEFIT_STATUS, benefitKind, fetchBenefitApplications, resetApprovedBenefitApplication, reviewBenefitApplication } from '../services/benefitsService'
 import BenefitDocument from '../components/BenefitDocument'
 import '../benefits.css'
 
@@ -61,6 +61,7 @@ function ApplicationReview({ application, onClose, onDecision }) {
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [resetOpen, setResetOpen] = useState(false)
   const dialogRef = useRef(null)
   const reasonRef = useRef(null)
   useEffect(() => {
@@ -89,6 +90,13 @@ function ApplicationReview({ application, onClose, onDecision }) {
     catch (cause) { setError(cause.message || 'The decision could not be saved.') }
     finally { setBusy(false) }
   }
+  const resetApplication = async () => {
+    if (busy) return
+    setBusy(true); setError('')
+    try { onDecision(await resetApprovedBenefitApplication(application)) }
+    catch (cause) { setError(cause.message || 'The application could not be reset.') }
+    finally { setBusy(false) }
+  }
   return <dialog ref={dialogRef} className="benefit-review-drawer" aria-labelledby="benefit-review-title"
     onCancel={event => { event.preventDefault(); if (!busy) onClose() }}
     onClick={event => { if (event.target === event.currentTarget && event.clientX < event.currentTarget.getBoundingClientRect().left && !busy) onClose() }}>
@@ -106,6 +114,7 @@ function ApplicationReview({ application, onClose, onDecision }) {
         {error && <p className="benefit-error" role="alert">{error}</p>}
       </form>}
     </div>
-    <footer className="benefit-drawer-footer"><button type="button" className="ua-secondary-action" onClick={onClose} disabled={busy}>Close</button>{application.status === 'pending' && <button type="submit" form="benefit-review-decision" className={decision === 'rejected' ? 'ua-danger-action' : 'ua-primary-action'} disabled={busy || !decision || (needsReason && note.trim().length < 5)}>{busy ? 'Saving decision…' : decision === 'approved' ? 'Confirm approval' : decision === 'rejected' ? 'Confirm rejection' : decision === 'resubmission' ? 'Send resubmission request' : 'Choose a decision'}</button>}</footer>
+    <footer className="benefit-drawer-footer"><button type="button" className="ua-secondary-action" onClick={onClose} disabled={busy}>Close</button><div className="benefit-drawer-footer-actions">{application.status === 'approved' && <button type="button" className="ua-secondary-action benefit-reset-action" onClick={() => setResetOpen(true)} disabled={busy}><RotateCcw size={16}/>Reset for resubmission</button>}{application.status === 'pending' && <button type="submit" form="benefit-review-decision" className={decision === 'rejected' ? 'ua-danger-action' : 'ua-primary-action'} disabled={busy || !decision || (needsReason && note.trim().length < 5)}>{busy ? 'Saving decision…' : decision === 'approved' ? 'Confirm approval' : decision === 'rejected' ? 'Confirm rejection' : decision === 'resubmission' ? 'Send resubmission request' : 'Choose a decision'}</button>}</div></footer>
+    {resetOpen && <div className="benefit-reset-modal" role="dialog" aria-modal="true" aria-labelledby="benefit-reset-title"><div className="benefit-reset-modal-card"><button type="button" className="benefit-reset-close" aria-label="Close reset dialog" onClick={() => setResetOpen(false)} disabled={busy}><X size={18}/></button><span className="benefit-drawer-kicker">Reset verified application</span><h3 id="benefit-reset-title">Request updated verification?</h3><p>This will move the approved application back to resubmission so the customer can provide updated details or documentation.</p><label className="benefit-reason"><span>Preset reason</span><textarea readOnly value="Please update your benefit type and upload the correct supporting ID for re-verification." rows={3}/></label><div className="benefit-reset-actions"><button type="button" className="ua-secondary-action" onClick={() => setResetOpen(false)} disabled={busy}>Cancel</button><button type="button" className="ua-primary-action" onClick={resetApplication} disabled={busy}>{busy ? 'Resetting…' : 'Confirm reset'}</button></div>{error && <p className="benefit-error" role="alert">{error}</p>}</div></div>}
   </dialog>
 }

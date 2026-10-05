@@ -1,9 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { Bell, Bike, Coffee, Package, Volume2, VolumeX, X, ArrowRight } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Bell, Bike, Coffee, Package, Volume2, VolumeX, ArrowRight } from 'lucide-react'
 import { money } from '../../utils/money'
 import { isSoundMuted, toggleSoundMuted } from '../../utils/notificationSound'
-
-const TOAST_DURATION_MS = 8000
 
 function fulfillmentLabelAndIcon(type) {
   if (type === 'delivery') {
@@ -28,50 +26,15 @@ function getItemCount(order) {
 function SingleOrderToast({ toast, onDismiss, onViewOrder, muted, onToggleMute }) {
   const { order, id } = toast
   const [isDismissing, setIsDismissing] = useState(false)
-  const [isHovered, setIsHovered] = useState(false)
-  const remainingTimeRef = useRef(TOAST_DURATION_MS)
-  const lastStartTimeRef = useRef(Date.now())
-  const timerRef = useRef(null)
-
-  const handleDismiss = () => {
-    if (isDismissing) return
-    setIsDismissing(true)
-    setTimeout(() => {
-      onDismiss(id)
-    }, 320)
-  }
 
   const handleView = () => {
+    if (isDismissing) return
     setIsDismissing(true)
     setTimeout(() => {
       onDismiss(id)
       onViewOrder(order)
     }, 150)
   }
-
-  // Handle timer with pause/resume on hover
-  useEffect(() => {
-    if (isHovered) {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-      const elapsed = Date.now() - lastStartTimeRef.current
-      remainingTimeRef.current = Math.max(0, remainingTimeRef.current - elapsed)
-    } else {
-      lastStartTimeRef.current = Date.now()
-      timerRef.current = setTimeout(() => {
-        handleDismiss()
-      }, remainingTimeRef.current)
-    }
-
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current)
-        timerRef.current = null
-      }
-    }
-  }, [isHovered, isDismissing])
 
   const { label: fulfillmentLabel, Icon: FulfillmentIcon, tone } = fulfillmentLabelAndIcon(order.order_type)
   const itemsTotal = getItemCount(order)
@@ -81,9 +44,7 @@ function SingleOrderToast({ toast, onDismiss, onViewOrder, muted, onToggleMute }
 
   return (
     <div
-      className={`staff-order-toast ${isDismissing ? 'is-dismissing' : ''} ${isHovered ? 'is-paused' : ''}`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className={`staff-order-toast ${isDismissing ? 'is-dismissing' : ''}`}
       role="alert"
       aria-live="assertive"
     >
@@ -103,15 +64,6 @@ function SingleOrderToast({ toast, onDismiss, onViewOrder, muted, onToggleMute }
             aria-label={muted ? 'Unmute notification sound' : 'Mute notification sound'}
           >
             {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-          </button>
-          <button
-            type="button"
-            className="staff-order-toast-close-btn"
-            onClick={handleDismiss}
-            title="Dismiss notification"
-            aria-label="Dismiss notification"
-          >
-            <X size={15} />
           </button>
         </div>
       </div>
@@ -148,12 +100,6 @@ function SingleOrderToast({ toast, onDismiss, onViewOrder, muted, onToggleMute }
         </button>
       </div>
 
-      <div className="staff-order-toast-progress-track">
-        <div
-          className="staff-order-toast-progress-bar"
-          style={{ animationDuration: `${TOAST_DURATION_MS}ms` }}
-        />
-      </div>
     </div>
   )
 }
@@ -176,15 +122,12 @@ export default function StaffOrderToastContainer({ toasts, onDismiss, onViewOrde
 
   if (!toasts || toasts.length === 0) return null
 
-  // Stack up to 3 toasts at a time
-  const visibleToasts = toasts.slice(0, 3)
-
   return (
     <aside
       className="staff-order-toast-container"
       aria-label="New order alerts"
     >
-      {visibleToasts.map((toast) => (
+      {toasts.map((toast) => (
         <SingleOrderToast
           key={toast.id}
           toast={toast}

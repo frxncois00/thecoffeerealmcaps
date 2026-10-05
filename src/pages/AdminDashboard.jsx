@@ -19,6 +19,7 @@ import PurchaseOrdersPage from './PurchaseOrdersPage'
 import MenuApprovalsPage from './MenuApprovalsPage'
 import BenefitsVerificationPage from './BenefitsVerificationPage'
 import StaffSettingsPage from './StaffSettingsPage'
+import RaimuKnowledgePage from './RaimuKnowledgePage'
 import { computeDashboardMetrics, fetchDashboardData } from '../services/adminDashboardService'
 import { describeError } from '../utils/describeError'
 import { money } from '../utils/money'
@@ -43,6 +44,7 @@ const adminPageTitles = {
   '/admin/users-access/activity': 'Users & Access',
   '/admin/settings': 'System Settings',
   '/admin/preferences': 'Settings',
+  '/admin/raimu-knowledge': 'Raimu Knowledge',
 }
 
 const paymentLabels = { gcash: 'GCash', bank_transfer: 'Bank transfer', cod: 'Cash / COD', cash: 'Cash', other: 'Other' }
@@ -247,6 +249,7 @@ export default function AdminDashboard() {
   if (pathname === '/admin/benefits-verification') return <BenefitsVerificationPage />
   if (pathname === '/admin/settings') return <SystemSettingsPage />
   if (pathname === '/admin/preferences') return <StaffSettingsPage role="admin" />
+  if (pathname === '/admin/raimu-knowledge') return <RaimuKnowledgePage />
   if (pathname === '/admin/inventory') return <AdminInventoryPage />
   if (pathname === '/admin/purchase-orders') return <PurchaseOrdersPage role="admin" />
   if (pathname === '/admin/inventory-report') return <InventoryReportPage />

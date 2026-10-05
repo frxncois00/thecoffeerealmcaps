@@ -18,7 +18,7 @@ export default function PurchaseStockBoard({ items, loading, isAdmin, getSupplie
   function toggle(key) { setSelected((current) => current.includes(key) ? current.filter((entry) => entry !== key) : [...current, key]) }
   return <section className="stock-board" aria-labelledby="stock-board-title" aria-busy={loading}>
     <header className="stock-board-header">
-      <div><span className="stock-eyebrow"><Package size={15} /> REPLENISHMENT</span><h2 id="stock-board-title">A clear view of what’s running low.</h2><p>{isAdmin ? 'Monitor stock needs and orders already in progress.' : 'Choose low-stock ingredients, then review an order for each supplier.'}</p></div>
+      <div><span className="stock-eyebrow"><Package size={15} /> REPLENISHMENT</span><h2 id="stock-board-title">A clear view of what’s running low.</h2>{isAdmin && <p>Monitor stock needs and orders already in progress.</p>}</div>
       <div className="stock-totals"><span><b>{out}</b><small><i className="stock-dot out" />Out of stock</small></span><span><b>{items.length - out}</b><small><i className="stock-dot" />Low stock</small></span></div>
     </header>
     <div className="stock-controls"><div className="stock-filters" aria-label="Stock filters">{[['all', 'All items'], ['out', 'Out of stock'], ['low', 'Low stock']].map(([value, label]) => <button type="button" key={value} aria-pressed={filter === value} onClick={() => { setFilter(value); setExpanded(false) }}>{label}</button>)}</div><label className="stock-search"><Search size={16} /><input aria-label="Search low stock items or suppliers" placeholder="Find an item or supplier" value={search} onChange={(event) => setSearch(event.target.value)} /></label></div>

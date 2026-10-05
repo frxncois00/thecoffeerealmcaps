@@ -1,9 +1,11 @@
 import { ArrowDown, ArrowUp, Check, Coffee, Minus, RotateCcw, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { normalizeRole } from '../lib/auth'
 import { supabase } from '../lib/supabase'
+import { readRaimuFile } from '../lib/raimuFileReader'
 import RaimuMascot from './raimu/RaimuMascot'
 import { raimu } from './raimu/raimuMachine'
 import { readRaimuPreference, saveRaimuPreference, setRaimuAnimated, useRaimu } from './raimu/useRaimu'
@@ -38,7 +40,7 @@ async function downloadReport(url, format) {
   if (format === 'xlsx') {
     const { default: ExcelJS } = await import('exceljs')
     const workbook = new ExcelJS.Workbook(); const sheet = workbook.addWorksheet('Report', { views: [{ showGridLines: false }] })
-    sheet.addRows(rows); sheet.mergeCells(1, 1, 1, rows[0].length); sheet.getCell(1, 1).value = 'THE COFFEE REALM REPORT'; sheet.getCell(1, 1).font = { bold: true, size: 16, color: { argb: 'FFFFFF' } }; sheet.getCell(1, 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0C4B32' } }
+    sheet.addRow(['THE COFFEE REALM REPORT']); sheet.addRows(rows); sheet.mergeCells(1, 1, 1, rows[0].length); sheet.getCell(1, 1).font = { bold: true, size: 16, color: { argb: 'FFFFFF' } }; sheet.getCell(1, 1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '0C4B32' } }
     sheet.getRow(2).eachCell((cell) => { cell.font = { bold: true, color: { argb: 'FFFFFF' } }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '176A48' } } }); sheet.columns = rows[0].map(() => ({ width: 22 }))
     const buffer = await workbook.xlsx.writeBuffer(); saveReportBlob(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${filename}.xlsx`); return
   }
@@ -47,7 +49,8 @@ async function downloadReport(url, format) {
 
 export default function RaimuWidget() {
   const { user, profile, loading } = useAuth()
-  const role = normalizeRole(profile?.role)
+  const normalizedRole = normalizeRole(profile?.role)
+  const role = normalizedRole === 'operational_staff' ? 'staff' : normalizedRole
   const [closed, setClosed] = useState(() => readRaimuPreference('raimu-visible', 'true') === 'false')
   const allowed = Boolean(user) && ['admin', 'staff', 'cashier'].includes(role)
 
@@ -68,8 +71,8 @@ export default function RaimuWidget() {
   return <RaimuConversation key={sessionKey} role={role} sessionKey={sessionKey} enabled={!closed} onHide={hideRaimu} />
 }
 
-async function requestSupportReply(text, role) {
-  return supabase.functions.invoke('support-chat', { body: { message: text, role } })
+async function requestSupportReply(text, role, history, attachment, tone) {
+  return supabase.functions.invoke('support-chat', { body: { message: text, role, history, attachment, tone } })
 }
 
 const stateLabels = {
@@ -89,6 +92,10 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
   const [messages, setMessages] = useState([])
   const [typing, setTyping] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [actionBusy, setActionBusy] = useState(false)
+  const [attachment, setAttachment] = useState(null)
+  const [attachmentBusy, setAttachmentBusy] = useState(false)
+  const [tone, setTone] = useState(() => readRaimuPreference('raimu-tone', 'friendly'))
   const [unseen, setUnseen] = useState(false)
   const avatarRef = useRef(null)
   const inputRef = useRef(null)
@@ -96,7 +103,9 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
   const nearBottom = useRef(true)
   const requestId = useRef(0)
   const inFlight = useRef(false)
+  const conversation = useRef([])
   const exportInFlight = useRef(false)
+  const actionInFlight = useRef(false)
   const gaze = useRef({ rect: null, frame: 0 })
   const { dockRef, panelRef, panelStyle, bubbleStyle, moved, resetPosition, cancelDrag, dragHandlers } = useRaimuPosition({ open, enabled, onDrag: () => setOpen(false) })
 
@@ -107,7 +116,9 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
       inFlight.current = false
       setTyping(false)
       setMessages([])
+      conversation.current = []
       setDraft('')
+      setAttachment(null)
       raimu.setState('idle')
       raimu.clearBubbles()
     } else if (companion.state === 'listening') raimu.setState('idle')
@@ -194,18 +205,25 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
   const send = async (event) => {
     event.preventDefault()
     const text = draft.trim()
-    if (!text || inFlight.current || exportInFlight.current) return
+    if (!text || inFlight.current || exportInFlight.current || attachmentBusy) return
     inFlight.current = true
     const currentRequest = ++requestId.current
+    const history = conversation.current.slice(-8).map(({ from, text: previousText }) => ({
+      role: from === 'user' ? 'user' : 'assistant',
+      content: String(previousText).replace(/https?:\/\/\S+/g, '[report link]').slice(0, 500),
+    }))
+    conversation.current = [...conversation.current, { from: 'user', text }]
     nearBottom.current = true
-    setMessages((current) => [...current, { from: 'user', text }])
+    const sentAttachment = attachment
+    setMessages((current) => [...current, { from: 'user', text: sentAttachment ? `${text}\n[Attached: ${sentAttachment.name}]` : text }])
     setDraft('')
+    setAttachment(null)
     setTyping(true)
     inputRef.current?.focus({ preventScroll: true })
     raimu.clearBubbles()
     raimu.setState('thinking')
     try {
-      const { data, error } = await requestReply(text, role)
+      const { data, error } = await requestReply(text, role, history, sentAttachment, tone)
       if (currentRequest !== requestId.current) return
       let reply = data?.text || data?.error
       if (error) {
@@ -218,7 +236,9 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
         }
       }
       if (currentRequest !== requestId.current) return
-      setMessages((current) => [...current, { from: 'raimu', text: reply || 'I could not generate a response.', reportUrl: data?.download_url || '' }])
+      const responseText = reply || 'I could not generate a response.'
+      setMessages((current) => [...current, { from: 'raimu', text: responseText, reportUrl: data?.download_url || '', sources: data?.sources || [], navigation: data?.navigation || null, actionProposal: data?.action_proposal || null }])
+      if (!error && !data?.error) conversation.current = [...conversation.current, { from: 'raimu', text: responseText }]
       if (error || data?.error) raimu.setState('error')
       else if (!data?.text) raimu.setState('empty')
       else raimu.setState('talking', { onComplete: () => {
@@ -257,6 +277,44 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
     } finally { exportInFlight.current = false; setExporting(false) }
   }
 
+  const runAction = async (proposal, messageIndex) => {
+    if (actionInFlight.current || inFlight.current) return
+    actionInFlight.current = true
+    const conversationId = requestId.current
+    setActionBusy(true)
+    raimu.setState('thinking')
+    try {
+      const { data, error } = await supabase.functions.invoke('support-chat', { body: { action: proposal.kind, ...proposal } })
+      if (conversationId !== requestId.current) return
+      let resultText = data?.error || data?.text || error?.message || 'The update could not be completed.'
+      if (error?.context) {
+        try { resultText = (await error.context.clone().json())?.error || resultText }
+        catch { /* Keep the service error when it has no JSON body. */ }
+      }
+      if (conversationId !== requestId.current) return
+      setMessages((current) => [...current.map((item, index) => index === messageIndex ? { ...item, actionProposal: null } : item), { from: 'raimu', text: resultText, navigation: data?.navigation || null }])
+      if (error || data?.error) raimu.setState('error')
+      else { conversation.current = [...conversation.current, { from: 'raimu', text: resultText }]; raimu.setState('success') }
+    } catch (error) {
+      if (conversationId !== requestId.current) return
+      setMessages((current) => [...current, { from: 'raimu', text: error?.message || 'The update could not be completed.' }])
+      raimu.setState('error')
+    } finally { actionInFlight.current = false; setActionBusy(false) }
+  }
+
+  const attachFile = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setAttachmentBusy(true)
+    try {
+      const result = await readRaimuFile(file)
+      setAttachment(result)
+      setDraft((current) => current || 'Please help me understand this file.')
+      inputRef.current?.focus()
+    } catch (error) { setMessages((current) => [...current, { from: 'raimu', text: error.message }]) }
+    finally { setAttachmentBusy(false); event.target.value = '' }
+  }
+
   if (!enabled) return null
   return <div className="raimu-companion" data-theme={resolvedTheme} data-state={companion.state} data-motion={companion.motion ? 'full' : 'minimal'} data-paused={!companion.visible}>
     <div className="rc-dock" ref={dockRef}>
@@ -293,23 +351,29 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
         {messages.length ? messages.map((message, index) => <article className={`rc-message is-${message.from}`} key={`${message.from}-${index}`} style={{ '--rc-message-delay': `${Math.min(index, 3) * 45}ms` }}>
           <span className="rc-message-author">{message.from === 'user' ? 'You' : 'Raimu'}</span>
           <p>{renderMessageText(message.text)}</p>
+          {message.sources?.length > 0 && <details className="rc-sources"><summary>Sources ({message.sources.length})</summary>{message.sources.map((source, sourceIndex) => <div key={`${source.title}-${sourceIndex}`}><b>{source.title}</b><span>{source.excerpt}</span></div>)}</details>}
+          {message.navigation && <Link className="rc-navigation" to={message.navigation.path} onClick={() => closePanel()}>{message.navigation.label}</Link>}
           {message.reportUrl && <div className="rc-report-actions" aria-label="Download report">{[['csv', 'CSV'], ['xlsx', 'Excel'], ['pdf', 'PDF']].map(([format, label]) => <button key={format} type="button" disabled={exporting || typing} onClick={() => exportReport(message.reportUrl, format)}>{label}<ArrowDown size={12} /></button>)}</div>}
+          {message.actionProposal && <div className="rc-report-actions" aria-label="Confirm Raimu action"><button type="button" disabled={actionBusy || typing} onClick={() => runAction(message.actionProposal, index)}>Confirm {message.actionProposal.kind === 'advance_order' ? 'update' : message.actionProposal.kind === 'draft_purchase_order' ? 'draft' : 'request'}</button><button type="button" disabled={actionBusy} onClick={() => setMessages((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, actionProposal: null } : item))}>Cancel</button></div>}
         </article>) : <div className="rc-empty">
           <span className="rc-empty-icon"><Coffee size={24} strokeWidth={1.5} /></span>
           <h3>A little clarity for your day.</h3><p>Sales, orders, inventory, or a fresh report.<br />Let’s work through it together.</p>
-          <div className="rc-prompts">{['How are sales today?', 'Which orders need attention?'].map((prompt) => <button type="button" key={prompt} onClick={() => { setDraft(prompt); raimu.setState('listening'); inputRef.current?.focus() }}>{prompt}<ArrowUp size={14} /></button>)}</div>
+          <div className="rc-prompts">{(role === 'admin' ? ['How are sales today?', 'Which orders need attention?', 'Which ingredients are low stock?', 'Shift handover summary'] : role === 'staff' ? ['Which orders need attention?', 'Which ingredients are low stock?', 'Shift handover summary', 'How do I handle an order issue?'] : ['What is the latest transaction?', 'How do I handle a payment issue?']).map((prompt) => <button type="button" key={prompt} onClick={() => { setDraft(prompt); raimu.setState('listening'); inputRef.current?.focus() }}>{prompt}<ArrowUp size={14} /></button>)}</div>
         </div>}
         {typing && <div className="rc-typing"><ThinkingDots /><span>Raimu is thinking…</span></div>}
       </div>
       {unseen && <button className="rc-latest" type="button" onClick={() => scrollToLatest()}><ArrowDown size={14} />Latest message</button>}
       {companion.bubble && ['success', 'error', 'empty'].includes(companion.state) && <div className="rc-inline-bubble"><span>{companion.bubble.text}</span><button type="button" aria-label="Dismiss Raimu’s message" onClick={raimu.dismissBubble}><X size={13} /></button></div>}
       <form className="rc-composer" onSubmit={send}>
+        <label className="rc-attach" title="Attach a document or image">Attach<input type="file" accept=".txt,.md,.csv,.xlsx,.pdf,.jpg,.jpeg,.png,.webp" onChange={attachFile} disabled={attachmentBusy || typing} /></label>
         <label className="rc-sr-only" htmlFor="raimu-widget-input">Message Raimu</label>
         <input id="raimu-widget-input" ref={inputRef} value={draft} onChange={(event) => { setDraft(event.target.value); if (!inFlight.current && !exportInFlight.current) raimu.setState(event.target.value.trim() ? 'listening' : 'idle') }} onFocus={() => { if (draft.trim() && !inFlight.current && !exportInFlight.current) raimu.setState('listening') }} onBlur={() => { if (raimu.getSnapshot().state === 'listening') raimu.setState('idle') }} placeholder="Ask Raimu anything…" maxLength={500} autoComplete="off" />
-        <button className="rc-send" type="submit" aria-label="Send message" disabled={!draft.trim() || typing || exporting}><ArrowUp size={19} /></button>
+        <button className="rc-send" type="submit" aria-label="Send message" disabled={!draft.trim() || typing || exporting || attachmentBusy}><ArrowUp size={19} /></button>
       </form>
+      {attachment && <div className="rc-attachment">Attached: {attachment.name} <button type="button" onClick={() => setAttachment(null)} aria-label="Remove attachment">×</button></div>}
       <footer className="rc-settings">
         <label className="rc-animation-setting"><input type="checkbox" role="switch" checked={companion.animated} onChange={(event) => setRaimuAnimated(event.target.checked)} aria-describedby={companion.reducedMotion ? 'raimu-motion-note' : undefined} /><span className="rc-switch" aria-hidden="true"><i>{companion.animated && <Check size={9} />}</i></span><span>Animated Raimu</span></label>
+        <label className="rc-tone-setting">Reply style<select value={tone} onChange={(event) => { setTone(event.target.value); saveRaimuPreference('raimu-tone', event.target.value) }}><option value="friendly">Friendly</option><option value="direct">Direct</option></select></label>
         <button type="button" onClick={resetPosition} aria-label="Reset Raimu’s position" title="Reset position"><RotateCcw size={14} /></button>
         {companion.reducedMotion && <small id="raimu-motion-note">Reduced motion is on.</small>}
       </footer>

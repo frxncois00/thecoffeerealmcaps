@@ -647,7 +647,6 @@ export default function TransactionsPage() {
             <span>Net sales</span>
             <b>{money(summary.netSales)}</b>
             <p>Settled revenue after processed refunds.</p>
-            {shellRole !== 'admin' && <div className="txn-report-total-meta"><span>Gross sales <b>{money(summary.grossSales)}</b></span><span>Refunds <b>{money(summary.refundedAmount)}</b></span><span>Cancelled <b>{summary.cancelledOrders}</b></span><span>Voided <b>{reconciliation.voids}</b></span></div>}
           </article>
           <article className="txn-report-stat txn-report-stat--transactions txn-report-stat--text-only"><span>Total transactions</span><b>{summary.totalTransactions}</b><small>All recorded orders</small></article>
           <article className="txn-report-stat txn-report-stat--completed txn-report-stat--text-only"><span>Completed sales</span><b>{summary.completedSales}</b><small>Paid and completed orders</small></article>
@@ -655,7 +654,7 @@ export default function TransactionsPage() {
         </section>
       )}
 
-      {!loading && shellRole === 'admin' && <div className="txn-reconciliation-strip" aria-label="Transaction totals"><span>Gross sales <b>{money(summary.grossSales)}</b></span><span>Refunds <b>{money(summary.refundedAmount)}</b></span><span>Cancelled <b>{summary.cancelledOrders}</b></span><span>Voided <b>{reconciliation.voids}</b></span></div>}
+      {!loading && <div className="txn-reconciliation-strip" aria-label="Transaction totals"><span>Gross sales <b>{money(summary.grossSales)}</b></span><span>Refunds <b>{money(summary.refundedAmount)}</b></span><span>Cancelled <b>{summary.cancelledOrders}</b></span><span>Voided <b>{reconciliation.voids}</b></span></div>}
 
       <section className="txn-ledger-shell" aria-labelledby="txn-ledger-title">
         <div className="txn-ledger-heading"><div><span className="settings-kicker">Transaction ledger</span><h2 id="txn-ledger-title">Recorded sales and payment activity</h2></div><div className="inv-overflow txn-ledger-export"><button type="button" className="ops-main-action inv-record-btn" onClick={() => setExportMenuOpen((open) => !open)} disabled={loading || summaryRows.length === 0 || Boolean(exporting)}><Download size={16} /> {exporting ? 'Preparing…' : 'Export'} <ChevronDown size={14} /></button>{exportMenuOpen && <div className="inv-overflow-menu txn-export-menu" role="menu"><button type="button" role="menuitem" onClick={runExportPdf}><ReceiptText size={14} /> Export as PDF</button><button type="button" role="menuitem" onClick={runExportXlsx}><FileText size={14} /> Export as XLSX</button></div>}</div></div>

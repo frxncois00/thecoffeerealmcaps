@@ -15,8 +15,21 @@
           ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
           : saved
         document.documentElement.dataset.theme = theme
+        document.documentElement.style.colorScheme = theme
       })()
     </script>
+    <style>
+      /* Critical first-paint colors. Keep the browser canvas dark before the
+         application bundle and route-level styles have finished loading. */
+      html[data-theme="dark"],
+      html[data-theme="dark"] body,
+      html[data-theme="dark"] #root {
+        min-height:100%;
+        background:#131413;
+        color:#f0f1eb;
+      }
+      html[data-theme="dark"] body { margin:0; }
+    </style>
     <title>The Coffee Realm</title>
   </head>
   <body>

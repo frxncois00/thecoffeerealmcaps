@@ -235,7 +235,7 @@ export default function StaffSettingsPage({ role = 'staff' }) {
 
           <section className="staff-security-sessions" aria-labelledby="security-sessions-title">
             <header><h3 id="security-sessions-title">Login sessions</h3><div className="staff-session-counts" aria-label="Session summary"><span><b>{activeSessions.length}</b> Active</span><span><b>{inactiveSessions.length}</b> Inactive</span></div></header>
-            <div className="staff-security-session-list">
+            <div className={`staff-security-session-list ${sessions.records.length > 5 ? 'is-scrollable' : ''}`} tabIndex={sessions.records.length > 5 ? 0 : undefined} aria-label="Login session history">
               {sessions.loading && <div className="staff-security-empty-session"><Clock3 size={17} /><b>Loading sessions…</b></div>}
               {!sessions.loading && sessions.records.map((item) => <article className="staff-security-session-row" key={item.id}>
                 <span className="staff-security-device-icon"><Monitor size={19} /></span>

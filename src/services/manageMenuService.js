@@ -14,6 +14,7 @@ function imagePath(value) {
 function normalizeMenuItem(row, orderCount = 0) {
   return {
     id: row.id,
+    itemCode: row.item_code || '',
     mainCategoryId: row.main_category_id,
     subcategoryId: row.subcategory_id,
     mainCategory: row.main_categories?.display_name || row.main_categories?.name || '',

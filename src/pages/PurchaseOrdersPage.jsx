@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react'
-import { AlertTriangle, Check, ClipboardCheck, FileImage, FileText, ImagePlus, Package, PackageCheck, Plus, ReceiptText, Send, ShieldAlert, Store, Trash2, Upload, X } from 'lucide-react'
+import { AlertTriangle, Check, ClipboardCheck, FileImage, FileText, ImagePlus, Package, PackageCheck, Plus, Send, ShieldAlert, Store, Trash2, Upload, X } from 'lucide-react'
 import PurchaseStockBoard from '../components/PurchaseStockBoard'
 import { pricePerPurchaseUnit, updatePurchaseLine } from '../utils/purchaseLinePricing'
 import { needsRestock, suggestedQuantity } from '../utils/purchaseStock'
@@ -8,14 +8,36 @@ import { useAuth } from '../context/AuthContext'
 import { describeError } from '../utils/describeError'
 import { money } from '../utils/money'
 import {
-  approvePurchaseOrder, cancelPurchaseOrder, closePurchaseOrder, fetchPurchaseOrderOptions,
-  fetchPurchaseOrders, fetchSuppliers, getPurchaseOrderDocumentUrl, markPurchaseOrderSent, receivePurchaseOrder, reportPurchaseOrderIssue, reviewPurchaseOrderReceiving, savePurchaseOrder, saveSupplier, submitPurchaseOrderPayment, uploadPurchaseOrderDocument, verifyPurchaseOrderPayment,
+  approvePurchaseOrder, cancelPurchaseOrder, fetchPurchaseOrderOptions,
+  fetchPurchaseOrders, fetchSuppliers, getPurchaseOrderDocumentUrl, markPurchaseOrderSent, receivePurchaseOrder, reportPurchaseOrderIssue, savePurchaseOrder, saveSupplier, uploadPurchaseOrderDocument,
 } from '../services/purchaseOrderService'
 
 const STATUS_META = {
   draft: ['Draft', 'neutral'], pending_approval: ['Pending Approval', 'amber'], approved: ['Ready to send', 'blue'],
-  rejected: ['Needs revision', 'red'], sent: ['Awaiting delivery', 'purple'], partially_received: ['Awaiting delivery (legacy)', 'amber'],
-  received: ['Received (legacy)', 'neutral'], pending_receiving_review: ['Inspection review', 'amber'], approved_for_payment: ['Awaiting payment', 'blue'], payment_review: ['Payment verification', 'amber'], disputed: ['Disputed', 'red'], closed: ['Completed', 'green'], cancelled: ['Cancelled', 'neutral'],
+  rejected: ['Needs revision', 'red'], sent: ['Awaiting delivery', 'purple'], closed: ['Completed', 'green'], returned: ['Returned', 'red'], cancelled: ['Cancelled', 'neutral'],
+}
+const LEGACY_STATUSES = new Set(['partially_received', 'received', 'pending_receiving_review', 'approved_for_payment', 'payment_review', 'disputed'])
+
+const RECEIVING_CHECKS = [
+  { question: 'Are all items the correct products?', issue: 'Some delivered products do not match the order.', reason: 'Wrong items' },
+  { question: 'Are all quantities complete?', issue: 'The delivered quantities are incomplete.', reason: 'Quantity mismatch' },
+  { question: 'Are all items free from damage?', issue: 'Some items are damaged.', reason: 'Damaged items' },
+  { question: 'Are all items within acceptable expiry dates?', issue: 'Some items have unacceptable expiry dates.', reason: 'Expired items' },
+  { question: 'Were all items stored properly during delivery?', issue: 'Some items were not stored properly during delivery.', reason: 'Quality issue' },
+]
+const RECEIVING_UPLOAD_ACCEPT = '.jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx'
+
+function tableActionsFor(order, isAdmin) {
+  if (isAdmin) {
+    if (order.status === 'pending_approval') return [{ label: 'Approve', type: 'approve' }, { label: 'Reject', type: 'reject' }]
+    if (order.status === 'approved') return [{ label: 'Mark Sent', type: 'send' }]
+    return []
+  }
+  if (order.status === 'draft') return [{ label: 'Edit', type: 'edit' }, { label: 'Submit', type: 'submit' }]
+  if (order.status === 'rejected') return [{ label: 'Revise', type: 'edit' }]
+  if (order.status === 'approved') return [{ label: 'Mark Sent', type: 'send' }]
+  if (order.status === 'sent') return [{ label: 'Submit', type: 'receive' }]
+  return []
 }
 
 const EMPTY_DRAFT = { id: '', supplierName: '', supplierContact: '', requestedDeliveryDate: '', items: [{ itemType: 'ingredient', itemId: '', purchaseUnit: '', quantityOrdered: '', estimatedTotalCost: '' }] }
@@ -65,6 +87,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   const [sortBy, setSortBy] = useState('updated-desc')
   const [dateFrom, setDateFrom] = useState('')
   const [selectedId, setSelectedId] = useState('')
+  const [shortcutOrderId, setShortcutOrderId] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [formOpen, setFormOpen] = useState(false)
@@ -73,8 +96,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   const [draft, setDraft] = useState(EMPTY_DRAFT)
   const [action, setAction] = useState(null)
   const [receivingOpen, setReceivingOpen] = useState(false)
-  const [paymentOpen, setPaymentOpen] = useState(false)
-  const [issueOpen, setIssueOpen] = useState(false)
+  const [receivingIntent, setReceivingIntent] = useState('receive')
 
   useEffect(() => {
     const dialogs = document.querySelectorAll('.po-modal[role="dialog"], .po-drawer[role="dialog"]')
@@ -91,7 +113,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
     }
     dialog.addEventListener('keydown', trap)
     return () => { dialog.removeEventListener('keydown', trap); if (previous?.isConnected) previous.focus() }
-  }, [selectedId, formOpen, receivingOpen, paymentOpen, issueOpen, supplierOpen, action?.type])
+  }, [selectedId, formOpen, receivingOpen, supplierOpen, action?.type])
 
   const load = async () => {
     setLoading(true)
@@ -107,13 +129,24 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   }
   useEffect(() => { load() }, [])
 
-  const selected = orders.find((order) => order.id === selectedId) || null
+  const selected = orders.find((order) => order.id === (shortcutOrderId || selectedId)) || null
+  function openShortcut(order, type) {
+    setSelectedId('')
+    setShortcutOrderId(order.id)
+    if (type === 'edit') { setShortcutOrderId(''); openEdit(order) }
+    if (type === 'submit') setAction({ type: 'submit', title: 'Submit purchase order for approval', label: 'Submit for Approval', note: '' })
+    if (type === 'receive' || type === 'report') { setReceivingIntent(type); setReceivingOpen(true) }
+    if (type === 'approve') setAction({ type: 'approve', title: 'Approve purchase order', label: 'Approve', note: '' })
+    if (type === 'reject') setAction({ type: 'reject', title: 'Reject purchase order', label: 'Reject', note: '' })
+    if (type === 'send') setAction({ type: 'send', title: 'Mark as sent', label: 'Mark Sent', note: order.supplierReference || '' })
+  }
   const lowStockItems = useMemo(() => options.filter(needsRestock), [options])
   const lowStockCount = lowStockItems.length
-  const counts = useMemo(() => orders.reduce((acc, order) => { acc[order.status] = (acc[order.status] || 0) + 1; return acc }, {}), [orders])
+  const visibleOrders = useMemo(() => orders.filter((order) => !LEGACY_STATUSES.has(order.status)), [orders])
+  const counts = useMemo(() => visibleOrders.reduce((acc, order) => { acc[order.status] = (acc[order.status] || 0) + 1; return acc }, {}), [visibleOrders])
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase()
-    const result = orders.filter((order) => {
+    const result = visibleOrders.filter((order) => {
       if (statusFilter !== 'all' && order.status !== statusFilter) return false
       if (supplierFilter !== 'all' && order.supplierName !== supplierFilter) return false
       if (dateFrom && (!order.requestedDeliveryDate || order.requestedDeliveryDate < dateFrom)) return false
@@ -125,11 +158,11 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
       if (sortBy === 'delivery-asc') return String(left.requestedDeliveryDate || '9999').localeCompare(String(right.requestedDeliveryDate || '9999'))
       return new Date(right.updatedAt || right.created_at || 0) - new Date(left.updatedAt || left.created_at || 0)
     })
-  }, [orders, query, statusFilter, supplierFilter, sortBy, dateFrom])
+  }, [visibleOrders, query, statusFilter, supplierFilter, sortBy, dateFrom])
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize))
   const pageOrders = filtered.slice((page - 1) * pageSize, page * pageSize)
   useEffect(() => { setPage(1) }, [query, statusFilter, supplierFilter, sortBy, dateFrom, pageSize])
-  const suppliersInOrders = useMemo(() => [...new Set(orders.map((order) => order.supplierName).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [orders])
+  const suppliersInOrders = useMemo(() => [...new Set(visibleOrders.map((order) => order.supplierName).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [visibleOrders])
 
   function announce(message) { setNotice(message); window.setTimeout(() => setNotice(''), 4500) }
   function getSupplierForItem(item) {
@@ -157,11 +190,11 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   function openEdit(order) { setDraft(emptyDraftFromOrder(order)); setFormOpen(true) }
   async function saveDraft(payload) {
     try {
-      const id = await savePurchaseOrder({ ...payload, options })
+      await savePurchaseOrder({ ...payload, options })
       setFormOpen(false)
+      setShortcutOrderId('')
       setStockSelection((current) => current.filter((key) => !payload.items.some((item) => `${item.itemType}:${item.itemId}` === key)))
       await load()
-      setSelectedId(id)
       announce(payload.submit ? 'Purchase order submitted.' : 'Draft saved.')
     } catch (cause) { throw new Error(describeError(cause, 'Purchase order could not be saved.')) }
   }
@@ -170,30 +203,38 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
     try {
       if (action.type === 'approve') await approvePurchaseOrder(selected.id, true)
       if (action.type === 'reject') await approvePurchaseOrder(selected.id, false, action.note)
+      if (action.type === 'submit') await savePurchaseOrder({ ...emptyDraftFromOrder(selected), submit: true, options })
       if (action.type === 'send') await markPurchaseOrderSent(selected.id, action.note)
-      if (action.type === 'close') await closePurchaseOrder(selected.id, action.note)
       if (action.type === 'cancel') await cancelPurchaseOrder(selected.id, action.note)
-      if (action.type === 'receiving-review') { await reviewReceiving(true, action.note); return }
-      if (action.type === 'payment-review') { await verifyPayment(true, action.note); return }
       setAction(null)
+      setShortcutOrderId('')
       await load()
-      announce(action.type === 'approve' ? 'Purchase order approved.' : `${action.type[0].toUpperCase()}${action.type.slice(1)} action saved.`)
+      announce(action.type === 'approve' ? 'Purchase order approved.' : action.type === 'submit' ? 'Purchase order submitted for approval.' : `${action.type[0].toUpperCase()}${action.type.slice(1)} action saved.`)
     } catch (cause) { setError(describeError(cause, 'Purchase order action could not be completed.')) }
   }
   async function submitReceiving(lines, notes, documents = {}) {
     try {
-      if (documents.proof) await uploadPurchaseOrderDocument(selected.id, 'receiving_proof', documents.proof)
-      if (documents.invoice) await uploadPurchaseOrderDocument(selected.id, 'supplier_invoice', documents.invoice)
+      for (const file of documents.proof || []) await uploadPurchaseOrderDocument(selected.id, 'receiving_proof', file)
+      for (const file of documents.invoice || []) await uploadPurchaseOrderDocument(selected.id, 'supplier_invoice', file)
+      for (const file of documents.receipt || []) await uploadPurchaseOrderDocument(selected.id, 'supplier_receipt', file)
       await receivePurchaseOrder(selected.id, lines, notes)
       setReceivingOpen(false)
+      setShortcutOrderId('')
       await load()
-      announce('Receiving submitted for admin review. Inventory has not been updated yet.')
-    } catch (cause) { setError(describeError(cause, 'Receiving could not be submitted.')) }
+      announce('Order completed. Ingredients have been restocked.')
+      return true
+    } catch (cause) { setError(describeError(cause, 'Receiving could not be submitted.')); return false }
   }
-  async function reviewReceiving(approved, note) { try { await reviewPurchaseOrderReceiving(selected.id, approved, note); await load(); announce(approved ? 'Receiving approved for payment.' : 'Receiving returned for correction.'); setAction(null) } catch (cause) { setError(describeError(cause, 'Receiving review could not be completed.')) } }
-  async function submitPayment(payload) { try { if (payload.receipt) await uploadPurchaseOrderDocument(selected.id, 'payment_receipt', payload.receipt); await submitPurchaseOrderPayment(selected.id, payload.amount, payload.method, payload.reference); setPaymentOpen(false); await load(); announce('Payment submitted for admin verification.'); } catch (cause) { setError(describeError(cause, 'Payment could not be submitted.')) } }
-  async function verifyPayment(approved, note) { try { await verifyPurchaseOrderPayment(selected.id, approved, note); await load(); announce(approved ? 'Payment verified. Inventory updated and PO closed.' : 'Payment returned for correction.'); setAction(null) } catch (cause) { setError(describeError(cause, 'Payment review could not be completed.')) } }
-  async function reportIssue(payload) { try { for (const file of payload.evidenceFiles || []) await uploadPurchaseOrderDocument(selected.id, 'issue_evidence', file); await reportPurchaseOrderIssue(selected.id, payload.reason, payload.resolution, payload.note); setIssueOpen(false); setReceivingOpen(false); await load(); announce('Issue reported to admin with the affected items recorded.'); } catch (cause) { setError(describeError(cause, 'Issue could not be reported.')) } }
+  async function reportIssue(issues) {
+    try {
+      await reportPurchaseOrderIssue(selected.id, issues[0].reason, 'Return affected items', issues.map((issue) => issue.issue).join(' '))
+      setReceivingOpen(false)
+      setShortcutOrderId('')
+      await load()
+      announce('Order returned and closed. Admin has been notified.')
+      return true
+    } catch (cause) { setError(describeError(cause, 'Issue could not be reported.')); return false }
+  }
 
   return (
     <AppShell role={role} title="Purchase Orders" eyebrow={isAdmin ? 'Approval queue' : 'Inventory purchasing'} onRefresh={load} actions={<button type="button" className="ops-icon-button" aria-label="Refresh purchase orders" title="Refresh" onClick={load} disabled={loading}><ClipboardCheck size={18} /></button>}>
@@ -205,10 +246,9 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
       <section className="po-summary" aria-label="Purchase order summary">
         <Summary label="Pending Approval" value={counts.pending_approval || 0} tone="amber" icon={<AlertTriangle size={18} />} detail="Needs review" />
         <Summary label="Approved" value={counts.approved || 0} tone="blue" icon={<Check size={18} />} detail="Ready to send" />
-        <Summary label="In Receiving" value={(counts.sent || 0) + (counts.partially_received || 0)} tone="purple" icon={<PackageCheck size={18} />} detail="Open deliveries" />
+        <Summary label="Awaiting delivery" value={counts.sent || 0} tone="purple" icon={<PackageCheck size={18} />} detail="Open deliveries" />
         <Summary label="Completed" value={counts.closed || 0} tone="green" icon={<Package size={18} />} detail="Completed orders" />
-        <Summary label="Inspection review" value={counts.pending_receiving_review || 0} tone="amber" icon={<ShieldAlert size={18} />} detail="Admin checks delivery" />
-        <Summary label="Payments" value={(counts.approved_for_payment || 0) + (counts.payment_review || 0)} tone="blue" icon={<ReceiptText size={18} />} detail="Admin records and verifies" />
+        <Summary label="Returned" value={counts.returned || 0} tone="red" icon={<ShieldAlert size={18} />} detail="Closed returns" />
       </section>
 
       <section className="po-toolbar">
@@ -221,20 +261,18 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
       </section>
 
         <section className="po-table-panel">
-        <div className="po-table-scroll"><table className="po-table"><thead><tr><th>PO number</th><th>Supplier</th><th>Delivery</th><th>Items</th><th>Estimated total</th><th>Status</th><th>Updated</th><th className="po-actions-heading">Actions</th></tr></thead><tbody>
-          {loading ? <tr><td colSpan="8" className="po-empty">Loading…</td></tr> : pageOrders.length ? pageOrders.map((order) => <tr key={order.id} onClick={() => setSelectedId(order.id)} className={selectedId === order.id ? 'is-selected' : ''}><td><b>{order.po_number}</b><small>{dateTimeLabel(order.created_at)}</small></td><td>{order.supplierName}</td><td>{dateLabel(order.requestedDeliveryDate)}</td><td>{order.items.length}</td><td>{money(totalFor(order))}</td><td><StatusBadge status={order.status} /></td><td>{dateTimeLabel(order.updatedAt)}</td><td><button type="button" className="ops-secondary-action compact" onClick={(event) => { event.stopPropagation(); setSelectedId(order.id) }}>View</button></td></tr>) : <tr><td colSpan="8" className="po-empty">No purchase orders found.</td></tr>}
+        <div className="po-table-scroll"><table className="po-table"><thead><tr><th>PO number</th><th>Supplier</th><th>Delivery</th><th>Items</th><th>Estimated total</th><th>Status</th><th className="po-actions-heading">Actions</th></tr></thead><tbody>
+          {loading ? <tr><td colSpan="7" className="po-empty">Loading…</td></tr> : pageOrders.length ? pageOrders.map((order) => <tr key={order.id} className={selectedId === order.id ? 'is-selected' : ''}><td><b>{order.po_number}</b><small>{dateTimeLabel(order.created_at)}</small></td><td>{order.supplierName}</td><td>{dateLabel(order.requestedDeliveryDate)}</td><td>{order.items.length}</td><td>{money(totalFor(order))}</td><td><StatusBadge status={order.status} /></td><td className="po-row-actions"><div><button type="button" className="ops-secondary-action compact" onClick={() => { setShortcutOrderId(''); setSelectedId(order.id) }}>View</button>{tableActionsFor(order, isAdmin).map((shortcut) => <button type="button" key={shortcut.type} className={`${['reject', 'report'].includes(shortcut.type) ? 'ops-destructive-action' : 'ops-main-action'} compact`} onClick={() => openShortcut(order, shortcut.type)}>{shortcut.label}</button>)}</div></td></tr>) : <tr><td colSpan="7" className="po-empty">No purchase orders found.</td></tr>}
         </tbody></table></div>
       </section>
       <footer className="po-pagination"><span>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, filtered.length)} of {filtered.length}</span><label>Rows<select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value="10">10</option><option value="25">25</option><option value="50">50</option></select></label><div><button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>‹</button><b>Page {page} of {pageCount}</b><button type="button" aria-label="Next page" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)}>›</button></div></footer>
 
-      {selected ? <PurchaseOrderDrawer order={selected} isAdmin={isAdmin} onClose={() => setSelectedId('')} onEdit={() => openEdit(selected)} onSubmit={() => saveDraft({ ...emptyDraftFromOrder(selected), submit: true })} onApprove={() => setAction({ type: 'approve', title: 'Approve purchase order', label: 'Approve', note: '' })} onReject={() => setAction({ type: 'reject', title: 'Reject purchase order', label: 'Reject', note: '' })} onSend={() => setAction({ type: 'send', title: 'Mark as sent', label: 'Mark Sent', note: selected.supplierReference || '' })} onReceive={() => setReceivingOpen(true)} onPayment={() => setPaymentOpen(true)} onReviewReceiving={() => setAction({ type: 'receiving-review', title: 'Review receiving', label: 'Approve receiving', note: '' })} onReviewPayment={() => setAction({ type: 'payment-review', title: 'Verify payment', label: 'Verify payment', note: '' })} onCloseOrder={() => setAction({ type: 'close', title: 'Close purchase order', label: 'Close PO', note: '' })} onCancel={() => setAction({ type: 'cancel', title: 'Cancel purchase order', label: 'Cancel PO', note: '' })} /> : null}
+      {selectedId && selected ? <PurchaseOrderDrawer order={selected} isAdmin={isAdmin} onClose={() => setSelectedId('')} onEdit={() => openEdit(selected)} onSubmit={() => saveDraft({ ...emptyDraftFromOrder(selected), submit: true })} onApprove={() => setAction({ type: 'approve', title: 'Approve purchase order', label: 'Approve', note: '' })} onReject={() => setAction({ type: 'reject', title: 'Reject purchase order', label: 'Reject', note: '' })} onSend={() => setAction({ type: 'send', title: 'Mark as sent', label: 'Mark Sent', note: selected.supplierReference || '' })} onReceive={() => { setReceivingIntent('receive'); setReceivingOpen(true) }} onCancel={() => setAction({ type: 'cancel', title: 'Cancel purchase order', label: 'Cancel PO', note: '' })} /> : null}
 
       {formOpen ? <PurchaseOrderForm draft={draft} options={options.filter((option) => option.itemType === 'ingredient')} suppliers={suppliers} onClose={() => setFormOpen(false)} onSave={saveDraft} /> : null}
       {supplierOpen ? <SupplierModal options={options.filter((option) => option.itemType === 'ingredient')} suppliers={suppliers} onClose={() => setSupplierOpen(false)} onSave={async (payload) => { await saveSupplierRecord(payload); setSupplierOpen(false) }} /> : null}
-      {receivingOpen && selected ? <ReceivingModal order={selected} onClose={() => setReceivingOpen(false)} onSave={submitReceiving} onReport={() => setIssueOpen(true)} /> : null}
-      {issueOpen && selected ? <IssueReportModal order={selected} onClose={() => setIssueOpen(false)} onSave={reportIssue} /> : null}
-      {paymentOpen && selected ? <PaymentModal order={selected} onClose={() => setPaymentOpen(false)} onSave={submitPayment} /> : null}
-      {action ? <ActionModal action={action} onClose={() => setAction(null)} onChange={(note) => setAction((current) => ({ ...current, note }))} onConfirm={runAction} onReturn={action.type === 'receiving-review' ? () => reviewReceiving(false, action.note) : action.type === 'payment-review' ? () => verifyPayment(false, action.note) : null} /> : null}
+      {receivingOpen && selected ? <ReceivingModal order={selected} intent={receivingIntent} onClose={() => { setReceivingOpen(false); setShortcutOrderId('') }} onSave={submitReceiving} onReport={reportIssue} /> : null}
+      {action ? <ActionModal action={action} onClose={() => { setAction(null); setShortcutOrderId('') }} onChange={(note) => setAction((current) => ({ ...current, note }))} onConfirm={runAction} /> : null}
     </AppShell>
   )
 }
@@ -242,147 +280,85 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
 function Summary({ label, value, tone, icon, detail }) { return <article className={`inv-summary-card tone-${tone} po-summary-card`}><span className="inv-summary-icon">{icon}</span><span className="inv-summary-copy"><span>{label}</span><small>{detail}</small></span><b>{value}</b></article> }
 function StatusBadge({ status }) { return <span className={`po-status po-status-${toneFor(status)}`}>{labelFor(status)}</span> }
 
-function PurchaseOrderDrawer({ order, isAdmin, onClose, onEdit, onSubmit, onApprove, onReject, onSend, onReceive, onPayment, onReviewReceiving, onReviewPayment, onCloseOrder, onCancel }) {
+function PurchaseOrderDrawer({ order, isAdmin, onClose, onEdit, onSubmit, onApprove, onReject, onSend, onReceive, onCancel }) {
   const canEdit = !isAdmin && ['draft', 'rejected'].includes(order.status)
   const canSend = order.status === 'approved'
-  const canReceive = !isAdmin && ['sent', 'partially_received', 'disputed'].includes(order.status)
-  const canPayment = isAdmin && order.status === 'approved_for_payment'
-  const canReviewReceiving = isAdmin && order.status === 'pending_receiving_review'
-  const canReviewPayment = isAdmin && order.status === 'payment_review'
-  const canClose = false
+  const canReceive = !isAdmin && order.status === 'sent'
+  const canCancel = ['draft', 'pending_approval', 'approved', 'rejected'].includes(order.status)
   return <><button type="button" className="po-drawer-backdrop" onClick={onClose} aria-label="Close purchase order details" /><aside className="po-drawer" role="dialog" aria-modal="true" aria-label={`Purchase order ${order.po_number}`} onClick={(event) => event.stopPropagation()}>
     <header><button type="button" className="po-close" onClick={onClose} aria-label="Close purchase order"><X size={18} /></button><div className="po-drawer-title"><div><span>Purchase order</span><h2>{order.po_number}</h2></div><StatusBadge status={order.status} /></div></header>
     <div className="po-drawer-body">
-      <div className="po-stage-guidance"><strong>{labelFor(order.status)}</strong><p>{{ draft: 'Staff: complete the order and submit it for approval.', pending_approval: 'Admin: review quantities, estimated costs, and the requested delivery date.', approved: 'Staff or admin: send the approved order to the supplier, then record it as sent.', sent: 'Staff: inspect the delivery and attach the invoice and delivery evidence.', pending_receiving_review: 'Admin: compare accepted quantities and delivery evidence with the supplier invoice.', approved_for_payment: 'Admin: record the supplier payment and attach the receipt.', payment_review: 'Admin: verify the payment. Accepted quantities will be added to inventory once.', closed: 'Payment verified. Accepted items have been added to inventory.', rejected: 'Staff: revise the order using the admin feedback, then resubmit.', disputed: 'Staff: resolve delivery issues with the supplier, then submit the corrected inspection.' }[order.status] || 'Review the activity and documents for this order.'}</p>{order.rejection_reason && <p>Review note: {order.rejection_reason}</p>}{order.receiving_review_note && <p>Inspection note: {order.receiving_review_note}</p>}</div>
-      {order.status === 'payment_review' && <div className="po-payment-summary"><span>Payment to verify · {order.payment_method}</span><strong>{money(order.payment_amount)}</strong><small>{order.payment_reference || 'No reference recorded'}</small></div>}
-
+      <div className="po-stage-guidance"><strong>{labelFor(order.status)}</strong><p>{{ draft: 'Staff: complete the order and submit it for approval.', pending_approval: 'Admin: review quantities, estimated costs, and the requested delivery date.', approved: 'Staff or admin: send the approved order to the supplier, then record it as sent.', sent: 'Staff: inspect the delivery. Receive all correct items or report problems and return the order.', closed: 'Delivery completed and inventory restocked.', returned: 'Delivery reported and order closed. No stock was added.', rejected: 'Staff: revise the order using the admin feedback, then resubmit.' }[order.status] || 'Review the activity and documents for this order.'}</p>{order.rejection_reason && <p>Review note: {order.rejection_reason}</p>}</div>
       <div className="po-detail-grid"><div><span>Supplier</span><b>{order.supplierName}</b></div><div><span>Delivery date</span><b>{dateLabel(order.requestedDeliveryDate)}</b></div><div><span>Created by</span><b>{order.createdByName || '—'}</b></div><div><span>Estimated total</span><b>{money(totalFor(order))}</b></div></div>
       <div className="po-section-heading"><h3>Items</h3><span>{order.items.length} lines</span></div>
       <div className="po-lines"><table><thead><tr><th>Item</th><th>Ordered</th><th>Accepted</th><th>Cost</th></tr></thead><tbody>{order.items.map((item) => <tr key={item.id}><td><b>{item.item_name}</b><small>{item.unit}</small></td><td>{qty(item.quantityOrdered)}</td><td>{qty(item.acceptedQuantity)}</td><td>{money(item.actualUnitCost === '' ? item.estimatedUnitCost : item.actualUnitCost)}</td></tr>)}</tbody></table></div>
       {order.documents?.length ? <div className="po-document-list"><div className="po-section-heading"><h3>Attached documents</h3></div>{Array.from(new Map(order.documents.map((document) => [`${String(document.file_name || '').trim().toLowerCase()}|${String(document.document_type || '').trim().toLowerCase()}`, document])).values()).map((document) => <div key={`${document.file_name}|${document.document_type}`}><DocumentLink document={document} /><small>{document.document_type.replaceAll('_', ' ')}</small></div>)}</div> : null}
-      <div className="po-actions">
-        {canEdit ? <button type="button" className="ops-secondary-action" onClick={onEdit}>{order.status === 'rejected' ? 'Revise order' : 'Edit draft'}</button> : null}
-        {canEdit ? <button type="button" className="ops-main-action" onClick={onSubmit}>Submit for approval</button> : null}
-        {isAdmin && order.status === 'pending_approval' ? <><button type="button" className="ops-destructive-action" onClick={onReject}>Reject</button><button type="button" className="ops-main-action" onClick={onApprove}>Approve</button></> : null}
-        {canSend ? <button type="button" className="ops-main-action" onClick={onSend}><Send size={15} /> Mark Sent</button> : null}
-        {canReceive ? <button type="button" className="ops-main-action" onClick={onReceive}><PackageCheck size={15} /> Receive</button> : null}
-        {canPayment ? <button type="button" className="ops-main-action" onClick={onPayment}><ReceiptText size={15} /> Submit payment</button> : null}
-        {canReviewReceiving ? <button type="button" className="ops-main-action" onClick={onReviewReceiving}><ShieldAlert size={15} /> Review receiving</button> : null}
-        {canReviewPayment ? <button type="button" className="ops-main-action" onClick={onReviewPayment}><ReceiptText size={15} /> Verify payment</button> : null}
-        {canClose ? <button type="button" className="ops-main-action" onClick={onCloseOrder}>Close PO</button> : null}
-        {!['closed', 'cancelled', 'received'].includes(order.status) ? <button type="button" className="ops-destructive-action" onClick={onCancel}>Cancel</button> : null}
-      </div>
       <div className="po-section-heading"><h3>Activity</h3></div>
       <div className="po-events">{order.events.length ? order.events.map((event) => <div key={event.id}><i /><span><b>{event.action}</b><small>{dateTimeLabel(event.created_at)}{event.note ? ` · ${event.note}` : ''}</small></span></div>) : <span>No activity recorded.</span>}</div>
+    </div>
+    <div className="po-actions po-drawer-actions">
+      {canEdit ? <button type="button" className="ops-secondary-action" onClick={onEdit}>{order.status === 'rejected' ? 'Revise order' : 'Edit draft'}</button> : null}
+      {canEdit ? <button type="button" className="ops-main-action" onClick={onSubmit}>Submit for approval</button> : null}
+      {isAdmin && order.status === 'pending_approval' ? <><button type="button" className="ops-destructive-action" onClick={onReject}>Reject</button><button type="button" className="ops-main-action" onClick={onApprove}>Approve</button></> : null}
+      {canSend ? <button type="button" className="ops-main-action" onClick={onSend}><Send size={15} /> Mark Sent</button> : null}
+      {canReceive ? <button type="button" className="ops-main-action" onClick={onReceive}><PackageCheck size={15} /> Receive</button> : null}
+      {canCancel ? <button type="button" className="ops-destructive-action" onClick={onCancel}>Cancel</button> : null}
     </div>
   </aside></>
 }
 
-function ReceivingModal({ order, onClose, onSave, onReport }) {
-  const [lines, setLines] = useState(order.items.map((item) => ({ ...item })))
-  const [notes, setNotes] = useState(order.receiving_notes || '')
+function ReceivingModal({ order, intent, onClose, onSave, onReport }) {
+  const [lines] = useState(order.items.map((item) => ({ ...item })))
+  const [answers, setAnswers] = useState({})
+  const [confirmReport, setConfirmReport] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [proof, setProof] = useState(null)
-  const [invoice, setInvoice] = useState(null)
-  function setLine(index, key, value) { setLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, [key]: value } : line)) }
+  const [proof, setProof] = useState([])
+  const [invoice, setInvoice] = useState([])
+  const [receipt, setReceipt] = useState([])
+  const issues = RECEIVING_CHECKS.filter((_, index) => answers[index] === 'no')
+  const checksComplete = RECEIVING_CHECKS.every((_, index) => answers[index] === 'yes')
+  useEffect(() => {
+    if (!confirmReport) return undefined
+    const dialog = document.querySelector('.po-report-confirm')
+    const previous = document.activeElement
+    const buttons = [...dialog.querySelectorAll('button:not(:disabled)')]
+    buttons[0]?.focus()
+    function onKeyDown(event) {
+      if (event.key === 'Escape') { event.preventDefault(); setConfirmReport(false); return }
+      if (event.key !== 'Tab') return
+      const first = buttons[0], last = buttons[buttons.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+    }
+    dialog.addEventListener('keydown', onKeyDown)
+    return () => { dialog.removeEventListener('keydown', onKeyDown); if (previous?.isConnected) previous.focus() }
+  }, [confirmReport])
   async function submit(event) {
     event.preventDefault()
     setError('')
-    const incomplete = lines.some((line) => line.receivedQuantity === '' || line.acceptedQuantity === '' || line.actualUnitCost === '')
-    if (incomplete) { const message = 'Complete Received, Accepted, and Actual cost for every item before saving.'; setError(message); return }
+    if (!checksComplete) { setError('Confirm Yes for every delivery check, or report the issues to Admin.'); return }
+    if (!proof.length || !invoice.length || !receipt.length) { const message = 'Upload proof, invoice, and receipt before submitting.'; setError(message); return }
     setSaving(true)
-    if (!proof || !invoice) { const message = 'Upload proof of items received and the supplier invoice before submitting.'; setError(message); return }
-    try { await onSave(lines, notes, { proof, invoice }) } finally { setSaving(false) }
+    const receivedLines = lines.map((line) => ({ ...line, receivedQuantity: line.quantityOrdered, acceptedQuantity: line.quantityOrdered, damagedQuantity: 0, missingQuantity: 0, actualUnitCost: line.estimatedUnitCost }))
+    try { if (!await onSave(receivedLines, '', { proof, invoice, receipt })) setError('Receiving could not be completed. Check the error and try again.') } finally { setSaving(false) }
   }
   return <div className="po-modal-backdrop">
-    <section className="po-modal po-receiving-modal po-receiving-guide" role="dialog" aria-modal="true" aria-label="Receive purchase order">
-      <header><div><span>{order.po_number}</span><h2>Receive delivery</h2><p className="po-modal-intro">Compare the delivery with the order, then record what can go into stock.</p></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header>
+    <section className="po-modal po-receiving-modal po-receiving-guide" role="dialog" aria-modal="true" aria-label={intent === 'report' ? 'Report purchase order delivery issue' : 'Receive purchase order'}>
+      <header><div><h2>{intent === 'report' ? `Report delivery issue for ${order.po_number}` : `Receive delivery for ${order.po_number}`}</h2><p className="po-modal-intro">Check the delivery against the order before adding the items to stock.</p></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header>
       <form onSubmit={submit}>
         <div className="po-receiving-steps">
-          <div className="po-receiving-step is-active"><b>1</b><span><strong>Check quantities</strong><small>What arrived and what is usable</small></span></div>
-          <div className="po-receiving-step"><b>2</b><span><strong>Record exceptions</strong><small>Damaged or missing items</small></span></div>
-          <div className="po-receiving-step"><b>3</b><span><strong>Submit inspection</strong><small>Admin reviews before payment</small></span></div>
+          <div className="po-receiving-step is-active"><b>1</b><span><strong>Review items</strong><small>Compare with the order</small></span></div>
+          <div className="po-receiving-step"><b>2</b><span><strong>Check delivery</strong><small>Answer all questions</small></span></div>
+          <div className="po-receiving-step"><b>3</b><span><strong>Finish</strong><small>Receive or return the order</small></span></div>
         </div>
-        {lines.map((line, index) => <section className="po-receive-card" key={line.id}>
-          <div className="po-receive-card-head"><div><h3>{line.item_name}</h3><p>Ordered <strong>{qty(line.quantityOrdered)} {line.unit}</strong> <span>· inventory unit</span></p></div><span className="po-receive-status">Line {index + 1}</span></div>
-          <div className="po-receive-instruction">Enter quantities in <strong>{line.unit}</strong>. Accepted quantity enters inventory only after admin verifies payment.</div>
-          <div className="po-receive-groups">
-            <fieldset className="po-receive-group po-receive-group-primary"><legend>What arrived</legend><label>Received <input type="number" min="0" step="0.01" value={line.receivedQuantity} onChange={(event) => setLine(index, 'receivedQuantity', event.target.value)} required /></label><label>Accepted quantity <input type="number" min="0" step="0.01" value={line.acceptedQuantity} onChange={(event) => setLine(index, 'acceptedQuantity', event.target.value)} required /></label><small>Accepted cannot be greater than received.</small></fieldset>
-            <fieldset className="po-receive-group po-receive-group-exceptions"><legend>Exceptions</legend><label>Damaged <input type="number" min="0" step="0.01" value={line.damagedQuantity} onChange={(event) => setLine(index, 'damagedQuantity', event.target.value)} /></label><label>Missing <input type="number" min="0" step="0.01" value={line.missingQuantity} onChange={(event) => setLine(index, 'missingQuantity', event.target.value)} /></label></fieldset>
-            <fieldset className="po-receive-group po-receive-group-trace"><legend>Traceability</legend><label>Actual cost / {line.unit}<input type="number" min="0" step="0.01" value={line.actualUnitCost} onChange={(event) => setLine(index, 'actualUnitCost', event.target.value)} required /></label><label>Batch / lot<input value={line.batchNumber} onChange={(event) => setLine(index, 'batchNumber', event.target.value)} /></label><label>Expiry date<input type="date" value={line.expirationDate} onChange={(event) => setLine(index, 'expirationDate', event.target.value)} /></label></fieldset>
-          </div>
-        </section>)}
-        <div className="po-receiving-documents"><DocumentUpload label="Proof of items received" hint="Photo or PDF of the delivered goods" files={proof ? [proof] : []} onChange={(files) => setProof(files[0] || null)} required /><DocumentUpload label="Supplier invoice" hint="Clear photo or PDF of the invoice" files={invoice ? [invoice] : []} onChange={(files) => setInvoice(files[0] || null)} required /></div>
-        <Field label="Receiving notes"><textarea rows="2" value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={500} placeholder="Optional: note shortages, damage, or supplier issues" /></Field>
+        <div className="po-receive-body-grid"><div className="po-receive-left"><div className="po-receive-items-table-wrap"><table className="po-receive-items-table"><thead><tr><th>Item</th><th>Quantity</th><th>Cost per unit</th><th>Total price</th></tr></thead><tbody>{lines.map((line) => <tr key={line.id}><td>{line.item_name}</td><td>{qty(line.quantityOrdered)} {line.unit}</td><td>{money(line.estimatedUnitCost)}</td><td>{money(Number(line.quantityOrdered || 0) * Number(line.estimatedUnitCost || 0))}</td></tr>)}</tbody></table></div><div className="po-receive-grand-total"><span>Final total</span><strong>{money(lines.reduce((sum, line) => sum + Number(line.quantityOrdered || 0) * Number(line.estimatedUnitCost || 0), 0))}</strong></div><DocumentUpload label="Proof of items received" hint="Images or documents" accept={RECEIVING_UPLOAD_ACCEPT} files={proof} onChange={setProof} multiple limit={5} required /></div><div className="po-receive-right"><fieldset className="po-receiving-checklist"><legend>Delivery checks</legend>{RECEIVING_CHECKS.map((check, index) => <div className="po-receiving-check" key={check.question}><span>{check.question}</span><div role="group" aria-label={check.question}><button type="button" className={answers[index] === 'yes' ? 'is-selected' : ''} aria-pressed={answers[index] === 'yes'} onClick={() => setAnswers((current) => ({ ...current, [index]: 'yes' }))}>Yes</button><button type="button" className={answers[index] === 'no' ? 'is-selected is-no' : ''} aria-pressed={answers[index] === 'no'} onClick={() => setAnswers((current) => ({ ...current, [index]: 'no' }))}>No</button></div></div>)}</fieldset>{issues.length > 0 ? <p className="po-receiving-report-prompt" role="status">Report to Admin and return this order. No items will be added to stock.</p> : null}<DocumentUpload label="Invoice" hint="Images or documents" accept={RECEIVING_UPLOAD_ACCEPT} files={invoice} onChange={setInvoice} multiple limit={5} required /><DocumentUpload label="Supplier delivery receipt" hint="Images or documents" accept={RECEIVING_UPLOAD_ACCEPT} files={receipt} onChange={setReceipt} multiple limit={5} required /></div></div>
         {error ? <p className="po-inline-error" role="alert">{error}</p> : null}
-        <footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="button" className="ops-destructive-action" onClick={onReport}>Report to Admin</button><button type="submit" className="ops-main-action" disabled={saving}>{saving ? 'Submitting…' : 'Submit receiving'}</button></footer>
+        <footer><button type="button" className="ops-destructive-action" onClick={() => setConfirmReport(true)} disabled={!issues.length || saving}>Report to Admin</button><button type="submit" className="ops-main-action" disabled={!checksComplete || saving}>{saving ? 'Submitting…' : 'Submit as Received'}</button><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button></footer>
       </form>
     </section>
+    {confirmReport ? <div className="po-report-confirm-backdrop"><section className="po-modal po-report-confirm" role="dialog" aria-modal="true" aria-labelledby="po-report-confirm-title"><header><div><span>{order.po_number}</span><h2 id="po-report-confirm-title">Return this order?</h2></div><button type="button" onClick={() => setConfirmReport(false)} aria-label="Close confirmation"><X size={18} /></button></header><div className="po-report-confirm-body"><ul>{issues.map((issue) => <li key={issue.question}>{issue.issue}</li>)}</ul><p>Admin will be notified. The order will close as Returned and no stock will be added.</p></div>{error ? <p className="po-inline-error" role="alert">{error}</p> : null}<footer><button type="button" className="ops-secondary-action" onClick={() => setConfirmReport(false)} disabled={saving}>Back to review</button><button type="button" className="ops-destructive-action" disabled={saving} onClick={async () => { setSaving(true); setError(''); try { const reported = await onReport(issues); if (reported) setConfirmReport(false); else setError('Report could not be sent. Try again.') } finally { setSaving(false) } }}>{saving ? 'Sending…' : 'Confirm return'}</button></footer></section></div> : null}
   </div>
-}
-
-function IssueReportModal({ order, onClose, onSave }) {
-  const [reason, setReason] = useState('Damaged items')
-  const [resolution, setResolution] = useState('Return affected items')
-  const [note, setNote] = useState('')
-  const [otherReason, setOtherReason] = useState('')
-  const [replacementDate, setReplacementDate] = useState('')
-  const [affected, setAffected] = useState({})
-  const [evidenceFiles, setEvidenceFiles] = useState([])
-  const [error, setError] = useState('')
-  const [saving, setSaving] = useState(false)
-  const itemSpecific = reason !== 'All items damaged'
-  const selectedItems = order.items.filter((item) => affected[item.id]?.selected)
-  const updateAffected = (id, key, value) => setAffected((current) => ({ ...current, [id]: { ...current[id], [key]: value } }))
-  async function submit(event) {
-    event.preventDefault()
-    setError('')
-    if (reason === 'Other' && !otherReason.trim()) { setError('Enter the issue.'); return }
-    if (itemSpecific && !selectedItems.length) { setError('Select at least one affected item.'); return }
-    const invalidQuantity = selectedItems.some((item) => {
-      const value = Number(affected[item.id]?.quantity)
-      return !value || value < 0 || value > item.quantityOrdered
-    })
-    if (invalidQuantity) { setError('Enter a valid affected quantity.'); return }
-    if (reason === 'Wrong items' && selectedItems.some((item) => !affected[item.id]?.detail?.trim())) { setError('Enter the wrong item received.'); return }
-    if (resolution === 'Accept partial delivery' && selectedItems.some((item) => affected[item.id]?.accepted === '' || Number(affected[item.id]?.accepted) < 0 || Number(affected[item.id]?.accepted) > item.quantityOrdered)) { setError('Enter a valid accepted quantity.'); return }
-    if (resolution === 'Request replacement' && !replacementDate) { setError('Select the replacement date.'); return }
-
-    const details = []
-    if (otherReason.trim()) details.push(`Issue: ${otherReason.trim()}`)
-    if (reason === 'All items damaged') details.push(`Affected: all order lines`)
-    else details.push(`Affected: ${selectedItems.map((item) => {
-      const entry = affected[item.id]
-      const parts = [`${item.item_name}: ${qty(entry.quantity)} ${item.unit}`]
-      if (reason === 'Wrong items') parts.push(`received ${entry.detail.trim()}`)
-      if (resolution === 'Accept partial delivery') parts.push(`accept ${qty(entry.accepted)} ${item.unit}`)
-      return parts.join(', ')
-    }).join('; ')}`)
-    if (replacementDate) details.push(`Replacement date: ${replacementDate}`)
-    if (note.trim()) details.push(`Note: ${note.trim()}`)
-    setSaving(true)
-    try { await onSave({ reason, resolution, note: details.join(' | '), evidenceFiles }) } finally { setSaving(false) }
-  }
-  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal po-issue-modal" role="dialog" aria-modal="true" aria-label="Report receiving issue"><header><div><span>{order.po_number} · Receiving issue</span><h2>Report to Admin</h2><p className="po-modal-intro">Tell the admin what happened and what response you need. Inventory will not change from this report.</p></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><form onSubmit={submit}>
-    <div className="po-issue-step"><b>1</b><span><strong>Describe the issue</strong><small>Choose what happened and the action you are requesting.</small></span></div>
-    <div className="po-issue-selects"><Field label="Reason" required><select value={reason} onChange={(event) => { setReason(event.target.value); setError('') }}><option>All items damaged</option><option>Damaged items</option><option>Missing items</option><option>Wrong items</option><option>Quantity mismatch</option><option>Quality issue</option><option>Expired items</option><option>Other</option></select></Field><Field label="Request approval to" required><select value={resolution} onChange={(event) => { setResolution(event.target.value); setError('') }}><option>Return all items</option><option>Return affected items</option><option>Request replacement</option><option>Accept partial delivery</option><option>Hold delivery</option></select></Field></div>
-    {reason === 'Other' ? <Field label="Issue" required><input value={otherReason} onChange={(event) => setOtherReason(event.target.value)} required /></Field> : null}
-    <div className="po-issue-step"><b>2</b><span><strong>{itemSpecific ? 'Select affected products' : 'Review affected products'}</strong><small>{itemSpecific ? 'Choose each product and enter how many units are affected.' : 'This report applies to every product in the order.'}</small></span></div>
-    {itemSpecific ? <fieldset className="po-issue-items"><legend>Products in this delivery</legend>{order.items.map((item) => {
-      const entry = affected[item.id] || {}
-      return <div className={`po-issue-line ${entry.selected ? 'is-selected' : ''}`} key={item.id}>
-        <label className="po-issue-check"><input type="checkbox" checked={Boolean(entry.selected)} onChange={(event) => updateAffected(item.id, 'selected', event.target.checked)} /><span><b>{item.item_name}</b><small>Expected: {qty(item.quantityOrdered)} {item.unit}</small></span><em>{entry.selected ? 'Selected' : 'Select product'}</em></label>
-        {entry.selected ? <div className="po-issue-fields"><label>Affected quantity<input type="number" min="0.01" max={item.quantityOrdered} step="0.01" value={entry.quantity || ''} onChange={(event) => updateAffected(item.id, 'quantity', event.target.value)} required /></label>{reason === 'Wrong items' ? <label>Item received<input value={entry.detail || ''} onChange={(event) => updateAffected(item.id, 'detail', event.target.value)} required /></label> : null}{resolution === 'Accept partial delivery' ? <label>Accepted quantity<input type="number" min="0" max={item.quantityOrdered} step="0.01" value={entry.accepted ?? ''} onChange={(event) => updateAffected(item.id, 'accepted', event.target.value)} required /></label> : null}</div> : null}
-      </div>
-    })}</fieldset> : <div className="po-issue-all"><b>All order lines</b><span>{order.items.length} {order.items.length === 1 ? 'item' : 'items'}</span></div>}
-    {resolution === 'Request replacement' ? <div className="po-issue-followup"><strong>Replacement details</strong><Field label="Replacement needed by" required><input type="date" value={replacementDate} onChange={(event) => setReplacementDate(event.target.value)} required /></Field></div> : null}
-    <div className="po-issue-step"><b>3</b><span><strong>Add evidence and notes</strong><small>Photos help the admin verify damage, quality, or incorrect items.</small></span></div>
-    <DocumentUpload label="Issue photos" hint="Add up to 3 JPG, PNG, or WebP images" files={evidenceFiles} onChange={setEvidenceFiles} accept="image/jpeg,image/png,image/webp" multiple limit={3} />
-    <Field label="Additional note"><textarea rows="3" value={note} onChange={(event) => setNote(event.target.value)} placeholder="Add supplier comments, packaging condition, or other useful details" /></Field>
-    {error ? <p className="po-inline-error" role="alert">{error}</p> : null}
-    <footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-destructive-action" disabled={saving}>{saving ? 'Sending…' : 'Send report'}</button></footer>
-  </form></section></div>
 }
 
 function FilePreview({ file }) {
@@ -401,7 +377,7 @@ function DocumentUpload({ label, hint, files = [], onChange, accept = 'image/*,a
   return <section className="po-upload-card">
     <div className="po-upload-heading"><span>{label}{required ? ' *' : ''}</span>{multiple ? <small>{files.length}/{limit}</small> : null}</div>
     {files.length ? <div className="po-upload-files">{files.map((file, index) => <div className="po-upload-file" key={`${file.name}-${file.lastModified}-${index}`}><FilePreview file={file} /><span><b>{file.name}</b><small>{(file.size / 1024 / 1024).toFixed(1)} MB</small></span><button type="button" onClick={() => onChange(files.filter((_, fileIndex) => fileIndex !== index))} aria-label={`Remove ${file.name}`}><Trash2 size={16} /></button></div>)}</div> : null}
-    {files.length < limit ? <label className="po-upload-drop" htmlFor={inputId}><ImagePlus size={24} aria-hidden="true" /><span><b>{files.length ? 'Add another image' : 'Choose a file'}</b><small>{hint}</small></span><input id={inputId} className="po-upload-input" type="file" accept={accept} multiple={multiple} onChange={selectFiles} /></label> : null}
+    {files.length < limit ? <label className="po-upload-drop" htmlFor={inputId}><ImagePlus size={24} aria-hidden="true" /><span><b>{files.length ? 'Add another file' : 'Choose a file'}</b><small>{hint}</small></span><input id={inputId} className="po-upload-input" type="file" accept={accept} multiple={multiple} onChange={selectFiles} /></label> : null}
   </section>
 }
 
@@ -410,16 +386,15 @@ function DocumentLink({ document }) {
   const isImage = /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(document.file_name || '') || String(document.mime_type || '').startsWith('image/')
   useEffect(() => { let active = true; getPurchaseOrderDocumentUrl(document.storage_path).then((nextUrl) => { if (active) setUrl(nextUrl || '') }).catch(() => {}); return () => { active = false } }, [document.storage_path])
   function open() { if (url) window.open(url, '_blank', 'noopener,noreferrer') }
-  return <span className="po-document-entry">{isImage && url ? <button type="button" className="po-document-preview" onClick={open} aria-label={`Preview ${document.file_name}`}><img src={url} alt="" loading="lazy" /></button> : <Upload size={14} />}<button type="button" className="po-document-link" onClick={open} disabled={!url}>{document.file_name}</button></span>
+  return <span className="po-document-entry">{isImage && url ? <button type="button" className="po-document-preview" onClick={open} aria-label={`Preview ${document.file_name}`}><img src={url} alt={document.file_name} loading="lazy" /></button> : <Upload size={14} />}<button type="button" className="po-document-link" onClick={open} disabled={!url}>{document.file_name}</button></span>
 }
 
-function ActionModal({ action, onClose, onChange, onConfirm, onReturn }) {
+function ActionModal({ action, onClose, onChange, onConfirm }) {
   const [busy, setBusy] = useState(false)
   async function perform(callback) { if (busy) return; setBusy(true); try { await callback() } finally { setBusy(false) } }
 
-  const needsNote = ['reject', 'send', 'close', 'cancel', 'receiving-review', 'payment-review'].includes(action.type)
-  const review = ['receiving-review', 'payment-review'].includes(action.type)
-  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal" role="dialog" aria-modal="true" aria-label={action.title}><header><h2>{action.title}</h2><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header>{needsNote ? <Field label={action.type === 'send' ? 'Supplier reference' : action.type === 'reject' ? 'Rejection reason' : 'Review note'} required={action.type === 'reject'}><textarea rows="3" value={action.note} onChange={(event) => onChange(event.target.value)} required={action.type === 'reject'} /></Field> : <p className="po-confirm-line">Confirm {action.title.toLowerCase()}.</p>}<footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button>{review ? <button type="button" className="ops-destructive-action" disabled={busy || !action.note.trim()} onClick={() => perform(onReturn)}>Return for correction</button> : null}<button type="button" className={action.type === 'reject' || action.type === 'cancel' ? 'ops-destructive-action' : 'ops-main-action'} disabled={busy || (action.type === 'reject' && !action.note.trim())} onClick={() => perform(onConfirm)}>{busy ? 'Saving…' : action.label}</button></footer></section></div>
+  const needsNote = ['reject', 'send', 'cancel'].includes(action.type)
+  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal" role="dialog" aria-modal="true" aria-label={action.title}><header><h2>{action.title}</h2><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header>{needsNote ? <Field label={action.type === 'send' ? 'Supplier reference' : action.type === 'reject' ? 'Rejection reason' : 'Note'} required={action.type === 'reject'}><textarea rows="3" value={action.note} onChange={(event) => onChange(event.target.value)} required={action.type === 'reject'} /></Field> : <p className="po-confirm-line">Confirm {action.title.toLowerCase()}.</p>}<footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="button" className={action.type === 'reject' || action.type === 'cancel' ? 'ops-destructive-action' : 'ops-main-action'} disabled={busy || (action.type === 'reject' && !action.note.trim())} onClick={() => perform(onConfirm)}>{busy ? 'Saving…' : action.label}</button></footer></section></div>
 }
 function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
   const [values, setValues] = useState(draft)
@@ -489,21 +464,10 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
             {error ? <p className="po-inline-error">{error}</p> : null}
           </section>
         </div>
-        <footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-secondary-action" disabled={submitting}>Save Draft</button><button type="button" className="ops-main-action" disabled={submitting} onClick={(event) => submit(event, true)}>Submit for Approval</button></footer>
+        <footer className="po-form-footer"><button type="submit" className="ops-secondary-action" disabled={submitting}>Save Draft</button><div className="po-form-footer-right"><button type="button" className="ops-main-action" disabled={submitting} onClick={(event) => submit(event, true)}>Submit for Approval</button><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button></div></footer>
       </form>
     </section>
   </div>
-}
-
-function PaymentModal({ order, onClose, onSave }) {
-  const approvedTotal = order.items.reduce((sum, item) => sum + Number(item.acceptedQuantity || 0) * Number(item.actualUnitCost === '' ? item.estimatedUnitCost : item.actualUnitCost), 0)
-  const [amount, setAmount] = useState(String(approvedTotal))
-  const [method, setMethod] = useState('Cash')
-  const [reference, setReference] = useState('')
-  const [receipt, setReceipt] = useState(null)
-  const [saving, setSaving] = useState(false)
-  async function submit(event) { event.preventDefault(); if (!receipt) return; setSaving(true); try { await onSave({ amount, method, reference, receipt }) } finally { setSaving(false) } }
-  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal" role="dialog" aria-modal="true" aria-label="Submit supplier payment"><header><div><span>{order.po_number}</span><h2>Record supplier payment</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><form onSubmit={submit}><div className="po-payment-summary"><span>Approved amount</span><strong>{money(approvedTotal)}</strong></div><p className="po-payment-help">Record the receipt, then verify payment to add accepted items to inventory.</p><Field label="Amount paid" required><input type="number" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} required /></Field><Field label="Payment method" required><select value={method} onChange={(event) => setMethod(event.target.value)}><option>Cash</option><option>Bank transfer</option><option>Gcash</option><option>Card</option></select></Field><Field label="Payment reference"><input value={reference} onChange={(event) => setReference(event.target.value)} /></Field><Field label="Supplier receipt" required><input type="file" accept="image/*,application/pdf" onChange={(event) => setReceipt(event.target.files?.[0] || null)} required /></Field><footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-main-action" disabled={saving}>{saving ? 'Submitting…' : 'Submit for verification'}</button></footer></form></section></div>
 }
 
 function PurchaseOrderPreview({ values, options, onBack, onConfirm, submitting }) {

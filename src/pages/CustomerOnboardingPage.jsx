@@ -5,11 +5,12 @@ import { useAuth } from '../context/AuthContext'
 import { customerSupabase as supabase } from '../lib/supabase'
 import { saveProfile } from '../services/customerService'
 import { EMAIL_MAX_LENGTH, isValidPassword, isValidPhone, sanitizePersonName, sanitizeUsername } from '../utils/inputValidation'
+import BirthDatePicker from '../components/customer/BirthDatePicker'
 
 export default function CustomerOnboardingPage() {
   const navigate = useNavigate()
   const { user, profile, updateProfile } = useAuth()
-  const [values, setValues] = useState({ full_name: '', username: '', phone: '' })
+  const [values, setValues] = useState({ full_name: '', username: '', phone: '', birthdate: '' })
   const [addPassword, setAddPassword] = useState(false)
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -22,6 +23,7 @@ export default function CustomerOnboardingPage() {
       full_name: profile?.full_name === 'Coffee Realm Customer' ? (user?.user_metadata?.full_name || user?.user_metadata?.name || '') : (profile?.full_name || ''),
       username: profile?.username || '',
       phone: profile?.phone || '',
+      birthdate: profile?.birthdate || '',
     })
   }, [profile, user])
 
@@ -36,6 +38,11 @@ export default function CustomerOnboardingPage() {
     if (fullName.length < 2 || fullName !== values.full_name.trim()) return setError('Enter a valid full name using letters only.')
     if (username.length < 3 || username !== values.username.trim()) return setError('Username must contain 3-24 letters, numbers, periods, underscores, or hyphens.')
     if (!isValidPhone(phone)) return setError('Phone number must contain 11 digits and start with 09.')
+    const today = new Date().toISOString().slice(0, 10)
+    const minimumAgeDate = new Date()
+    minimumAgeDate.setFullYear(minimumAgeDate.getFullYear() - 13)
+    const latestAllowedBirthdate = minimumAgeDate.toISOString().slice(0, 10)
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(values.birthdate) || values.birthdate < '1900-01-01' || values.birthdate > latestAllowedBirthdate) return setError('You must be at least 13 years old to create an account.')
     if (addPassword) {
       if (!isValidPassword(password)) return setError('Password must be 8-32 characters and include at least 1 number.')
       if (password !== confirmPassword) return setError('The passwords do not match.')
@@ -43,7 +50,7 @@ export default function CustomerOnboardingPage() {
 
     setBusy(true)
     try {
-      const saved = await saveProfile(user.id, { full_name: fullName, username, email: String(user.email || '').slice(0, EMAIL_MAX_LENGTH), phone })
+      const saved = await saveProfile(user.id, { full_name: fullName, username, email: String(user.email || '').slice(0, EMAIL_MAX_LENGTH), phone, birthdate: values.birthdate })
       if (addPassword) {
         const { error: passwordError } = await supabase.auth.updateUser({ password })
         if (passwordError) throw passwordError
@@ -67,6 +74,7 @@ export default function CustomerOnboardingPage() {
         <label className="onboarding-field"><span>Full name</span><div><UserRound size={18}/><input value={values.full_name} onChange={(event)=>set('full_name',sanitizePersonName(event.target.value,60))} maxLength={60} autoComplete="name" required/></div></label>
         <label className="onboarding-field"><span>Username</span><div><User size={18}/><input value={values.username} onChange={(event)=>set('username',sanitizeUsername(event.target.value,24))} minLength={3} maxLength={24} pattern="[A-Za-z0-9._-]{3,24}" autoComplete="username" autoCapitalize="none" spellCheck="false" required/></div><small>Use 3-24 letters, numbers, periods, underscores, or hyphens.</small></label>
         <label className="onboarding-field"><span>Phone number</span><div><Phone size={18}/><input value={values.phone} onChange={(event)=>set('phone',event.target.value.replace(/\D/g,'').slice(0,11))} inputMode="numeric" autoComplete="tel" maxLength={11} pattern="09[0-9]{9}" placeholder="09XXXXXXXXX" required/></div></label>
+        <BirthDatePicker value={values.birthdate} onChange={value => { set('birthdate', value); setError('') }} max={(() => { const date = new Date(); date.setFullYear(date.getFullYear() - 13); return date.toISOString().slice(0, 10) })()}/>
 
         <label className="onboarding-password-choice"><input type="checkbox" checked={addPassword} onChange={(event)=>{setAddPassword(event.target.checked);setError('')}}/><span><b>Add a password</b><small>Sign in using your email when Google is unavailable.</small></span></label>
         {addPassword?<div className="onboarding-password-fields">

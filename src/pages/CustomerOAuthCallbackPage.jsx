@@ -46,7 +46,7 @@ export default function CustomerOAuthCallbackPage() {
         const result = await retryJwtTimingRequest(() =>
           supabase
             .from('profiles')
-            .select('id, role, full_name, username, email, phone')
+            .select('id, role, full_name, username, email, phone, birthdate')
             .eq('id', user.id)
             .maybeSingle()
         )
@@ -77,7 +77,7 @@ export default function CustomerOAuthCallbackPage() {
         : (window.sessionStorage.getItem('tcr.oauth.returnTo') || '/menu')
 
       if (oauthMode !== 'link-google') {
-        const profileNeedsDetails = !profile?.username || !profile?.phone || profile?.full_name === 'Coffee Realm Customer'
+        const profileNeedsDetails = !profile?.username || !profile?.phone || !profile?.birthdate || profile?.full_name === 'Coffee Realm Customer'
         if (profileNeedsDetails) {
           destination = '/complete-profile'
         }

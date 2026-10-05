@@ -12,11 +12,6 @@ function purchaseUnitFactor(baseUnit, purchaseUnit) {
   return 1
 }
 
-export const PURCHASE_ORDER_STATUSES = [
-  'draft', 'pending_approval', 'approved', 'rejected', 'sent',
-  'pending_receiving_review', 'approved_for_payment', 'payment_review', 'disputed', 'closed', 'cancelled',
-]
-
 export async function fetchPurchaseOrders() {
   const { data, error } = await supabase
     .from('purchase_orders')
@@ -106,36 +101,28 @@ export async function receivePurchaseOrder(id, lines, receivingNotes = '') {
   if (error) throw error
 }
 
-export async function reviewPurchaseOrderReceiving(id, approved, note = '') {
-  const { error } = await supabase.rpc('review_purchase_order_receiving', { p_id: id, p_approved: approved, p_note: note || null })
-  if (error) throw error
-}
-
 export async function reportPurchaseOrderIssue(id, reason, resolution, note = '') {
   const { error } = await supabase.rpc('report_purchase_order_issue', { p_id: id, p_reason: reason, p_resolution: resolution, p_note: note || null })
   if (error) throw error
 }
 
-export async function submitPurchaseOrderPayment(id, amount, method, reference = '') {
-  const { error } = await supabase.rpc('submit_purchase_order_payment', { p_id: id, p_amount: Number(amount), p_method: method, p_reference: reference || null })
-  if (error) throw error
-}
-
-export async function verifyPurchaseOrderPayment(id, approved, note = '') {
-  const { error } = await supabase.rpc('verify_purchase_order_payment', { p_id: id, p_approved: approved, p_note: note || null })
-  if (error) throw error
-}
-
 export async function uploadPurchaseOrderDocument(id, type, file) {
   if (!file) throw new Error('Choose a file to upload.')
-  if (!['image/jpeg', 'image/png', 'image/webp', 'application/pdf'].includes(file.type)) throw new Error('Upload a JPG, PNG, WEBP, or PDF file.')
+  const mimeByExtension = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', pdf: 'application/pdf',
+    doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  }
+  const extension = file.name.split('.').pop()?.toLowerCase()
+  const contentType = mimeByExtension[extension]
+  if (!contentType || (file.type && file.type !== contentType && file.type !== 'application/octet-stream')) throw new Error('Upload a JPG, PNG, WEBP, PDF, Word, or Excel file.')
   if (file.size > 10 * 1024 * 1024) throw new Error('Files must be 10 MB or smaller.')
   const safeName = file.name.replace(/[^a-z0-9._-]/gi, '-').toLowerCase()
   const path = `${id}/${type}/${crypto.randomUUID()}-${safeName}`
-  const { error: uploadError } = await supabase.storage.from('purchase-order-documents').upload(path, file, { contentType: file.type, upsert: false })
+  const { error: uploadError } = await supabase.storage.from('purchase-order-documents').upload(path, file, { contentType, upsert: false })
   if (uploadError) throw uploadError
   const { data: authData } = await supabase.auth.getUser()
-  const { data, error } = await supabase.from('purchase_order_documents').insert({ purchase_order_id: id, document_type: type, storage_path: path, file_name: file.name, mime_type: file.type, uploaded_by: authData.user?.id }).select().single()
+  const { data, error } = await supabase.from('purchase_order_documents').insert({ purchase_order_id: id, document_type: type, storage_path: path, file_name: file.name, mime_type: contentType, uploaded_by: authData.user?.id }).select().single()
   if (error) throw error
   return data
 }
@@ -145,11 +132,6 @@ export async function getPurchaseOrderDocumentUrl(path) {
   const { data, error } = await supabase.storage.from('purchase-order-documents').createSignedUrl(path, 300)
   if (error) throw error
   return data?.signedUrl || null
-}
-
-export async function closePurchaseOrder(id, notes = '') {
-  const { error } = await supabase.rpc('close_purchase_order', { p_id: id, p_notes: notes || null })
-  if (error) throw error
 }
 
 export async function cancelPurchaseOrder(id, reason = '') {

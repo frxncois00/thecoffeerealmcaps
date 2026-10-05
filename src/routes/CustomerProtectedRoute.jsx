@@ -9,7 +9,7 @@ export default function CustomerProtectedRoute({ children }) {
   if (loading) return <main className="customer-state">Checking your account...</main>
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />
   if (isCustomerRole(profile?.role)) {
-    const incomplete = !profile?.username || !profile?.phone || profile?.full_name === 'Coffee Realm Customer'
+    const incomplete = !profile?.username || !profile?.phone || !profile?.birthdate || profile?.full_name === 'Coffee Realm Customer'
     if (incomplete && location.pathname !== '/complete-profile') {
       return <Navigate to="/complete-profile" replace />
     }

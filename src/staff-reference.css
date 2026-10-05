@@ -1,0 +1,159 @@
+/* Staff workspace follows the admin reference in both display modes. */
+.app-layout.legacy-staff {
+  --admin-canvas:#f3f3f1;--admin-surface:#fff;--admin-subtle:#e8efe9;
+  --admin-line:#e5e5e1;--admin-ink:#17261d;--admin-muted:#6b6f68;
+  --admin-green-surface:#1e3932;--admin-emerald:#1e3932;
+  --mgmt-canvas:var(--admin-canvas);--mgmt-surface:var(--admin-surface);
+  --mgmt-elevated:var(--admin-surface);--mgmt-subtle:var(--admin-subtle);
+  --mgmt-hover:var(--admin-subtle);--mgmt-input:var(--admin-surface);
+  --mgmt-border:var(--admin-line);--mgmt-text:var(--admin-ink);
+  --mgmt-heading:var(--admin-ink);--mgmt-muted:var(--admin-muted);
+  --mgmt-primary:#2e6b47;--mgmt-primary-strong:#1f4a31;--mgmt-on-primary:#fff;
+  --mgmt-shadow:0 1px 2px #0b122008,0 8px 24px -14px #0b122024;
+  display:grid;grid-template-columns:244px minmax(0,1fr);min-width:0;
+  background:var(--admin-canvas);color:var(--admin-ink);
+  font-family:'Space Grotesk',system-ui,sans-serif;
+}
+.app-layout.legacy-staff[data-theme="dark"] {
+  --admin-canvas:#131413;--admin-surface:#181a19;--admin-subtle:#1e1f1e;
+  --admin-line:#282a29;--admin-ink:#f0f1eb;--admin-muted:#b9c1b9;
+  --admin-green-surface:#005d3b;--admin-emerald:#005d3b;
+  --mgmt-canvas:var(--admin-canvas);--mgmt-surface:var(--admin-surface);
+  --mgmt-elevated:var(--admin-subtle);--mgmt-subtle:var(--admin-subtle);
+  --mgmt-hover:#242624;--mgmt-input:var(--admin-canvas);
+  --mgmt-border:var(--admin-line);--mgmt-border-strong:#565c58;
+  --mgmt-text:#e2e6df;--mgmt-heading:var(--admin-ink);
+  --mgmt-muted:var(--admin-muted);--mgmt-faint:#a5b0a7;
+  --mgmt-primary:#72d3a5;--mgmt-primary-strong:#98e4bd;
+  --mgmt-on-primary:#f0f1eb;--mgmt-success:#72d3a5;
+  --mgmt-success-soft:#173c2d;--mgmt-danger:#ffb4ae;
+  --mgmt-danger-soft:#3d2025;--mgmt-warning:#efad91;
+  --mgmt-warning-soft:#3a2923;--mgmt-highlight:transparent;
+  --mgmt-shadow:0 2px 8px #0002;--mgmt-shadow-high:0 12px 30px #0004;
+  color-scheme:dark;
+}
+.app-layout.legacy-staff .internal-sidebar {
+  position:sticky;top:0;align-self:start;width:244px;height:100dvh;
+  display:flex;flex-direction:column;gap:4px;overflow:hidden;padding:20px 14px;
+  border-right:1px solid var(--admin-line);background:var(--admin-surface);
+  box-shadow:none;font-family:'Space Grotesk',system-ui,sans-serif;
+}
+.app-layout.legacy-staff:has(.internal-sidebar:hover){grid-template-columns:244px minmax(0,1fr)}
+.app-layout.legacy-staff .internal-sidebar::after{display:none}
+.app-layout.legacy-staff .internal-brand{justify-content:flex-start}
+.app-layout.legacy-staff .internal-brand>div,.app-layout.legacy-staff .internal-nav-group a span,.app-layout.legacy-staff .sidebar-exit span{width:auto;opacity:1;overflow:visible}
+.app-layout.legacy-staff .internal-sidebar nav{align-items:stretch}
+.app-layout.legacy-staff .internal-sidebar:not(:hover) .internal-nav-group{align-items:stretch}
+.app-layout.legacy-staff .internal-sidebar:not(:hover) .internal-nav-group a{gap:12px}
+.app-layout.legacy-staff .internal-sidebar .sidebar-exit,.app-layout.legacy-staff .internal-sidebar:hover .sidebar-exit{width:100%;justify-content:flex-start;padding:0 15px}
+.app-layout.legacy-staff .sidebar-theme-switcher,.app-layout.legacy-staff .internal-sidebar:hover .sidebar-theme-switcher{width:100%;flex-direction:row}
+.app-layout.legacy-staff .sidebar-theme-switcher button,.app-layout.legacy-staff .internal-sidebar:hover .sidebar-theme-switcher button{width:auto;flex:1;padding:0 11px}
+.app-layout.legacy-staff .sidebar-theme-switcher span{width:auto;opacity:1}
+.app-layout.legacy-staff .internal-brand{min-height:44px;gap:10px;padding:4px 8px 18px;margin:0}
+.app-layout.legacy-staff .internal-brand h2{color:var(--admin-ink);font:700 15px/1.25 'Space Grotesk',system-ui,sans-serif}
+.app-layout.legacy-staff .internal-brand p{color:var(--admin-muted);font:500 11px/1.3 'JetBrains Mono',ui-monospace,monospace}
+.app-layout.legacy-staff .internal-sidebar nav{flex:1;min-height:0;width:100%;gap:4px;padding:0;scrollbar-width:none}
+.app-layout.legacy-staff .internal-nav-group{width:100%;gap:2px}
+.app-layout.legacy-staff .internal-group-label{padding:16px 10px 4px;color:var(--admin-muted);font:600 10px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase}
+.app-layout.legacy-staff .internal-sidebar nav a,.app-layout.legacy-staff .internal-sidebar:hover nav a{width:100%;min-height:44px;align-self:stretch;justify-content:flex-start;padding:10px 12px;border-radius:10px;background:transparent;color:var(--admin-muted);box-shadow:none;transform:none;font-size:12.5px;font-weight:500;gap:10px;text-align:left}
+.app-layout.legacy-staff .internal-sidebar nav a:hover{background:var(--mgmt-hover);color:var(--admin-ink);box-shadow:none;transform:none}
+.app-layout.legacy-staff .internal-sidebar nav a.active{background:var(--admin-emerald);color:#fff;box-shadow:0 4px 14px #1e393233;transform:none;font-weight:700}
+.app-layout.legacy-staff .internal-sidebar nav a.active svg{color:#fff}
+.app-layout.legacy-staff .sidebar-footer-stack{align-items:stretch;gap:8px}
+.app-layout.legacy-staff .sidebar-staff-profile,.app-layout.legacy-staff .internal-sidebar:hover .sidebar-staff-profile{width:100%;min-height:54px;justify-content:flex-start;padding:5px 9px;border-radius:12px;background:var(--admin-surface);box-shadow:none}
+.app-layout.legacy-staff .sidebar-staff-profile-copy,.app-layout.legacy-staff .internal-sidebar:hover .sidebar-staff-profile-copy{width:auto;flex:1;opacity:1}
+.app-layout.legacy-staff .sidebar-staff-avatar{width:32px;height:32px;flex-basis:32px;border-radius:9px;background:var(--admin-green-surface);color:#fff;box-shadow:none;font-family:'JetBrains Mono',ui-monospace,monospace}
+.app-layout.legacy-staff .internal-main{min-width:0;width:100%;max-width:none;padding:24px 28px 48px;background:var(--admin-canvas) radial-gradient(circle,var(--admin-line) 1px,transparent 1.2px) 0 0/22px 22px;color:var(--admin-ink);font-family:'Space Grotesk',system-ui,sans-serif}
+.app-layout.legacy-staff[data-theme="dark"] .internal-main{background:var(--admin-canvas)}
+.app-layout.legacy-staff .internal-page-header,.app-layout.legacy-staff .internal-page-header.is-compact{min-height:54px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-direction:row;flex-wrap:wrap;margin:0 0 18px;padding:0;border:0;border-radius:0;background:none;box-shadow:none}
+.app-layout.legacy-staff .internal-page-header::before,.app-layout.legacy-staff .internal-page-header::after{display:none}
+.app-layout.legacy-staff .internal-page-header h1{margin:0;color:var(--admin-ink);font:700 28px/1.2 'Space Grotesk',system-ui,sans-serif;letter-spacing:-.03em}
+.app-layout.legacy-staff .internal-page-header>div:first-child>span{display:block;margin-top:3px;color:var(--admin-muted);font:500 12px/1.5 'JetBrains Mono',ui-monospace,monospace}
+.app-layout.legacy-staff .internal-utility-bar{border:0;background:none;box-shadow:none}
+.app-layout.legacy-staff .internal-live-datetime{min-height:44px;padding:6px 14px;border:1px solid var(--admin-line);border-radius:12px;background:var(--admin-surface);box-shadow:none}
+.app-layout.legacy-staff .internal-utility-button{width:44px;height:44px;min-width:44px;border:1px solid var(--admin-line);border-radius:12px;background:var(--admin-subtle);color:var(--admin-ink);box-shadow:none;transform:none}
+.app-layout.legacy-staff .internal-main :is(.panel,.legacy-ops-card,.module-table-card,.inv-table-card,.txn-ledger-shell,.po-table-panel,.staff-settings-card){border:1px solid var(--admin-line);border-radius:16px;background:var(--admin-surface);box-shadow:var(--mgmt-shadow)}
+.app-layout.legacy-staff .internal-main :is(.ops-toolbar,.module-toolbar,.txn-toolbar,.po-toolbar,.legacy-filter-card){border:1px solid var(--admin-line);border-radius:14px;background:var(--admin-surface);box-shadow:var(--mgmt-shadow)}
+.app-layout.legacy-staff .internal-main :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea){border-color:var(--admin-line);border-radius:10px;background:var(--mgmt-input);color:var(--admin-ink);font-family:'Space Grotesk',system-ui,sans-serif}
+.app-layout.legacy-staff .internal-main table th{border-bottom:1px solid var(--admin-line);background:var(--admin-surface);color:var(--admin-muted);font:600 10px/1.5 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase}
+.app-layout.legacy-staff .internal-main table td{border-bottom:1px solid var(--admin-line);color:var(--admin-ink)}
+.app-layout.legacy-staff .internal-main :is(.ops-main-action,.legacy-primary,.po-primary,.button-dark){border-color:var(--admin-emerald);border-radius:11px;background:var(--admin-emerald);color:#fff;box-shadow:none}
+.app-layout.legacy-staff .internal-main :is(.ops-secondary-action,.legacy-ghost,.button-outline){border:1px solid var(--admin-line);border-radius:11px;background:var(--admin-surface);color:var(--admin-ink);box-shadow:none}
+
+/* Match the corresponding admin summary cards, using only the shared green palette. */
+.app-layout.legacy-staff .internal-main :is(.ops-summary-row,.menu-summary-grid,.po-summary){display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:18px}
+.app-layout.legacy-staff .internal-main :is(.ops-summary-card,.menu-summary-card,.po-summary-card){position:relative;min-width:0;min-height:142px;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:9px;overflow:hidden;padding:22px;border:1px solid var(--admin-line);border-top:3px solid var(--admin-line);border-radius:0;background:var(--admin-surface);color:var(--admin-ink);box-shadow:none;transform:none;transition:none;animation:none}
+.app-layout.legacy-staff .internal-main :is(.ops-summary-card,.menu-summary-card,.po-summary-card)::before,.app-layout.legacy-staff .internal-main :is(.ops-summary-card,.menu-summary-card,.po-summary-card)::after{display:none}
+.app-layout.legacy-staff .internal-main :is(.ops-summary-card,.menu-summary-card,.po-summary-card):hover{transform:none;border-color:var(--admin-line);box-shadow:none}
+.app-layout.legacy-staff .internal-main :is(.ops-summary-card,.po-summary-card) svg,.app-layout.legacy-staff .internal-main .po-summary-card .inv-summary-icon{display:none}
+.app-layout.legacy-staff .internal-main :is(.ops-summary-card>span,.menu-summary-copy>span,.po-summary-card .inv-summary-copy>span){color:var(--admin-ink);font:500 10px/1.5 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase}
+.app-layout.legacy-staff .internal-main .po-summary-card .inv-summary-copy{display:contents}
+.app-layout.legacy-staff .internal-main .po-summary-card .inv-summary-copy small{margin-top:auto;color:var(--admin-ink);font:400 12px/1.45 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.03em}
+.app-layout.legacy-staff .internal-main :is(.ops-summary-card b,.menu-summary-card strong,.po-summary-card>b){margin:2px 0 0;color:var(--admin-ink);font:500 clamp(1.75rem,2.5vw,2.15rem)/1.1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:-.045em;font-variant-numeric:tabular-nums}
+.app-layout.legacy-staff .internal-main .menu-summary-card:last-child{grid-column:auto}
+
+/* Inventory Monitoring uses the same wide count cards as the admin view. */
+.app-layout.legacy-staff .internal-main .inventory-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.app-layout.legacy-staff .internal-main .inv-summary-card{min-height:108px;display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:'copy value';align-items:center;gap:18px;padding:20px 24px;border:1px solid var(--admin-line);border-top:3px solid var(--admin-line);border-radius:0;background:var(--admin-surface);box-shadow:none;transform:none;transition:none}
+.app-layout.legacy-staff .internal-main .inv-summary-card::before,.app-layout.legacy-staff .internal-main .inv-summary-card::after,.app-layout.legacy-staff .internal-main .inv-summary-card .inv-summary-icon{display:none}
+.app-layout.legacy-staff .internal-main .inv-summary-card:hover{transform:none;border-color:var(--admin-line);box-shadow:none}
+.app-layout.legacy-staff .internal-main .inv-summary-card .inv-summary-copy{grid-area:copy;display:flex;min-width:0;flex-direction:column;gap:8px}
+.app-layout.legacy-staff .internal-main .inv-summary-card .inv-summary-copy>span{color:var(--admin-ink);font:500 11px/1.4 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase}
+.app-layout.legacy-staff .internal-main .inv-summary-card .inv-summary-copy small{color:var(--admin-muted);font:400 13px/1.4 'JetBrains Mono',ui-monospace,monospace}
+.app-layout.legacy-staff .internal-main .inv-summary-card>b{grid-area:value;align-self:center;justify-self:end;color:var(--admin-ink);font:500 38px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:-.055em;text-align:right}
+.app-layout.legacy-staff .internal-main .menu-summary-card .menu-summary-copy{grid-area:copy;display:flex;min-width:0;flex-direction:column;gap:8px}
+.app-layout.legacy-staff .internal-main .menu-summary-card .menu-summary-copy>span{color:var(--admin-ink);font:500 11px/1.4 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.12em;text-transform:uppercase}
+.app-layout.legacy-staff .internal-main .menu-summary-card>strong{grid-area:value;align-self:center;justify-self:end;color:var(--admin-ink);font:500 38px/1 'JetBrains Mono',ui-monospace,monospace;letter-spacing:-.055em;text-align:right}
+.app-layout.legacy-staff .internal-main .po-summary-card .inv-summary-copy{grid-area:copy;display:flex;min-width:0;flex-direction:column;gap:8px}
+
+/* Transaction History mirrors the admin's four equal summary cards. */
+.app-layout.legacy-staff .txn-report-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.app-layout.legacy-staff .txn-report-overview :is(.txn-report-total,.txn-report-stat){position:relative;grid-column:auto;grid-row:auto;min-width:0;min-height:150px;display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:10px;overflow:hidden;padding:20px;border:1px solid var(--admin-line);border-radius:16px;background:var(--admin-surface);color:var(--admin-ink);box-shadow:var(--mgmt-shadow)}
+.app-layout.legacy-staff .txn-report-overview :is(.txn-report-total,.txn-report-stat)::before{content:'';position:absolute;inset:0 0 auto;height:3px;background:var(--admin-green-surface);z-index:1}
+.app-layout.legacy-staff .txn-report-overview :is(.txn-report-total,.txn-report-stat)::after{display:none}
+.app-layout.legacy-staff .txn-report-overview :is(.txn-report-total>span,.txn-report-stat>span){margin:0;color:var(--admin-muted);font:600 10px/1.5 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase}
+.app-layout.legacy-staff .txn-report-overview :is(.txn-report-total>b,.txn-report-stat>b){margin:0;max-width:100%;color:var(--admin-ink);font:600 28px/1.15 'JetBrains Mono',ui-monospace,monospace;letter-spacing:-.04em;white-space:nowrap;font-variant-numeric:tabular-nums}
+.app-layout.legacy-staff .txn-report-overview :is(.txn-report-total>p,.txn-report-stat>small){margin:auto 0 0;color:var(--admin-muted);font:400 12px/1.45 'JetBrains Mono',ui-monospace,monospace}
+.app-layout.legacy-staff .txn-reconciliation-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin:-4px 0 16px;padding:12px 16px;border:1px solid var(--admin-line);border-radius:14px;background:var(--admin-surface);box-shadow:0 1px 2px rgba(11,18,32,.04)}
+.app-layout.legacy-staff .txn-reconciliation-strip>span{min-width:0;display:grid;gap:3px;padding:4px 16px;border-right:1px solid var(--admin-line);color:var(--admin-muted);font:500 10px/1.4 'JetBrains Mono',ui-monospace,monospace;text-transform:uppercase;letter-spacing:.06em}
+.app-layout.legacy-staff .txn-reconciliation-strip>span:last-child{border-right:0}
+.app-layout.legacy-staff .txn-reconciliation-strip b{color:var(--admin-ink);font:600 15px/1.3 'JetBrains Mono',ui-monospace,monospace;letter-spacing:0;text-transform:none;overflow-wrap:anywhere}
+
+/* Give every staff tab the reclaimed width without clipping its controls. */
+.app-layout.legacy-staff .internal-main :is(.ops-toolbar,.inv-toolbar,.menu-manage-toolbar,.po-toolbar,.txn-toolbar-shell){min-width:0;max-width:100%;flex-wrap:wrap}
+.app-layout.legacy-staff .internal-main :is(.ops-toolbar,.inv-toolbar,.menu-manage-toolbar,.po-toolbar) > *{min-width:0}
+.app-layout.legacy-staff .internal-main :is(.ops-search,.inv-search,.menu-manage-search,.po-toolbar-search){flex:1 1 220px;min-width:180px;max-width:100%}
+.app-layout.legacy-staff .internal-main :is(.ops-search,.inv-search,.menu-manage-search,.po-toolbar-search) input{min-width:0;max-width:100%}
+.app-layout.legacy-staff .internal-main :is(.ops-kanban,.ops-completed-grid,.inv-table-card,.po-table-panel,.txn-ledger-shell,.menu-items-grid,.staff-settings-container){min-width:0;max-width:100%}
+.app-layout.legacy-staff .internal-main :is(.inv-table-wrap,.po-table-scroll,.txn-table-wrap,.ops-table-wrap){max-width:100%;overflow-x:auto}
+@media(max-width:1100px){
+  .app-layout.legacy-staff .internal-main :is(.ops-summary-row,.menu-summary-grid,.po-summary,.txn-report-overview){grid-template-columns:repeat(2,minmax(0,1fr))}
+  .app-layout.legacy-staff .internal-main .inv-toolbar-actions{margin-left:0}
+  .app-layout.legacy-staff .internal-main .menu-manage-toolbar{justify-content:flex-start}
+}
+@media(max-width:700px){.app-layout.legacy-staff .internal-main .inventory-summary-grid{grid-template-columns:1fr}.app-layout.legacy-staff .internal-main .inv-summary-card{min-height:96px}}
+@media(max-width:560px){.app-layout.legacy-staff .txn-reconciliation-strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 0}.app-layout.legacy-staff .txn-reconciliation-strip>span:nth-child(2){border-right:0}}
+
+/* Match the admin's solid, deep semantic status colors in dark mode. */
+.app-layout.legacy-staff[data-theme="dark"] .internal-main :is(.status-chip,.inv-status,.po-status){border-radius:7px}
+.app-layout.legacy-staff[data-theme="dark"] .internal-main :is(.status-chip--attention,.status-chip--preparing,.inv-status.tone-amber,.po-status-amber){background:#854d0e;border-color:#a16207;color:#fff}
+.app-layout.legacy-staff[data-theme="dark"] .internal-main :is(.status-chip--completed,.status-chip--received,.inv-status.tone-green,.po-status-green){background:#14532d;border-color:#166534;color:#fff}
+.app-layout.legacy-staff[data-theme="dark"] .internal-main :is(.status-chip--cancelled,.inv-status.tone-red,.po-status-red){background:#7f1d1d;border-color:#991b1b;color:#fff}
+.app-layout.legacy-staff[data-theme="dark"] .internal-main :is(.status-chip--delivery){background:#0e4a60;border-color:#0d5f7b;color:#fff}
+.app-layout.legacy-staff[data-theme="dark"] .internal-main :is(.status-chip--pickup,.po-status-purple){background:#3730a3;border-color:#4338ca;color:#fff}
+.app-layout.legacy-staff[data-theme="dark"] .internal-main :is(.status-chip--confirmed,.inv-status.tone-blue,.po-status-blue){background:#1e3a8a;border-color:#1d4ed8;color:#fff}
+.app-layout.legacy-staff[data-theme="dark"] .internal-main :is(.status-chip--neutral,.inv-status.tone-neutral,.po-status-neutral){background:#272f37;border-color:#3b4654;color:#e2e8f0}
+
+@media(max-width:760px){
+  .app-layout.legacy-staff{display:block}
+  .app-layout.legacy-staff .internal-sidebar{position:relative;width:100%;height:auto;min-height:0;padding:10px;border-right:0;border-bottom:1px solid var(--admin-line)}
+  .app-layout.legacy-staff .internal-sidebar nav{display:flex;flex-direction:row;overflow-x:auto;overflow-y:hidden;gap:8px;flex:none}
+  .app-layout.legacy-staff .internal-nav-group{display:flex;flex-direction:row;gap:8px;flex:none;width:auto}
+  .app-layout.legacy-staff .internal-group-label{display:none}
+  .app-layout.legacy-staff .internal-sidebar nav a,.app-layout.legacy-staff .internal-sidebar:hover nav a{flex:none;width:auto;white-space:nowrap}
+  .app-layout.legacy-staff .sidebar-footer-stack{flex-direction:row;align-items:center;overflow-x:auto}
+  .app-layout.legacy-staff .sidebar-staff-profile{min-width:170px;width:auto;flex:none}
+  .app-layout.legacy-staff .internal-main{max-width:none;width:100%;padding:16px}
+  .app-layout.legacy-staff .internal-live-datetime{display:none}
+}
+@media(max-width:560px){.app-layout.legacy-staff .internal-main :is(.ops-summary-row,.inventory-summary-grid,.menu-summary-grid,.po-summary,.txn-report-overview){grid-template-columns:1fr}}

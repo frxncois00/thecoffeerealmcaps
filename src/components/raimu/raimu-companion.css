@@ -219,3 +219,12 @@
   .raimu-companion .rc-panel.is-closing { animation: rc-fade-out 100ms ease-in both !important; }
 }
 .raimu-companion[data-paused="true"] *, .raimu-companion[data-paused="true"] *::before, .raimu-companion[data-paused="true"] *::after { animation-play-state: paused !important; transition: none !important; }
+.raimu-companion .rc-sources{display:block;margin:4px 0 8px;color:var(--rc-muted, #68736e);font-size:.7rem;line-height:1.4}
+.raimu-companion .rc-attach{align-self:center;padding:8px 5px;color:var(--rc-primary,#147d57);font-size:.7rem;font-weight:700;cursor:pointer}
+.raimu-companion .rc-attach input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.raimu-companion .rc-attach:focus-within{outline:2px solid var(--rc-primary,#147d57);outline-offset:2px}
+.raimu-companion .rc-attachment{padding:0 16px 8px;color:var(--rc-muted,#68736e);font-size:.7rem}
+.raimu-companion .rc-attachment button{margin-left:6px;border:0;background:transparent;color:inherit;cursor:pointer}
+.raimu-companion .rc-navigation{display:inline-block;margin:3px 0 9px;color:var(--rc-primary,#147d57);font-size:.72rem;font-weight:700;text-decoration:underline}
+.raimu-companion .rc-sources summary{cursor:pointer}.raimu-companion .rc-sources div{margin-top:6px;padding:7px;border-left:2px solid var(--rc-primary,#147d57)}.raimu-companion .rc-sources b,.raimu-companion .rc-sources span{display:block;white-space:pre-wrap}
+.raimu-companion .rc-tone-setting{display:flex;align-items:center;gap:5px;font-size:.7rem}.raimu-companion .rc-tone-setting select{max-width:85px;padding:3px;border:1px solid var(--rc-primary,#147d57);border-radius:6px;background:transparent;color:inherit;font:inherit}

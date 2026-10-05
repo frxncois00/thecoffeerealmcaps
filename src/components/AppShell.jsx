@@ -1,4 +1,4 @@
-import { BarChart3, Bell, Bot, Boxes, CalendarDays, CheckCheck, ClipboardCheck, ClipboardList, Coffee, FileBarChart, LayoutDashboard, LogOut, MenuSquare, Moon, ReceiptText, RefreshCw, Settings, ShieldCheck, Sun, Trash2, Users, X } from 'lucide-react'
+import { BarChart3, Bell, Bot, Boxes, CalendarDays, CheckCheck, ClipboardCheck, ClipboardList, Coffee, FileBarChart, LayoutDashboard, LogOut, MenuSquare, Moon, PackageCheck, ReceiptText, RefreshCw, Settings, ShieldCheck, Sun, Trash2, Users, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 
@@ -29,7 +29,7 @@ const adminGroups = [
   { label: 'Operations', links: [['Inventory Monitoring','/admin/inventory',Boxes],['Purchase Orders','/admin/purchase-orders',ClipboardCheck],['Menu Approvals','/admin/menu-approvals',ClipboardCheck],['Benefits Verification','/admin/benefits-verification',ShieldCheck],['Transaction History','/admin/transactions',ReceiptText]] },
   { label: 'Reports', links: [['Sales Reports','/admin/reports',FileBarChart],['Inventory Report','/admin/inventory-report',ClipboardList],['Cancellation & Refunds','/admin/cancellations',ShieldCheck]] },
   { label: '', links: [['Analytics','/admin/analytics',BarChart3]] },
-  { label: 'Administration', links: [['Content Management','/admin/content',MenuSquare],['Users & Access','/admin/users-access',Users],['System Settings','/admin/settings',Settings]] },
+  { label: 'Administration', links: [['Content Management','/admin/content',MenuSquare],['Raimu Knowledge','/admin/raimu-knowledge',Bot],['Users & Access','/admin/users-access',Users],['System Settings','/admin/settings',Settings]] },
   { label: '', links: [['Settings','/admin/preferences',Settings]] },
 ]
 const staffGroups = [{ label:'', links:[['Order Preparation','/staff',ClipboardList],['Inventory Management','/staff/inventory',Boxes],['Purchase Orders','/staff/purchase-orders',ClipboardCheck],['Manage Menu','/staff/menu',Coffee],['Transactions','/staff/transactions',ReceiptText],['Settings','/staff/settings',Settings]] }]
@@ -82,7 +82,8 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   const visibleNotifications = notifications.filter((item) => role === 'admin' ? item.category !== 'orders' : item.category !== 'approvals')
   const unreadNotificationCount = visibleNotifications.filter((item) => !item.read).length
   const visibleNotificationCount = Math.max(notificationCount, unreadNotificationCount)
-  const [orderToasts, setOrderToasts] = useState([])
+  const [orderToasts, setOrderToasts] = useManagementSessionState(`${role}:shell:order-toasts`, [])
+  const [restockToast, setRestockToast] = useState(null)
   const [bellAnimated, setBellAnimated] = useState(false)
   const seenOrderIdsRef = useRef(new Set())
   const prevNotificationCountRef = useRef(visibleNotificationCount)
@@ -96,9 +97,10 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
     if (visibleNotificationCount > prevNotificationCountRef.current) {
       triggerBellRing()
       raimu.reactTo('notification')
+      if (raimuVisible) raimu.say('New store activity needs a look. Check your notifications.', { duration: 4500, id: `notification-${visibleNotificationCount}` })
     }
     prevNotificationCountRef.current = visibleNotificationCount
-  }, [visibleNotificationCount])
+  }, [visibleNotificationCount, raimuVisible])
 
   useEffect(() => {
     const syncRaimu = (event) => setRaimuVisible(event.detail?.visible !== false)
@@ -142,7 +144,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
       rememberedSidebarNavScroll[role] = nav.scrollTop
       try {
         window.sessionStorage.setItem(`tcr:sidebar-nav-scroll:${role}`, String(nav.scrollTop))
-      } catch {}
+      } catch { /* Session storage may be unavailable. */ }
     }
   }, [pathname, role])
 
@@ -151,7 +153,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
     rememberedSidebarNavScroll[role] = top
     try {
       window.sessionStorage.setItem(`tcr:sidebar-nav-scroll:${role}`, String(top))
-    } catch {}
+    } catch { /* Session storage may be unavailable. */ }
   }
 
   useEffect(() => {
@@ -165,6 +167,52 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
       unsubscribePreferences()
     }
   }, [role, user?.id])
+
+  useEffect(() => {
+    if (!['staff', 'admin'].includes(role) || !user?.id || !isSupabaseConfigured) return undefined
+    let active = true
+    let checking = false
+    const checkDailyRestock = async () => {
+      if (checking) return
+      checking = true
+      try {
+        const { data: settings, error } = await supabase.from('daily_opening_stock_settings')
+          .select('last_run_date,last_run_at').eq('id', true).maybeSingle()
+        if (error) throw error
+        if (!active || !settings?.last_run_at) return
+        const dateParts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).map(({ type, value }) => [type, value]))
+        const today = `${dateParts.year}-${dateParts.month}-${dateParts.day}`
+        if (settings.last_run_date !== today) return
+        const eventKey = `daily-opening-stock-run:${settings.last_run_at}`
+        if (getStaffNotifications(user.id).some((item) => item.eventKey === eventKey)) return
+        const notification = {
+          category: 'inventory', title: 'Daily restock complete',
+          message: 'Opening stock has been set for today’s products.',
+          target: { kind: 'daily-restock' }, eventKey,
+          createdAt: settings.last_run_at,
+        }
+        const saved = addStaffNotification(user.id, notification).find((item) => item.eventKey === eventKey)
+        const justRan = Date.now() - new Date(settings.last_run_at).getTime() < 120000
+        if (staffPreferences.system_change_popups && saved && justRan) {
+          setRestockToast(saved)
+          playOrderChime()
+        }
+      } catch (error) {
+        console.error('[Notification Center] Daily restock check failed:', error)
+      } finally {
+        checking = false
+      }
+    }
+    void checkDailyRestock()
+    const timer = window.setInterval(checkDailyRestock, 10000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [role, user?.id, staffPreferences.system_change_popups])
+
+  useEffect(() => {
+    if (!restockToast) return undefined
+    const timer = window.setTimeout(() => setRestockToast(null), 8000)
+    return () => window.clearTimeout(timer)
+  }, [restockToast])
 
   useEffect(() => {
     if (!['staff', 'admin'].includes(role)) return undefined
@@ -282,7 +330,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
               },
               createdAt: Date.now(),
             }
-            setOrderToasts((current) => [initialToast, ...current.filter((t) => t.id !== orderId)].slice(0, 3))
+            setOrderToasts((current) => [initialToast, ...current.filter((t) => t.id !== orderId)])
 
             fetchOpsOrdersByIds([orderId]).then(([fullOrder]) => {
               if (fullOrder && active) {
@@ -316,14 +364,14 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
       else if (staffPreferences.notify_low_stock && table === 'finished_products') receiveStock(payload, 'finished_product')
       else if (role === 'admin' && table === 'purchase_orders' && eventType !== 'DELETE' && row) {
         const status = row.status
-        if (!['pending_approval', 'pending_receiving_review', 'payment_review'].includes(status)) return
-        const when = status === 'pending_approval' ? row.submitted_at : status === 'pending_receiving_review' ? row.receiving_submitted_at : row.payment_submitted_at
+        if (!['pending_approval', 'returned'].includes(status)) return
+        const when = status === 'pending_approval' ? row.submitted_at : row.closed_at
         if (!when) return
-        void submitterName(status === 'pending_approval' ? row.submitted_by : status === 'pending_receiving_review' ? row.receiving_submitted_by : row.payment_submitted_by).then((submitter) => {
+        void submitterName(status === 'pending_approval' ? row.submitted_by : row.closed_by).then((submitter) => {
           if (!active) return
-          const label = status === 'pending_approval' ? 'Purchase Order' : status === 'pending_receiving_review' ? 'Inventory receiving' : 'Purchase Order payment'
-          add({ category: 'approvals', title: `${label} approval needed`,
-            message: `${label} ${row.po_number || ''} submitted by ${submitter} on ${submittedTime(when)}, needs approval`,
+          const returned = status === 'returned'
+          add({ category: returned ? 'inventory' : 'approvals', title: returned ? 'Purchase order returned' : 'Purchase Order approval needed',
+            message: returned ? `${row.po_number || 'Purchase order'} was returned by ${submitter} on ${submittedTime(when)}. No stock was added.` : `Purchase Order ${row.po_number || ''} submitted by ${submitter} on ${submittedTime(when)}, needs approval`,
             target: { kind: 'purchase-order', id: row.id }, eventKey: `approval:po:${row.id}:${status}:${when}`, createdAt: createdAt || when })
         })
       } else if (role === 'admin' && table === 'menu_change_approvals' && eventType === 'INSERT' && row?.state === 'pending' && !['set_availability', 'bulk_availability'].includes(row.operation)) {
@@ -346,7 +394,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
       else console.warn('[Notification Center] Realtime channel:', status)
     })
     return () => { active = false; supabase.removeChannel(channel) }
-  }, [role, staffPreferences.notify_customer_cancellations, staffPreferences.notify_low_stock, staffPreferences.notify_menu_changes, staffPreferences.notify_new_orders, staffPreferences.notify_payment_proofs, user?.id])
+  }, [role, setOrderToasts, staffPreferences.notify_customer_cancellations, staffPreferences.notify_low_stock, staffPreferences.notify_menu_changes, staffPreferences.notify_new_orders, staffPreferences.notify_payment_proofs, user?.id])
 
   useEffect(() => {
     const themeColor = document.querySelector('meta[name="theme-color"]')
@@ -385,19 +433,20 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
         if (order) writeManagementSessionState('staff:orders:drawer', order)
       } catch (error) { console.error('[Notification Center] Could not open order:', error) }
       navigate('/staff')
-    } else if (target.kind === 'inventory') {
+    } else if (target.kind === 'inventory' || target.kind === 'daily-restock') {
+      const itemType = target.kind === 'daily-restock' ? 'finished_product' : target.itemType
+      const name = target.kind === 'daily-restock' ? '' : target.name
       if (role === 'admin') {
-        writeManagementSessionState('admin:inventory:entity', target.itemType)
-        writeManagementSessionState('admin:inventory:search', target.name)
+        writeManagementSessionState('admin:inventory:entity', itemType)
+        writeManagementSessionState('admin:inventory:search', name)
         writeManagementSessionState('admin:inventory:category', 'all')
         writeManagementSessionState('admin:inventory:status', 'all')
         writeManagementSessionState('admin:inventory:type', 'all')
         writeManagementSessionState('admin:inventory:page', 1)
         navigate('/admin/inventory')
       } else {
-        rememberStaffFilters('inventory', { activeEntity: target.itemType, search: target.name, categoryFilter: 'all', statusFilter: 'all', typeFilter: 'all', sortBy: 'name' })
-        if (pathname === '/staff/inventory') window.location.reload()
-        else navigate('/staff/inventory')
+        rememberStaffFilters('inventory', { activeEntity: itemType, search: name, categoryFilter: 'all', statusFilter: 'all', typeFilter: 'all', sortBy: 'name' })
+        navigate('/staff/inventory', { state: { notificationInventory: { itemType, name, openedAt: Date.now() } } })
       }
     } else if (role === 'admin' && target.kind === 'purchase-order') navigate('/admin/purchase-orders')
     else if (role === 'admin' && target.kind === 'menu-approval') navigate('/admin/menu-approvals')
@@ -512,6 +561,12 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
         onViewOrder={handleViewOrderToast}
       />
     )}
+    {restockToast && <div className="daily-restock-toast" role="alert" aria-live="assertive">
+      <span className="daily-restock-toast-icon" aria-hidden="true"><PackageCheck size={24} /></span>
+      <div className="daily-restock-toast-copy"><small>DAILY RESTOCK</small><b>{restockToast.title}</b><span>{restockToast.message}</span></div>
+      <button type="button" className="daily-restock-toast-view" onClick={() => { setRestockToast(null); void openNotification(restockToast) }}>View products</button>
+      <button type="button" className="daily-restock-toast-close" aria-label="Dismiss daily restock notification" onClick={() => setRestockToast(null)}><X size={16} /></button>
+    </div>}
     <LogoutConfirmModal open={logoutOpen} busy={loggingOut} onCancel={() => setLogoutOpen(false)} onConfirm={confirmLogout} />
     {logoutError && (
       <div className="customer-logout-error-banner" role="alert">

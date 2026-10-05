@@ -1,0 +1,485 @@
+/* Neutral surfaces for admin and staff dialogs and right-side view panels. */
+.app-layout:is(.legacy-admin,.legacy-staff) :is(
+  .ac-modal,.ua-modal,.ua-drawer,.benefit-review-drawer,
+  .po-modal,.po-drawer,.inv-opening-stock-modal,.inv-form-modal,
+  .inv-view-modal,.menu-workspace-modal,.category-workspace-modal,
+  .addon-workspace-modal,.menu-availability-modal,.menu-approval-required-modal,
+  .ops-popup-modal,.ops-drawer,.cancel-drawer,.ir-drawer,.txn-drawer,
+  .module-modal,.payment-modal,.txn-filter-panel,.cm-dialog
+) {
+  --overlay-surface:#fff;
+  --overlay-inset:#f7f7f6;
+  --mgmt-surface:var(--overlay-surface);
+  --mgmt-elevated:var(--overlay-surface);
+  --mgmt-subtle:var(--overlay-inset);
+  --mgmt-hover:#f0f1ef;
+  background:var(--overlay-surface)!important;
+}
+
+.app-layout:is(.legacy-admin,.legacy-staff) :is(
+  .ac-modal,.ua-modal,.ua-drawer,.benefit-review-drawer,
+  .po-modal,.po-drawer,.inv-opening-stock-modal,.inv-form-modal,
+  .inv-view-modal,.menu-workspace-modal,.category-workspace-modal,
+  .addon-workspace-modal,.menu-availability-modal,.menu-approval-required-modal,
+  .ops-popup-modal,.ops-drawer,.cancel-drawer,.ir-drawer,.txn-drawer,
+  .module-modal,.payment-modal,.txn-filter-panel,.cm-dialog
+) > :is(header,footer,form) {background:var(--overlay-surface)!important}
+
+.app-layout:is(.legacy-admin,.legacy-staff) :is(
+  .inv-opening-settings,.inv-opening-stock-modal footer,.inv-form-header,
+  .inv-record-form,.inv-form-details-column,.inv-view-header,.inv-view-body,.inv-view-footer,
+  .ops-drawer-body,.ops-drawer-footer,.txn-drawer-nav,.txn-drawer-footer,
+  .cancel-drawer-body,.ir-drawer-body,.benefit-drawer-header,
+  .benefit-drawer-body,.benefit-drawer-footer,.po-drawer-body,
+  .po-drawer-actions,.ua-drawer-body,.menu-workspace-header,
+  .menu-workspace-actions,.po-modal footer,.po-form-modal>form>footer
+) {background:var(--overlay-surface,#fff)!important}
+
+.app-layout:is(.legacy-admin,.legacy-staff) :is(
+  .inv-opening-toggle,.inv-opening-row.is-selected,.inv-sale-mappings,.inv-view-stock-card,
+  .inv-view-detail-grid>div,.inv-view-usage-list li,
+  .po-issue-items,.po-issue-followup,.po-supplier-list,
+  .po-supplier-items,.po-create-supplier,.po-stage-guidance,
+  .po-conversion-preview,
+  .po-receive-lines,.po-receive-instruction,.po-low-stock,
+  .po-document-preview,
+  .menu-editor-panel,.menu-image-upload-card,.menu-option-card,
+  .menu-schedule-card,.category-list-panel,.category-create-panel,
+  .addon-list-panel,.addon-edit-panel,.ir-detail-grid>div,
+  .ir-stock-snapshot>div,.cancel-order-summary,.txn-info-card,
+  .txn-overview-cards>div,.txn-detail-grid>div,.txn-payment-record,
+  .ua-drawer-body>section,.ua-technical
+) {background:var(--overlay-inset,#f7f7f6)!important}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .ac-modal,.ua-modal,.ua-drawer,.benefit-review-drawer,
+  .po-modal,.po-drawer,.inv-opening-stock-modal,.inv-form-modal,
+  .inv-view-modal,.menu-workspace-modal,.category-workspace-modal,
+  .addon-workspace-modal,.menu-availability-modal,.menu-approval-required-modal,
+  .ops-popup-modal,.ops-drawer,.cancel-drawer,.ir-drawer,.txn-drawer,
+  .module-modal,.payment-modal,.txn-filter-panel,.cm-dialog
+) {--overlay-surface:#181a19;--overlay-inset:#222423;--mgmt-hover:#292b29}
+
+/* Dark-mode contrast guardrails.
+   These live in the final theme layer so legacy, light-only component rules
+   cannot repaint an otherwise dark workspace with white surfaces. */
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .ops-order-table-wrap,.ops-order-table,.ops-layout-toggle,.ops-empty,
+  .inv-sale-mapping,.inv-direction-toggle
+) {
+  border-color:var(--mgmt-border)!important;
+  background:var(--mgmt-surface)!important;
+  color:var(--mgmt-text)!important;
+}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .ops-order-table th {
+  border-color:var(--mgmt-border)!important;
+  background:var(--mgmt-subtle)!important;
+  color:var(--mgmt-muted)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .ops-order-table td {
+  border-color:var(--mgmt-border)!important;
+  background:var(--mgmt-surface)!important;
+  color:var(--mgmt-text)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .ops-order-table td:first-child small {
+  color:var(--mgmt-muted)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .ops-order-table tbody tr:hover td {
+  background:var(--mgmt-hover)!important;
+}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .ops-empty {
+  border-color:var(--mgmt-border-strong)!important;
+  background:var(--mgmt-elevated)!important;
+  color:var(--mgmt-muted)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .ops-empty svg {
+  color:var(--mgmt-primary-strong)!important;
+}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .ops-layout-toggle button {
+  background:transparent!important;
+  color:var(--mgmt-muted)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .ops-layout-toggle button:hover {
+  background:var(--mgmt-hover)!important;
+  color:var(--mgmt-heading)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .ops-layout-toggle button.active {
+  background:var(--admin-emerald,var(--mgmt-primary))!important;
+  color:#fff!important;
+}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .payment-modal-close,.inv-view-close,.ops-drawer>header button
+) {
+  border:1px solid var(--mgmt-border-strong)!important;
+  background:var(--mgmt-input)!important;
+  color:var(--mgmt-heading)!important;
+  box-shadow:none!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .payment-modal-close,.inv-view-close,.ops-drawer>header button
+):hover {
+  border-color:var(--mgmt-primary)!important;
+  background:var(--mgmt-hover)!important;
+  color:var(--mgmt-primary-strong)!important;
+}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .inv-sale-mapping-heading,
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .inv-sale-mapping-unit {
+  color:var(--mgmt-heading)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .inv-sale-mapping-heading small,
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .inv-sale-mapping label span {
+  color:var(--mgmt-muted)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .inv-sale-mapping :is(input,select) {
+  border-color:var(--mgmt-border)!important;
+  background:var(--mgmt-input)!important;
+  color:var(--mgmt-heading)!important;
+}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .inv-direction-toggle button {
+  background:transparent!important;
+  color:var(--mgmt-muted)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .inv-direction-toggle button:hover {
+  background:var(--mgmt-hover)!important;
+  color:var(--mgmt-heading)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .inv-direction-toggle button.active {
+  background:var(--admin-emerald,var(--mgmt-primary))!important;
+  color:#fff!important;
+}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .ops-destructive-action {
+  border-color:#8e4851!important;
+  background:var(--mgmt-danger-soft)!important;
+  color:var(--mgmt-danger)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .ops-destructive-action:hover:not(:disabled) {
+  background:#51272d!important;
+  color:#ffd2ce!important;
+}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .internal-utility-button {
+  border-color:var(--mgmt-border)!important;
+  background:var(--mgmt-subtle)!important;
+  color:var(--mgmt-heading)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .internal-utility-button:hover {
+  background:var(--mgmt-hover)!important;
+  color:var(--mgmt-primary-strong)!important;
+}
+
+/* Purchase ordering and receiving */
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .po-date-filter,.po-form-line,.po-receive-card,.po-receive-items-table-wrap,
+  .po-receive-grand-total,.po-upload-drop,.po-upload-file,.po-receive-group,
+  .po-report-confirm-body li
+) {
+  border-color:var(--mgmt-border)!important;
+  background:var(--mgmt-elevated)!important;
+  color:var(--mgmt-text)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .po-date-filter input,.po-form-line input,.po-form-line select,
+  .po-receive-group input,.po-inline-expiry input
+) {
+  border-color:var(--mgmt-border)!important;
+  background:var(--mgmt-input)!important;
+  color:var(--mgmt-heading)!important;
+  color-scheme:dark;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .po-modal h2,.po-modal>header h2,.po-receive-compact-row,
+  .po-receive-grand-total,.po-upload-drop b,.po-upload-file b,
+  .po-receive-group legend,.po-receive-group label,.po-section-heading h3
+) {color:var(--mgmt-heading)!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .po-modal-intro,.po-upload-heading,.po-upload-heading small,.po-upload-drop small,
+  .po-upload-file small,.po-receive-group-primary small,.po-report-confirm-body p
+) {color:var(--mgmt-muted)!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .po-receive-items-table th {
+  border-color:var(--mgmt-border)!important;background:var(--mgmt-subtle)!important;color:var(--mgmt-muted)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .po-receive-items-table td {
+  border-color:var(--mgmt-border)!important;background:var(--mgmt-surface)!important;color:var(--mgmt-text)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .po-upload-drop>svg {
+  color:var(--mgmt-primary-strong)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .po-line-remove {
+  border-color:#8e4851!important;background:var(--mgmt-danger-soft)!important;color:var(--mgmt-danger)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(.po-modal>header button,.po-close) {
+  border:1px solid var(--mgmt-border)!important;background:var(--mgmt-input)!important;color:var(--mgmt-heading)!important
+}
+
+/* Stock-board and menu filter pills */
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .stock-filters button,
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .menu-manage-chip {
+  border-color:transparent!important;background:transparent!important;color:var(--mgmt-text)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .stock-filters button:hover,
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .menu-manage-chip:hover {
+  background:var(--mgmt-hover)!important;color:var(--mgmt-heading)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .stock-filters button[aria-pressed="true"],
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .menu-manage-chip.active {
+  border-color:var(--admin-emerald,var(--mgmt-primary))!important;
+  background:var(--admin-emerald,var(--mgmt-primary))!important;color:#fff!important
+}
+
+/* Menu editor: option cards, selling formats and BOM rows */
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .menu-selling-options,.menu-bom-list,.menu-bom-row,.menu-selling-option-row,
+  .menu-option-card,.menu-bundle-fields
+) {
+  border-color:var(--mgmt-border)!important;background:var(--mgmt-elevated)!important;color:var(--mgmt-text)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .menu-option-card:has(input:checked) {
+  border-color:var(--mgmt-border-strong)!important;background:var(--mgmt-hover)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .menu-selling-option-row input,.menu-selling-option-row select,
+  .menu-bom-row input,.menu-bom-row select
+) {
+  border-color:var(--mgmt-border)!important;background:var(--mgmt-input)!important;color:var(--mgmt-heading)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .menu-option-card b,.menu-bom-subtitle,.menu-bom-quantity,.menu-form-section h3
+) {color:var(--mgmt-heading)!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .menu-option-card small,.menu-form-hint,.menu-form-section>header p
+) {color:var(--mgmt-muted)!important}
+
+/* Transaction menus are rendered through a portal under <body>, so they need
+   to inherit dark mode from the mounted management workspace via :has(). */
+body:has(.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"]) .txn-row-menu {
+  border-color:#3f4642!important;background:#181a19!important;color:#f0f1eb!important;
+  box-shadow:0 18px 44px rgba(0,0,0,.52)!important
+}
+body:has(.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"]) .txn-row-menu button {
+  background:transparent!important;color:#e2e6df!important
+}
+body:has(.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"]) .txn-row-menu button:hover:not(:disabled) {
+  background:#292b29!important;color:#fff!important
+}
+body:has(.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"]) .txn-row-menu button.danger {
+  color:#ffb4ae!important
+}
+body:has(.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"]) .txn-row-menu button:disabled {
+  color:#737a76!important
+}
+
+/* Transaction/order history: remove pale icon discs and green-on-black copy. */
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .txn-timeline li>span {
+  border-color:var(--mgmt-border-strong)!important;background:var(--mgmt-subtle)!important;color:var(--mgmt-heading)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .txn-section-heading h3,.txn-timeline b,.txn-timeline li.done b
+) {color:var(--mgmt-heading)!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .txn-section-heading>div>span,.txn-timeline small,.txn-timeline p
+) {color:var(--mgmt-muted)!important}
+
+/* Prefer readable neutral copy for generic green text on dark management
+   surfaces; reserve green for active controls, success states and icons. */
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .po-modal>header span,.payment-modal-kicker,.menu-workspace-header>div>span,
+  .inv-form-header>div>span,.inv-view-kicker,.inv-view-card-kicker
+) {color:var(--mgmt-muted)!important}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .inv-tabs {
+  border:1px solid var(--mgmt-border)!important;background:var(--mgmt-subtle)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .inv-tabs button {
+  background:transparent!important;color:var(--mgmt-text)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .inv-tabs button:hover {
+  background:var(--mgmt-hover)!important;color:var(--mgmt-heading)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .inv-tabs button.active {
+  background:var(--admin-emerald,var(--mgmt-primary))!important;color:#fff!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .menu-default-option-note {
+  border-color:var(--mgmt-border)!important;background:var(--mgmt-elevated)!important;color:var(--mgmt-heading)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .menu-default-option-note span,
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .menu-default-option-note b::after {
+  color:var(--mgmt-muted)!important
+}
+
+/* Solid semantic badges remain legible against near-black tables and cards. */
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .status-chip--completed,.status-chip--received,.inv-status.tone-green,
+  .po-status-green,.ops-table-status--completed,.ops-table-status--pickup
+) {border-color:#166534!important;background:#14532d!important;color:#fff!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .status-chip--preparing,.status-chip--confirmed,.inv-status.tone-blue,
+  .po-status-blue,.ops-table-status--preparing
+) {border-color:#1d4ed8!important;background:#1e3a8a!important;color:#fff!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .status-chip--delivery,.ops-table-status--delivery
+) {border-color:#0d5f7b!important;background:#0e4a60!important;color:#fff!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .status-chip--attention,.inv-status.tone-amber,.po-status-amber,
+  .ops-table-status--attention
+) {border-color:#a16207!important;background:#854d0e!important;color:#fff!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .status-chip--cancelled,.inv-status.tone-red,.po-status-red,
+  .ops-table-status--cancelled
+) {border-color:#991b1b!important;background:#7f1d1d!important;color:#fff!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .status-chip--neutral,.inv-status.tone-neutral,.po-status-neutral,
+  .ops-table-status--neutral
+) {border-color:#4b5563!important;background:#272f37!important;color:#f1f5f9!important}
+
+/* Dark-mode typography policy: green is reserved for backgrounds, borders,
+   focus rings and small graphical indicators. Reading text stays neutral. */
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .po-drawer-title h2,.po-drawer-title span,.po-lines td,.po-lines td b,
+  .po-lines td small,.po-events b,.po-events small,.po-back,
+  .ad-command-kicker,.ad-welcome-kicker,.ad-attention-heading-actions>a,
+  .ad-section-heading>a,.ad-panel>header>a,.ac-security-grid a,
+  .ac-approval-footer span:last-child,.benefit-drawer-body .benefit-document a,
+  .benefit-drawer-body .benefit-text-button,.ir-view,.menu-bom-quantity,
+  .addon-selection-count
+) {color:var(--mgmt-text)!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .po-drawer-title span,.po-lines td small,.po-events small
+) {color:var(--mgmt-muted)!important}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .po-events i {
+  background:#cbd5cf!important;box-shadow:0 0 0 4px #303633!important
+}
+
+/* Tabs use a deep solid selection with white copy, never mint/green text. */
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .staff-settings-tabs {
+  border-color:var(--mgmt-border)!important;background:var(--mgmt-surface)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .staff-settings-tabs button {
+  background:transparent!important;color:var(--mgmt-text)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .staff-settings-tabs button:hover {
+  background:var(--mgmt-hover)!important;color:#fff!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .staff-settings-tabs button.active {
+  background:var(--admin-emerald,#005d3b)!important;color:#fff!important;box-shadow:none!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .benefit-status-tabs>button[aria-current="page"],
+  .ac-section-nav button.is-active,.cancel-title-tabs>button.active,
+  .ac-approval-tabs button.is-active
+) {color:var(--mgmt-heading)!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .benefit-status-tabs>button[aria-current="page"] b,
+  .cancel-title-tabs>button.active>strong,.ac-approval-tabs button.is-active b
+) {color:var(--mgmt-text)!important}
+
+/* Remaining light-only management surfaces discovered in the full audit. */
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .ad-live-state,.addon-summary-strip,.addon-list-panel,.addon-edit-panel,
+  .addon-row,.addon-empty-state,.addon-availability-toggle,
+  .addon-category-picker,.addon-category-group,.addon-category-option,
+  .addon-picker-empty,.txn-card-fields>span,.ac-feedback-candidates
+) {
+  border-color:var(--mgmt-border)!important;background:var(--mgmt-surface)!important;color:var(--mgmt-text)!important
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .addon-row:hover,.addon-row.active,.addon-category-option:hover,
+  .addon-category-option.active
+) {border-color:var(--mgmt-border-strong)!important;background:var(--mgmt-hover)!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .addon-summary-strip strong,.addon-list-toolbar h3,.addon-edit-header h3,
+  .addon-row-copy>b,.addon-empty-state b,.addon-availability-toggle b,
+  .addon-category-picker legend,.addon-category-group h4,
+  .addon-category-option b,.txn-card-fields b,.ac-feedback-candidates b,
+  .ac-feedback-candidates p
+) {color:var(--mgmt-heading)!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .addon-summary-strip span,.addon-list-toolbar p,.addon-row-copy>span,
+  .addon-availability-toggle small,.addon-category-picker>p,
+  .addon-category-option small,.txn-card-fields small,.ac-feedback-candidates small
+) {color:var(--mgmt-muted)!important}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .addon-edit-panel .field :is(input,select) {
+  border-color:var(--mgmt-border)!important;background:var(--mgmt-input)!important;color:var(--mgmt-heading)!important
+}
+
+/* Route-loading and first-content placeholders must never flash their
+   light-mode fills while data is loading in a dark workspace. */
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .inv-skeleton-row,.orders-skeleton-row,.txn-loading-shell,
+  .staff-settings-loading,.customer-state,.po-empty,.inv-empty
+) {
+  border-color:var(--mgmt-border)!important;
+  background:var(--mgmt-surface)!important;
+  color:var(--mgmt-muted)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .inv-skeleton-row,.orders-skeleton-row,
+  .dash-skeleton .dash-skel-card,.dash-skeleton .dash-skel-panel,
+  .dash-skeleton .dash-skel-stat,.txn-metric-skeleton
+) {
+  background:linear-gradient(90deg,var(--mgmt-subtle) 25%,var(--mgmt-hover) 37%,var(--mgmt-subtle) 63%)!important;
+  background-size:400% 100%!important;
+}
+
+/* The document-level theme is set synchronously in index.html. These rules
+   protect the short interval before React adds data-theme to AppShell. */
+html[data-theme="dark"] body:has(.app-layout.legacy-admin) .app-layout.legacy-admin,
+html[data-theme="dark"] body:has(.app-layout.legacy-staff) .app-layout.legacy-staff {
+  background:#131413;color:#f0f1eb;color-scheme:dark
+}
+
+/* Dark interaction states: legacy component styles frequently use translucent
+   white hover fills. Normalize navigation, rows, cards and secondary controls. */
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .menu-editor-nav button:hover,
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .menu-editor-nav button:focus-visible {
+  border-color:var(--mgmt-border-strong)!important;
+  background:var(--mgmt-hover)!important;
+  color:var(--mgmt-heading)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .menu-editor-nav button:hover small,
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .menu-editor-nav button:focus-visible small {
+  color:var(--mgmt-muted)!important;
+}
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .menu-editor-nav button.active,
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] .menu-editor-nav button.active:hover {
+  border-color:var(--mgmt-border-strong)!important;
+  background:var(--mgmt-elevated)!important;
+  color:var(--mgmt-heading)!important;
+  box-shadow:none!important;
+}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .ops-secondary-action,.secondary-button,.legacy-ghost,.button-outline,
+  .ua-secondary-action,.ua-row-action,.ac-secondary-button,
+  .po-supplier-row,.po-combobox-menu button,.category-workspace-tabs button,
+  .addon-row,.addon-category-option,.menu-option-card,
+  .inv-overflow-menu button,.txn-footer-menu button
+):hover:not(:disabled) {
+  border-color:var(--mgmt-border-strong)!important;
+  background:var(--mgmt-hover)!important;
+  color:var(--mgmt-heading)!important;
+}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .po-table tbody tr,.ua-table tbody tr,.inv-table tbody tr,
+  .txn-table tbody tr,.ac-approval-table tbody tr
+):hover {
+  background:var(--mgmt-hover)!important;
+  color:var(--mgmt-heading)!important;
+}
+
+.app-layout:is(.legacy-admin,.legacy-staff)[data-theme="dark"] :is(
+  .po-upload-drop,.inv-view-close,.payment-modal-close,.po-close,
+  .internal-utility-button,.ops-icon-button,.ir-view
+):hover {
+  border-color:var(--mgmt-border-strong)!important;
+  background:var(--mgmt-hover)!important;
+  color:var(--mgmt-heading)!important;
+}
