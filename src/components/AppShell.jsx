@@ -52,7 +52,7 @@ async function submitterName(id) {
   return data?.full_name || data?.username || 'a staff member'
 }
 
-export default function AppShell({ role, title, eyebrow, children, actions, titleActions, onRefresh, onNotifications, notificationCount = 0, reportMode = false, hidePageHeader = false }) {
+export default function AppShell({ role, title, eyebrow, children, actions, titleActions, onRefresh, onNotifications, notificationCount = 0, reportMode = false, hidePageHeader = false, activeOrderId = null }) {
   const groups = role === 'admin' ? adminGroups : staffGroups
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -83,6 +83,21 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   const unreadNotificationCount = visibleNotifications.filter((item) => !item.read).length
   const visibleNotificationCount = Math.max(notificationCount, unreadNotificationCount)
   const [orderToasts, setOrderToasts] = useManagementSessionState(`${role}:shell:order-toasts`, [])
+
+  useEffect(() => {
+    if (role !== 'staff' || pathname !== '/staff' || !activeOrderId) return
+    setOrderToasts((current) => current.filter((toast) => toast.id !== activeOrderId))
+  }, [activeOrderId, pathname, role, setOrderToasts])
+
+  useEffect(() => {
+    if (role !== 'staff') return undefined
+    const dismissHandledOrder = (event) => {
+      const orderId = event.detail?.orderId
+      if (orderId) setOrderToasts((current) => current.filter((toast) => toast.id !== orderId))
+    }
+    window.addEventListener('tcr:staff-order-handled', dismissHandledOrder)
+    return () => window.removeEventListener('tcr:staff-order-handled', dismissHandledOrder)
+  }, [role, setOrderToasts])
   const [restockToast, setRestockToast] = useState(null)
   const [bellAnimated, setBellAnimated] = useState(false)
   const seenOrderIdsRef = useRef(new Set())

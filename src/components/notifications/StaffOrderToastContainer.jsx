@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bell, Bike, Coffee, Package, Volume2, VolumeX, ArrowRight } from 'lucide-react'
+import { Bell, Bike, Coffee, Package, Volume2, VolumeX, ArrowRight, X } from 'lucide-react'
 import { money } from '../../utils/money'
 import { isSoundMuted, toggleSoundMuted } from '../../utils/notificationSound'
 
@@ -26,6 +26,12 @@ function getItemCount(order) {
 function SingleOrderToast({ toast, onDismiss, onViewOrder, muted, onToggleMute }) {
   const { order, id } = toast
   const [isDismissing, setIsDismissing] = useState(false)
+
+  const handleDismiss = () => {
+    if (isDismissing) return
+    setIsDismissing(true)
+    setTimeout(() => onDismiss(id), 300)
+  }
 
   const handleView = () => {
     if (isDismissing) return
@@ -64,6 +70,15 @@ function SingleOrderToast({ toast, onDismiss, onViewOrder, muted, onToggleMute }
             aria-label={muted ? 'Unmute notification sound' : 'Mute notification sound'}
           >
             {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+          </button>
+          <button
+            type="button"
+            className="staff-order-toast-close-btn"
+            onClick={handleDismiss}
+            title={`Dismiss order ${orderNumber} notification`}
+            aria-label={`Dismiss order ${orderNumber} notification`}
+          >
+            <X size={16} aria-hidden="true" />
           </button>
         </div>
       </div>

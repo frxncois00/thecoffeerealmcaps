@@ -416,6 +416,10 @@ export default function OrderPreparationPage() {
     setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), 4500)
   }
 
+  const dismissOrderNotification = (orderId) => {
+    window.dispatchEvent(new CustomEvent('tcr:staff-order-handled', { detail: { orderId } }))
+  }
+
   const patchOrder = (id, patch) => {
     const nextOrders = ordersRef.current.map((order) => order.id === id ? { ...order, ...patch } : order)
     ordersRef.current = nextOrders
@@ -428,6 +432,7 @@ export default function OrderPreparationPage() {
     try {
       if (kind === 'confirm') {
         await confirmOrder(order.id)
+        dismissOrderNotification(order.id)
         patchOrder(order.id, { status: 'Preparing', payment_confirmed: paymentMethod(order) !== 'cod' ? true : order.payment_confirmed, payment_status: paymentMethod(order) !== 'cod' ? 'paid' : order.payment_status })
         pushToast('success', `${order.order_number} moved to Preparing.`)
       } else if (kind === 'advance') {
@@ -439,6 +444,7 @@ export default function OrderPreparationPage() {
         }
         await advanceOrderStatus(order.id, next)
         if (next === 'Out for Delivery') await saveOrderTrackingLink(order.id, trackingUrl)
+        dismissOrderNotification(order.id)
         patchOrder(order.id, { status: next, ...(next === 'Out for Delivery' ? { tracking_url: trackingUrl || null } : {}) })
         pushToast('success', `${order.order_number} is now ${next}.`)
       }
@@ -461,6 +467,7 @@ export default function OrderPreparationPage() {
     setBusyId(order.id)
     try {
       const result = await cancelOrder(order.id, reason)
+      dismissOrderNotification(order.id)
       const requested = result.action === 'review_requested'
       patchOrder(order.id, requested
         ? { cancellation_status: 'requested', fulfillment_hold: true, cancellation_reason: reason, cancellation_requested_by_role: 'Operations Staff', cancellation_requested_at: new Date().toISOString(), refund_status: 'pending_review' }
@@ -484,6 +491,7 @@ export default function OrderPreparationPage() {
     setBusyId(order.id)
     try {
       const updated = await saveOrderTrackingLink(order.id, trackingUrl)
+      dismissOrderNotification(order.id)
       const savedUrl = updated?.tracking_url || null
       patchOrder(order.id, { tracking_url: savedUrl })
       setDrawerOrder((current) => current && current.id === order.id ? { ...current, tracking_url: savedUrl } : current)
@@ -502,6 +510,7 @@ export default function OrderPreparationPage() {
     setBusyId(order.id)
     try {
       const result = await reviewCancellation({ orderId: order.id, approve, notes, paymentOutcome })
+      dismissOrderNotification(order.id)
       if (!approve) {
         patchOrder(order.id, { cancellation_status: 'rejected', fulfillment_hold: false, cancellation_review_notes: notes, refund_status: 'not_applicable' })
         pushToast('success', `${order.order_number} will continue.${result.email?.ok ? ' Customer email sent.' : ' Email queued for retry.'}`)
@@ -538,6 +547,7 @@ export default function OrderPreparationPage() {
     setBusyId(order.id)
     try {
       await resolveCancellation(order.id)
+      dismissOrderNotification(order.id)
       patchOrder(order.id, { cancellation_resolved: true })
       pushToast('success', `${order.order_number} marked as resolved.`)
     } catch (cause) {
@@ -552,6 +562,7 @@ export default function OrderPreparationPage() {
     setBusyId(refund.id)
     try {
       const result = await completeCancellationRefund({ orderId: order.id, refundId: refund.id, referenceNumber })
+      dismissOrderNotification(order.id)
       patchOrder(order.id, {
         refund_status: 'processed',
         cancellation_status: 'resolved',
@@ -632,7 +643,7 @@ export default function OrderPreparationPage() {
   }
 
   return (
-    <AppShell role="staff" title="Order Preparation" onRefresh={load} titleActions={
+    <AppShell role="staff" title="Order Preparation" onRefresh={load} activeOrderId={drawerOrder?.id} titleActions={
       <div className="ops-order-view-toggle" role="tablist" aria-label="Order view">
         <button type="button" role="tab" aria-selected={activeTab === 'active'} className={activeTab === 'active' ? 'active' : ''} onClick={() => setActiveTab('active')}>
           Active Orders <b>{activeOrderCount}</b>

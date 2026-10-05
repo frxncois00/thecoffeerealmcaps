@@ -9146,13 +9146,17 @@
   max-width: calc(100vw - 32px);
   max-height: calc(100dvh - 40px);
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 2px 4px 2px 2px;
   scrollbar-width: thin;
   scrollbar-color: #b8c6bd transparent;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .staff-order-toast {
+  flex: 0 0 auto;
+  width: 100%;
+  box-sizing: border-box;
   pointer-events: auto;
   position: relative;
   overflow: hidden;
