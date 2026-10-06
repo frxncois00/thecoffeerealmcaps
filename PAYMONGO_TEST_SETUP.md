@@ -43,6 +43,10 @@ PAYMONGO_PAYMENT_METHOD_TYPES=card,gcash,qrph
 PAYMONGO_RETURN_ORIGIN=https://thecoffeerealm.store
 ```
 
+If `PAYMONGO_RETURN_ORIGIN` is unset, checkout returns to the production site
+at `https://thecoffeerealm.store`. Set the secret explicitly for any other
+deployment URL.
+
 `PAYMONGO_SECRET_KEY` must start with `sk_test_`. You can change the payment
 method list if your PayMongo test account has a different set of enabled
 channels.

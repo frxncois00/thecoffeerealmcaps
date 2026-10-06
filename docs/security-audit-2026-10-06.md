@@ -85,8 +85,9 @@ run. A migration in Git is not evidence that it was deployed.
   attacker controlled `origin`, then share the hosted checkout link. Its
   success or cancel redirect leads to that origin.
 - **Impact:** payment flow phishing and misleading post payment navigation.
-  **Fix:** the function now uses only `PAYMONGO_RETURN_ORIGIN` from Edge
-  Function configuration, accepting HTTPS or local development HTTP.
+  **Fix:** the function now uses a trusted Edge Function return origin, with
+  `https://thecoffeerealm.store` as the production fallback, accepting HTTPS
+  or local development HTTP.
 
 ### Medium — legacy email endpoint accepted arbitrary recipient and HTML
 
@@ -183,7 +184,8 @@ order after all earlier migrations. Run the SQL rollback tests against a
 staging copy, inspect effective RLS policies and grants, then deploy the
 updated Edge Functions: `create-paymongo-checkout`, `paymongo-webhook`,
 `verify-customer-otp`, `process-order-email-outbox`, and the retired
-`send-order-email` endpoint. Set `PAYMONGO_RETURN_ORIGIN`; if the OCR server is
+`send-order-email` endpoint. Set `PAYMONGO_RETURN_ORIGIN` for nonproduction
+deployments; if the OCR server is
 deployed, set `OCR_API_KEY` and `OCR_ALLOWED_ORIGIN`. Confirm webhook delivery,
 OTP verification, customer message throttling, and removed account denial in
 staging before production rollout.

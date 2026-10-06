@@ -12,7 +12,7 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const paymongoSecretKey = Deno.env.get("PAYMONGO_SECRET_KEY") || "";
-const returnOrigin = originFromRequest(Deno.env.get("PAYMONGO_RETURN_ORIGIN"));
+const returnOrigin = originFromRequest(Deno.env.get("PAYMONGO_RETURN_ORIGIN") || "https://thecoffeerealm.store");
 const paymongoMethods = (Deno.env.get("PAYMONGO_PAYMENT_METHOD_TYPES") || "card,gcash,qrph")
   .split(",")
   .map((method) => method.trim().toLowerCase())
