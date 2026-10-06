@@ -1,0 +1,30 @@
+/* A single, restrained motion language across the public and customer routes. */
+@keyframes customer-section-enter {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .customer-motion-target.customer-motion-visible {
+    animation: customer-section-enter .48s cubic-bezier(.22,1,.36,1) both;
+  }
+
+  :is(.customer-main,.legal-page,.legacy-customer-auth-page,.landing-page)
+  :is(button,a):not(:disabled):not([aria-disabled="true"]) {
+    transition: transform .18s ease, box-shadow .18s ease, background-color .18s ease, border-color .18s ease, color .18s ease;
+  }
+  :is(.customer-main,.legal-page,.legacy-customer-auth-page,.landing-page)
+  :is(button,a):not(:disabled):not([aria-disabled="true"]):hover {
+    transform: translateY(-2px);
+  }
+  :is(.customer-main,.legal-page,.legacy-customer-auth-page,.landing-page)
+  :is(button,a):not(:disabled):not([aria-disabled="true"]):active {
+    transform: translateY(0) scale(.985);
+  }
+  .customer-header :is(button,a):not(:disabled):hover,
+  .landing-footer-react a:hover { transform: translateY(-2px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-motion-target.customer-motion-visible { animation: none; }
+}

@@ -73,25 +73,13 @@ const rest = async (path: string, init: RequestInit = {}) => {
   return text ? JSON.parse(text) : null;
 };
 
-const jwtRole = (token: string) => {
-  try {
-    const segment = token.split(".")[1];
-    if (!segment) return "";
-    const normalized = segment.replaceAll("-", "+").replaceAll("_", "/");
-    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
-    return String(JSON.parse(atob(padded))?.role || "");
-  } catch {
-    return "";
-  }
-};
-
 const getCaller = async (req: Request) => {
   const authorization = req.headers.get("Authorization") || "";
   const token = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
   if (!token) throw new Error("Authentication required.");
-  // The Edge gateway validates JWTs before this function runs. Accept both the
-  // injected project key and legacy service-role JWTs during key migration.
-  if (token === serviceKey || jwtRole(token) === "service_role") {
+  // Compare with our configured secret. JWT payloads are untrusted until
+  // independently verified, even when gateway JWT enforcement is enabled.
+  if (token === serviceKey) {
     return { id: "service_role", role: "service_role", isService: true };
   }
 

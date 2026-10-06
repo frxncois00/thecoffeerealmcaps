@@ -1,7 +1,7 @@
 export const PERSON_NAME_PATTERN = "[\\p{L}][\\p{L} .'-]{1,59}"
 export const USERNAME_PATTERN = '[A-Za-z0-9._-]{3,24}'
 export const EMAIL_MAX_LENGTH = 160
-export const EMAIL_PATTERN = '[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}'
+export const EMAIL_PATTERN = '[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}'
 export const PHONE_PATTERN = '09[0-9]{9}'
 export const PASSWORD_PATTERN = '(?=.*[0-9]).{8,32}'
 export const INTERNAL_PASSWORD_PATTERN = '.{8,32}'
@@ -23,8 +23,25 @@ export function sanitizeUsername(value, maxLength = 24) {
   return value.replace(/[^A-Za-z0-9._-]/g, '').slice(0, maxLength)
 }
 
+export function sanitizeEmail(value) {
+  return String(value ?? '').replace(/[^A-Za-z0-9._%+@-]/g, '').slice(0, EMAIL_MAX_LENGTH)
+}
+
 export function sanitizeDigits(value, maxLength = 32) {
   return value.replace(/\D/g, '').slice(0, maxLength)
+}
+
+// Free-form customer notes still need punctuation, but never markup or control characters.
+export function sanitizeCustomerText(value, maxLength = 300) {
+  return [...String(value ?? '').replace(/[<>]/g, '')]
+    .filter((character) => {
+      const code = character.charCodeAt(0)
+      return code === 10 || code === 13 || (code >= 32 && code !== 127)
+    }).join('').slice(0, maxLength)
+}
+
+export function sanitizeAddressText(value, maxLength = 200) {
+  return String(value ?? '').replace(/[^\p{L}\p{M}\p{N} .,'/#()&+-]/gu, '').replace(/\s{2,}/g, ' ').slice(0, maxLength)
 }
 
 export function sanitizePhone(value) {

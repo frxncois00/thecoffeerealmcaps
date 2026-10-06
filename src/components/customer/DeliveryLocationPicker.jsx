@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react'
+import { sanitizeAddressText } from '../../utils/inputValidation'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
@@ -244,8 +245,9 @@ export default function DeliveryLocationPicker({
 
   // Perform Address Search (Debounced)
   const handleSearchInput = value => {
-    setSearchQuery(value)
-    onAddressChange(value)
+    const clean = sanitizeAddressText(value, 200)
+    setSearchQuery(clean)
+    onAddressChange(clean)
     onBarangayChange('')
     setShowDropdown(true)
     setActiveResultIndex(-1)
@@ -254,7 +256,7 @@ export default function DeliveryLocationPicker({
       clearTimeout(searchTimeoutRef.current)
     }
 
-    if (!value || value.trim().length < 2) {
+    if (!clean || clean.trim().length < 2) {
       setSearchResults([])
       setIsSearching(false)
       return
@@ -262,7 +264,7 @@ export default function DeliveryLocationPicker({
 
     setIsSearching(true)
     searchTimeoutRef.current = setTimeout(async () => {
-      const results = await searchPhLocations(value)
+      const results = await searchPhLocations(clean)
       setSearchResults(results)
       setIsSearching(false)
     }, 350)

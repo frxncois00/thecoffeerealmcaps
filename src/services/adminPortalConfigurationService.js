@@ -1,4 +1,4 @@
-import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { customerSupabase, isSupabaseConfigured, supabase } from '../lib/supabase'
 import { DEFAULT_PRICING } from '../utils/pricing'
 import { validateImageFile } from '../utils/imageUpload'
 
@@ -63,10 +63,12 @@ function requireSupabase() {
   if (!isSupabaseConfigured || !supabase) throw new Error('Supabase is not configured for this workspace.')
 }
 
-export async function fetchPortalConfiguration(scope) {
+export async function fetchPortalConfiguration(scope, { publicOnly = false } = {}) {
   requireSupabase()
   const defaults = scope === 'content' ? CONTENT_DEFAULTS : SYSTEM_DEFAULTS
-  const { data, error } = await supabase.from('portal_configuration').select('key,value,is_public,updated_at,updated_by').eq('scope', scope)
+  let query = (publicOnly ? customerSupabase : supabase).from('portal_configuration').select('key,value,is_public,updated_at').eq('scope', scope)
+  if (publicOnly) query = query.eq('is_public', true)
+  const { data, error } = await query
   if (error) {
     if (error.code === '42P01' || /portal_configuration/i.test(error.message || '')) return { values: clone(defaults), updatedAt: null, setupRequired: true }
     throw error
@@ -75,7 +77,7 @@ export async function fetchPortalConfiguration(scope) {
   return { values: mergeGroup(defaults, data), updatedAt, setupRequired: false }
 }
 
-export async function savePortalConfiguration(scope, key, value, isPublic = true) {
+export async function savePortalConfiguration(scope, key, value, isPublic = false) {
   requireSupabase()
   const { data: auth } = await supabase.auth.getUser()
   const { data, error } = await supabase.from('portal_configuration').upsert({
@@ -207,7 +209,7 @@ export async function saveDeliveryZoneSettings(zones) {
 export async function fetchPublicPortalData() {
   if (!isSupabaseConfigured || !supabase) return { content: clone(CONTENT_DEFAULTS), system: clone(SYSTEM_DEFAULTS), testimonials: DEFAULT_TESTIMONIALS }
   const [content, system, testimonials] = await Promise.all([
-    fetchPortalConfiguration('content'), fetchPortalConfiguration('system'), fetchTestimonials({ publicOnly: true }),
+    fetchPortalConfiguration('content', { publicOnly: true }), fetchPortalConfiguration('system', { publicOnly: true }), fetchTestimonials({ publicOnly: true }),
   ])
   const nextContent = content.values
   const legacyHeroCopy = nextContent.hero?.title === 'Fresh coffee, homemade sweets, and slow little moments.'

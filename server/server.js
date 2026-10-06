@@ -2,7 +2,9 @@ import express from 'express'
 import cors from 'cors'
 import multer from 'multer'
 import dotenv from 'dotenv'
+import sharp from 'sharp'
 import { getOcrWorker, processPaymentReceipt } from './ocrService.js'
+import { authorizedOcrKey, supportedImageFormat } from './ocrSecurity.js'
 
 dotenv.config()
 
@@ -10,7 +12,7 @@ const app = express()
 const PORT = process.env.PORT || 5000
 
 // Middleware
-app.use(cors())
+app.use(cors({ origin: process.env.OCR_ALLOWED_ORIGIN || false }))
 app.use(express.json())
 
 // Configure Multer for memory storage (max 10MB)
@@ -69,11 +71,19 @@ app.get('/api/health', (req, res) => {
  */
 const handleExtractReference = async (req, res) => {
   try {
+    if (!process.env.OCR_API_KEY) return res.status(503).json({ success: false, error: 'OCR API is not configured.' })
+    if (!authorizedOcrKey(req.get('x-ocr-api-key'), process.env.OCR_API_KEY)) {
+      return res.status(401).json({ success: false, error: 'Authentication required.' })
+    }
     if (!req.file || !req.file.buffer) {
       return res.status(400).json({
         success: false,
         error: 'No image file uploaded. Please provide an image file under the "image" field.',
       })
+    }
+    const metadata = await sharp(req.file.buffer, { limitInputPixels: 40_000_000 }).metadata().catch(() => null)
+    if (!supportedImageFormat(metadata?.format)) {
+      return res.status(400).json({ success: false, error: 'Upload a valid JPG, PNG, or WEBP image.' })
     }
 
     console.log(`[OCR] Processing receipt: ${req.file.originalname} (${Math.round(req.file.size / 1024)} KB)`)
@@ -102,9 +112,14 @@ const handleExtractReference = async (req, res) => {
 }
 
 // Upload handlers supporting common field names
-app.post('/api/extract-reference-number', upload.single('image'), handleExtractReference)
-app.post('/api/ocr/extract-reference', upload.single('image'), handleExtractReference)
-app.post('/api/ocr/upload', upload.single('paymentProof'), handleExtractReference)
+const requireOcrKey = (req, res, next) => {
+  if (!process.env.OCR_API_KEY) return res.status(503).json({ success: false, error: 'OCR API is not configured.' })
+  if (!authorizedOcrKey(req.get('x-ocr-api-key'), process.env.OCR_API_KEY)) return res.status(401).json({ success: false, error: 'Authentication required.' })
+  next()
+}
+app.post('/api/extract-reference-number', requireOcrKey, upload.single('image'), handleExtractReference)
+app.post('/api/ocr/extract-reference', requireOcrKey, upload.single('image'), handleExtractReference)
+app.post('/api/ocr/upload', requireOcrKey, upload.single('paymentProof'), handleExtractReference)
 
 // Global Error Handler
 app.use((err, req, res, next) => {

@@ -40,6 +40,7 @@ In Supabase Dashboard → Edge Functions → Secrets, add:
 ```text
 PAYMONGO_SECRET_KEY=sk_test_...
 PAYMONGO_PAYMENT_METHOD_TYPES=card,gcash,qrph
+PAYMONGO_RETURN_ORIGIN=https://thecoffeerealm.store
 ```
 
 `PAYMONGO_SECRET_KEY` must start with `sk_test_`. You can change the payment
@@ -84,9 +85,10 @@ truth for payment confirmation.
 
 ## Local testing
 
-The Vite app can remain at `http://localhost:5173`. The Edge Function uses the
-browser origin supplied by the signed-in customer to build the test success and
-cancel URLs, so PayMongo can redirect back to the local app during testing.
+For local return redirects, set `PAYMONGO_RETURN_ORIGIN` to
+`http://localhost:5173` in a separate test Supabase project. The Edge Function
+uses this server setting for success and cancel URLs, regardless of the origin
+in a browser request.
 
 After completing a test payment, verify all three points:
 

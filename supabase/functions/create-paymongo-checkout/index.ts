@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.1";
+import { paidCheckoutPayment } from "./paymentValidation.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,6 +12,7 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const paymongoSecretKey = Deno.env.get("PAYMONGO_SECRET_KEY") || "";
+const returnOrigin = originFromRequest(Deno.env.get("PAYMONGO_RETURN_ORIGIN"));
 const paymongoMethods = (Deno.env.get("PAYMONGO_PAYMENT_METHOD_TYPES") || "card,gcash,qrph")
   .split(",")
   .map((method) => method.trim().toLowerCase())
@@ -25,7 +27,7 @@ const minorUnits = (value: unknown) => Math.round(Number(value || 0) * 100);
 
 function originFromRequest(value: unknown) {
   const origin = String(value || "").trim();
-  if (!/^https?:\/\/[^\s/]+(?::\d+)?$/i.test(origin)) return null;
+  if (!/^https:\/\/[^\s/]+(?::\d+)?$/i.test(origin) && !/^http:\/\/localhost(?::\d+)?$/i.test(origin)) return null;
   return origin.replace(/\/$/, "");
 }
 
@@ -102,15 +104,17 @@ Deno.serve(async (request) => {
       if (verifyRes.ok) {
         const verifyBody = await verifyRes.json();
         const sessionData = verifyBody?.data;
-        const sessionPayments = Array.isArray(sessionData?.attributes?.payments) ? sessionData.attributes.payments : [];
-        const paidPayment = sessionPayments.find((p: { attributes?: { status?: string } }) => p?.attributes?.status === "paid")
-          || (sessionData?.attributes?.status === "paid" ? sessionData : null);
+        const paidPayment = paidCheckoutPayment(
+          sessionData,
+          payment.provider_checkout_session_id,
+          minorUnits(payment.amount_due),
+        );
 
         if (paidPayment) {
           const now = new Date().toISOString();
           const providerPaymentId = String(paidPayment?.id || payment.provider_checkout_session_id);
 
-          await admin.from("payments").update({
+          const { error: paidError } = await admin.from("payments").update({
             status: "paid",
             paid_at: now,
             reference_number: providerPaymentId,
@@ -118,12 +122,14 @@ Deno.serve(async (request) => {
             provider_payment_id: providerPaymentId,
             provider_status: "paid",
           }).eq("id", payment.id);
+          if (paidError) throw paidError;
 
-          await admin.from("orders").update({
+          const { error: orderPaidError } = await admin.from("orders").update({
             payment_status: "paid",
             payment_confirmed: true,
             updated_at: now,
           }).eq("id", order.id);
+          if (orderPaidError) throw orderPaidError;
 
           if (["Pending Confirmation", "Awaiting Payment Verification"].includes(String(order.status || ""))) {
             await admin.from("orders").update({ status: "Order Received", updated_at: now }).eq("id", order.id);
@@ -136,9 +142,9 @@ Deno.serve(async (request) => {
     }
 
     const paymentMethod = String(body?.payment_method || "paymongo").trim().toLowerCase();
-    const origin = originFromRequest(body?.origin);
-    if (!origin || !["paymongo", "qrph"].includes(paymentMethod)) {
-      return json({ error: "A valid browser origin and payment method are required." }, 400);
+    if (!returnOrigin) return json({ error: "PayMongo return origin is not configured." }, 503);
+    if (!["paymongo", "qrph"].includes(paymentMethod)) {
+      return json({ error: "A valid payment method is required." }, 400);
     }
 
     if (payment.provider_checkout_session_id && payment.provider_checkout_url) {
@@ -157,8 +163,8 @@ Deno.serve(async (request) => {
 
     const itemCount = (orderItems || []).reduce((sum: number, item: { quantity?: number }) => sum + Number(item.quantity || 0), 0);
     const referenceNumber = String(order.receipt_number || order.order_number || order.id);
-    const successUrl = `${origin}/checkout/paymongo/success?order_id=${encodeURIComponent(order.id)}`;
-    const cancelUrl = `${origin}/checkout?paymongo=cancel&order_id=${encodeURIComponent(order.id)}`;
+    const successUrl = `${returnOrigin}/checkout/paymongo/success?order_id=${encodeURIComponent(order.id)}`;
+    const cancelUrl = `${returnOrigin}/checkout?paymongo=cancel&order_id=${encodeURIComponent(order.id)}`;
     const payload = {
       data: {
         attributes: {

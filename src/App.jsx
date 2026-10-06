@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import CustomerLayout from './components/customer/CustomerLayout'
+import CustomerPageMotion from './components/customer/CustomerPageMotion'
+import './customer-motion.css'
 import CustomerProtectedRoute from './routes/CustomerProtectedRoute'
 import AdminDashboard from './pages/AdminDashboard'
 import CashierPage from './pages/CashierPage'
@@ -10,6 +12,7 @@ import CustomerOnboardingPage from './pages/CustomerOnboardingPage'
 import HomePage from './pages/HomePage'
 import LegalPage from './pages/LegalPage'
 import HelpPage from './pages/customer/HelpPage'
+import ContactPage from './pages/customer/ContactPage'
 import BenefitsPage from './pages/customer/BenefitsPage'
 import InventoryStockPage from './pages/InventoryStockPage'
 import ManageMenuPage from './pages/ManageMenuPage'
@@ -23,7 +26,6 @@ import RaimuWidget from './components/RaimuWidget'
 import {
   AboutPage,
   CheckoutPage,
-  ContactPage,
   MenuPage,
   MyOrdersPage,
   NotFoundPage,
@@ -39,6 +41,7 @@ const protect = (page) => <CustomerProtectedRoute>{page}</CustomerProtectedRoute
 export default function App() {
   return (
     <>
+      <CustomerPageMotion />
       <Routes>
         <Route element={<CustomerLayout />}>
           <Route path="/" element={<HomePage />} />

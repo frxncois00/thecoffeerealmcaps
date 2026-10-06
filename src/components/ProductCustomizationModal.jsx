@@ -6,6 +6,7 @@ import { money } from '../utils/money'
 import { allowsSpecialInstructions } from '../hooks/useProductCustomization'
 import { uniqueAddons } from '../utils/menuAddons'
 import { lockBodyScroll, unlockBodyScroll } from '../utils/bodyScrollLock'
+import { sanitizeCustomerText } from '../utils/inputValidation'
 
 export default function ProductCustomizationModal({ product, onClose, onAdd, variant = '' }) {
   const closeButtonRef = useRef(null)
@@ -152,7 +153,7 @@ export default function ProductCustomizationModal({ product, onClose, onAdd, var
           )}
           {allowsSpecialInstructions(product) && <label className="field">
             <span>Special instructions</span>
-            <textarea value={instructions} maxLength={300} onChange={(event) => setInstructions(event.target.value)} placeholder="Allergies or preparation notes" />
+            <textarea value={instructions} maxLength={300} onChange={(event) => setInstructions(sanitizeCustomerText(event.target.value, 300))} placeholder="Allergies or preparation notes" />
           </label>}
         </div>
 

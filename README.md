@@ -6,6 +6,8 @@ A clean React + Vite + Supabase rebuild of the legacy thecoffeerealm system. The
 
 This project includes the public Supabase project URL and anon key fallback in `src/lib/supabase.js`, so a fresh clone can connect to the existing Supabase project immediately after `npm install`.
 
+The anon key is a public browser credential and must be protected by Supabase Row Level Security. Never put service-role keys, payment secrets, SMTP passwords, or other private credentials in `VITE_*` variables, public configuration rows, or browser source. Customer text limits are enforced in the database by `supabase/migrations/20260904140000_enforce_customer_input_limits.sql` and `supabase/migrations/20261006100000_customer_text_limits.sql`; apply the latter migration to the connected project before relying on its new order and feedback guards.
+
 Private backend secrets, such as service-role keys and Gmail SMTP app passwords, are not committed. Add those in Supabase Edge Function secrets when deploying backend functions.
 
 ## Included routes

@@ -149,7 +149,7 @@ export default function HomePage() {
 
   return (
     <div className="storefront customer-landing">
-<main>
+<main className="landing-page">
         <section className="hero landing-hero" id="home">
           <div className="landing-hero-media" aria-hidden="true">
             {layerSources.map((source, layerIndex) => (

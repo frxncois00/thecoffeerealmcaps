@@ -98,8 +98,8 @@ serve(async (req) => {
     const body = await req.json();
     const email = normalizeEmail(String(body.email || ""));
     const username = String(body.username || "").trim();
-    if (!email || !email.includes("@")) throw new Error("A valid email address is required.");
-    if (username.length < 3) throw new Error("Username must be at least 3 characters long.");
+    if (email.length > 160 || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email)) throw new Error("A valid email address is required.");
+    if (!/^[A-Za-z0-9._-]{3,24}$/.test(username)) throw new Error("Username must contain 3–24 letters, numbers, periods, underscores, or hyphens.");
 
     const clientIp = String(
       req.headers.get("cf-connecting-ip") ||

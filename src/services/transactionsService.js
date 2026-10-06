@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { dispatchOrderEmails } from './orderEmailService'
+import { escapeHtml } from '../utils/escapeHtml'
 
 const LIST_SELECT = `id,order_number,receipt_number,order_type,order_source,status,customer_id,customer_name,customer_email,customer_phone,
   delivery_address,schedule_date,schedule_time,subtotal,discount_type,discount_subtotal,discount_amount,vat_exempt_amount,delivery_fee,final_total,vat_rate,prices_include_vat,
@@ -420,7 +421,7 @@ export async function exportTransactionsToPdf({ transactions, summary, reconcili
 export function printSummaryReport({ summary, reconciliation, filterLabel, generatedBy }) {
   const win = window.open('', '_blank', 'width=800,height=900')
   if (!win) return
-  const row = (label, value) => `<tr><td>${label}</td><td style="text-align:right;font-weight:700">${value}</td></tr>`
+  const row = (label, value) => `<tr><td>${escapeHtml(label)}</td><td style="text-align:right;font-weight:700">${escapeHtml(value)}</td></tr>`
   win.document.write(`<!doctype html><html><head><title>Transaction Summary Report</title>
     <style>
       body{font-family:Arial,sans-serif;color:#1b2f22;padding:32px;max-width:640px;margin:auto}
@@ -429,8 +430,8 @@ export function printSummaryReport({ summary, reconciliation, filterLabel, gener
       h2{font-size:1rem;margin-top:28px;border-bottom:2px solid #1b2f22;padding-bottom:6px}
     </style></head><body>
     <h1>The Coffee Realm - Transaction Summary Report</h1>
-    <p>Filtered period: ${filterLabel}</p>
-    <p>Generated: ${new Date().toLocaleString('en-PH')} by ${generatedBy || 'Unknown'}</p>
+    <p>Filtered period: ${escapeHtml(filterLabel)}</p>
+    <p>Generated: ${new Date().toLocaleString('en-PH')} by ${escapeHtml(generatedBy || 'Unknown')}</p>
     <h2>Sales Summary</h2>
     <table>
       ${row('Total Transactions', summary.totalTransactions)}

@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { isCustomerRole } from '../lib/auth'
 import { customerSupabase as supabase, isSupabaseConfigured } from '../lib/supabase'
 import { retryJwtTimingRequest } from '../lib/supabaseRetry'
-import { EMAIL_MAX_LENGTH, isValidEmail, isValidPassword, sanitizeUsername } from '../utils/inputValidation'
+import { EMAIL_MAX_LENGTH, isValidEmail, isValidPassword, sanitizeEmail, sanitizeUsername } from '../utils/inputValidation'
 import AuthWelcomeScreen from '../components/auth/AuthWelcomeScreen'
 
 const otpDigits = 6
@@ -353,7 +353,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
             {authMessage && mode === 'login' ? <AuthNotice variant="success" message={authMessage} /> : null}
             <label className="legacy-auth-input">
               <span>Username or email</span>
-              <div><User size={19} /><input name="identifier" type="text" maxLength={EMAIL_MAX_LENGTH} autoComplete="username" placeholder="Enter your username or email" /></div>
+              <div><User size={19} /><input name="identifier" type="text" maxLength={EMAIL_MAX_LENGTH} autoComplete="username" placeholder="Enter your username or email" onInput={(event) => { event.currentTarget.value = sanitizeEmail(event.currentTarget.value) }} /></div>
             </label>
             <label className="legacy-auth-input">
               <span>Password <button type="button" onClick={openForgotPassword}>Forgot Password?</button></span>
@@ -376,7 +376,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
             </label>
             <label className="legacy-auth-input">
               <span>Email address</span>
-              <div><Mail size={19} /><input name="email" type="email" maxLength={EMAIL_MAX_LENGTH} autoComplete="email" placeholder="Enter your email" /></div>
+              <div><Mail size={19} /><input name="email" type="email" maxLength={EMAIL_MAX_LENGTH} autoComplete="email" placeholder="Enter your email" onInput={(event) => { event.currentTarget.value = sanitizeEmail(event.currentTarget.value) }} /></div>
             </label>
             <label className="legacy-auth-input">
               <span>Password</span>
@@ -408,7 +408,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
         {forgotStep === 'email' ? <form onSubmit={submitForgotPassword}>
           <p>Enter your account email and we will send a 6-digit password reset code.</p>
           {authError ? <AuthNotice variant="error" message={authError} /> : null}
-          <label className="legacy-auth-input"><span>Email address</span><div><Mail size={19} /><input type="email" value={forgotEmail} maxLength={EMAIL_MAX_LENGTH} onChange={(event) => setForgotEmail(event.target.value.slice(0, EMAIL_MAX_LENGTH))} placeholder="Enter your email" /></div></label>
+          <label className="legacy-auth-input"><span>Email address</span><div><Mail size={19} /><input type="email" value={forgotEmail} maxLength={EMAIL_MAX_LENGTH} onChange={(event) => setForgotEmail(sanitizeEmail(event.target.value))} placeholder="Enter your email" /></div></label>
           <button type="submit" className="legacy-auth-submit" disabled={loading}>{loading ? 'SENDING...' : 'SEND OTP CODE'}</button>
         </form> : null}
         {forgotStep === 'otp' ? <div>

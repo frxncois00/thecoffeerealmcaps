@@ -1,6 +1,7 @@
 import React from 'react'
 import { store } from '../../data/mockData'
 import { formatVatRate, buildVatExemptOrderBreakdown } from '../../utils/pricing'
+import { escapeHtml } from '../../utils/escapeHtml'
 
 const STORE_NAME = 'THE COFFEE REALM'
 const STORE_ADDRESS = store.address || 'Lot 1 Block 210 Mark Street corner Dollar Street, Quezon City, Philippines, 1121'
@@ -431,13 +432,13 @@ export function buildReceiptHtml(order, defaultVatRate = 0.12, defaultPricesIncl
     const details = resolveItemCustomizations(item, addonNames)
     const isDiscounted = Boolean(item.is_discounted || item.isDiscounted)
 
-    const detailsHtml = details.map((detail) => `<div class="receipt-option">+ ${detail}</div>`).join('')
-    const discountHtml = isDiscounted ? `<div class="receipt-option">+ ${data.discountType || 'Discount'} discount applied</div>` : ''
+    const detailsHtml = details.map((detail) => `<div class="receipt-option">+ ${escapeHtml(detail)}</div>`).join('')
+    const discountHtml = isDiscounted ? `<div class="receipt-option">+ ${escapeHtml(data.discountType || 'Discount')} discount applied</div>` : ''
 
     return `<div class="receipt-item">
       <div>${qty}</div>
       <div class="receipt-item-name">
-        ${name}
+        ${escapeHtml(name)}
         ${detailsHtml}
         ${discountHtml}
       </div>
@@ -448,29 +449,29 @@ export function buildReceiptHtml(order, defaultVatRate = 0.12, defaultPricesIncl
   const claimBlockHtml = (!data.isOnline && data.counterNumber) ? `
     <div class="receipt-claim-block">
       <div>CLAIM AT THE COUNTER</div>
-      <strong>${data.counterNumber}</strong>
+      <strong>${escapeHtml(data.counterNumber)}</strong>
       <div>[ ${data.diningOption === 'take_out' ? 'TAKE OUT' : 'DINE IN'} ]</div>
     </div>
   ` : ''
 
   const cashierRowHtml = (data.cashierName && !data.isOnline)
-    ? `<div class="receipt-row"><span class="receipt-label">Cashier:</span><span class="receipt-value">${data.cashierName}</span></div>`
+    ? `<div class="receipt-row"><span class="receipt-label">Cashier:</span><span class="receipt-value">${escapeHtml(data.cashierName)}</span></div>`
     : ''
 
   const customerRowHtml = (data.customerName && data.isOnline)
-    ? `<div class="receipt-row"><span class="receipt-label">Customer:</span><span class="receipt-value">${data.customerName}</span></div>`
+    ? `<div class="receipt-row"><span class="receipt-label">Customer:</span><span class="receipt-value">${escapeHtml(data.customerName)}</span></div>`
     : ''
 
   const contactRowHtml = (data.customerPhone && data.isOnline)
-    ? `<div class="receipt-row"><span class="receipt-label">Contact:</span><span class="receipt-value">${data.customerPhone}</span></div>`
+    ? `<div class="receipt-row"><span class="receipt-label">Contact:</span><span class="receipt-value">${escapeHtml(data.customerPhone)}</span></div>`
     : ''
 
   const scheduleRowHtml = (scheduleValue && data.isOnline)
-    ? `<div class="receipt-row"><span class="receipt-label">Schedule:</span><span class="receipt-value">${scheduleValue}</span></div>`
+    ? `<div class="receipt-row"><span class="receipt-label">Schedule:</span><span class="receipt-value">${escapeHtml(scheduleValue)}</span></div>`
     : ''
 
   const addressRowHtml = (data.isDelivery && data.deliveryAddress)
-    ? `<div class="receipt-row"><span class="receipt-label">Customer Address:</span><span class="receipt-value">${data.deliveryAddress}</span></div>`
+    ? `<div class="receipt-row"><span class="receipt-label">Customer Address:</span><span class="receipt-value">${escapeHtml(data.deliveryAddress)}</span></div>`
     : ''
 
   const vatBreakdownHtml = breakdown.isVatExemptDiscount ? `
@@ -488,7 +489,7 @@ export function buildReceiptHtml(order, defaultVatRate = 0.12, defaultPricesIncl
     : ''
 
   const discountIdHtml = (breakdown.isVatExemptDiscount && data.discountIdNumber)
-    ? `<div class="receipt-row"><span class="receipt-label">Discount ID:</span><span class="receipt-value">${data.discountIdNumber}</span></div>`
+    ? `<div class="receipt-row"><span class="receipt-label">Discount ID:</span><span class="receipt-value">${escapeHtml(data.discountIdNumber)}</span></div>`
     : ''
 
   let paymentDetailsHtml = ''
@@ -499,13 +500,13 @@ export function buildReceiptHtml(order, defaultVatRate = 0.12, defaultPricesIncl
     `
   } else if (data.paymentMethod === 'GCash') {
     paymentDetailsHtml = `
-      ${data.paymentReference ? `<div class="receipt-row"><span class="receipt-label">Payment Reference Number:</span><span class="receipt-value">${data.paymentReference}</span></div>` : ''}
-      ${data.accountNumber ? `<div class="receipt-row"><span class="receipt-label">Account Number:</span><span class="receipt-value">${data.accountNumber}</span></div>` : ''}
+      ${data.paymentReference ? `<div class="receipt-row"><span class="receipt-label">Payment Reference Number:</span><span class="receipt-value">${escapeHtml(data.paymentReference)}</span></div>` : ''}
+      ${data.accountNumber ? `<div class="receipt-row"><span class="receipt-label">Account Number:</span><span class="receipt-value">${escapeHtml(data.accountNumber)}</span></div>` : ''}
     `
   } else if (data.paymentMethod === 'Bank Transfer') {
     paymentDetailsHtml = `
-      ${data.bankName ? `<div class="receipt-row"><span class="receipt-label">Bank Name:</span><span class="receipt-value">${data.bankName}</span></div>` : ''}
-      ${data.paymentReference ? `<div class="receipt-row"><span class="receipt-label">Payment Reference Number:</span><span class="receipt-value">${data.paymentReference}</span></div>` : ''}
+      ${data.bankName ? `<div class="receipt-row"><span class="receipt-label">Bank Name:</span><span class="receipt-value">${escapeHtml(data.bankName)}</span></div>` : ''}
+      ${data.paymentReference ? `<div class="receipt-row"><span class="receipt-label">Payment Reference Number:</span><span class="receipt-value">${escapeHtml(data.paymentReference)}</span></div>` : ''}
     `
   }
 
@@ -517,7 +518,7 @@ export function buildReceiptHtml(order, defaultVatRate = 0.12, defaultPricesIncl
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Receipt ${data.orderNumber}</title>
+  <title>Receipt ${escapeHtml(data.orderNumber)}</title>
   <style>
     @page { size: 80mm auto; margin: 4mm; }
     * { box-sizing: border-box; font-family: 'Courier New', Courier, monospace; overflow-wrap: break-word; }
@@ -553,9 +554,9 @@ export function buildReceiptHtml(order, defaultVatRate = 0.12, defaultPricesIncl
     </div>
     ${claimBlockHtml}
     <div class="receipt-line"></div>
-    <div class="receipt-row"><span class="receipt-label">Order #:</span><span class="receipt-value">${data.orderNumber}</span></div>
-    <div class="receipt-row"><span class="receipt-label">Reference #:</span><span class="receipt-value">${data.receiptNumber || data.paymentReference || 'N/A'}</span></div>
-    <div class="receipt-row"><span class="receipt-label">Date:</span><span class="receipt-value">${formatReceiptDateTime(data.createdAt)}</span></div>
+    <div class="receipt-row"><span class="receipt-label">Order #:</span><span class="receipt-value">${escapeHtml(data.orderNumber)}</span></div>
+    <div class="receipt-row"><span class="receipt-label">Reference #:</span><span class="receipt-value">${escapeHtml(data.receiptNumber || data.paymentReference || 'N/A')}</span></div>
+    <div class="receipt-row"><span class="receipt-label">Date:</span><span class="receipt-value">${escapeHtml(formatReceiptDateTime(data.createdAt))}</span></div>
     <div class="receipt-row"><span class="receipt-label">Type:</span><span class="receipt-value">${data.typeLabel}</span></div>
     ${cashierRowHtml}
     ${customerRowHtml}

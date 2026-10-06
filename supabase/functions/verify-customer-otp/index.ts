@@ -35,43 +35,19 @@ serve(async (req) => {
     const password = String(body.password || "");
     const otp = String(body.otp || "").replace(/\D/g, "");
 
-    if (!email || !email.includes("@")) throw new Error("A valid email address is required.");
-    if (username.length < 3) throw new Error("Username must be at least 3 characters long.");
+    if (email.length > 160 || !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(email)) throw new Error("A valid email address is required.");
+    if (!/^[A-Za-z0-9._-]{3,24}$/.test(username)) throw new Error("Username must contain 3–24 letters, numbers, periods, underscores, or hyphens.");
     if (!/^(?=.*\d).{8,32}$/.test(password)) throw new Error("Password must be 8–32 characters and include at least 1 number.");
     if (!/^\d{6}$/.test(otp)) throw new Error("OTP must be exactly 6 digits.");
 
-    const { data: row, error: rowError } = await admin
-      .from("customer_email_otps")
-      .select("id,email,username,code_hash,expires_at,attempt_count,blocked_until,used_at")
-      .eq("email", email)
-      .eq("purpose", "register")
-      .is("used_at", null)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (rowError) throw rowError;
-    if (!row) throw new Error("Invalid or expired OTP.");
-
-    if (row.blocked_until && new Date(row.blocked_until).getTime() > Date.now()) {
-      throw new Error("Please try again later.");
-    }
-
-    if (new Date(row.expires_at).getTime() <= Date.now()) {
-      await admin.from("customer_email_otps").update({ used_at: new Date().toISOString() }).eq("id", row.id);
-      throw new Error("Invalid or expired OTP.");
-    }
-
     const codeHash = await sha256(`${email}:${otp}:${otpPepper}`);
-    if (codeHash !== row.code_hash) {
-      const attemptCount = Number(row.attempt_count || 0) + 1;
-      const blockedUntil = attemptCount >= 5 ? new Date(Date.now() + 10 * 60_000).toISOString() : null;
-      await admin
-        .from("customer_email_otps")
-        .update({ attempt_count: attemptCount, blocked_until: blockedUntil, used_at: blockedUntil ? new Date().toISOString() : null })
-        .eq("id", row.id);
-      throw new Error(blockedUntil ? "Too many incorrect attempts. Please request a new code later." : "Invalid OTP. Please try again.");
-    }
+    const { data: claim, error: claimError } = await admin.rpc("claim_customer_registration_otp", {
+      p_email: email,
+      p_code_hash: codeHash,
+    });
+    if (claimError) throw claimError;
+    if (claim === "blocked") throw new Error("Too many incorrect attempts. Please request a new code later.");
+    if (claim !== "valid") throw new Error("Invalid or expired OTP.");
 
     const { data: created, error: createError } = await admin.auth.admin.createUser({
       email,
@@ -86,8 +62,6 @@ serve(async (req) => {
       }
       throw createError;
     }
-
-    await admin.from("customer_email_otps").update({ used_at: new Date().toISOString() }).eq("id", row.id);
 
     return new Response(JSON.stringify({ success: true, user_id: created.user?.id || null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

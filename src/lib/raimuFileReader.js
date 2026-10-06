@@ -1,4 +1,5 @@
 import { validateImageFile } from '../utils/imageUpload'
+import { validateWorkbookZip } from '../utils/validateWorkbookZip'
 
 const MAX_BYTES = 5 * 1024 * 1024
 const MAX_TEXT = 12000
@@ -10,9 +11,11 @@ export async function readRaimuFile(file) {
   let text = ''
   if (['txt', 'md', 'csv'].includes(extension)) text = await file.text()
   else if (extension === 'xlsx') {
+    const buffer = await file.arrayBuffer()
+    validateWorkbookZip(buffer)
     const { default: ExcelJS } = await import('exceljs')
     const workbook = new ExcelJS.Workbook()
-    await workbook.xlsx.load(await file.arrayBuffer())
+    await workbook.xlsx.load(buffer)
     text = workbook.worksheets.map((sheet) => {
       const rows = []
       sheet.eachRow((row) => rows.push(row.values.slice(1).map((cell) => typeof cell === 'object' ? JSON.stringify(cell) : String(cell ?? '')).join(' | ')))

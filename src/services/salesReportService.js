@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { escapeHtml } from '../utils/escapeHtml'
 
 const FETCH_CAP = 5000
 
@@ -565,7 +566,7 @@ export function printSalesReportPdf({ report, trend, filterLabel, generatedBy })
   const win = window.open('', '_blank', 'width=840,height=920')
   if (!win) return false
   const { summary, ordersByStatus, paymentTotals, orderTypeCounts, topProducts, categoryTotals } = report
-  const row = (label, value) => `<tr><td>${label}</td><td style="text-align:right;font-weight:700">${value}</td></tr>`
+  const row = (label, value) => `<tr><td>${escapeHtml(label)}</td><td style="text-align:right;font-weight:700">${escapeHtml(value)}</td></tr>`
   win.document.write(`<!doctype html><html><head><title>Sales Report</title>
     <style>
       body{font-family:Arial,sans-serif;color:#1b2f22;padding:32px;max-width:680px;margin:auto}
@@ -576,8 +577,8 @@ export function printSalesReportPdf({ report, trend, filterLabel, generatedBy })
       .num{text-align:right}
     </style></head><body>
     <h1>The Coffee Realm - Sales Report</h1>
-    <p>Period: ${filterLabel}</p>
-    <p>Generated: ${new Date().toLocaleString('en-PH')} by ${generatedBy || 'Unknown'}</p>
+    <p>Period: ${escapeHtml(filterLabel)}</p>
+    <p>Generated: ${new Date().toLocaleString('en-PH')} by ${escapeHtml(generatedBy || 'Unknown')}</p>
     <h2>Summary</h2>
     <table>
       ${row('Gross Sales', money(summary.grossSales))}
@@ -616,12 +617,12 @@ export function printSalesReportPdf({ report, trend, filterLabel, generatedBy })
     <h2>Top-Selling Products</h2>
     <table>
       <tr><th>Product</th><th>Category</th><th class="num">Qty</th><th class="num">Revenue</th><th class="num">Share</th></tr>
-      ${topProducts.map((product) => `<tr><td>${product.name}</td><td>${product.category}</td><td class="num">${product.qty}</td><td class="num">${money(product.revenue)}</td><td class="num">${product.pct.toFixed(1)}%</td></tr>`).join('') || '<tr><td colspan="5">No product sales in this period.</td></tr>'}
+      ${topProducts.map((product) => `<tr><td>${escapeHtml(product.name)}</td><td>${escapeHtml(product.category)}</td><td class="num">${escapeHtml(product.qty)}</td><td class="num">${money(product.revenue)}</td><td class="num">${product.pct.toFixed(1)}%</td></tr>`).join('') || '<tr><td colspan="5">No product sales in this period.</td></tr>'}
     </table>
     <h2>Revenue Trend</h2>
     <table>
       <tr><th>Period</th><th class="num">Orders</th><th class="num">Revenue</th></tr>
-      ${trend.map((point) => `<tr><td>${point.label}</td><td class="num">${point.orders}</td><td class="num">${money(point.revenue)}</td></tr>`).join('')}
+      ${trend.map((point) => `<tr><td>${escapeHtml(point.label)}</td><td class="num">${escapeHtml(point.orders)}</td><td class="num">${money(point.revenue)}</td></tr>`).join('')}
     </table>
     </body></html>`)
   win.document.close()

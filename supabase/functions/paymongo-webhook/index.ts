@@ -80,41 +80,23 @@ Deno.serve(async (request) => {
   if (livemode === true) return json({ error: "Live events are disabled for this test integration." }, 400);
 
   const sessionId = String(session.id || "");
-  const referenceNumber = String(sessionAttributes.reference_number || "");
   const payments = Array.isArray(sessionAttributes.payments) ? sessionAttributes.payments as Record<string, unknown>[] : [];
-  const paidPayment = payments.find((entry) => String((entry.attributes as Record<string, unknown> | undefined)?.status || "") === "paid") || payments[0];
+  const paidPayment = payments.find((entry) => String((entry.attributes as Record<string, unknown> | undefined)?.status || "") === "paid");
   const paidAttributes = (paidPayment?.attributes || {}) as Record<string, unknown>;
   const providerPaymentId = String(paidPayment?.id || "");
   const receivedAmount = Number(paidAttributes.amount || 0);
   if (!sessionId) return json({ error: "Missing checkout session ID." }, 400);
 
   const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
-  let { data: payment, error: paymentError } = await admin.from("payments")
+  const { data: payment, error: paymentError } = await admin.from("payments")
     .select("id,order_id,amount_due,status,provider_checkout_session_id,orders(status)")
     .eq("provider_checkout_session_id", sessionId)
     .maybeSingle();
   if (paymentError) throw paymentError;
 
-  if (!payment && referenceNumber) {
-    const { data: matchingOrder } = await admin.from("orders")
-      .select("id")
-      .or(`order_number.eq.${referenceNumber},receipt_number.eq.${referenceNumber}`)
-      .maybeSingle();
-    if (matchingOrder?.id) {
-      const fallback = await admin.from("payments")
-        .select("id,order_id,amount_due,status,provider_checkout_session_id,orders(status)")
-        .eq("order_id", matchingOrder.id)
-        .in("method", ["paymongo", "qrph"])
-        .maybeSingle();
-      payment = fallback.data;
-      paymentError = fallback.error;
-      if (paymentError) throw paymentError;
-    }
-  }
-
   if (!payment) return json({ received: true, ignored: true, reason: "Unknown checkout session." });
   if (payment.status === "paid") return json({ received: true, already_processed: true });
-  if (!receivedAmount || receivedAmount !== Math.round(Number(payment.amount_due || 0) * 100)) {
+  if (!paidPayment || paidAttributes.currency !== "PHP" || !receivedAmount || receivedAmount !== Math.round(Number(payment.amount_due || 0) * 100)) {
     console.error("[paymongo-webhook] amount mismatch", { sessionId, receivedAmount, expected: payment.amount_due });
     return json({ error: "Payment amount does not match the order." }, 422);
   }
