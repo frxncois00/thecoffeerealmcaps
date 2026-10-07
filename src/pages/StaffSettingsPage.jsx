@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { BellRing, Clock3, Inbox, KeyRound, LayoutPanelTop, LockKeyhole, Monitor, RotateCcw, Save, Shield, ShieldCheck, Smartphone, UserRound } from 'lucide-react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import { useAuth } from '../context/AuthContext'
 import { describeError } from '../utils/describeError'
@@ -14,7 +14,9 @@ import {
   clearManagementSessionState, hasManagementSessionState, readManagementSessionState,
   useManagementSessionState, writeManagementSessionState,
 } from '../hooks/useManagementSessionState'
-import { fetchPortalSessions } from '../services/portalSessionService'
+import { clearPortalSessionHistory, fetchPortalSessions, getPortalSecurityStatus, revokePortalSession } from '../services/portalSessionService'
+import { isPortalSecurityEnabled } from '../lib/supabase'
+import { signOutPortal } from '../lib/auth'
 
 const roleLabel = (role) => String(role || 'staff').replace(/[_-]/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 const SETTINGS_TABS = [
@@ -43,6 +45,7 @@ function SelectField({ id, label, value, onChange, children, help }) {
 
 export default function StaffSettingsPage({ role = 'staff' }) {
   const location = useLocation()
+  const navigate = useNavigate()
   const { user, profile, updateProfile } = useAuth()
   const profileDraftScope = `${role}:settings:profile-draft`
   const preferencesDraftScope = `${role}:settings:preferences-draft`
@@ -57,7 +60,8 @@ export default function StaffSettingsPage({ role = 'staff' }) {
   const [saving, setSaving] = useState('')
   const [notice, setNotice] = useState('')
   const [noticeKind, setNoticeKind] = useState('success')
-  const [sessions, setSessions] = useState({ loading: true, records: [] })
+  const [sessions, setSessions] = useState({ loading: true, records: [], error: '' })
+  const [mfaEnabled, setMfaEnabled] = useState(false)
 
   useEffect(() => {
     if (!user?.id) return
@@ -71,12 +75,17 @@ export default function StaffSettingsPage({ role = 'staff' }) {
   useEffect(() => {
     if (!user?.id) return
     let active = true
-    setSessions({ loading: true, records: [] })
+    setSessions({ loading: true, records: [], error: '' })
     fetchPortalSessions(user.id)
-      .then((records) => { if (active) setSessions({ loading: false, records }) })
-      .catch(() => { if (active) setSessions({ loading: false, records: [] }) })
+      .then((records) => { if (active) setSessions({ loading: false, records, error: '' }) })
+      .catch((error) => { if (active) setSessions({ loading: false, records: [], error: error.message }) })
     return () => { active = false }
   }, [user?.id])
+
+  useEffect(() => {
+    if (role !== 'admin' || !user?.id || !isPortalSecurityEnabled) return
+    getPortalSecurityStatus(user.id).then((result) => setMfaEnabled(Boolean(result.factors?.length))).catch(() => {})
+  }, [role, user?.id])
 
   useEffect(() => {
     if (location.state?.section === 'notifications') setActiveSection('notifications')
@@ -156,7 +165,7 @@ export default function StaffSettingsPage({ role = 'staff' }) {
     try {
       const [savedPreferences, savedSessions] = await Promise.all([fetchStaffPreferences(user.id), fetchPortalSessions(user.id)])
       if (!hasManagementSessionState(preferencesDraftScope)) setPreferences(savedPreferences)
-      setSessions({ loading: false, records: savedSessions })
+      setSessions({ loading: false, records: savedSessions, error: '' })
     } catch (error) {
       showNotice('error', describeError(error, 'Could not refresh settings data.'))
     }
@@ -170,8 +179,32 @@ export default function StaffSettingsPage({ role = 'staff' }) {
     })
   }
 
-  const activeSessions = sessions.records.filter((item) => !item.signed_out_at)
-  const inactiveSessions = sessions.records.filter((item) => item.signed_out_at)
+  const activeSessions = sessions.records.filter((item) => item.status === 'Active')
+  const idleSessions = sessions.records.filter((item) => item.status === 'Idle')
+  const inactiveSessions = sessions.records.filter((item) => ['Signed out', 'Revoked'].includes(item.status))
+
+  async function revokeSession(item) {
+    if (!window.confirm(`Log out ${item.full_name || item.email || 'this account'} from ${item.browser}?`)) return
+    setSaving('session')
+    try {
+      const result = await revokePortalSession(item.id)
+      if (result.isCurrent) { await signOutPortal(); navigate('/portal', { replace: true }); return }
+      setSessions({ loading: false, records: await fetchPortalSessions(user.id), error: '' })
+      showNotice('success', 'Session access revoked.')
+    } catch (error) { showNotice('error', describeError(error, 'Could not revoke the session.')) }
+    finally { setSaving('') }
+  }
+
+  async function clearSessionHistory() {
+    if (!window.confirm('Clear signed-out and revoked session history? Active sessions will stay.')) return
+    setSaving('clear-history')
+    try {
+      const result = await clearPortalSessionHistory()
+      setSessions({ loading: false, records: await fetchPortalSessions(user.id), error: '' })
+      showNotice('success', `Cleared ${result.cleared} old session records.`)
+    } catch (error) { showNotice('error', describeError(error, 'Could not clear session history.')) }
+    finally { setSaving('') }
+  }
 
   return <AppShell role={role} title="Settings" onRefresh={refreshSettings}>
     {notice && <p className={`staff-settings-notice ${noticeKind}`} role="status">{notice}</p>}
@@ -229,22 +262,25 @@ export default function StaffSettingsPage({ role = 'staff' }) {
         <div className={`staff-security-layout ${role === 'admin' ? 'is-admin' : 'is-staff'}`}>
           {role === 'admin' && <section className="staff-security-mfa" aria-labelledby="admin-mfa-title">
             <div className="staff-security-section-icon"><Shield size={21} /></div>
-            <div className="staff-security-section-copy"><div className="staff-security-title-row"><h3 id="admin-mfa-title">MFA for new devices</h3><span className="staff-security-status is-off">Off</span></div><div className="staff-security-meta"><span><Smartphone size={15} />Authenticator app</span><span><KeyRound size={15} />Recovery codes</span></div></div>
-            <button className="ops-main-action staff-security-preview-action" type="button" disabled title="MFA setup will be connected in a later update"><ShieldCheck size={16} />Set up MFA</button>
+            <div className="staff-security-section-copy"><div className="staff-security-title-row"><h3 id="admin-mfa-title">MFA for new browsers</h3><span className={`staff-security-status ${mfaEnabled ? 'is-active' : 'is-off'}`}>{mfaEnabled ? 'On' : 'Off'}</span></div><div className="staff-security-meta"><span><Smartphone size={15} />Authenticator app</span><span><KeyRound size={15} />Backup codes</span></div></div>
+            <button className="ops-main-action staff-security-preview-action" type="button" disabled={!isPortalSecurityEnabled} title={!isPortalSecurityEnabled ? 'Deploy portal security and enable the feature first' : undefined} onClick={() => navigate('/admin/mfa')}><ShieldCheck size={16} />{mfaEnabled ? 'Manage MFA' : 'Set up MFA'}</button>
           </section>}
 
           <section className="staff-security-sessions" aria-labelledby="security-sessions-title">
-            <header><h3 id="security-sessions-title">Login sessions</h3><div className="staff-session-counts" aria-label="Session summary"><span><b>{activeSessions.length}</b> Active</span><span><b>{inactiveSessions.length}</b> Inactive</span></div></header>
+            <header><h3 id="security-sessions-title">{role === 'admin' && isPortalSecurityEnabled ? 'Team login sessions' : 'Login sessions'}</h3><div className="staff-session-counts" aria-label="Session summary"><span><b>{activeSessions.length}</b> Active</span>{isPortalSecurityEnabled && <span><b>{idleSessions.length}</b> Idle</span>}<span><b>{inactiveSessions.length}</b> Ended</span></div></header>
             <div className={`staff-security-session-list ${sessions.records.length > 5 ? 'is-scrollable' : ''}`} tabIndex={sessions.records.length > 5 ? 0 : undefined} aria-label="Login session history">
               {sessions.loading && <div className="staff-security-empty-session"><Clock3 size={17} /><b>Loading sessions…</b></div>}
+              {!sessions.loading && sessions.error && <div className="staff-security-empty-session" role="alert"><b>{sessions.error}</b></div>}
               {!sessions.loading && sessions.records.map((item) => <article className="staff-security-session-row" key={item.id}>
                 <span className="staff-security-device-icon"><Monitor size={19} /></span>
-                <div className="staff-security-session-main"><div><h4>{item.browser} · {item.operating_system}</h4><span className={`staff-security-status ${item.signed_out_at ? 'is-off' : 'is-active'}`}>{item.signed_out_at ? 'Inactive' : 'Active'}</span></div><p>{item.device_type}</p></div>
-                <div className="staff-security-session-facts"><span>IP {item.ip_address || 'Unavailable'}</span><span><Clock3 size={14} />Signed in {formatSignIn(item.signed_in_at)}</span></div>
-                {item.isCurrent && !item.signed_out_at && <span className="staff-security-current">Current</span>}
+                <div className="staff-security-session-main"><div><h4>{role === 'admin' && isPortalSecurityEnabled ? `${item.full_name || item.email || 'Unknown user'} · ` : ''}{item.browser} · {item.operating_system}</h4><span className={`staff-security-status ${item.status === 'Active' ? 'is-active' : 'is-off'}`}>{item.status}</span></div><p>{role === 'admin' && isPortalSecurityEnabled ? `${roleLabel(item.role)} · ` : ''}{item.device_type}</p></div>
+                <div className="staff-security-session-facts"><span>IP {item.ip_address || 'Unavailable'}</span><span><Clock3 size={14} />Signed in {formatSignIn(item.signed_in_at)}</span><span>Last seen {formatSignIn(item.last_seen_at)}</span></div>
+                {item.isCurrent && item.status === 'Active' && <span className="staff-security-current">Current</span>}
+                {role === 'admin' && isPortalSecurityEnabled && ['Active', 'Idle'].includes(item.status) && <button type="button" className="ops-secondary-action staff-security-session-action" disabled={saving === 'session'} onClick={() => revokeSession(item)}>Log out</button>}
               </article>)}
               {!sessions.loading && sessions.records.length === 0 && <div className="staff-security-empty-session"><Clock3 size={17} /><b>No saved sessions</b></div>}
             </div>
+            {role === 'admin' && isPortalSecurityEnabled && inactiveSessions.length > 0 && <button type="button" className="ops-secondary-action staff-security-clear-history" disabled={saving === 'clear-history'} onClick={clearSessionHistory}>Clear ended history</button>}
           </section>
 
           <section className="staff-security-password" aria-labelledby="security-password-title">

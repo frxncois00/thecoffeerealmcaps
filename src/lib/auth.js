@@ -1,5 +1,6 @@
-import { isSupabaseConfigured, supabase } from '../lib/supabase'
+import { isPortalSecurityEnabled, isSupabaseConfigured, supabase } from '../lib/supabase'
 import { readProfileWithRetry } from './profileRetry'
+import { closePortalSession, getPortalSecurityStatus } from '../services/portalSessionService'
 
 export const roleRoutes = {
   admin: '/admin',
@@ -28,6 +29,14 @@ export async function getCurrentPortalSession() {
   if (sessionError || !sessionData.session) return { session: null, profile: null, error: sessionError || null }
 
   const userId = sessionData.session.user.id
+  if (isPortalSecurityEnabled) {
+    try {
+      const security = await getPortalSecurityStatus(userId)
+      return { session: sessionData.session, profile: security.profile, security, error: null }
+    } catch (error) {
+      return { session: sessionData.session, profile: null, security: null, error }
+    }
+  }
   const { data: profile, error: profileError } = await readProfileWithRetry(supabase, userId, portalProfileSelect)
   return { session: sessionData.session, profile, error: profileError || null }
 }
@@ -62,7 +71,10 @@ export async function signInPortal({ identifier, email, password, role }) {
 async function verifyPortalRole(data, role) {
   const requestedRole = normalizeRole(role)
   const userId = data.user?.id
-  const { data: profile, error: profileError } = await readProfileWithRetry(supabase, userId, portalProfileSelect)
+  const security = isPortalSecurityEnabled ? await getPortalSecurityStatus(userId) : null
+  const { data: profile, error: profileError } = security
+    ? { data: security.profile, error: null }
+    : await readProfileWithRetry(supabase, userId, portalProfileSelect)
 
   if (profileError) throw profileError
   if (!profile) throw new Error('Login succeeded, but no staff profile was found for this account.')
@@ -73,12 +85,16 @@ async function verifyPortalRole(data, role) {
     throw new Error(`This account is registered as ${profile.role || 'another role'}, not ${role}.`)
   }
 
-  await supabase.from('profiles').update({ last_active_at: new Date().toISOString() }).eq('id', userId)
-  return { session: data.session, profile }
+  if (!isPortalSecurityEnabled) await supabase.from('profiles').update({ last_active_at: new Date().toISOString() }).eq('id', userId)
+  return { session: data.session, profile, security }
 }
 
 export async function signOutPortal() {
-  if (isSupabaseConfigured) await supabase.auth.signOut()
+  if (!isSupabaseConfigured) return
+  if (isPortalSecurityEnabled) {
+    try { await closePortalSession() } catch { /* Auth sign-out must still proceed. */ }
+  }
+  await supabase.auth.signOut({ scope: 'local' })
 }
 
 

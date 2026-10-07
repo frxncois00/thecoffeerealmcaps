@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import nodemailer from "npm:nodemailer@7.0.5";
+import { hasPortalAccess } from "../_shared/portalAccess.ts";
 
 type OutboxEvent = {
   id: string;
@@ -92,7 +93,12 @@ const getCaller = async (req: Request) => {
     method: "GET",
   });
   if (!profiles?.[0] || profiles[0].removed_at) throw new Error("Active account required.");
-  return { id: user.id as string, role: String(profiles[0].role || "customer"), isService: false };
+  const role = String(profiles[0].role || "customer");
+  if (["admin", "staff", "operational_staff", "cashier"].includes(role) &&
+      !await hasPortalAccess(supabaseUrl, serviceKey, user.id, authorization)) {
+    throw new Error("Verified portal session required.");
+  }
+  return { id: user.id as string, role, isService: false };
 };
 
 const buildEmail = (event: OutboxEvent) => {

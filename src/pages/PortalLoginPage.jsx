@@ -24,9 +24,13 @@ export default function PortalLoginPage() {
     const password = String(form.get('password') || '')
 
     try {
-      const { profile } = await signInPortal({ identifier, password, role })
-      try { await recordPortalSession() } catch { /* Sign-in remains available if session logging is temporarily unavailable. */ }
+      const { profile, security } = await signInPortal({ identifier, password, role })
+      try { await recordPortalSession() } catch { /* Session status already registered the login when security is enabled. */ }
       const normalizedRole = normalizeRole(profile.role || role)
+      if (normalizedRole === 'admin' && security && !security.authorized) {
+        navigate('/admin/mfa', { replace: true })
+        return
+      }
       let target = location.state?.from || roleRoutes[normalizedRole] || roleRoutes[role] || '/portal'
       if (!location.state?.from && ['staff', 'operational_staff'].includes(normalizedRole)) {
         try {

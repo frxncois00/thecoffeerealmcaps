@@ -6,9 +6,10 @@ import { transformSync } from 'esbuild'
 
 const source = fs.readFileSync(new URL('../supabase/functions/support-chat/index.ts', import.meta.url), 'utf8')
   .replace(/^import \{ createClient \} from .*\r?\n/, 'const createClient = globalThis.__createClient\n')
+  .replace(/^import \{ hasPortalAccess \} from .*\r?\n/m, 'const hasPortalAccess = globalThis.__hasPortalAccess\n')
 const compiled = transformSync(source, { loader: 'ts', target: 'es2022' }).code
 
-function createHandler({ role = 'admin', tables = {}, rpc = {} } = {}) {
+function createHandler({ role = 'admin', tables = {}, rpc = {}, portalAccess = true } = {}) {
   let handler
   const calls = []
   const uploads = []
@@ -46,7 +47,7 @@ function createHandler({ role = 'admin', tables = {}, rpc = {} } = {}) {
       },
     }
   }
-  const context = { __createClient: createClient, Deno: { env: { get: (name) => ({ SUPABASE_URL: 'url', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_SERVICE_ROLE_KEY: 'service-key' })[name] }, serve: (fn) => { handler = fn } }, Response, Intl, Date, Blob, setTimeout, clearTimeout, fetch: async () => { throw new Error('Unexpected provider request') } }
+  const context = { __createClient: createClient, __hasPortalAccess: async () => portalAccess, Deno: { env: { get: (name) => ({ SUPABASE_URL: 'url', SUPABASE_ANON_KEY: 'anon-key', SUPABASE_SERVICE_ROLE_KEY: 'service-key' })[name] }, serve: (fn) => { handler = fn } }, Response, Intl, Date, Blob, setTimeout, clearTimeout, fetch: async () => { throw new Error('Unexpected provider request') } }
   vm.runInNewContext(compiled, context)
   return {
     calls, uploads,
@@ -56,6 +57,13 @@ function createHandler({ role = 'admin', tables = {}, rpc = {} } = {}) {
     },
   }
 }
+
+test('revoked portal session cannot use the support function', async () => {
+  const app = createHandler({ portalAccess: false })
+  const result = await app.ask('How are sales today?')
+  assert.equal(result.status, 403)
+  assert.match(result.body.error, /Verified portal session required/)
+})
 
 test('order status uses the live order and does not ask which database', async () => {
   const app = createHandler({ tables: { orders: [{ order_number: 'CR-1003-0207', status: 'Preparing', order_type: 'pickup', payment_status: 'paid' }] } })
