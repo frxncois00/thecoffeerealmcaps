@@ -32,11 +32,11 @@ serve(async (req) => {
     if (!userResponse.ok) throw new Error("Invalid or expired session.");
     const user = await userResponse.json();
     const serviceHeaders = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json" };
-    const profileResponse = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=id,role,full_name,username,email&limit=1`, { headers: serviceHeaders });
+    const profileResponse = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(user.id)}&select=id,role,removed_at,full_name,username,email&limit=1`, { headers: serviceHeaders });
     if (!profileResponse.ok) throw new Error("Could not verify staff access.");
     const profiles = await profileResponse.json();
     const profile = profiles[0];
-    if (!profile || !["admin", "staff", "operational_staff"].includes(normalizeRole(profile.role))) throw new Error("Staff access required.");
+    if (!profile || profile.removed_at || !["admin", "staff", "operational_staff"].includes(normalizeRole(profile.role))) throw new Error("Staff access required.");
 
     const body = await req.json();
     const messageId = String(body.message_id || "").trim();

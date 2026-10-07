@@ -32,8 +32,9 @@ Deno.serve(async (request) => {
     const { data: authData, error: authError } = await authClient.auth.getUser(token);
     if (authError || !authData.user) return json({ success: false, error: "Authentication required." }, 401);
 
-    const { data: caller } = await admin.from("profiles").select("id,role,full_name,username,email").eq("id", authData.user.id).maybeSingle();
-    if (String(caller?.role || "").trim().toLowerCase() !== "admin") {
+    const { data: caller, error: callerError } = await admin.from("profiles")
+      .select("id,role,removed_at,full_name,username,email").eq("id", authData.user.id).maybeSingle();
+    if (callerError || caller?.removed_at || String(caller?.role || "").trim().toLowerCase() !== "admin") {
       return json({ success: false, error: "Administrator access required." }, 403);
     }
 

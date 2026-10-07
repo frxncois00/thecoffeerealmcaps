@@ -36,7 +36,8 @@ Deno.serve(async (request) => {
     if (!username || !password || (!username.includes("@") && username.length > 24)) return json({ success: false, error: "Invalid email, username, or password." });
 
     const internalRoles = ["admin", "staff", "operational_staff", "operations_staff", "operation_staff", "cashier"];
-    let profileQuery = admin.from("profiles").select("id,email,username,role").in("role", internalRoles);
+    let profileQuery = admin.from("profiles").select("id,email,username,role,removed_at")
+      .in("role", internalRoles).is("removed_at", null);
     profileQuery = username.includes("@")
       ? profileQuery.ilike("email", username.replace(/[%,_]/g, "\\$&"))
       : profileQuery.ilike("username", username.replace(/[%,_]/g, "\\$&"));
@@ -45,7 +46,7 @@ Deno.serve(async (request) => {
 
     if (profileError) throw profileError;
     const normalizedRole = String(profile?.role || "").trim().toLowerCase().replace(/[ -]+/g, "_");
-    const isPortalUser = ["admin", "staff", "operational_staff", "operations_staff", "operation_staff", "cashier"].includes(normalizedRole);
+    const isPortalUser = !profile?.removed_at && ["admin", "staff", "operational_staff", "operations_staff", "operation_staff", "cashier"].includes(normalizedRole);
     const { data: authAccount } = profile?.id ? await admin.auth.admin.getUserById(profile.id) : { data: null };
     const loginEmail = isPortalUser ? (authAccount?.user?.email || internalEmailFor(String(profile?.username || username))) : "invalid-staff-login@invalid.local";
     const { data, error } = await authClient.auth.signInWithPassword({ email: loginEmail, password });

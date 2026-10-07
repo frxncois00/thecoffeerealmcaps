@@ -88,10 +88,11 @@ const getCaller = async (req: Request) => {
   });
   if (!response.ok) throw new Error("Invalid or expired session.");
   const user = await response.json();
-  const profiles = await rest(`profiles?id=eq.${encodeURIComponent(user.id)}&select=role&limit=1`, {
+  const profiles = await rest(`profiles?id=eq.${encodeURIComponent(user.id)}&select=role,removed_at&limit=1`, {
     method: "GET",
   });
-  return { id: user.id as string, role: String(profiles?.[0]?.role || "customer"), isService: false };
+  if (!profiles?.[0] || profiles[0].removed_at) throw new Error("Active account required.");
+  return { id: user.id as string, role: String(profiles[0].role || "customer"), isService: false };
 };
 
 const buildEmail = (event: OutboxEvent) => {

@@ -39,9 +39,10 @@ Deno.serve(async (request) => {
   const { data: userData, error: userError } = await authClient.auth.getUser();
   if (userError || !userData.user) return json({ error: "Authentication required." }, 401);
 
-  const { data: profile } = await admin.from("profiles").select("role").eq("id", userData.user.id).maybeSingle();
+  const { data: profile, error: profileError } = await admin.from("profiles")
+    .select("role,removed_at").eq("id", userData.user.id).maybeSingle();
   const role = String(profile?.role || "").trim().toLowerCase().replace(/[ -]+/g, "_");
-  if (!internalRoles.includes(role)) return json({ error: "Internal access required." }, 403);
+  if (profileError || profile?.removed_at || !internalRoles.includes(role)) return json({ error: "Internal access required." }, 403);
 
   const body = await request.json().catch(() => ({}));
   const sessionKey = String(body?.sessionKey || "");

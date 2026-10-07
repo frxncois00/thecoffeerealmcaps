@@ -35,7 +35,7 @@ begin
       (scope, key_hash, window_started_at, request_count)
     values (
       case when v_key like 'global:%' then 'global' else 'email' end,
-      encode(digest(v_key, 'sha256'), 'hex'), now(), 1
+      encode(pg_catalog.sha256(pg_catalog.convert_to(v_key, 'UTF8')), 'hex'), now(), 1
     )
     on conflict (scope, key_hash) do update set
       window_started_at = case

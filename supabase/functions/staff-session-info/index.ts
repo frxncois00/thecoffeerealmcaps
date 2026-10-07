@@ -69,13 +69,13 @@ Deno.serve(async (request) => {
 
   const { data: profile, error: profileError } = await admin
     .from("profiles")
-    .select("role")
+    .select("role,removed_at")
     .eq("id", userData.user.id)
     .maybeSingle();
   if (profileError) return json({ error: "Session information is unavailable." }, 500);
 
   const role = String(profile?.role || "").trim().toLowerCase().replace(/[ -]+/g, "_");
-  if (!["staff", "operational_staff", "operations_staff", "operation_staff"].includes(role)) return json({ error: "Staff access required." }, 403);
+  if (profile?.removed_at || !["staff", "operational_staff", "operations_staff", "operation_staff"].includes(role)) return json({ error: "Staff access required." }, 403);
 
   const ip = requestIp(request);
   if (!ip) return json({ ip: null, city: null, region: null, countryCode: null, approximate: true });
