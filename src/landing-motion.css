@@ -1,0 +1,83 @@
+/* Landing-only finishing layer. All spatial animation uses transform/opacity. */
+:root { --realm-ease: cubic-bezier(.22,1,.36,1); --realm-fast: 180ms; --realm-reveal: 700ms; }
+body:has(.is-landing-page) { min-width: 0; }
+.customer-landing .landing-page { outline: none; }
+.customer-landing section[id] { scroll-margin-top: 100px; }
+.customer-landing .realm-word-mask { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .12em; margin-bottom: -.12em; }
+.customer-landing .realm-word-mask > span { display: inline-block; }
+.customer-landing .landing-hero { min-height: min(760px,calc(100svh - 76px)); }
+.customer-landing .landing-hero-media { inset: -45px 0; }
+.customer-landing .realm-hero-poster { width: 100%; height: 100%; object-fit: cover; }
+.customer-landing .landing-hero .hero-actions { margin-top: 30px; }
+.customer-landing .landing-hero-video { transition: opacity .9s var(--realm-ease); }
+.customer-landing .hero-tour-link { min-height: 44px; }
+.customer-landing .realm-scroll-cue { position: absolute; bottom: 28px; left: 7vw; display: flex; align-items: center; gap: 12px; min-width: 44px; min-height: 44px; color: var(--cream); }
+.realm-scroll-cue span { width: 38px; height: 1px; background: currentColor; opacity: .6; }
+.realm-scroll-cue svg { animation: realm-breathe-down 3.5s ease-in-out infinite; }
+.realm-steam { position: absolute; inset: 15% 12% 0 45%; pointer-events: none; opacity: .2; overflow: hidden; }
+.realm-steam i { position: absolute; bottom: 0; left: 25%; width: 100px; height: 75%; border-radius: 50%; background: radial-gradient(ellipse,rgba(248,246,240,.13),transparent 65%); animation: realm-steam-rise 11s ease-in-out infinite; }
+.realm-steam i:nth-child(2) { left: 52%; animation-delay: -4s; }
+.realm-steam i:nth-child(3) { left: 68%; animation-delay: -8s; }
+@keyframes realm-steam-rise { 0% { transform: translate3d(-20px,60px,0) scaleX(.7); opacity: 0; } 40% { opacity: 1; } 100% { transform: translate3d(25px,-130px,0) scaleX(1.3); opacity: 0; } }
+@keyframes realm-breathe-down { 0%,100% { transform: translateY(-3px); opacity: .55; } 50% { transform: translateY(3px); opacity: 1; } }
+.realm-scroll-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: var(--gold); transform-origin: left; z-index: 31; pointer-events: none; }
+.customer-landing .realm-marquee { display: block; overflow: hidden; padding: 0; }
+.realm-marquee-track { width: max-content; display: flex; animation: realm-marquee 38s linear infinite; }
+.realm-marquee-group { display: flex; align-items: center; flex-shrink: 0; min-width: 100vw; }
+.customer-landing .realm-marquee .realm-marquee-group > span { display: flex; align-items: center; justify-content: space-around; gap: clamp(28px,7vw,120px); flex: 1; padding: 26px clamp(18px,3vw,50px); white-space: nowrap; }
+.realm-marquee-group i { font-size: .8rem; font-style: normal; }
+.realm-marquee:hover .realm-marquee-track { animation-play-state: paused !important; }
+@keyframes realm-marquee { to { transform: translateX(-50%); } }
+.realm-story-image { width: 100%; height: 100%; overflow: hidden; }
+.realm-timeline-wrap { position: relative; text-align: left; }
+.realm-timeline-ink { position: absolute; left: 18px; top: 20px; bottom: 20px; width: 2px; background: var(--sage); transform-origin: top; z-index: 1; }
+.customer-landing .landing-about-timeline li { z-index: 2; }
+.customer-landing .landing-about-timeline-marker { box-shadow: 0 0 0 6px #ece9df; }
+.customer-landing .landing-about-journey-heading { text-align: left; }
+.customer-landing .landing-about-timeline h4 { line-height: 1.5; }
+.customer-landing .review-card-react { transition: none; }
+.customer-landing .map-copy { position: relative; }
+.realm-open-status { display: inline-flex; align-items: center; gap: 7px; color: var(--sage); border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; font-size: .68rem; font-weight: 700; margin: 14px 0 8px; }
+.realm-open-status i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.realm-open-status.is-open i { background: var(--sage); box-shadow: 0 0 0 3px #3a5c4512; }
+.customer-landing :is(a,button):focus-visible { outline: 2px solid var(--gold); outline-offset: 5px; }
+.customer-landing :is(.button,.text-link,.hero-tour-link) { transition: transform var(--realm-fast) var(--realm-ease),opacity var(--realm-fast); }
+.customer-landing :is(.button,.text-link,.hero-tour-link) svg { transition: transform .35s var(--realm-ease); }
+@media (hover:hover) and (pointer:fine) {
+  .customer-landing :is(.button,.text-link,.hero-tour-link):hover svg { transform: translateX(4px); }
+  .customer-landing .button:hover { transform: translateY(-3px); }
+  .customer-landing .button:active { transform: translateY(0) scale(.97); }
+  .customer-landing .landing-about-journey-heading { position: sticky; top: 140px; align-self: start; }
+}
+@media (max-width:760px) {
+  .customer-app.is-landing-page { width: 100%; }
+  .customer-app .customer-landing .landing-hero { min-height: min(720px,calc(100svh - 68px)); padding: 58px 24px 100px; }
+  .customer-landing .landing-hero .hero-copy { max-width: 520px; }
+  .customer-landing .landing-hero h1 { font-size: clamp(2.9rem,12.3vw,4.7rem); }
+  .customer-landing .realm-scroll-cue { left: 24px; bottom: 18px; }
+  .customer-landing .hero-actions { align-items: flex-start; flex-wrap: wrap; gap: 12px 20px; }
+  .customer-landing .hero-actions > * { flex-shrink: 0; white-space: nowrap; }
+  .realm-marquee-group { min-width: 800px; }
+  .customer-landing .realm-marquee .realm-marquee-group > span { padding: 22px 20px; gap: 35px; }
+  .realm-marquee-track { animation-duration: 50s; }
+  .customer-landing .landing-map-section { padding-bottom: 80px; }
+  .realm-steam { display: none; }
+}
+html[data-realm-motion="reduced"] { scroll-behavior: auto; }
+html[data-realm-motion="reduced"] :is(.realm-marquee-track,.realm-scroll-cue svg,.realm-steam i) { animation: none; }
+html[data-realm-motion="reduced"] .realm-marquee-track { width: 100%; }
+html[data-realm-motion="reduced"] .realm-marquee-group { min-width: 0; width: 100%; flex-wrap: wrap; }
+html[data-realm-motion="reduced"] .realm-marquee-group[aria-hidden="true"] { display: none; }
+html[data-realm-motion="reduced"] .realm-marquee .realm-marquee-group > span { flex: 1 1 50%; padding: 18px 10px; gap: 12px; }
+html[data-realm-motion="reduced"] .is-landing-page .customer-route-shell { animation: none; }
+html[data-realm-motion="reduced"] .is-landing-page :is(a,button,img,video) { transition: none !important; }
+html[data-realm-motion="reduced"] .is-landing-page :is(a svg,button svg,.ordering-cluster,.ordering-step-mark svg,.ordering-step-mark span) { transition: none !important; }
+html[data-realm-motion="reduced"] .customer-landing :is(.button,.text-link,.hero-tour-link):hover,
+html[data-realm-motion="reduced"] .customer-landing :is(.button,.text-link,.hero-tour-link):active,
+html[data-realm-motion="reduced"] .customer-landing :is(.button,.text-link,.hero-tour-link):hover svg { transform: none; }
+@media (prefers-reduced-motion:reduce) {
+  html { scroll-behavior: auto; }
+  .realm-marquee-track,.realm-scroll-cue svg,.realm-steam i { animation: none; }
+}
+
+.realm-reviews-empty { color: var(--muted); padding: 24px 0; min-height: 120px; font-size: .95rem; }

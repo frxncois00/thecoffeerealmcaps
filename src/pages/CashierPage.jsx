@@ -22,14 +22,15 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import LogoutConfirmModal from '../components/auth/LogoutConfirmModal'
-import { useLogoutTransition } from '../context/LogoutTransitionContext'
+import { useLogoutTransition } from '../context/useLogoutTransition'
 import { usePricing } from '../context/usePricing'
 import { menuItems, store } from '../data/mockData'
 import { getCurrentPortalSession, signOutPortal } from '../lib/auth'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { sanitizePersonName, sanitizePhone } from '../utils/inputValidation'
 import { buildVatExemptOrderBreakdown, formatVatRate, vatExemptDiscountBreakdown } from '../utils/pricing'
-import { ReceiptPaper, printReceipt } from '../components/common/ReceiptDocument'
+import { ReceiptPaper } from '../components/common/ReceiptDocument'
+import { printReceipt } from '../components/common/receiptUtils'
 
 function DineInIcon({ size = 13, className = '', ...props }) {
   return (

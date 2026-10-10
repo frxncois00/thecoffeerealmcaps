@@ -1,147 +1,179 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { motion, useInView, useReducedMotion } from 'framer-motion'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { motion, useInView } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import CoffeeCard from './CoffeeCard'
+import { useRealmMotion } from '../motion/useRealmMotion'
+import { motionTokens } from '../motion/config'
+import './coffee-carousel-motion.css'
 
-const AUTO_SLIDE_MS = 4500
-const SWIPE_THRESHOLD = 50
-const WHEEL_COOLDOWN_MS = 400
+const SWIPE_THRESHOLD = 46
 
-export default function BestSellerCarousel({ items, onChoose }) {
+export default function BestSellerCarousel({ items = [], onChoose }) {
+  if (!items?.length) return null
+  return <CarouselBody items={items} onChoose={onChoose} />
+}
+
+function CarouselBody({ items, onChoose }) {
   const [activeIndex, setActiveIndex] = useState(0)
-  const [isHovering, setIsHovering] = useState(false)
-  const [hasEntered, setHasEntered] = useState(false)
-  const wheelLockRef = useRef(false)
-  const trackRef = useRef(null)
+  const [isDragging, setIsDragging] = useState(false)
   const carouselRef = useRef(null)
-  const prefersReducedMotion = useReducedMotion()
-  const inView = useInView(carouselRef, { once: true, amount: 0.34 })
+  const dotRefs = useRef([])
+  const suppressClickRef = useRef(false)
+  const wheelTimeRef = useRef(0)
+  const carouselId = useId()
+  const { enabled, ambient, compact } = useRealmMotion()
+  const hasEntered = useInView(carouselRef, { once: true, amount: 0.16 })
+  const itemCount = items?.length || 0
+  const safeActiveIndex = Number.isFinite(activeIndex) && activeIndex >= 0 && activeIndex < itemCount ? activeIndex : 0
+
+  const goTo = useCallback((index) => {
+    if (!itemCount) return
+    setActiveIndex(((index % itemCount) + itemCount) % itemCount)
+  }, [itemCount])
+
+  const goNext = useCallback(() => goTo(safeActiveIndex + 1), [safeActiveIndex, goTo])
+  const goPrev = useCallback(() => goTo(safeActiveIndex - 1), [safeActiveIndex, goTo])
 
   useEffect(() => {
-    if (inView) setHasEntered(true)
-  }, [inView])
+    const carousel = carouselRef.current
+    if (!carousel || itemCount < 2) return undefined
+    const onWheel = (event) => {
+      // Preserve vertical page scrolling; only deliberate horizontal gestures browse slides.
+      if (Math.abs(event.deltaX) <= Math.abs(event.deltaY) || Math.abs(event.deltaX) < 10) return
+      event.preventDefault()
+      if (Date.now() - wheelTimeRef.current < 500) return
+      wheelTimeRef.current = Date.now()
+      if (event.deltaX > 0) goNext()
+      else goPrev()
+    }
+    carousel.addEventListener('wheel', onWheel, { passive: false })
+    return () => carousel.removeEventListener('wheel', onWheel)
+  }, [goNext, goPrev, itemCount])
 
-  const goTo = useCallback(
-    (index) => {
-      const next = ((index % items.length) + items.length) % items.length
-      setActiveIndex(next)
-    },
-    [items.length],
-  )
-
-  const goNext = useCallback(() => goTo(activeIndex + 1), [activeIndex, goTo])
-  const goPrev = useCallback(() => goTo(activeIndex - 1), [activeIndex, goTo])
-
-  useEffect(() => {
-    if (isHovering || items.length < 2) return undefined
-    const timer = setInterval(() => {
-      setActiveIndex((current) => (current + 1) % items.length)
-    }, AUTO_SLIDE_MS)
-    return () => clearInterval(timer)
-  }, [isHovering, items.length])
-
-  const handleWheel = (event) => {
-    if (Math.abs(event.deltaX) < Math.abs(event.deltaY)) return
+  const handleKeyDown = (event) => {
+    let nextIndex
+    if (event.key === 'ArrowRight') nextIndex = safeActiveIndex + 1
+    else if (event.key === 'ArrowLeft') nextIndex = safeActiveIndex - 1
+    else if (event.key === 'Home') nextIndex = 0
+    else if (event.key === 'End') nextIndex = itemCount - 1
+    else return
     event.preventDefault()
-    if (wheelLockRef.current) return
-    wheelLockRef.current = true
-    if (event.deltaX > 10) goNext()
-    else if (event.deltaX < -10) goPrev()
-    setTimeout(() => {
-      wheelLockRef.current = false
-    }, WHEEL_COOLDOWN_MS)
+    goTo(nextIndex)
+    const wrappedIndex = ((nextIndex % itemCount) + itemCount) % itemCount
+    // Keep keyboard focus on the selected picker, never on a newly hidden slide.
+    if (event.target.closest('.coffee-carousel-dots, .coffee-card')) dotRefs.current[wrappedIndex]?.focus()
   }
 
   const handleDragEnd = (_event, info) => {
-    if (info.offset.x < -SWIPE_THRESHOLD) goNext()
-    else if (info.offset.x > SWIPE_THRESHOLD) goPrev()
-  }
-
-  const handleKeyDown = (event) => {
-    if (event.key === 'ArrowRight') {
-      event.preventDefault()
-      goNext()
-    } else if (event.key === 'ArrowLeft') {
-      event.preventDefault()
-      goPrev()
+    setIsDragging(false)
+    let nextIndex = safeActiveIndex
+    if (info.offset.x < -SWIPE_THRESHOLD || (info.offset.x < -12 && info.velocity.x < -450)) nextIndex += 1
+    else if (info.offset.x > SWIPE_THRESHOLD || (info.offset.x > 12 && info.velocity.x > 450)) nextIndex -= 1
+    if (nextIndex === safeActiveIndex) return
+    goTo(nextIndex)
+    if (carouselRef.current?.contains(document.activeElement) && document.activeElement.closest('.coffee-card')) {
+      dotRefs.current[((nextIndex % itemCount) + itemCount) % itemCount]?.focus({ preventScroll: true })
     }
   }
+
+  if (!itemCount) return null
 
   return (
     <div
       ref={carouselRef}
-      className="coffee-carousel"
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
-      onWheel={handleWheel}
+      className="coffee-carousel coffee-carousel-polished"
+      data-motion={enabled ? 'on' : 'off'}
       onKeyDown={handleKeyDown}
       role="region"
       aria-roledescription="carousel"
       aria-label="Best seller coffee and treats"
-      tabIndex={0}
     >
-      <button
-        type="button"
-        className="coffee-carousel-nav coffee-carousel-nav-prev"
-        onClick={goPrev}
-        aria-label="Show previous coffee"
-      >
-        <ChevronLeft size={22} />
+      <button type="button" className="coffee-carousel-nav coffee-carousel-nav-prev" onClick={goPrev}
+        aria-label="Show previous coffee" aria-controls={`${carouselId}-slides`} disabled={itemCount < 2}>
+        <ChevronLeft size={21} aria-hidden="true" />
       </button>
 
-      <motion.div
-        ref={trackRef}
-        className="coffee-carousel-track"
-        initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.94, filter: 'blur(8px)', clipPath: 'inset(16% 8% 18% 8% round 32px)' }}
-        whileInView={prefersReducedMotion ? undefined : { opacity: 1, scale: 1, filter: 'blur(0px)', clipPath: 'inset(0% 0% 0% 0% round 32px)' }}
-        viewport={{ once: true, amount: 0.2 }}
-        transition={{ duration: 0.58, ease: [0.22, 1, 0.36, 1] }}
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.15}
-        onDragEnd={handleDragEnd}
-      >
-        {items.map((item, index) => {
-          let offset = index - activeIndex
-          if (offset > items.length / 2) offset -= items.length
-          if (offset < -items.length / 2) offset += items.length
-
-          return (
-            <CoffeeCard
-              key={item.id}
-              item={item}
-              offset={offset}
-              isActive={offset === 0}
-              revealed={hasEntered || prefersReducedMotion}
-              onSelect={(cardOffset) => goTo(activeIndex + cardOffset)}
-              onChoose={onChoose}
-            />
-          )
-        })}
-      </motion.div>
-
-      <button
-        type="button"
-        className="coffee-carousel-nav coffee-carousel-nav-next"
-        onClick={goNext}
-        aria-label="Show next coffee"
-      >
-        <ChevronRight size={22} />
-      </button>
-
-      <div className="coffee-carousel-dots" role="tablist" aria-label="Select coffee">
-        {items.map((item, index) => (
-          <button
-            key={item.id}
-            type="button"
-            role="tab"
-            aria-selected={index === activeIndex}
-            aria-label={`Show ${item.name}`}
-            className={index === activeIndex ? 'active' : ''}
-            onClick={() => goTo(index)}
-          />
-        ))}
+      <div className="coffee-carousel-window">
+        <motion.div
+          id={`${carouselId}-slides`}
+          className="coffee-carousel-track"
+          drag={itemCount > 1 ? 'x' : false}
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={enabled ? 0.18 : 0}
+          dragMomentum={false}
+          dragSnapToOrigin
+          dragTransition={{ bounceStiffness: 320, bounceDamping: 32 }}
+          onPointerDownCapture={() => { suppressClickRef.current = false }}
+          onDragStart={() => {
+            suppressClickRef.current = true
+            setIsDragging(true)
+          }}
+          onDragEnd={handleDragEnd}
+          onPointerCancel={() => setIsDragging(false)}
+          onClickCapture={(event) => {
+            if (!suppressClickRef.current) return
+            event.preventDefault()
+            event.stopPropagation()
+            suppressClickRef.current = false
+          }}
+        >
+          {items.map((item, index) => {
+            let offset = index - safeActiveIndex
+            if (offset > itemCount / 2) offset -= itemCount
+            if (offset < -itemCount / 2) offset += itemCount
+            return (
+              <CoffeeCard
+                key={item.id ?? index}
+                id={`${carouselId}-slide-${index}`}
+                item={item}
+                index={index}
+                count={itemCount}
+                offset={offset}
+                isActive={offset === 0}
+                revealed={hasEntered || !enabled}
+                enabled={enabled}
+                ambient={ambient && !isDragging}
+                compact={compact}
+                onSelect={(cardOffset) => goTo(safeActiveIndex + cardOffset)}
+                onChoose={onChoose}
+              />
+            )
+          })}
+        </motion.div>
       </div>
+
+      <button type="button" className="coffee-carousel-nav coffee-carousel-nav-next" onClick={goNext}
+        aria-label="Show next coffee" aria-controls={`${carouselId}-slides`} disabled={itemCount < 2}>
+        <ChevronRight size={21} aria-hidden="true" />
+      </button>
+
+      <div className="coffee-carousel-controls">
+        <div className="coffee-carousel-dots" role="group" aria-label="Select a best seller">
+          {items.map((item, index) => (
+            <button
+              key={item.id ?? index}
+              ref={(element) => { dotRefs.current[index] = element }}
+              type="button"
+              aria-current={index === safeActiveIndex ? 'true' : undefined}
+              aria-controls={`${carouselId}-slide-${index}`}
+              aria-label={`Show ${item.name}, ${index + 1} of ${itemCount}`}
+              tabIndex={index === safeActiveIndex ? 0 : -1}
+              className={index === safeActiveIndex ? 'active' : ''}
+              onClick={() => goTo(index)}
+            >
+              <motion.span aria-hidden="true"
+                animate={{ scaleX: index === safeActiveIndex ? 2.6 : 1, opacity: index === safeActiveIndex ? 1 : 0.3 }}
+                transition={{ duration: enabled ? motionTokens.duration.base : 0, ease: motionTokens.ease }} />
+            </button>
+          ))}
+        </div>
+        <span className="coffee-carousel-count" aria-hidden="true">
+          {String(safeActiveIndex + 1).padStart(2, '0')} <span>/ {String(itemCount).padStart(2, '0')}</span>
+        </span>
+      </div>
+      <p className="coffee-carousel-announcement" aria-live="polite" aria-atomic="true">
+        {items[safeActiveIndex].name}, {safeActiveIndex + 1} of {itemCount}
+      </p>
     </div>
   )
 }

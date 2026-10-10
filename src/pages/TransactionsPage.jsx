@@ -26,7 +26,7 @@ import {
   shouldShowSystemNotification,
 } from '../services/staffSettingsService'
 import { useManagementSessionState } from '../hooks/useManagementSessionState'
-import { buildReceiptHtml, openReceiptWindow } from '../components/common/ReceiptDocument'
+import { buildReceiptHtml, openReceiptWindow } from '../components/common/receiptUtils'
 
 const ORDER_STATUS_OPTIONS = ['Order Received', 'Awaiting Payment Verification', 'Pending Confirmation', 'Confirmed', 'Preparing', 'Ready for Pickup', 'Out for Delivery', 'Received', 'Completed', 'Cancelled', 'Ordered']
 const PAYMENT_METHOD_LABEL = { cash: 'Cash', gcash: 'GCash', bank_transfer: 'Bank Transfer', cod: 'Cash on Delivery', other: 'Other' }

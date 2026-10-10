@@ -1,6 +1,9 @@
 import { Facebook, Instagram, MessageCircle } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { CONTENT_DEFAULTS } from '../services/adminPortalConfigurationService'
+import { revealVariants } from '../motion/config'
+import { useRealmMotion } from '../motion/useRealmMotion'
 
 const sections = {
   privacy: {
@@ -74,17 +77,18 @@ export default function LegalPage() {
   )
 }
 
-export function LandingFooter() {
+export function LandingFooter({ animated = false }) {
   const content = CONTENT_DEFAULTS.footer
+  const { enabled } = useRealmMotion()
   return <footer className="landing-footer-react">
-    <div className="footer-bottom-line">
+    <motion.div className="footer-bottom-line" initial={animated ? 'hidden' : false} whileInView={animated ? 'show' : undefined} viewport={{ once: true, amount: 0.2 }} variants={revealVariants(enabled, 14)}>
       <div className="footer-social-links">
         <a href={content.facebookUrl} target="_blank" rel="noreferrer" aria-label="Facebook" title="Facebook"><Facebook size={18} /></a>
         <a href={content.tiktokUrl} target="_blank" rel="noreferrer" aria-label="TikTok" title="TikTok"><MessageCircle size={18} /></a>
         <a href={content.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram" title="Instagram"><Instagram size={18} /></a>
       </div>
-      <nav className="footer-legal" aria-label="Legal links"><Link to="/privacy-policy">Privacy Policy</Link><Link to="/terms-of-use">Terms of Use</Link></nav>
+      <nav className="footer-legal" aria-label="Footer links"><Link to="/privacy-policy">Privacy Policy</Link><Link to="/terms-of-use">Terms of Use</Link></nav>
       <span>© 2026 The Coffee Realm. All rights reserved.</span>
-    </div>
+    </motion.div>
   </footer>
 }

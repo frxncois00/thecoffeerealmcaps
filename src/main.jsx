@@ -18,5 +18,6 @@ import './admin-reference.css'
 import './admin-dark-palette.css'
 import './staff-reference.css'
 import './management-neutral-overlays.css'
+import './landing-motion.css'
 createRoot(document.getElementById('root')).render(<StrictMode><BrowserRouter><ThemeProvider><PricingProvider><AuthProvider><CartProvider><LogoutTransitionProvider><App /></LogoutTransitionProvider></CartProvider></AuthProvider></PricingProvider></ThemeProvider></BrowserRouter></StrictMode>)
 

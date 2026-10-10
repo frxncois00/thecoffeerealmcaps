@@ -1,0 +1,150 @@
+.realm-visit {
+  position: relative;
+  padding: clamp(70px, 8vw, 120px) 5vw;
+  overflow: hidden;
+  color: var(--cream);
+  background: var(--forest);
+}
+
+.realm-visit-inner { width: min(1380px, 100%); margin-inline: auto; }
+.realm-visit .eyebrow { color: var(--gold); }
+.realm-visit-main { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: clamp(36px, 6vw, 100px); align-items: center; }
+.realm-visit-copy { max-width: 510px; }
+.realm-visit h2 { margin: 22px 0 24px; font-family: 'Playfair Display', Georgia, serif; font-size: clamp(2.8rem, 4.9vw, 5rem); font-weight: 600; letter-spacing: -.055em; line-height: 1.02; text-wrap: balance; }
+.realm-visit-intro { max-width: 440px; margin: 0 0 20px; color: var(--sage-pale); font-size: .98rem; line-height: 1.75; }
+.realm-visit .realm-open-status { display: inline-flex; width: fit-content; color: var(--cream); border-color: rgba(248, 246, 240, .22); background: transparent; margin: 0; }
+.realm-visit .realm-open-status i { background: var(--gold); }
+.realm-visit-details { display: grid; gap: 15px; margin: 28px 0 30px; font-style: normal; font-size: .84rem; line-height: 1.65; color: var(--sage-pale); }
+.realm-visit-details > div { display: flex; align-items: flex-start; gap: 13px; }
+.realm-visit-details svg { flex-shrink: 0; margin-top: 2px; color: var(--gold); stroke-width: 1.5; }
+.realm-visit-details a { overflow-wrap: anywhere; text-decoration: underline; text-underline-offset: 4px; text-decoration-color: rgba(248, 246, 240, .3); }
+.realm-visit .realm-visit-directions { min-height: 48px; padding-inline: 24px; background: var(--cream); color: var(--forest); }
+.realm-visit-directions svg { transition: transform .3s var(--realm-ease, cubic-bezier(.22, 1, .36, 1)); }
+.realm-visit a:focus-visible { outline: 2px solid var(--gold); outline-offset: 5px; border-radius: 4px; }
+.realm-visit-map { position: relative; margin: 0; padding: 16px 16px 0; border: 1px solid rgba(248, 246, 240, .19); border-radius: 18px; background: var(--cream); color: var(--forest); }
+.realm-visit-map-top { min-height: 38px; display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; padding-inline: 3px; font-size: .69rem; }
+.realm-visit-map-top > span:first-child { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.realm-visit-map-top > span:last-child { color: var(--muted); text-align: right; }
+.realm-visit-map-frame { aspect-ratio: 1.34; min-height: 320px; overflow: hidden; border-radius: 8px; background: var(--sage-pale); }
+.realm-visit-map iframe { display: block; width: 100%; height: 100%; border: 0; }
+.realm-visit-map figcaption { display: flex; justify-content: space-between; align-items: center; gap: 14px; min-height: 66px; padding-inline: 3px; font-size: .7rem; }
+.realm-visit-map figcaption > span { font-weight: 700; }
+.realm-visit-map figcaption > span > span { padding-inline: 5px; color: var(--muted); }
+.realm-visit-map figcaption a { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; white-space: nowrap; }
+.realm-arrival { margin-top: clamp(64px, 7vw, 105px); padding: 0 clamp(26px, 4vw, 62px); background: var(--cream); color: var(--forest); border-radius: 6px 6px 22px 6px; box-shadow: 0 16px 40px rgba(0, 0, 0, .08); }
+.realm-arrival-masthead { display: flex; justify-content: space-between; gap: 20px; padding-block: 25px; border-bottom: 1px solid var(--line); font-size: .62rem; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
+.realm-arrival-masthead > span:last-child { color: var(--muted); text-align: right; }
+.realm-arrival-spread { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 5vw, 76px); padding-block: 42px; }
+.realm-arrival-postcard { min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
+.realm-arrival-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 25px; }
+.realm-arrival-heading h3 { margin: 0; font-family: 'Playfair Display', Georgia, serif; font-size: clamp(2.5rem, 4.1vw, 4.2rem); line-height: 1.04; letter-spacing: -.055em; font-weight: 600; }
+.realm-arrival-seal { flex-shrink: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 7px; width: 87px; height: 98px; border: 1px solid var(--gold); border-radius: 50%; color: var(--sage); transform: rotate(9deg); }
+.realm-arrival-seal > span { font-size: .48rem; letter-spacing: .09em; line-height: 1.5; text-transform: uppercase; text-align: center; }
+.realm-arrival-notes { min-width: 0; padding-left: clamp(26px, 3.4vw, 52px); border-left: 1px solid var(--line); }
+.realm-arrival-notes .eyebrow { color: var(--sage); font-size: .57rem; }
+.realm-arrival-notes h4 { margin: 0 0 9px; font-family: 'Playfair Display', Georgia, serif; font-size: 1.35rem; font-weight: 600; letter-spacing: -.025em; line-height: 1.2; }
+.realm-arrival-route > h4 { margin-top: 12px; font-size: clamp(1.5rem, 1.8vw, 1.9rem); text-wrap: balance; }
+.realm-arrival-notes p { margin: 0; font-size: .83rem; line-height: 1.8; color: var(--sage); }
+.realm-arrival-tabs { display: flex; position: relative; isolation: isolate; width: fit-content; max-width: 100%; margin-block: 22px 17px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; }
+.realm-arrival-tabs button { position: relative; display: inline-flex; justify-content: center; align-items: center; min-height: 44px; padding: 10px 20px; border: 0; border-radius: 999px; color: var(--sage); background: transparent; font-family: inherit; font-size: .74rem; font-weight: 500; white-space: nowrap; cursor: pointer; }
+.realm-arrival-tabs button[aria-selected='true'] { color: var(--cream); }
+.realm-arrival-tabs button > span:not(.realm-arrival-tab-active) { position: relative; }
+.realm-arrival-tab-active { position: absolute; inset: 0; background: var(--forest); border-radius: 999px; }
+.realm-arrival button:focus-visible,
+.realm-arrival [role='tabpanel']:focus-visible { outline: 2px solid var(--sage); outline-offset: 4px; }
+.realm-arrival-route-copy { min-height: 94px; }
+.realm-arrival-welcome { padding-block: 22px; border-top: 1px solid var(--line); }
+.realm-arrival-welcome:last-child { padding-bottom: 0; }
+.realm-arrival-welcome h4 { margin: 0 0 6px; font-family: 'Playfair Display', Georgia, serif; font-size: 1.25rem; font-weight: 600; letter-spacing: -.025em; line-height: 1.2; color: var(--forest); }
+.realm-arrival-welcome p { margin: 0; font-size: .83rem; line-height: 1.8; color: var(--sage); }
+.realm-arrival-signoff { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 22px; border-top: 1px solid var(--line); }
+.realm-arrival-signoff > span:first-child { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 1rem; }
+.realm-arrival-signoff > span:last-child { color: var(--sage); font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
+.realm-corner { margin: 0; }
+.realm-corner-diagram { position: relative; width: 100%; aspect-ratio: 1.4; border-radius: 6px; overflow: hidden; background: var(--sage-pale); }
+.realm-corner-diagram > svg { width: 100%; height: 100%; display: block; }
+.realm-corner-block { fill: var(--cream); stroke: var(--line); stroke-width: 1; }
+.realm-corner-street { fill: none; stroke: rgba(58, 92, 69, .06); stroke-width: 38; }
+.realm-corner-road-label { fill: var(--sage); font-family: 'DM Sans', sans-serif; font-size: 8px; letter-spacing: 1px; text-anchor: middle; }
+.realm-corner-route { stroke: var(--sage); stroke-width: 2; stroke-linecap: round; stroke-dasharray: 3 6; }
+.realm-corner-start { fill: var(--sage); }
+.realm-corner-cafe { position: absolute; top: 12%; left: 19%; width: 32%; aspect-ratio: 1.2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--cream); background: var(--forest); border: 1px solid var(--gold); border-radius: 10px; transform: rotate(-3deg); }
+.realm-corner-cafe svg { color: var(--gold); }
+.realm-corner-cafe span { font-family: 'Playfair Display', Georgia, serif; font-size: clamp(13px, 1.3vw, 21px); line-height: 1; text-align: center; }
+.realm-corner-dot { position: absolute; top: 49%; left: 43.5%; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 6px rgba(200, 168, 107, .13); }
+.realm-corner-note { position: absolute; bottom: 10.5%; left: 9%; font-family: 'Playfair Display', Georgia, serif; font-size: clamp(11px, 1.1vw, 16px); font-style: italic; color: var(--sage); }
+.realm-corner figcaption { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; color: var(--muted); font-size: .56rem; line-height: 1.6; }
+.realm-corner figcaption > span:last-child { text-align: right; }
+
+@media (hover: hover) and (pointer: fine) {
+  .realm-visit[data-visit-motion='true'] .realm-visit-directions:hover svg { transform: translate(2px, -2px); }
+  .realm-visit-details a:hover { text-decoration-color: currentColor; }
+}
+
+@media (max-width: 980px) {
+  .realm-visit-main { gap: 32px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .realm-visit h2 { font-size: clamp(2.6rem, 5.6vw, 3.5rem); }
+  .realm-visit-map-frame { aspect-ratio: .85; }
+  .realm-visit-map-top { flex-direction: column; gap: 6px; padding-bottom: 14px; }
+  .realm-visit-map figcaption { flex-direction: column; justify-content: center; align-items: flex-start; gap: 0; padding-block: 12px 4px; }
+  .realm-arrival-spread { gap: 28px; }
+  .realm-arrival-postcard { justify-content: flex-start; }
+  .realm-arrival-notes { padding-left: 28px; }
+  .realm-arrival-heading h3 { font-size: clamp(2.1rem, 4.3vw, 3rem); }
+  .realm-arrival-seal { width: 66px; height: 78px; }
+  .realm-arrival-tabs button { padding-inline: 14px; font-size: .7rem; }
+  .realm-arrival-route-copy { min-height: 120px; }
+}
+
+@media (max-width: 700px) {
+  .realm-visit { padding: 70px 22px; }
+  .realm-visit-main { grid-template-columns: minmax(0, 1fr); gap: 38px; }
+  .realm-visit-copy { max-width: none; }
+  .realm-visit h2 { max-width: 400px; font-size: clamp(2.8rem, 10.7vw, 4.4rem); }
+  .realm-visit-intro { font-size: .93rem; }
+  .realm-visit-map { padding: 12px 12px 0; border-radius: 14px; }
+  .realm-visit-map-top { flex-direction: row; align-items: center; min-height: 35px; gap: 12px; padding-bottom: 10px; font-size: .63rem; }
+  .realm-visit-map-frame { aspect-ratio: 1.12; min-height: 280px; }
+  .realm-visit-map figcaption { flex-direction: row; justify-content: space-between; align-items: center; gap: 10px; min-height: 62px; padding-block: 4px; font-size: .62rem; }
+  .realm-visit-map figcaption > span > span { padding-inline: 2px; }
+  .realm-arrival { margin-top: 52px; padding-inline: 23px; }
+  .realm-arrival-masthead { padding-block: 20px; gap: 14px; font-size: .53rem; line-height: 1.65; letter-spacing: .11em; }
+  .realm-arrival-spread { grid-template-columns: minmax(0, 1fr); gap: 30px; padding-block: 28px; }
+  .realm-arrival-heading h3 { font-size: clamp(2.1rem, 7.8vw, 3.5rem); }
+  .realm-arrival-seal { width: 72px; height: 84px; }
+  .realm-arrival-notes { padding: 27px 0 0; border-left: 0; border-top: 1px solid var(--line); }
+  .realm-arrival-route > h4 { font-size: 1.6rem; max-width: 280px; }
+  .realm-arrival-tabs button { padding-inline: 15px; font-size: .73rem; }
+  .realm-arrival-route-copy { min-height: 106px; }
+  .realm-arrival-notes p { font-size: .81rem; }
+  .realm-arrival-welcome { padding-block: 20px; }
+  .realm-arrival-signoff { padding-block: 20px; }
+  .realm-arrival-signoff > span:first-child { max-width: 155px; font-size: .91rem; }
+  .realm-arrival-signoff > span:last-child { white-space: nowrap; font-size: .56rem; }
+  .realm-corner-cafe span { font-size: clamp(13px, 4vw, 21px); }
+  .realm-corner-cafe svg { width: 21px; height: 21px; }
+  .realm-corner-note { font-size: clamp(10px, 2.9vw, 16px); }
+}
+
+@media (max-width: 380px) {
+  .realm-visit { padding-inline: 18px; }
+  .realm-arrival { padding-inline: 19px; }
+  .realm-arrival-heading h3 { font-size: 1.93rem; }
+  .realm-arrival-seal { width: 57px; height: 70px; gap: 4px; }
+  .realm-arrival-seal svg { width: 20px; }
+  .realm-arrival-seal > span { font-size: .4rem; }
+  .realm-arrival-tabs { width: 100%; }
+  .realm-arrival-tabs button { flex: 1; gap: 6px; padding-inline: 8px; font-size: .66rem; }
+  .realm-arrival-route-copy { min-height: 119px; }
+  .realm-arrival-signoff > span:first-child { font-size: .8rem; }
+  .realm-visit-map figcaption { font-size: .59rem; }
+}
+
+.realm-visit[data-visit-motion='false'] :is(a, button),
+.realm-visit[data-visit-motion='false'] .realm-visit-directions svg { transition: none; }
+.customer-app .customer-landing .realm-visit[data-visit-motion='false'] :is(a, button):is(:hover, :active) { transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .realm-visit :is(a, button),
+  .realm-visit-directions svg { transition: none; }
+}

@@ -1,6 +1,9 @@
-import { motion, useReducedMotion } from 'framer-motion'
+import { useRef } from 'react'
+import { motion, useInView } from 'framer-motion'
 import { ArrowRight, CakeSlice, Coffee, UtensilsCrossed } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { motionTokens, revealVariants } from '../motion/config'
+import { useRealmMotion } from '../motion/useRealmMotion'
 
 const steps = [
   {
@@ -43,14 +46,19 @@ const steps = [
 ]
 
 export default function HowOrderingWorks() {
-  const reduceMotion = useReducedMotion()
-  const itemVariants = {
-    hidden: { opacity: 0, y: reduceMotion ? 0 : 28 },
-    show: { opacity: 1, y: 0, transition: { duration: reduceMotion ? 0.01 : 0.55, ease: [0.22, 1, 0.36, 1] } },
-  }
+  const sectionRef = useRef(null)
+  const { enabled, ambient } = useRealmMotion()
+  const inView = useInView(sectionRef, { amount: 0.08 })
+  const itemVariants = revealVariants(enabled, 28)
 
   return (
-    <section className="ordering-works" aria-labelledby="ordering-works-title">
+    <section
+      ref={sectionRef}
+      className="ordering-works"
+      aria-labelledby="ordering-works-title"
+      data-ordering-ambient={ambient}
+      data-ordering-visible={inView}
+    >
       <motion.header
         className="ordering-works-heading"
         initial="hidden"
@@ -68,7 +76,7 @@ export default function HowOrderingWorks() {
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, amount: 0.18 }}
-        variants={{ hidden: {}, show: { transition: { staggerChildren: reduceMotion ? 0 : 0.12 } } }}
+        variants={{ hidden: {}, show: { transition: { staggerChildren: enabled ? motionTokens.stagger : 0 } } }}
       >
         {steps.map((step) => {
           const Icon = step.icon
@@ -81,6 +89,7 @@ export default function HowOrderingWorks() {
                     src={item.image}
                     alt=""
                     loading="lazy"
+                    decoding="async"
                     key={item.name}
                     style={{
                       '--item-x': item.x,
@@ -94,7 +103,7 @@ export default function HowOrderingWorks() {
                 ))}
               </div>
               <div className="ordering-step-copy">
-                <Icon size={22} aria-hidden="true" />
+                <span className="ordering-step-mark" aria-hidden="true"><Icon size={22} /><span>{step.number}</span></span>
                 <h3>{step.title}</h3>
                 <p>{step.copy}</p>
               </div>

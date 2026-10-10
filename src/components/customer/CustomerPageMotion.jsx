@@ -6,7 +6,6 @@ const TARGETS = [
   '.customer-main .checkout-section', '.customer-main .account-card',
   '.customer-main .faq-group', '.customer-main .customer-product',
   '.legal-page > section', '.legal-page > article', '.legal-sections > section',
-  '.landing-page > section', '.landing-page > article',
   '.legacy-customer-auth-page .legacy-auth-container',
   '.onboarding-page > section',
 ].join(',')

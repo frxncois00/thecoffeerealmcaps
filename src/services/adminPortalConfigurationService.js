@@ -1,6 +1,7 @@
 import { customerSupabase, isSupabaseConfigured, supabase } from '../lib/supabase'
 import { DEFAULT_PRICING } from '../utils/pricing'
 import { validateImageFile } from '../utils/imageUpload'
+import { normalizePublishedTestimonials } from '../utils/publishedTestimonials'
 
 export const CONTENT_DEFAULTS = {
   hero: {
@@ -66,15 +67,20 @@ function requireSupabase() {
 export async function fetchPortalConfiguration(scope, { publicOnly = false } = {}) {
   requireSupabase()
   const defaults = scope === 'content' ? CONTENT_DEFAULTS : SYSTEM_DEFAULTS
-  let query = (publicOnly ? customerSupabase : supabase).from('portal_configuration').select('key,value,is_public,updated_at').eq('scope', scope)
-  if (publicOnly) query = query.eq('is_public', true)
-  const { data, error } = await query
-  if (error) {
-    if (error.code === '42P01' || /portal_configuration/i.test(error.message || '')) return { values: clone(defaults), updatedAt: null, setupRequired: true }
-    throw error
+  try {
+    let query = (publicOnly ? customerSupabase : supabase).from('portal_configuration').select('key,value,is_public,updated_at').eq('scope', scope)
+    if (publicOnly) query = query.eq('is_public', true)
+    const { data, error } = await query
+    if (error) {
+      if (publicOnly || error.code === '42P01' || error.code === '42501' || /portal_configuration/i.test(error.message || '')) return { values: clone(defaults), updatedAt: null, setupRequired: true }
+      throw error
+    }
+    const updatedAt = (data || []).map((row) => row.updated_at).filter(Boolean).sort().at(-1) || null
+    return { values: mergeGroup(defaults, data), updatedAt, setupRequired: false }
+  } catch (err) {
+    if (publicOnly) return { values: clone(defaults), updatedAt: null, setupRequired: true }
+    throw err
   }
-  const updatedAt = (data || []).map((row) => row.updated_at).filter(Boolean).sort().at(-1) || null
-  return { values: mergeGroup(defaults, data), updatedAt, setupRequired: false }
 }
 
 export async function savePortalConfiguration(scope, key, value, isPublic = false) {
@@ -123,15 +129,23 @@ export async function savePaymentConfiguration(settings, qrFiles = {}) {
 }
 
 export async function fetchTestimonials({ publicOnly = false } = {}) {
+  if (publicOnly && (!isSupabaseConfigured || !customerSupabase)) return []
   requireSupabase()
-  let query = supabase.from('site_testimonials').select('*').order('display_order').order('created_at')
-  if (publicOnly) query = query.eq('visible', true)
-  const { data, error } = await query
-  if (error) {
-    if (error.code === '42P01' || /site_testimonials/i.test(error.message || '')) return publicOnly ? DEFAULT_TESTIMONIALS : []
-    throw error
+  try {
+    const client = publicOnly ? customerSupabase : supabase
+    const columns = publicOnly ? 'id,name,username,avatar_url,label,quote,rating,display_order,visible' : '*'
+    let query = client.from('site_testimonials').select(columns).order('display_order').order('created_at')
+    if (publicOnly) query = query.eq('visible', true)
+    const { data, error } = await query
+    if (error) {
+      if (publicOnly || error.code === '42P01' || error.code === '42501' || /site_testimonials/i.test(error.message || '')) return []
+      throw error
+    }
+    return publicOnly ? normalizePublishedTestimonials(data) : data || []
+  } catch (err) {
+    if (publicOnly) return []
+    throw err
   }
-  return data || []
 }
 
 export async function fetchFeedbackCandidates() {
@@ -207,13 +221,19 @@ export async function saveDeliveryZoneSettings(zones) {
 }
 
 export async function fetchPublicPortalData() {
-  if (!isSupabaseConfigured || !supabase) return { content: clone(CONTENT_DEFAULTS), system: clone(SYSTEM_DEFAULTS), testimonials: DEFAULT_TESTIMONIALS }
-  const [content, system, testimonials] = await Promise.all([
-    fetchPortalConfiguration('content', { publicOnly: true }), fetchPortalConfiguration('system', { publicOnly: true }), fetchTestimonials({ publicOnly: true }),
-  ])
-  const nextContent = content.values
-  const legacyHeroCopy = nextContent.hero?.title === 'Fresh coffee, homemade sweets, and slow little moments.'
-    || nextContent.hero?.body === 'We serve comforting coffee-based drinks, freshly baked cookies, homemade cakes, pasta, rice meals, toasts, and snacks in a warm neighborhood space.'
-  if (legacyHeroCopy) nextContent.hero = { ...nextContent.hero, ...CONTENT_DEFAULTS.hero }
-  return { content: nextContent, system: system.values, testimonials }
+  if (!isSupabaseConfigured || !supabase) return { content: clone(CONTENT_DEFAULTS), system: clone(SYSTEM_DEFAULTS), testimonials: [] }
+  try {
+    const [content, system, testimonials] = await Promise.all([
+      fetchPortalConfiguration('content', { publicOnly: true }).catch(() => ({ values: clone(CONTENT_DEFAULTS), updatedAt: null, setupRequired: true })),
+      fetchPortalConfiguration('system', { publicOnly: true }).catch(() => ({ values: clone(SYSTEM_DEFAULTS), updatedAt: null, setupRequired: true })),
+      fetchTestimonials({ publicOnly: true }).catch(() => []),
+    ])
+    const nextContent = content?.values || clone(CONTENT_DEFAULTS)
+    const legacyHeroCopy = nextContent.hero?.title === 'Fresh coffee, homemade sweets, and slow little moments.'
+      || nextContent.hero?.body === 'We serve comforting coffee-based drinks, freshly baked cookies, homemade cakes, pasta, rice meals, toasts, and snacks in a warm neighborhood space.'
+    if (legacyHeroCopy) nextContent.hero = { ...nextContent.hero, ...CONTENT_DEFAULTS.hero }
+    return { content: nextContent, system: system?.values || clone(SYSTEM_DEFAULTS), testimonials: testimonials || [] }
+  } catch {
+    return { content: clone(CONTENT_DEFAULTS), system: clone(SYSTEM_DEFAULTS), testimonials: [] }
+  }
 }

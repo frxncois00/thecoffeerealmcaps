@@ -1,7 +1,6 @@
-import { createContext, useContext, useState } from 'react'
+import { useState } from 'react'
+import { LogoutTransitionContext } from './useLogoutTransition'
 import AuthWelcomeScreen from '../components/auth/AuthWelcomeScreen'
-
-const LogoutTransitionContext = createContext(null)
 
 export function LogoutTransitionProvider({ children }) {
   const [transition, setTransition] = useState(null)
@@ -20,12 +19,4 @@ export function LogoutTransitionProvider({ children }) {
       )}
     </LogoutTransitionContext.Provider>
   )
-}
-
-export const useLogoutTransition = () => {
-  const context = useContext(LogoutTransitionContext)
-  if (!context) {
-    return { transition: null, setTransition: () => {} }
-  }
-  return context
 }

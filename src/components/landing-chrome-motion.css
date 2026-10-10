@@ -1,0 +1,150 @@
+/* Landing chrome and ordering choreography, scoped to the café's home page. */
+.is-landing-page .customer-nav-center a {
+  position: relative;
+  isolation: isolate;
+}
+
+.is-landing-page .customer-nav-center a::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  bottom: 5px;
+  left: 14px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--cr-gold);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--realm-duration-fast, .18s) var(--realm-ease, cubic-bezier(.22, 1, .36, 1));
+}
+
+.is-landing-page .customer-nav-center a:is([aria-current='location'], :focus-visible)::after {
+  transform: scaleX(1);
+}
+
+.is-landing-page :is(.customer-header, .landing-footer-react) :is(a, button):focus-visible {
+  outline: 2px solid var(--cr-gold);
+  outline-offset: 4px;
+}
+
+.is-landing-page .customer-header :is(a, button) {
+  transition: transform var(--realm-duration-fast, .18s) var(--realm-ease, cubic-bezier(.22, 1, .36, 1)), opacity .18s ease;
+}
+
+.is-landing-page[data-landing-motion='true'] .customer-header :is(a, button):active {
+  transform: scale(.97);
+}
+
+.is-landing-page .footer-social-links a {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+}
+
+.is-landing-page .footer-legal a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  text-underline-offset: 4px;
+}
+
+.is-landing-page .footer-legal a:is(:hover, :focus-visible) {
+  text-decoration: underline;
+}
+
+.landing-skip-link {
+  position: fixed;
+  z-index: 100;
+  top: 10px;
+  left: 16px;
+  padding: 12px 18px;
+  border-radius: 8px;
+  background: var(--cr-paper);
+  color: var(--cr-ink);
+  font-weight: 700;
+  transform: translateY(-160%);
+}
+
+.landing-skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--cr-green);
+  outline-offset: 2px;
+}
+
+.ordering-works .ordering-cluster {
+  transition: transform var(--realm-duration-base, .45s) var(--realm-ease, cubic-bezier(.22, 1, .36, 1));
+}
+
+.ordering-works .ordering-cluster-item {
+  animation-play-state: paused;
+  will-change: auto;
+}
+
+.ordering-works[data-ordering-ambient='true'][data-ordering-visible='true'] .ordering-cluster-item {
+  animation-play-state: running;
+}
+
+.ordering-works[data-ordering-ambient='false'] .ordering-cluster-item {
+  animation: none;
+}
+
+.ordering-step-mark {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 38px;
+  color: #31583a;
+}
+
+.ordering-step-mark svg,
+.ordering-step-mark span {
+  grid-area: 1 / 1;
+  transition: transform var(--realm-duration-base, .45s) var(--realm-ease, cubic-bezier(.22, 1, .36, 1)), opacity .3s ease;
+}
+
+.ordering-step-mark span {
+  font-size: .75rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  opacity: 0;
+  transform: translateY(7px);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .is-landing-page[data-landing-motion='true'] .customer-nav-center a:hover::after { transform: scaleX(1); }
+  .ordering-works[data-ordering-ambient='true'] .ordering-step:hover .ordering-cluster { transform: translateY(-5px) scale(1.025); }
+  .ordering-works[data-ordering-ambient='true'] .ordering-step:hover .ordering-step-mark svg { opacity: 0; transform: translateY(-7px); }
+  .ordering-works[data-ordering-ambient='true'] .ordering-step:hover .ordering-step-mark span { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 980px) {
+  .is-landing-page .mobile-menu { display: grid; }
+  .is-landing-page .customer-nav-center a::after { right: auto; width: 28px; left: 16px; }
+  .is-landing-page[data-landing-motion='true'] .customer-header > nav.open { animation: landing-navigation-enter .28s cubic-bezier(.22, 1, .36, 1) both; }
+}
+
+@keyframes landing-navigation-enter {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.is-landing-page[data-landing-motion='false'] :is(.customer-header, .landing-footer-react) :is(a, button),
+.is-landing-page[data-landing-motion='false'] .customer-nav-center a::after {
+  transition: none;
+  animation: none;
+}
+
+.is-landing-page[data-landing-motion='false'] :is(.customer-header, .landing-footer-react) :is(a, button):hover {
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-landing-page .customer-nav-center a::after,
+  .ordering-works .ordering-cluster,
+  .ordering-step-mark svg,
+  .ordering-step-mark span { transition: none; }
+  .is-landing-page .customer-header > nav.open { animation: none; }
+}

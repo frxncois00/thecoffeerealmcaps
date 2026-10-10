@@ -7,10 +7,12 @@ import { useCart } from '../../context/CartContext'
 import { usePricing } from '../../context/usePricing'
 import { isCustomerRole } from '../../lib/auth'
 import LogoutConfirmModal from '../auth/LogoutConfirmModal'
-import { useLogoutTransition } from '../../context/LogoutTransitionContext'
+import { useLogoutTransition } from '../../context/useLogoutTransition'
 import { LandingFooter } from '../../pages/LegalPage'
 import { formatVatRate, vatBreakdownFromInclusiveAmount } from '../../utils/pricing'
 import { lockBodyScroll, restoreBodyScrollIfIdle, unlockBodyScroll } from '../../utils/bodyScrollLock'
+import { useRealmMotion } from '../../motion/useRealmMotion'
+import '../landing-chrome-motion.css'
 
 const centerLinks = [['Menu', '/menu'], ['My Orders', '/orders'], ['Help', '/help'], ['Profile', '/profile']]
 const landingLinks = [['Menu', '#menu'], ['Our Story', '#about'], ['Visit Us', '#visit']]
@@ -19,6 +21,10 @@ const money = (value) => new Intl.NumberFormat('en-PH', { style: 'currency', cur
 export default function CustomerLayout() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [activeAnchor, setActiveAnchor] = useState('')
+  const menuButtonRef = useRef(null)
+  const navigationRef = useRef(null)
+  const { enabled } = useRealmMotion()
   const [logoutOpen, setLogoutOpen] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
   const { setTransition: setLogoutTransition } = useLogoutTransition()
@@ -35,6 +41,55 @@ export default function CustomerLayout() {
   const isLandingPage = location.pathname === '/'
   const isPublicLandingChrome = true
   const publicLinks = landingLinks.map(([label, href]) => [label, isLandingPage ? href : `/${href}`])
+
+  useEffect(() => {
+    if (!open) return undefined
+    const firstLink = navigationRef.current?.querySelector('a')
+    const frame = window.requestAnimationFrame(() => firstLink?.focus())
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      setOpen(false)
+      menuButtonRef.current?.focus()
+    }
+    const onPointerDown = (event) => {
+      if (navigationRef.current?.contains(event.target) || menuButtonRef.current?.contains(event.target)) return
+      setOpen(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('pointerdown', onPointerDown)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!isLandingPage || customerUser) return undefined
+    let frame = 0
+    const updateActiveAnchor = () => {
+      frame = 0
+      const readingLine = window.innerHeight * 0.4
+      let current = ''
+      for (const [, href] of landingLinks) {
+        const section = document.querySelector(href)
+        if (section && section.getBoundingClientRect().top <= readingLine) current = href
+      }
+      setActiveAnchor((previous) => previous === current ? previous : current)
+    }
+    const scheduleUpdate = () => {
+      if (!frame) frame = window.requestAnimationFrame(updateActiveAnchor)
+    }
+    scheduleUpdate()
+    window.addEventListener('scroll', scheduleUpdate, { passive: true })
+    window.addEventListener('resize', scheduleUpdate, { passive: true })
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('scroll', scheduleUpdate)
+      window.removeEventListener('resize', scheduleUpdate)
+    }
+  }, [isLandingPage, customerUser])
 
   useEffect(() => {
     const previousRestoration = window.history.scrollRestoration
@@ -153,34 +208,37 @@ export default function CustomerLayout() {
   }
 
   return (
-    <div className="customer-app">
+    <div className={`customer-app${isLandingPage ? ' is-landing-page' : ''}`} data-landing-motion={isLandingPage ? enabled : undefined}>
+      {isLandingPage && <a className="landing-skip-link" href="#main-content">Skip to content</a>}
       <header className={`customer-header${scrolled ? ' is-scrolled' : ''}`}>
         <div className="customer-brand"><Brand /></div>
-        <button className="mobile-cart" type="button" onClick={cart.openCart} aria-label={`Open cart${cart.itemCount ? `, ${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}` : ''}`} aria-haspopup="dialog">
+        <button className="mobile-cart" type="button" onClick={cart.openCart} aria-label={`Open cart${cart.itemCount ? `, ${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}` : ''}`} aria-haspopup="dialog" aria-controls="customer-cart-drawer" aria-expanded={cart.drawerOpen}>
           <ShoppingCart size={19} />
           {cart.itemCount > 0 && <b key={cart.itemCount} className="cart-count-pulse" aria-hidden="true">{cart.itemCount}</b>}
         </button>
         <button
+          ref={menuButtonRef}
           className="mobile-menu"
+          type="button"
           onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
           aria-controls="customer-navigation"
-          aria-label="Toggle navigation"
+          aria-label={open ? 'Close navigation' : 'Open navigation'}
         >
           {open ? <X /> : <Menu />}
         </button>
-        <nav id="customer-navigation" className={open ? 'open' : ''}>
+        <nav ref={navigationRef} id="customer-navigation" className={open ? 'open' : ''} aria-label="Main navigation">
           <div className="customer-nav-center">
             {customerUser
               ? centerLinks.map(([label, to]) => <NavLink key={to} to={to} onClick={close}>{label}</NavLink>)
               : isPublicLandingChrome
-                ? publicLinks.map(([label, href]) => <a key={href} href={href} onClick={close}>{label}</a>)
+                ? publicLinks.map(([label, href]) => <a key={href} href={href} onClick={close} aria-current={isLandingPage && activeAnchor === href ? 'location' : undefined}>{label}</a>)
                 : null}
           </div>
           <div className="customer-nav-actions">
-            <button className="nav-cart" type="button" onClick={() => { close(); cart.openCart() }} aria-haspopup="dialog">
+            <button className="nav-cart" type="button" onClick={() => { close(); cart.openCart() }} aria-label={`Open cart${cart.itemCount ? `, ${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}` : ''}`} aria-haspopup="dialog" aria-controls="customer-cart-drawer" aria-expanded={cart.drawerOpen}>
               <ShoppingCart size={18} />
-              {cart.itemCount > 0 && <b key={cart.itemCount} className="cart-count-pulse" aria-label={`${cart.itemCount} cart items`}>{cart.itemCount}</b>}
+              {cart.itemCount > 0 && <b key={cart.itemCount} className="cart-count-pulse" aria-hidden="true">{cart.itemCount}</b>}
             </button>
             {customerUser ? (
               <button className="nav-auth-action" type="button" onClick={() => setLogoutOpen(true)}>
@@ -198,7 +256,7 @@ export default function CustomerLayout() {
       </header>
       <div className="customer-route-shell" key={location.pathname}><Outlet /></div>
       <CartDrawer cart={cart} user={customerUser} />
-      <LandingFooter />
+      <LandingFooter animated={isLandingPage} />
       <LogoutConfirmModal
         open={logoutOpen}
         busy={loggingOut}
@@ -248,6 +306,7 @@ function CartDrawer({ cart, user }) {
         tabIndex={cart.drawerOpen ? 0 : -1}
       />
       <aside
+        id="customer-cart-drawer"
         className={`cart-drawer ${cart.drawerOpen ? 'open' : ''}`}
         role="dialog"
         aria-modal="true"

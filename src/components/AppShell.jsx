@@ -5,7 +5,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 const rememberedSidebarNavScroll = { admin: null, staff: null }
 import { signOutPortal } from '../lib/auth'
 import LogoutConfirmModal from './auth/LogoutConfirmModal'
-import { useLogoutTransition } from '../context/LogoutTransitionContext'
+import { useLogoutTransition } from '../context/useLogoutTransition'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
