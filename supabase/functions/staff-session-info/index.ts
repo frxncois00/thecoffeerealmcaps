@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.1";
+import { hasPortalAccess } from "../_shared/portalAccess.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -76,6 +77,7 @@ Deno.serve(async (request) => {
 
   const role = String(profile?.role || "").trim().toLowerCase().replace(/[ -]+/g, "_");
   if (profile?.removed_at || !["staff", "operational_staff", "operations_staff", "operation_staff"].includes(role)) return json({ error: "Staff access required." }, 403);
+  if (!await hasPortalAccess(supabaseUrl, serviceRoleKey, userData.user.id, authorization)) return json({ error: "Verified portal session required." }, 403);
 
   const ip = requestIp(request);
   if (!ip) return json({ ip: null, city: null, region: null, countryCode: null, approximate: true });

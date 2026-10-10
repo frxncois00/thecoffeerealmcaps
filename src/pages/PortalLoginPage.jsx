@@ -1,5 +1,5 @@
 import { ArrowRight, Coffee, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { normalizeRole, roleRoutes, signInPortal } from '../lib/auth'
 import { fetchStaffPreferences } from '../services/staffSettingsService'
@@ -11,12 +11,15 @@ export default function PortalLoginPage() {
   const [role, setRole] = useState('admin')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const signInPending = useRef(false)
   const [message, setMessage] = useState('')
   const navigate = useNavigate()
   const location = useLocation()
 
   async function submit(event) {
     event.preventDefault()
+    if (signInPending.current) return
+    signInPending.current = true
     setMessage('')
     setLoading(true)
     const form = new FormData(event.currentTarget)
@@ -24,9 +27,13 @@ export default function PortalLoginPage() {
     const password = String(form.get('password') || '')
 
     try {
-      const { profile } = await signInPortal({ identifier, password, role })
-      try { await recordPortalSession() } catch { /* Sign-in remains available if session logging is temporarily unavailable. */ }
+      const { profile, security } = await signInPortal({ identifier, password, role })
+      try { await recordPortalSession() } catch { /* Session status already registered the login when security is enabled. */ }
       const normalizedRole = normalizeRole(profile.role || role)
+      if (normalizedRole === 'admin' && security && !security.authorized) {
+        navigate('/admin/mfa', { replace: true })
+        return
+      }
       let target = location.state?.from || roleRoutes[normalizedRole] || roleRoutes[role] || '/portal'
       if (!location.state?.from && ['staff', 'operational_staff'].includes(normalizedRole)) {
         try {
@@ -43,6 +50,7 @@ export default function PortalLoginPage() {
         ? 'Supabase is rejecting the sign-in token (PGRST303). Please contact your Supabase project administrator.'
         : error.message || 'Unable to sign in. Please check the account and role.')
     } finally {
+      signInPending.current = false
       setLoading(false)
     }
   }

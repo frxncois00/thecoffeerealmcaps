@@ -16,7 +16,7 @@ export default function CustomerPageMotion() {
 
   useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined
-    const publicPath = /^(\/$|\/menu(?:\/|$)|\/about$|\/contact$|\/privacy-policy$|\/terms-of-use$|\/help$|\/checkout(?:\/|$)|\/orders(?:\/|$)|\/profile(?:\/|$)|\/complete-profile$|\/login$|\/register$)/.test(pathname)
+    const publicPath = /^(\/$|\/menu(?:\/|$)|\/about$|\/contact$|\/privacy-policy$|\/terms-of-use$|\/help$|\/checkout(?:\/|$)|\/orders(?:\/|$)|\/profile(?:\/|$)|\/realm-passport$|\/complete-profile$|\/login$|\/register$)/.test(pathname)
     if (!publicPath) return undefined
 
     const observer = new IntersectionObserver((entries) => {

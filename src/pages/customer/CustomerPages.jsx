@@ -7,6 +7,7 @@ import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePricing } from '../../context/usePricing'
 import { createCustomerOrderWithBenefitDiscount, createPaymongoCheckout, verifyPaymongoPayment, fetchCustomerBenefitApplication, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, checkCustomerPaymentReference, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, confirmCustomerOrderReceived, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
+import RealmPassportProfileLink from '../../components/customer/RealmPassportProfileLink'
 import { deliveryAreas } from '../../data/deliveryAreas'
 import { money } from '../../utils/money'
 import { describeError } from '../../utils/describeError'
@@ -1218,7 +1219,7 @@ export function ProfilePage(){
     <section className="page-title"><span>Your account</span><h1>Profile</h1><p>Manage your picture, personal information, account security, and delivery addresses in one place.</p></section>
     <section className="settings-stack">
       <form className="account-card settings-section" onSubmit={submit} aria-busy={savingProfile}>
-        <header><div><span className="settings-kicker">Profile details</span><h2>Personal information</h2></div></header>
+        <header><div><span className="settings-kicker">Profile details</span><h2>Personal information</h2></div><RealmPassportProfileLink/></header>
         <div className="profile-picture-editor">
           <div className="profile-picture-preview">{avatarUrl?<img src={avatarUrl} alt={`Profile preview for ${values.full_name||'customer'}`}/>:<span aria-hidden="true">{avatarInitials}</span>}</div>
           <div className="profile-picture-copy">

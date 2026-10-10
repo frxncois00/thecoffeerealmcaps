@@ -1,0 +1,19 @@
+.admin-mfa-page{min-height:100vh;display:grid;place-items:center;padding:24px;background:#eef4ef;color:#183828}
+.admin-mfa-card{width:min(100%,440px);padding:32px;border:1px solid #d4e3d8;border-radius:20px;background:#fff;box-shadow:0 22px 60px #173c291a}
+.admin-mfa-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:#e4f1e6;color:#245b3b}
+.admin-mfa-card h1{font-size:1.55rem;margin:18px 0 8px}.admin-mfa-card p{line-height:1.5;color:#52685a}
+.admin-mfa-card form{display:grid;gap:10px;margin-top:20px}.admin-mfa-card form>label:first-child{font-weight:700}
+.admin-mfa-card input:not([type=checkbox]){width:100%;padding:12px 14px;border:1px solid #b9cbbb;border-radius:10px;font:inherit}
+.admin-mfa-primary,.admin-mfa-secondary{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:10px;padding:11px 16px;font:inherit;font-weight:700;cursor:pointer}
+.admin-mfa-primary{width:100%;border:0;background:#245b3b;color:#fff;margin-top:12px}.admin-mfa-primary:disabled{opacity:.5;cursor:not-allowed}
+.admin-mfa-secondary{border:1px solid #9fbba6;background:#fff;color:#245b3b;margin-top:12px}
+.admin-mfa-setup{display:grid;justify-items:center;gap:8px;margin-top:18px;padding:18px;border-radius:14px;background:#f5f9f5;text-align:center}
+.admin-mfa-setup code{word-break:break-all;font-size:.9rem;color:#173c29}.admin-mfa-setup p{margin:0;font-weight:700}
+.admin-mfa-check{display:flex;align-items:center;gap:9px;margin-top:8px;font-size:.9rem}.admin-mfa-error{padding:10px 12px;background:#fff0ee;border-radius:9px;color:#a43426!important}
+.admin-mfa-backups{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:20px}.admin-mfa-backups code{padding:8px;background:#f0f6f0;border-radius:6px;text-align:center;font-size:.76rem}
+.admin-mfa-dialog{margin:auto;max-height:calc(100dvh - 32px);overflow:auto;color:#183828;padding:24px}
+.admin-mfa-dialog::backdrop{background:#10281db3}
+.admin-mfa-modal-header{display:flex;align-items:center;justify-content:space-between;gap:16px}.admin-mfa-modal-header h2{margin:0;font-size:1.2rem}.admin-mfa-modal-header button{display:grid;place-items:center;border:0;border-radius:8px;background:#eef4ef;color:#245b3b;padding:8px;cursor:pointer}
+.admin-mfa-card select{width:100%;padding:10px;border:1px solid #b9cbbb;border-radius:10px;font:inherit;background:#fff;color:inherit}
+.admin-mfa-confirm{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:24px;background:#fff;border-radius:20px}.admin-mfa-confirm h3{margin:0}.admin-mfa-secondary:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:480px){.admin-mfa-dialog{width:calc(100% - 24px);padding:18px}.admin-mfa-backups{grid-template-columns:1fr}.admin-mfa-page{padding:16px}.admin-mfa-card{box-sizing:border-box}}

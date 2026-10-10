@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.1";
+import { hasPortalAccess } from "../_shared/portalAccess.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -36,6 +37,9 @@ Deno.serve(async (request) => {
       .select("id,role,removed_at,full_name,username,email").eq("id", authData.user.id).maybeSingle();
     if (callerError || caller?.removed_at || String(caller?.role || "").trim().toLowerCase() !== "admin") {
       return json({ success: false, error: "Administrator access required." }, 403);
+    }
+    if (!await hasPortalAccess(supabaseUrl, serviceRoleKey, authData.user.id, `Bearer ${token}`)) {
+      return json({ success: false, error: "Verified admin session required." }, 403);
     }
 
     const body = await request.json();

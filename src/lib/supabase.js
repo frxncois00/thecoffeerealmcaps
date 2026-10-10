@@ -29,3 +29,4 @@ export const customerSupabase = makeClient('coffee-realm-customer-auth', true)
 // import customerSupabase explicitly so the two sessions cannot overwrite one another.
 export const supabase = portalSupabase
 export const isSupabaseConfigured = Boolean(portalSupabase && customerSupabase)
+export const isPortalSecurityEnabled = import.meta.env.VITE_PORTAL_SECURITY_ENABLED === 'true'

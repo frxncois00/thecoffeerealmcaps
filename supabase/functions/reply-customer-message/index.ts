@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import nodemailer from "npm:nodemailer@7.0.5";
+import { hasPortalAccess } from "../_shared/portalAccess.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,6 +38,7 @@ serve(async (req) => {
     const profiles = await profileResponse.json();
     const profile = profiles[0];
     if (!profile || profile.removed_at || !["admin", "staff", "operational_staff"].includes(normalizeRole(profile.role))) throw new Error("Staff access required.");
+    if (!await hasPortalAccess(supabaseUrl, serviceKey, user.id, authorization)) throw new Error("Verified portal session required.");
 
     const body = await req.json();
     const messageId = String(body.message_id || "").trim();

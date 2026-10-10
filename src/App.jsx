@@ -14,11 +14,13 @@ import LegalPage from './pages/LegalPage'
 import HelpPage from './pages/customer/HelpPage'
 import ContactPage from './pages/customer/ContactPage'
 import BenefitsPage from './pages/customer/BenefitsPage'
+import RealmPassportPage from './pages/customer/RealmPassportPage'
 import InventoryStockPage from './pages/InventoryStockPage'
 import ManageMenuPage from './pages/ManageMenuPage'
 import OrderPreparationPage from './pages/OrderPreparationPage'
 import PurchaseOrdersPage from './pages/PurchaseOrdersPage'
 import PortalLoginPage from './pages/PortalLoginPage'
+import AdminMfaPage from './pages/AdminMfaPage'
 import StaffDashboard from './pages/StaffDashboard'
 import StaffSettingsPage from './pages/StaffSettingsPage'
 import TransactionsPage from './pages/TransactionsPage'
@@ -59,6 +61,7 @@ export default function App() {
           <Route path="/orders/:id/confirmation" element={protect(<OrderConfirmationPage />)} />
           <Route path="/orders/:id/track" element={protect(<Navigate to="/orders" replace />)} />
           <Route path="/profile" element={protect(<ProfilePage />)} />
+          <Route path="/realm-passport" element={protect(<RealmPassportPage />)} />
           <Route path="/complete-profile" element={protect(<CustomerOnboardingPage />)} />
           <Route path="/profile/benefits" element={protect(<BenefitsPage />)} />
           <Route path="/addresses" element={<Navigate to="/profile" replace />} />
@@ -69,6 +72,7 @@ export default function App() {
         <Route path="/register" element={<CustomerLoginPage initialMode="register" />} />
         <Route path="/auth/callback" element={<CustomerOAuthCallbackPage />} />
         <Route path="/portal" element={<PortalLoginPage />} />
+        <Route path="/admin/mfa" element={<ProtectedRoute allowedRoles={['admin']} allowMfaPending><AdminMfaPage /></ProtectedRoute>} />
 
         <Route
           path="/cashier"

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { hasPortalAccess } from '../_shared/portalAccess.ts'
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type' }
 const allowedRoles = new Set(['admin', 'staff', 'cashier'])
@@ -18,6 +19,7 @@ Deno.serve(async (request) => {
     const rawRole = String(profile?.role || '').toLowerCase().replace(/[\s-]+/g, '_')
     const role = ['operational_staff', 'operation_staff', 'operations_staff'].includes(rawRole) ? 'staff' : rawRole
     if (!allowedRoles.has(role) || profile?.removed_at) return json({ error: 'Raimu is only available to active internal users.' }, 403)
+    if (!await hasPortalAccess(Deno.env.get('SUPABASE_URL')!, serviceKey, user.id, authHeader)) return json({ error: 'Verified portal session required.' }, 403)
     const body = await request.json()
     if (body?.action === 'advance_order') {
       if (!['admin', 'staff'].includes(role)) return json({ error: 'Operations access required.' }, 403)
