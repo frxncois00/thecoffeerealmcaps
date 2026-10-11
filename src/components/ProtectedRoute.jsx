@@ -4,19 +4,18 @@ import { getCurrentPortalSession, normalizeRole, roleRoutes } from '../lib/auth'
 
 export default function ProtectedRoute({ allowedRoles, children, allowMfaPending = false }) {
   const location = useLocation()
-  const [state, setState] = useState({ path: null, loading: true, profile: null, security: null })
+  const [state, setState] = useState({ loading: true, profile: null, security: null })
 
   useEffect(() => {
     let active = true
-    setState({ path: location.pathname, loading: true, profile: null, security: null })
     getCurrentPortalSession().then(({ profile, security }) => {
       if (!active) return
-      setState({ path: location.pathname, loading: false, profile, security })
+      setState({ loading: false, profile, security })
     })
     return () => { active = false }
   }, [location.pathname])
 
-  if (state.path !== location.pathname || state.loading) return <div className="auth-loading">Checking portal access...</div>
+  if (state.loading) return <div className="auth-loading">Checking portal access...</div>
   if (!state.profile) return <Navigate to="/portal" replace state={{ from: location.pathname }} />
 
   const actualRole = normalizeRole(state.profile.role)

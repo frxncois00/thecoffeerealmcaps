@@ -29,7 +29,7 @@ const adminGroups = [
   { label: 'Operations', links: [['Inventory Monitoring','/admin/inventory',Boxes],['Purchase Orders','/admin/purchase-orders',ClipboardCheck],['Menu Approvals','/admin/menu-approvals',ClipboardCheck],['Benefits Verification','/admin/benefits-verification',ShieldCheck],['Transaction History','/admin/transactions',ReceiptText]] },
   { label: 'Reports', links: [['Sales Reports','/admin/reports',FileBarChart],['Inventory Report','/admin/inventory-report',ClipboardList],['Cancellation & Refunds','/admin/cancellations',ShieldCheck]] },
   { label: '', links: [['Analytics','/admin/analytics',BarChart3]] },
-  { label: 'Administration', links: [['Content Management','/admin/content',MenuSquare],['Raimu Knowledge','/admin/raimu-knowledge',Bot],['Users & Access','/admin/users-access',Users],['System Settings','/admin/settings',Settings]] },
+  { label: 'Administration', links: [['Content Management','/admin/content',MenuSquare],['Users & Access','/admin/users-access',Users],['System Settings','/admin/settings',Settings]] },
   { label: '', links: [['Settings','/admin/preferences',Settings]] },
 ]
 const staffGroups = [{ label:'', links:[['Order Preparation','/staff',ClipboardList],['Inventory Management','/staff/inventory',Boxes],['Purchase Orders','/staff/purchase-orders',ClipboardCheck],['Manage Menu','/staff/menu',Coffee],['Transactions','/staff/transactions',ReceiptText],['Settings','/staff/settings',Settings]] }]
