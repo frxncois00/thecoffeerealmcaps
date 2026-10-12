@@ -7,7 +7,6 @@ import { BENEFIT_STATUS, benefitKind, submitBenefitApplication, validateBenefitI
 import { IMAGE_UPLOAD_ACCEPT, validateImageFile } from '../../utils/imageUpload'
 import { sanitizePersonName } from '../../utils/inputValidation'
 import BenefitDocument from '../../components/BenefitDocument'
-import BenefitBirthDateField from '../../components/customer/BenefitBirthDateField'
 import '../../benefits.css'
 
 const STEPS = [['Details & ID photo', 'Fill in your details and upload your valid ID.'], ['Review & submit', 'Check your information before submitting.']]
@@ -46,7 +45,8 @@ function ApplicationForm({ application, fullName, accountBirthdate, onSubmitted 
   const now = new Date()
   const accountAge = accountDate ? now.getFullYear() - accountDate.getFullYear() - (now.getMonth() < accountDate.getMonth() || (now.getMonth() === accountDate.getMonth() && now.getDate() < accountDate.getDate()) ? 1 : 0) : null
   const canApplySenior = accountAge !== null && accountAge >= 60
-  const [values, setValues] = useState({ kind: application?.kind || (canApplySenior ? 'senior' : 'pwd'), full_name: application?.full_name || fullName, date_of_birth: application?.date_of_birth || accountBirthdate || '', id_number: application?.id_number || '' })
+  const [draft, setValues] = useState({ kind: application?.kind || (canApplySenior ? 'senior' : 'pwd'), full_name: application?.full_name || fullName, id_number: application?.id_number || '' })
+  const values = { ...draft, date_of_birth: accountBirthdate }
   const [step, setStep] = useState(0)
   const [file, setFile] = useState(null)
   const [preview, setPreview] = useState('')
@@ -88,7 +88,6 @@ function ApplicationForm({ application, fullName, accountBirthdate, onSubmitted 
     catch (cause) { setError(cause.message || 'Your application could not be submitted. Please try again.') }
     finally { setBusy(false) }
   }
-  const today = new Date().toLocaleDateString('en-CA')
   return <section className="benefit-wizard" aria-label="Verification application">
     <ol className="benefit-steps">{STEPS.map(([title, description], index) => <li key={title} className={index === step ? 'is-current' : index < step ? 'is-complete' : ''} aria-current={index === step ? 'step' : undefined}><span className="benefit-step-number">{index < step ? <Check size={20}/> : index + 1}</span><div><b>{title}</b><p>{description}</p></div></li>)}</ol>
     <form className="benefit-form" onSubmit={next}>
@@ -97,7 +96,7 @@ function ApplicationForm({ application, fullName, accountBirthdate, onSubmitted 
       {step === 0 && <>
         <fieldset className="benefit-kind"><legend>I am applying as <span aria-hidden="true">*</span></legend>{['senior','pwd'].map(kind => <label key={kind}><input type="radio" name="benefit-kind" checked={values.kind === kind} disabled={kind === 'senior' && !canApplySenior} onChange={() => update('kind', kind)}/>{benefitKind(kind)}{kind === 'senior' && !canApplySenior ? ' (requires age 60+)' : ''}</label>)}</fieldset>
         <label className="field"><span>Full name *</span><input required minLength={2} maxLength={60} autoComplete="name" value={values.full_name} onChange={event => update('full_name', sanitizePersonName(event.target.value))}/></label>
-        <div className="benefit-form-grid"><BenefitBirthDateField value={values.date_of_birth} onChange={value => update('date_of_birth', value)} max={today}/><label className="field"><span>ID number *</span><input required type="text" inputMode="numeric" pattern="[0-9]{3,20}" minLength={3} maxLength={20} title="Enter 3–20 digits only." value={values.id_number} onChange={event => update('id_number', event.target.value.replace(/[^0-9]/g, '').slice(0,20))}/><small>Numbers only · Maximum 20 digits</small></label></div>
+        <div className="benefit-form-grid"><label className="field locked-field"><span>Date of birth</span><input type="date" readOnly aria-readonly="true" value={values.date_of_birth}/><small>Automatically filled from your account.</small></label><label className="field"><span>ID number *</span><input required type="text" inputMode="numeric" pattern="[0-9]{3,20}" minLength={3} maxLength={20} title="Enter 3–20 digits only." value={values.id_number} onChange={event => update('id_number', event.target.value.replace(/[^0-9]/g, '').slice(0,20))}/><small>Numbers only · Maximum 20 digits</small></label></div>
       </>}
       {step === 0 && <>
         <p>Upload a clear, complete image showing your name, photo and ID number.</p>

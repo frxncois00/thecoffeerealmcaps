@@ -252,6 +252,8 @@ export function ReceiptPaper({ order, defaultVatRate = 0.12, defaultPricesInclud
 
       <div className="receipt-line" />
 
+      {data.realmPassportId ? <div className="receipt-row"><span className="receipt-label">Realm Passport ID:</span><span className="receipt-value">{data.realmPassportId}</span></div> : null}
+
       {/* Footer message */}
       <div className="receipt-footer">
         {data.isDelivery ? (

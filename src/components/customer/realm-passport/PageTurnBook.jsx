@@ -1,297 +1,196 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { animate, motion, useMotionValue, useReducedMotion, useTransform } from 'framer-motion'
-import { ArrowLeft, ArrowRight, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import { PageFlip } from 'page-flip'
+import { useReducedMotion } from 'framer-motion'
+import { ArrowLeft, ArrowRight, BookOpen, Gift, UserRound, X } from 'lucide-react'
 import PageIndicator from './PageIndicator'
 import './page-turn.css'
 
-const TURN_EASE = [0.22, 0.65, 0.3, 1]
-const DESKTOP_QUERY = '(min-width: 900px)'
-const clamp = value => Math.max(0, Math.min(1, value))
-
-function Spread({ page, wide, renderPage, active = false, hideLeft = false }) {
-  return <div className="rp-resting-spread">
-    <div className={`rp-page-slot ${wide ? 'rp-page-left' : ''}`} style={hideLeft ? { visibility: 'hidden' } : undefined}>
-      {renderPage(page, { active: active && !hideLeft })}
-    </div>
-    {wide && <div className="rp-page-slot rp-page-right">{renderPage(page + 1, { active })}</div>}
-    {wide && <div className="rp-spine" aria-hidden="true"><i/><i/><i/></div>}
-  </div>
-}
-
-function BookSnapshot({ page, wide, renderPage, renderCover, active = false, onOpen }) {
-  return page === null
-    ? <div className="rp-cover-slot">{renderCover({ onOpen, interactive: active })}</div>
-    : <Spread page={page} wide={wide} renderPage={renderPage} active={active}/>
-}
-
-function BookBinding({ turn, progress }) {
-  const opacity = useTransform(progress, [0, 1], turn?.from === null ? [0, 1] : turn?.to === null ? [1, 0] : [1, 1])
-  return <motion.div className="rp-binding" style={{ opacity }} aria-hidden="true"/>
-}
-
-const SHEET_SEGMENTS = 5
-
-// Five connected strips give the sheet a shallow curve. Each face clips a
-// full-size page; only the hinges move, so text and stamp artwork stay intact.
-function PaperStrip({ index = 0, progress, forward, front, back }) {
-  const rotation = useTransform(progress, value => {
-    const phase = forward ? value : 1 - value
-    const bend = Math.sin(Math.PI * phase) * 32
-    return index === 0 ? -180 * phase - bend / 2 : bend / (SHEET_SEGMENTS - 1)
-  })
-  const shade = useTransform(progress, value => Math.sin(Math.PI * value) * (0.035 + index * 0.014))
-  return <motion.div className={`rp-paper-strip ${index === 0 ? 'rp-paper-strip-root' : ''}`} style={{ rotateY: rotation }}>
-    <div className="rp-strip-face rp-strip-front">
-      <div className="rp-strip-content" style={{ left: `${-index * 100}%` }}>{front}</div>
-      <motion.span className="rp-sheet-shade" style={{ opacity: shade }} />
-    </div>
-    <div className="rp-strip-face rp-strip-back">
-      <div className="rp-strip-content" style={{ left: `${-(SHEET_SEGMENTS - 1 - index) * 100}%` }}>{back}</div>
-      <motion.span className="rp-sheet-shade" style={{ opacity: shade }} />
-    </div>
-    {index + 1 < SHEET_SEGMENTS && <PaperStrip index={index + 1} progress={progress} forward={forward} front={front} back={back} />}
-  </motion.div>
-}
-
-function TurningPages({ turn, progress, wide, reducedMotion, renderPage, renderCover }) {
-  const opening = turn.from === null
-  const closing = turn.to === null
-  const forward = opening || (!closing && turn.to > turn.from)
-  const cover = opening || closing
-  const rotation = useTransform(progress, [0, 1], wide
-    ? forward ? [0, -180] : [-180, 0]
-    : closing ? [-180, 0] : [0, -180])
-  const travel = useTransform(progress, [0, 1], wide && cover
-    ? opening ? ['-50%', '0%'] : ['0%', '-50%']
-    : ['0%', '0%'])
-  const sourceOpacity = useTransform(progress, [0, 1], [1, 0])
-  const destinationOpacity = useTransform(progress, [0, 1], [0, 1])
-  const paperOpacity = useTransform(progress, [0, 1], opening ? [0, 1] : closing ? [1, 0] : [1, 1])
-  const shade = useTransform(progress, [0, 0.5, 1], [0, 0.12, 0])
-
-  // Copies are inert and always inactive: a turning leaf never consumes a stamp's entrance.
-  if (reducedMotion) return <div className="rp-turn-scene" aria-hidden="true" inert>
-    <motion.div className="rp-snapshot" style={{ opacity: sourceOpacity }}>
-      <BookSnapshot page={turn.from} wide={wide} renderPage={renderPage} renderCover={renderCover}/>
-    </motion.div>
-    <motion.div className="rp-snapshot" style={{ opacity: destinationOpacity }}>
-      <BookSnapshot page={turn.to} wide={wide} renderPage={renderPage} renderCover={renderCover}/>
-    </motion.div>
-  </div>
-
-  const restingPage = opening ? 0 : closing ? turn.from : turn.to
-  let front
-  let back
-  let resting
-  if (wide) {
-    front = cover ? renderCover({ interactive: false }) : renderPage((forward ? turn.from : turn.to) + 1, { active: false })
-    back = renderPage(opening ? 0 : closing ? turn.from : forward ? turn.to : turn.from, { active: false })
-    resting = cover
-      ? <Spread page={restingPage} wide renderPage={renderPage} hideLeft/>
-      : <div className="rp-resting-spread">
-        <div className="rp-page-slot rp-page-left">{renderPage(forward ? turn.from : turn.to, { active: false })}</div>
-        <div className="rp-page-slot rp-page-right">{renderPage((forward ? turn.to : turn.from) + 1, { active: false })}</div>
-        <div className="rp-spine" aria-hidden="true"><i/><i/><i/></div>
-      </div>
-  } else {
-    front = cover ? renderCover({ interactive: false }) : renderPage(forward ? turn.from : turn.to, { active: false })
-    back = <div className="rp-paper rp-paper-reverse" />
-    resting = <Spread page={cover ? restingPage : forward ? turn.to : turn.from} renderPage={renderPage}/>
-  }
-
-  return <div className="rp-turn-scene" aria-hidden="true" inert>
-    <motion.div className="rp-snapshot" style={{ opacity: paperOpacity }}>{resting}</motion.div>
-    {cover ? <motion.div className="rp-leaf rp-cover-leaf" style={{ rotateY: rotation, x: travel }}>
-      <div className="rp-leaf-face rp-leaf-front">{front}<motion.span className="rp-leaf-shade" style={{ opacity: shade }}/></div>
-      <div className="rp-leaf-face rp-leaf-back">{back}<motion.span className="rp-leaf-shade" style={{ opacity: shade }}/></div>
-    </motion.div> : <div className="rp-leaf rp-flexible-sheet" style={{ '--rp-sheet-segments': SHEET_SEGMENTS }}>
-      <PaperStrip progress={progress} forward={forward} front={front} back={back} />
-    </div>}
-  </div>
-}
-
-export default function PageTurnBook({ pages, renderPage, renderCover, currentPage = 1, onPageChange }) {
-  const [page, setPage] = useState(null)
-  const [wide, setWide] = useState(() => typeof window !== 'undefined' && window.matchMedia(DESKTOP_QUERY).matches)
-  const [turn, setTurn] = useState(null)
-  const progress = useMotionValue(0)
-  const reducedMotion = useReducedMotion()
-  const instructionsId = useId()
-  const bookRef = useRef(null)
-  const pageRef = useRef(null)
-  const turnRef = useRef(null)
-  const animationRef = useRef(null)
-  const pointerRef = useRef(null)
-  const suppressClickUntil = useRef(0)
-  const wideRef = useRef(wide)
-  const onPageChangeRef = useRef(onPageChange)
-  onPageChangeRef.current = onPageChange
-
-  const normalize = useCallback(value => value === null ? null : Math.floor(Math.max(0, Math.min(pages.length - 1, value)) / (wideRef.current ? 2 : 1)) * (wideRef.current ? 2 : 1), [pages.length])
-
-  const finish = useCallback(commit => {
-    const pending = turnRef.current
-    if (!pending) return
-    // Clear the lock before stopping an animation; stale completion callbacks are harmless.
-    turnRef.current = null
-    animationRef.current?.stop()
-    animationRef.current = null
-    pointerRef.current = null
-    const next = normalize(commit ? pending.to : pending.from)
-    pageRef.current = next
-    setPage(next)
-    setTurn(null)
-    onPageChangeRef.current?.(next)
-  }, [normalize])
-
-  const settle = useCallback(commit => {
-    const pending = turnRef.current
-    if (!pending) return
-    animationRef.current?.stop()
-    const distance = Math.abs((commit ? 1 : 0) - progress.get())
-    animationRef.current = animate(progress, commit ? 1 : 0, {
-      duration: reducedMotion ? 0.16 : Math.max(0.2, 0.62 * distance),
-      ease: TURN_EASE,
-      onComplete: () => { if (turnRef.current === pending) finish(commit) },
-    })
-  }, [finish, progress, reducedMotion])
-
-  const begin = useCallback((destination, dragging = false) => {
-    if (turnRef.current) return false
-    // Every opening starts with the identity page, including keyboard shortcuts.
-    const target = normalize(pageRef.current === null && destination !== null ? 0 : destination)
-    if (target === pageRef.current) return false
-    const pending = { from: pageRef.current, to: target }
-    if (bookRef.current?.contains(document.activeElement)) bookRef.current.focus({ preventScroll: true })
-    progress.set(0)
-    turnRef.current = pending
-    setTurn(pending)
-    if (!dragging) settle(true)
-    return true
-  }, [normalize, progress, settle])
-
+// The engine owns its DOM shells; React owns only the portal contents.
+// Cleanup can safely destroy the engine without removing React-owned nodes.
+function OpenBook({ pages, renderPage, onClose, initialPage = 0 }) {
+  const host = useRef(null)
+  const engine = useRef(null)
+  const gesture = useRef(null)
+  const currentPage = useRef(initialPage)
+  const [shells, setShells] = useState([])
+  const [page, setPage] = useState(initialPage)
+  const [portrait, setPortrait] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const reduced = useReducedMotion()
+  const pageCount = pages.length
   useEffect(() => {
-    const query = window.matchMedia(DESKTOP_QUERY)
-    const handleResize = () => {
-      // A resize cancels an unfinished gesture, so no half-turned sheet survives a layout change.
-      finish(false)
-      pointerRef.current = null
-      wideRef.current = query.matches
-      setWide(query.matches)
-      const next = normalize(pageRef.current)
-      if (next !== pageRef.current) {
-        pageRef.current = next
-        setPage(next)
-        onPageChangeRef.current?.(next)
+    let disposed = false
+    const book = document.createElement('div')
+    book.className = 'rp-flip-book'
+    host.current.append(book)
+    const nodes = Array.from({ length: pageCount }, (_, index) => {
+      const node = document.createElement('div')
+      node.className = `rp-engine-page ${index % 2 ? 'rp-right' : 'rp-left'}`
+      node.dataset.density = 'soft'
+      book.append(node)
+      return node
+    })
+    const flip = new PageFlip(book, { width: 390, height: 452, size: 'stretch', minWidth: 260, maxWidth: 390, minHeight: 301, maxHeight: 452, showCover: false, usePortrait: true, flippingTime: 950, drawShadow: true, maxShadowOpacity: .4, mobileScrollSupport: true, swipeDistance: 30, clickEventForward: true, disableFlipByClick: true, useMouseEvents: !reduced })
+    engine.current = flip
+    flip.on('flip', event => { if (!disposed) { currentPage.current = event.data; setPage(event.data) } })
+    flip.on('changeState', event => { if (!disposed) setBusy(event.data === 'flipping' || event.data === 'user_fold') })
+    const sync = () => { if (disposed) return; const single = flip.getOrientation() === 'portrait'; setPortrait(single); book.classList.toggle('is-portrait', single) }
+    flip.on('changeOrientation', sync)
+    flip.on('init', sync)
+    const resumePage = Math.min(currentPage.current, pageCount - 1)
+    flip.loadFromHTML(nodes)
+    flip.turnToPage(resumePage)
+    // An odd final spread is made hard by the library; every interior sheet
+    // must retain the same soft curl, including the last reward.
+    nodes.forEach((_, index) => flip.getPage(index).setDensity('soft'))
+    sync()
+    setShells(nodes)
+    // The engine rewrites each shell's inline styles every frame. Keep scaling
+    // on the React content so a turn cannot erase it on a narrow screen.
+    const scaleContents = () => {
+      const { pageWidth, height } = flip.getBoundsRect()
+      const scale = Math.min((pageWidth - 4) / 386, (height - 4) / 448)
+      // Inherited from the host so newly mounted portals and engine clones
+      // receive the same scale, even before their first ResizeObserver event.
+      book.style.setProperty('--rp-scale', String(Math.max(0, scale)))
+    }
+    const fit = new ResizeObserver(scaleContents)
+    fit.observe(book)
+    scaleContents()
+    // Portrait curls clone the visible page. Copies are purely visual and
+    // must never duplicate focus targets or screen-reader content.
+    const copies = new MutationObserver(records => {
+      for (const record of records) for (const node of record.addedNodes) {
+        if (node instanceof HTMLElement && node.matches('.rp-engine-page') && !nodes.includes(node)) {
+          node.inert = true
+          node.setAttribute('aria-hidden', 'true')
+        }
       }
+    })
+    copies.observe(book, { childList: true, subtree: true })
+    const settle = () => {
+      flip.userStop({ x: 0, y: 0 }, true)
+      flip.getRender().finishAnimation()
+      flip.getFlipController().stopMove()
+      flip.getRender().finishAnimation()
+      gesture.current = null
+      setBusy(false)
     }
-    const handleBlur = () => { finish(false); pointerRef.current = null }
-    window.addEventListener('resize', handleResize)
-    window.addEventListener('blur', handleBlur)
+    const visibilityChanged = () => { if (document.hidden) settle() }
+    window.addEventListener('blur', settle)
+    window.addEventListener('resize', settle)
+    book.addEventListener('touchcancel', settle)
+    book.addEventListener('pointercancel', settle)
+    document.addEventListener('visibilitychange', visibilityChanged)
+    host.current.focus({ preventScroll: true })
     return () => {
-      window.removeEventListener('resize', handleResize)
-      window.removeEventListener('blur', handleBlur)
-      turnRef.current = null
-      animationRef.current?.stop()
+      disposed = true
+      window.removeEventListener('blur', settle)
+      window.removeEventListener('resize', settle)
+      book.removeEventListener('touchcancel', settle)
+      book.removeEventListener('pointercancel', settle)
+      document.removeEventListener('visibilitychange', visibilityChanged)
+      fit.disconnect()
+      copies.disconnect()
+      engine.current = null
+      flip.destroy()
     }
-  }, [finish, normalize])
-
+  }, [pageCount, reduced])
   function go(direction) {
-    if (pageRef.current === null) { if (direction > 0) begin(0); return }
-    const next = pageRef.current + direction * (wideRef.current ? 2 : 1)
-    if (next >= 0 && next < pages.length) begin(next)
+    const flip = engine.current
+    if (!flip || !['read', 'fold_corner'].includes(flip.getState())) return
+    host.current.focus({ preventScroll: true })
+    if (reduced) {
+      const next = page + direction * (portrait ? 1 : 2)
+      if (next < 0 || next >= pages.length) return
+      flip.turnToPage(next)
+      host.current.animate([{ opacity: .25 }, { opacity: 1 }], { duration: 160 })
+    } else if (direction > 0) flip.flipNext('bottom')
+    else flip.flipPrev('bottom')
   }
-
-  function onKeyDown(event) {
-    if (event.target.closest('input, textarea, select, [contenteditable="true"]')) return
-    if (['ArrowRight', 'ArrowLeft', 'Home', 'End', 'Escape'].includes(event.key)) event.preventDefault()
-    if (event.key === 'ArrowRight') go(1)
-    if (event.key === 'ArrowLeft') go(-1)
-    if (event.key === 'Home') begin(0)
-    if (event.key === 'End') begin(pages.length - 1)
-    if (event.key === 'Escape') begin(null)
+  function goTo(target) {
+    const flip = engine.current
+    if (!flip || busy || !['read', 'fold_corner'].includes(flip.getState())) return
+    const next = Math.max(0, Math.min(target, pages.length - 1))
+    host.current.focus({ preventScroll: true })
+    flip.turnToPage(next)
+    host.current.animate([{ opacity: .35 }, { opacity: 1 }], { duration: reduced ? 160 : 220 })
   }
-
-  function onPointerDown(event) {
-    if (turnRef.current || !event.isPrimary || (event.pointerType === 'mouse' && event.button !== 0)) return
-    if (event.target.closest('a, input, textarea, select, [contenteditable="true"], [data-no-page-drag]')) return
-    pointerRef.current = { id: event.pointerId, x: event.clientX, y: event.clientY, lastX: event.clientX, time: event.timeStamp, velocity: 0, dragging: false, direction: 0 }
+  function startGesture(event) {
+    gesture.current = null
+    if (event.target.closest('button, a, [data-no-page-drag]')) return
+    gesture.current = { x: event.clientX, y: event.clientY }
   }
-
-  function onPointerMove(event) {
-    const pointer = pointerRef.current
-    if (!pointer || pointer.id !== event.pointerId) return
-    if (event.pointerType === 'mouse' && event.buttons === 0) {
-      pointerRef.current = null
-      if (pointer.dragging) settle(false)
-      return
+  function endGesture(event) {
+    const start = gesture.current
+    gesture.current = null
+    if (!reduced || !start) return
+    const dx = event.clientX - start.x
+    const dy = event.clientY - start.y
+    if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1)
+    else if (Math.abs(dx) < 8 && Math.abs(dy) < 8) {
+      const rect = host.current.getBoundingClientRect()
+      const x = event.clientX - rect.left
+      const y = event.clientY - rect.top
+      if ((y < 70 || y > rect.height - 70) && (x < 70 || x > rect.width - 70)) go(x < rect.width / 2 ? -1 : 1)
     }
-    const dx = event.clientX - pointer.x
-    const dy = event.clientY - pointer.y
-    if (!pointer.dragging) {
-      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { pointerRef.current = null; return }
-      if (Math.abs(dx) < 8) return
-      const direction = dx < 0 ? 1 : -1
-      const from = pageRef.current
-      const destination = from === null ? 0 : from + direction * (wideRef.current ? 2 : 1)
-      if ((from === null && direction < 0) || destination < 0 || destination >= pages.length || !begin(destination, true)) { pointerRef.current = null; return }
-      pointer.dragging = true
-      pointer.direction = direction
-      pointer.width = bookRef.current.getBoundingClientRect().width / (wideRef.current ? 2 : 1)
-      try { bookRef.current.setPointerCapture(event.pointerId) } catch { /* The pointer may already have been released. */ }
-    }
-    const elapsed = event.timeStamp - pointer.time
-    if (elapsed > 0) pointer.velocity = (event.clientX - pointer.lastX) / elapsed
-    pointer.lastX = event.clientX
-    pointer.time = event.timeStamp
-    progress.set(clamp(-dx * pointer.direction / pointer.width))
-    if (event.cancelable) event.preventDefault()
   }
+  const onProfile = page === 0
+  const onSummary = page >= pages.length - (portrait ? 1 : 2)
+  const onRewards = !onProfile && !onSummary
+  return <div className="rp-reader" onKeyDown={event => { if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); go(event.key === 'ArrowRight' ? 1 : -1) } }}>
+    <nav className="rp-section-navigation" aria-label="Passport sections">
+      <button type="button" onClick={() => goTo(0)} aria-current={onProfile ? 'page' : undefined} disabled={busy}><UserRound size={16} aria-hidden="true" />Profile</button>
+      <button type="button" onClick={() => goTo(1)} aria-current={onRewards ? 'page' : undefined} disabled={busy}><Gift size={16} aria-hidden="true" />Rewards</button>
+      <button type="button" onClick={() => goTo(pages.length - 1)} aria-current={onSummary ? 'page' : undefined} disabled={busy}><BookOpen size={16} aria-hidden="true" />Summary</button>
+      <button type="button" onClick={onClose} disabled={busy}><X size={16} aria-hidden="true" />Close</button>
+    </nav>
+    <div ref={host} className="rp-flip-host" tabIndex={0} role="group" aria-label="Realm Passport. Use arrow keys or drag a page corner to turn."
+      onPointerDown={startGesture} onPointerUp={endGesture} onPointerCancel={() => { gesture.current = null }}
+      onMouseDownCapture={event => { if (event.target.closest('button, a, [data-no-page-drag]')) event.stopPropagation() }}
+      onTouchStartCapture={event => { if (event.target.closest('button, a, [data-no-page-drag]')) event.stopPropagation() }} />
+    {shells.map((node, index) => {
+      const visible = index >= page && index < page + (portrait ? 1 : 2)
+      return createPortal(<div className="rp-page-content" inert={!visible} aria-hidden={!visible}>{renderPage(index, { active: !busy && visible })}</div>, node, index)
+    })}
+    <nav className="rp-navigation" aria-label="Passport page navigation">
+      <button type="button" onClick={() => go(-1)} disabled={busy || page === 0} aria-label="Previous page"><ArrowLeft size={20}/></button>
+      <button type="button" onClick={() => go(1)} disabled={busy || page + (portrait ? 1 : 2) >= pages.length} aria-label="Next page"><ArrowRight size={20}/></button>
+    </nav>
+    <div className="rp-sr-only"><PageIndicator pages={pages} page={page} spread={!portrait}/></div>
+  </div>
+}
 
-  function releasePointer(event, cancelled = false) {
-    const pointer = pointerRef.current
-    if (!pointer || pointer.id !== event.pointerId) return
-    pointerRef.current = null
-    if (!pointer.dragging) return
-    suppressClickUntil.current = performance.now() + 400
-    const freshVelocity = event.timeStamp - pointer.time < 100 ? -pointer.velocity * pointer.direction : 0
-    const commit = !cancelled && (progress.get() >= 0.32 || (progress.get() > 0.045 && freshVelocity > 0.45))
-    settle(commit)
-    if (bookRef.current?.hasPointerCapture(event.pointerId)) bookRef.current.releasePointerCapture(event.pointerId)
-  }
-
-  const busy = turn !== null
-  const open = page !== null
-  const atEnd = open && page + (wide ? 2 : 1) >= pages.length
-
-  return <div className="rp-reader" onKeyDown={onKeyDown}>
-    <div className="rp-book-space">
-      <div ref={bookRef} className={`rp-book ${wide ? 'is-wide' : 'is-single'} ${open ? 'is-open' : 'is-closed'} ${busy ? 'is-turning' : ''}`}
-        tabIndex={0} role="group" aria-label="Interactive Realm Passport" aria-describedby={instructionsId} aria-busy={busy}
-        onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={event => releasePointer(event)}
-        onPointerLeave={() => { if (!pointerRef.current?.dragging) pointerRef.current = null }}
-        onPointerCancel={event => releasePointer(event, true)} onLostPointerCapture={event => releasePointer(event, true)}
-        onClickCapture={event => { if (performance.now() < suppressClickUntil.current) { event.preventDefault(); event.stopPropagation() } }}>
-        {(open || busy) && <BookBinding turn={turn} progress={progress}/>}
-        {turn ? <TurningPages turn={turn} progress={progress} wide={wide} reducedMotion={reducedMotion} renderPage={renderPage} renderCover={renderCover}/>
-          : <BookSnapshot page={page} wide={wide} renderPage={renderPage} renderCover={renderCover} active onOpen={() => begin(0)}/>}
-        {open && !busy && <>
-          <button className="rp-edge rp-edge-previous" onClick={() => go(-1)} disabled={page === 0} aria-label="Turn to previous page" data-no-page-drag><ArrowLeft size={15}/></button>
-          <button className="rp-edge rp-edge-next" onClick={() => go(1)} disabled={atEnd} aria-label="Turn to next page" data-no-page-drag><ArrowRight size={15}/></button>
-        </>}
-      </div>
+function ClosedBook({ pages, renderCover, loading, onOpen }) {
+  return <div className="rp-reader is-closed">
+    <nav className="rp-section-navigation" aria-label="Passport sections">
+      <button type="button" onClick={() => onOpen(0)} disabled={loading}><UserRound size={16} aria-hidden="true" />Profile</button>
+      <button type="button" onClick={() => onOpen(1)} disabled={loading}><Gift size={16} aria-hidden="true" />Rewards</button>
+      <button type="button" onClick={() => onOpen(pages.length - 1)} disabled={loading}><BookOpen size={16} aria-hidden="true" />Summary</button>
+      <button type="button" onClick={() => onOpen(0)} disabled={loading}><BookOpen size={16} aria-hidden="true" />Open</button>
+    </nav>
+    <div className="rp-closed-book">
+      {renderCover({ interactive: !loading, onOpen: () => onOpen(0) })}
     </div>
     <nav className="rp-navigation" aria-label="Passport page navigation">
-      <button onClick={() => go(-1)} disabled={!open || busy || page === 0} aria-label="Previous page"><ArrowLeft size={18} aria-hidden="true"/><span>Previous</span></button>
-      <PageIndicator pages={pages} page={page} spread={wide}/>
-      <button className="rp-next-button" onClick={() => go(1)} disabled={busy || atEnd} aria-label={open ? 'Next page' : 'Open passport'}><span>{open ? 'Next' : 'Open'}</span><ArrowRight size={18} aria-hidden="true"/></button>
+      <button type="button" disabled aria-label="Previous page"><ArrowLeft size={20}/></button>
+      <button type="button" onClick={() => onOpen(0)} disabled={loading} aria-label="Next page"><ArrowRight size={20}/></button>
     </nav>
-    {open && <nav className="rp-shortcuts" aria-label="Passport sections">
-      <button onClick={() => begin(0)} disabled={busy} aria-current={page === 0 ? 'page' : undefined}>Identity</button>
-      <button onClick={() => begin(currentPage)} disabled={busy} aria-current={page !== 0 && page === normalize(currentPage) ? 'page' : undefined}>Stamps</button>
-      <button onClick={() => begin(pages.length - 1)} disabled={busy} aria-current={page === normalize(pages.length - 1) ? 'page' : undefined}>Summary</button>
-      <button onClick={() => begin(null)} disabled={busy}><X size={14} aria-hidden="true"/>Close</button>
-    </nav>}
-    <p className="rp-instructions" id={instructionsId}>Swipe or use ← → to turn pages.<span className="rp-sr-only"> Home: identity. End: summary. Escape: close.</span></p>
+    <div className="rp-sr-only"><PageIndicator pages={pages} page={null} spread={false}/></div>
   </div>
+}
+
+export default function PageTurnBook({ pages, renderPage, renderCover, loading }) {
+  const [open, setOpen] = useState(false)
+  const [targetPage, setTargetPage] = useState(0)
+
+  const handleOpen = (target = 0) => {
+    setTargetPage(target)
+    setOpen(true)
+  }
+
+  return open && !loading
+    ? <OpenBook pages={pages} renderPage={renderPage} initialPage={targetPage} onClose={() => setOpen(false)}/>
+    : <ClosedBook pages={pages} renderCover={renderCover} loading={loading} onOpen={handleOpen}/>
 }

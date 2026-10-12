@@ -1,0 +1,35 @@
+.checkout-modal-head .passport-lookup { margin-left: auto; margin-right: 14px; width: 245px; max-width: 100%; padding-left: 12px; }
+.passport-lookup label { display: block; font-size: 11px; margin-bottom: 5px; color: #e9ddbe; }
+.passport-lookup-controls { display: flex; gap: 7px; }
+.passport-lookup-controls input { min-width: 0; width: 100%; border: 1px solid #b9b09a; border-radius: 8px; padding: 8px 10px; background: #fffdf7; color: #1c3225; }
+.checkout-modal-head .passport-lookup-controls button { width: auto; height: auto; padding: 8px 12px; font-size: 12px; border: 1px solid #63705a; border-radius: 8px; background: #2c4030; color: #e8dcc4; cursor: pointer; }
+.passport-status { display: block; min-height: 16px; margin-top: 4px; font-size: 11px; color: #e9ddbe; }
+.passport-status.found { color: #85e6a5; }
+.passport-status.missing, .passport-status.error { color: #ff9898; }
+.passport-lookup button:disabled { opacity: .5; cursor: not-allowed; }
+.passport-card-backdrop { position: fixed; inset: 0; z-index: 20000; display: grid; place-items: center; padding: 20px; background: #09180eb3; }
+.passport-card { width: min(460px, 100%); max-height: 85dvh; overflow-y: auto; border: 1px solid #dacfb8; border-radius: 18px; padding: 24px; background: #fffdf7; color: #1c3225; box-shadow: 0 20px 80px #0005; }
+.passport-card header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.passport-card h2 { margin: 0; font-size: 23px; }
+.passport-card header button { border: 1px solid #c9c3b6; background: transparent; border-radius: 8px; padding: 4px 12px; font-size: 24px; color: inherit; cursor: pointer; }
+.passport-card dl { display: grid; gap: 10px; margin: 22px 0; }
+.passport-card dl div { display: flex; justify-content: space-between; gap: 20px; }
+.passport-card dt { font-size: 12px; color: #666d62; }
+.passport-card dd { margin: 0; font-size: 13px; text-align: right; overflow-wrap: anywhere; }
+.passport-card h3 { margin: 18px 0 8px; font-size: 13px; }
+.passport-card p, .passport-card li { font-size: 13px; }
+.passport-empty { color: #777; }
+.passport-reward-list, .passport-claimed-list { list-style: none; margin: 0; padding: 0; }
+.passport-reward-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 5px 0; font-size: 13px; }
+.passport-reward-list li span { min-width: 0; }
+.passport-reward-list button, .passport-confirm-actions button:last-child { border: 0; border-radius: 8px; padding: 8px 14px; background: #1b3827; color: #fff; font-weight: 700; cursor: pointer; }
+.passport-claimed-list li { padding: 4px 0; color: #577a5e; font-size: 12px; }
+.passport-confirm-backdrop { position: fixed; inset: 0; z-index: 20001; display: grid; place-items: center; padding: 20px; background: #07130bc7; }
+.passport-confirm { width: min(380px, 100%); padding: 24px; border-radius: 16px; background: #fffdf7; color: #1c3225; box-shadow: 0 20px 60px #0005; }
+.passport-confirm h2 { margin: 0 0 12px; font-size: 20px; }
+.passport-confirm p { font-size: 13px; line-height: 1.6; }
+.passport-confirm-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; }
+.passport-confirm-actions button:first-child { border: 1px solid #c7c5b7; border-radius: 8px; padding: 8px 14px; background: transparent; color: inherit; cursor: pointer; }
+.passport-confirm-actions button:disabled { opacity: .6; cursor: wait; }
+.passport-claim-error { color: #a52b2b; }
+@media (max-width: 600px) { .checkout-modal-head { flex-wrap: wrap; gap: 12px; } .checkout-modal-head .passport-lookup { width: 100%; order: 3; padding-left: 0; margin-right: 0; } }

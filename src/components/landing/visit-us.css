@@ -1,6 +1,6 @@
 .realm-visit {
   position: relative;
-  padding: clamp(70px, 8vw, 120px) 5vw;
+  padding: clamp(70px, 8vw, 120px) 5vw 12px;
   overflow: hidden;
   color: var(--cream);
   background: var(--forest);
@@ -31,10 +31,8 @@
 .realm-visit-map figcaption > span { font-weight: 700; }
 .realm-visit-map figcaption > span > span { padding-inline: 5px; color: var(--muted); }
 .realm-visit-map figcaption a { display: inline-flex; align-items: center; gap: 5px; min-height: 44px; white-space: nowrap; }
-.realm-arrival { margin-top: clamp(64px, 7vw, 105px); padding: 0 clamp(26px, 4vw, 62px); background: var(--cream); color: var(--forest); border-radius: 6px 6px 22px 6px; box-shadow: 0 16px 40px rgba(0, 0, 0, .08); }
-.realm-arrival-masthead { display: flex; justify-content: space-between; gap: 20px; padding-block: 25px; border-bottom: 1px solid var(--line); font-size: .62rem; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
-.realm-arrival-masthead > span:last-child { color: var(--muted); text-align: right; }
-.realm-arrival-spread { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 5vw, 76px); padding-block: 42px; }
+.realm-arrival { width: min(1240px, 100%); margin: clamp(52px, 6vw, 82px) auto 0; padding: clamp(28px, 3.5vw, 48px) clamp(26px, 4vw, 62px); background: var(--cream); color: var(--forest); border-radius: 6px 6px 22px 6px; box-shadow: 0 16px 40px rgba(0, 0, 0, .08); }
+.realm-arrival-spread { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(32px, 5vw, 76px); }
 .realm-arrival-postcard { min-width: 0; display: flex; flex-direction: column; justify-content: space-between; }
 .realm-arrival-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 25px; }
 .realm-arrival-heading h3 { margin: 0; font-family: 'Playfair Display', Georgia, serif; font-size: clamp(2.5rem, 4.1vw, 4.2rem); line-height: 1.04; letter-spacing: -.055em; font-weight: 600; }
@@ -57,9 +55,6 @@
 .realm-arrival-welcome:last-child { padding-bottom: 0; }
 .realm-arrival-welcome h4 { margin: 0 0 6px; font-family: 'Playfair Display', Georgia, serif; font-size: 1.25rem; font-weight: 600; letter-spacing: -.025em; line-height: 1.2; color: var(--forest); }
 .realm-arrival-welcome p { margin: 0; font-size: .83rem; line-height: 1.8; color: var(--sage); }
-.realm-arrival-signoff { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 22px; border-top: 1px solid var(--line); }
-.realm-arrival-signoff > span:first-child { font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: 1rem; }
-.realm-arrival-signoff > span:last-child { color: var(--sage); font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; }
 .realm-corner { margin: 0; }
 .realm-corner-diagram { position: relative; width: 100%; aspect-ratio: 1.4; border-radius: 6px; overflow: hidden; background: var(--sage-pale); }
 .realm-corner-diagram > svg { width: 100%; height: 100%; display: block; }
@@ -73,8 +68,6 @@
 .realm-corner-cafe span { font-family: 'Playfair Display', Georgia, serif; font-size: clamp(13px, 1.3vw, 21px); line-height: 1; text-align: center; }
 .realm-corner-dot { position: absolute; top: 49%; left: 43.5%; width: 9px; height: 9px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 6px rgba(200, 168, 107, .13); }
 .realm-corner-note { position: absolute; bottom: 10.5%; left: 9%; font-family: 'Playfair Display', Georgia, serif; font-size: clamp(11px, 1.1vw, 16px); font-style: italic; color: var(--sage); }
-.realm-corner figcaption { display: flex; justify-content: space-between; gap: 12px; margin-top: 12px; color: var(--muted); font-size: .56rem; line-height: 1.6; }
-.realm-corner figcaption > span:last-child { text-align: right; }
 
 @media (hover: hover) and (pointer: fine) {
   .realm-visit[data-visit-motion='true'] .realm-visit-directions:hover svg { transform: translate(2px, -2px); }
@@ -97,7 +90,7 @@
 }
 
 @media (max-width: 700px) {
-  .realm-visit { padding: 70px 22px; }
+  .realm-visit { padding: 70px 22px 12px; }
   .realm-visit-main { grid-template-columns: minmax(0, 1fr); gap: 38px; }
   .realm-visit-copy { max-width: none; }
   .realm-visit h2 { max-width: 400px; font-size: clamp(2.8rem, 10.7vw, 4.4rem); }
@@ -107,9 +100,8 @@
   .realm-visit-map-frame { aspect-ratio: 1.12; min-height: 280px; }
   .realm-visit-map figcaption { flex-direction: row; justify-content: space-between; align-items: center; gap: 10px; min-height: 62px; padding-block: 4px; font-size: .62rem; }
   .realm-visit-map figcaption > span > span { padding-inline: 2px; }
-  .realm-arrival { margin-top: 52px; padding-inline: 23px; }
-  .realm-arrival-masthead { padding-block: 20px; gap: 14px; font-size: .53rem; line-height: 1.65; letter-spacing: .11em; }
-  .realm-arrival-spread { grid-template-columns: minmax(0, 1fr); gap: 30px; padding-block: 28px; }
+  .realm-arrival { margin-top: 44px; padding: 26px 23px; }
+  .realm-arrival-spread { grid-template-columns: minmax(0, 1fr); gap: 30px; }
   .realm-arrival-heading h3 { font-size: clamp(2.1rem, 7.8vw, 3.5rem); }
   .realm-arrival-seal { width: 72px; height: 84px; }
   .realm-arrival-notes { padding: 27px 0 0; border-left: 0; border-top: 1px solid var(--line); }
@@ -118,9 +110,6 @@
   .realm-arrival-route-copy { min-height: 106px; }
   .realm-arrival-notes p { font-size: .81rem; }
   .realm-arrival-welcome { padding-block: 20px; }
-  .realm-arrival-signoff { padding-block: 20px; }
-  .realm-arrival-signoff > span:first-child { max-width: 155px; font-size: .91rem; }
-  .realm-arrival-signoff > span:last-child { white-space: nowrap; font-size: .56rem; }
   .realm-corner-cafe span { font-size: clamp(13px, 4vw, 21px); }
   .realm-corner-cafe svg { width: 21px; height: 21px; }
   .realm-corner-note { font-size: clamp(10px, 2.9vw, 16px); }
@@ -136,7 +125,6 @@
   .realm-arrival-tabs { width: 100%; }
   .realm-arrival-tabs button { flex: 1; gap: 6px; padding-inline: 8px; font-size: .66rem; }
   .realm-arrival-route-copy { min-height: 119px; }
-  .realm-arrival-signoff > span:first-child { font-size: .8rem; }
   .realm-visit-map figcaption { font-size: .59rem; }
 }
 

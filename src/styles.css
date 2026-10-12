@@ -3463,7 +3463,7 @@
   grid-template-columns: 1fr;
   gap: 36px;
   padding: 56px 5vw 28px;
-  background: #173b2a;
+  background: var(--forest);
   color: #dce8df;
 }
 
@@ -4660,6 +4660,8 @@
 .checkout-field-grid label { display: grid; gap: 5px; color: #526055; font-size: .7rem; font-weight: 800; }
 .checkout-field-grid input { height: 42px; border: 1px solid #e4e8e2; border-radius: 9px; padding: 0 10px; color: #18251e; font: inherit; }
 .checkout-field-grid input[readonly] { background: #f2f5f0; color: #526055; }
+.settings-section .locked-field input,
+.benefit-form .locked-field input { background: #fff; }
 .checkout-one-field { grid-template-columns: 1fr; }
 .checkout-error { margin: 14px 24px 0; padding: 10px 12px; border: 1px solid #e6b1ad; border-radius: 8px; background: #fff1f0; color: #942f28; font-size: .75rem; font-weight: 700; }
 .checkout-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; padding: 18px 24px; border-top: 1px solid #eceee9; }
@@ -6845,7 +6847,7 @@
 .raimu-widget{position:fixed;z-index:1200;width:86px;height:86px;right:28px;bottom:28px;touch-action:none}.raimu-floating-avatar{position:absolute;inset:0;width:86px;height:86px;padding:0;overflow:hidden;border:3px solid #fff;border-radius:28px;background:#f1f5ed;box-shadow:0 14px 28px rgba(21,54,35,.24);cursor:grab;touch-action:none}.raimu-floating-avatar:active{cursor:grabbing}.raimu-floating-avatar video{width:100%;height:100%;display:block;object-fit:cover;mix-blend-mode:multiply}.raimu-floating-status{position:absolute;right:5px;bottom:5px;width:12px;height:12px;border:3px solid #fff;border-radius:50%;background:#4fa66d}.raimu-close-button{position:absolute;z-index:2;top:-10px;right:-10px;width:25px;height:25px;display:grid;place-items:center;padding:0;border:2px solid #fff;border-radius:50%;background:#244a36;color:#fff;box-shadow:0 5px 12px rgba(21,54,35,.2);cursor:pointer}.raimu-popover{position:absolute;right:0;bottom:101px;width:min(360px,calc(100vw - 28px));overflow:hidden;border:1px solid #d4e3d7;border-radius:20px;background:#fff;box-shadow:0 20px 55px rgba(21,54,35,.2);touch-action:auto}.raimu-popover>header{display:flex;align-items:center;justify-content:space-between;padding:15px 16px;background:linear-gradient(135deg,#edf7ef,#fffaf0);border-bottom:1px solid #e1ece3}.raimu-popover>header div{display:grid;gap:3px}.raimu-popover>header span{color:#39754d;font-size:.61rem;font-weight:850;letter-spacing:.12em;text-transform:uppercase}.raimu-popover>header b{color:#214833;font-size:.82rem}.raimu-popover>header button{width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:9px;background:rgba(36,74,54,.08);color:#315e45;cursor:pointer}.raimu-popover-messages{display:flex;flex-direction:column;gap:9px;min-height:150px;max-height:260px;overflow:auto;padding:15px}.raimu-popover-messages p{max-width:88%;margin:0;padding:9px 11px;border-radius:12px;background:#f0f6f1;color:#31533f;font-size:.76rem;line-height:1.45}.raimu-popover-messages p.user{align-self:flex-end;background:#315e45;color:#fff}.raimu-popover-empty{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;height:150px;color:#6d8374;text-align:center;font-size:.73rem;line-height:1.4}.raimu-popover-empty svg{color:#3c7650}.raimu-popover form{display:flex;gap:7px;padding:10px;border-top:1px solid #e4ede5;background:#fbfdfb}.raimu-popover input{min-width:0;flex:1;height:38px;padding:0 11px;border:1px solid #d4e3d7;border-radius:10px;color:#254a34;font:inherit;font-size:.75rem;outline:none}.raimu-popover input:focus{border-color:#7eac89;box-shadow:0 0 0 3px rgba(93,145,105,.13)}.raimu-popover form button{width:38px;height:38px;display:grid;place-items:center;border:0;border-radius:10px;background:#315e45;color:#fff;cursor:pointer}.raimu-popover form button:disabled{opacity:.4;cursor:not-allowed}@media(max-width:560px){.raimu-widget{right:18px;bottom:18px}.raimu-popover{right:-8px}}
 
 .raimu-floating-avatar video{transform-origin:center center;animation:raimu-slow-zoom-out 10s ease-in-out infinite alternate}
-.raimu-toggle{color:#147b5b!important;border-color:#a9d6c2!important;background:#eefaf4!important}
+/* Header utility buttons share the same theme styling. */
 .raimu-typing-dots{align-self:flex-start;margin:0!important;padding:8px 12px!important;border-radius:12px;background:#f0f6f1;color:#39754d;letter-spacing:3px}.raimu-typing-dots span{animation:raimu-dot 1s infinite}.raimu-typing-dots span:nth-child(2){animation-delay:.15s}.raimu-typing-dots span:nth-child(3){animation-delay:.3s}
 @keyframes raimu-slow-zoom-out{from{transform:scale(1.12)}to{transform:scale(.92)}}
 @media(prefers-reduced-motion:reduce){.raimu-floating-avatar video{animation:none;transform:scale(1)}}
@@ -6935,6 +6937,15 @@
 .hero-tour-link{display:inline-flex;align-items:center;gap:7px;color:#fff;font-size:.9rem;font-weight:700;text-decoration:underline;text-decoration-color:rgba(255,255,255,.42);text-underline-offset:5px}.hero-tour-link:hover,.hero-tour-link:focus-visible{color:#d8c17f;text-decoration-color:currentColor}.hero-tour-link svg{transition:transform .2s ease}.hero-tour-link:hover svg{transform:translateX(3px)}
 .landing-hero{min-height:700px}
 @media(max-width:800px){.landing-hero{min-height:560px}}
+
+/* Keep the signed-in desktop header anchored to the edges and true center. */
+@media(min-width:981px){
+  .customer-header.is-authenticated{padding-inline:24px}
+  .customer-header.is-authenticated>nav{position:absolute;inset:0 24px;display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;pointer-events:none}
+  .customer-header.is-authenticated .customer-nav-center{position:static;grid-column:2;width:auto;margin:0;transform:none;pointer-events:auto}
+  .customer-header.is-authenticated .customer-nav-actions{grid-column:3;justify-self:end;pointer-events:auto}
+  .customer-header.is-authenticated .customer-brand{position:relative;z-index:1}
+}
 
 /* Customer responsive system: mobile-first compositions, customer routes only. */
 .mobile-cart{display:none}

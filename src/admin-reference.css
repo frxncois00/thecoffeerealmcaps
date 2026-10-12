@@ -89,7 +89,6 @@
 .app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-notification-anchor>.internal-utility-button {width:44px;height:44px;min-width:44px;border:1px solid var(--admin-line, #CFDDD3);border-radius:12px;background:var(--admin-subtle, #E8EFE9);color:var(--admin-ink, #1F4A31);box-shadow:none;transform:none}
 .app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-utility-button:hover,
 .app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-notification-anchor>.internal-utility-button:hover {background:var(--admin-subtle, #DCE7DF);color:var(--admin-ink, #1F4A31);box-shadow:none;transform:none}
-.app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-notification-anchor>.internal-utility-button {box-shadow:0 0 0 3px rgba(46,107,71,.15)}
 
 .app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main :is(.panel,.metric-card,.ad-panel,.ad-welcome-card,.legacy-ops-card,.module-table-card,.module-toolbar,.dash-alert-card,.dash-stat-card,.inv-summary-card,.inv-table-card,.txn-report-stat,.txn-ledger-shell,.txn-loading-shell,.staff-settings-card,.ac-editor-section,.po-table-panel,.ir-panel,.cancel-panel) {
   background:var(--admin-surface, rgba(255,255,255,.92));border:1px solid var(--admin-line, #E5E5E1);border-radius:16px;

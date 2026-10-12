@@ -93,7 +93,6 @@
 .app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.ac-change-badge--price) {background:var(--admin-blue-soft);color:var(--admin-blue);border-color:#496b97}
 .app-layout.legacy-admin[data-theme="dark"] .internal-main :is(.ua-result--success,.ac-change-badge--new) {background:#173c2d;color:#96dfb8;border-color:var(--admin-emerald-line)}
 .app-layout.legacy-admin[data-theme="dark"] .internal-main .ua-result--warning {color:var(--admin-warning)}
-.app-layout.legacy-admin[data-theme="dark"] .internal-utility-button.raimu-toggle {color:var(--admin-warning);background:var(--admin-orange-soft);border-color:#88503b}
 .app-layout.legacy-admin[data-theme="dark"] .internal-main .rp-track>i {background:var(--admin-emerald-hover)}
 .app-layout.legacy-admin[data-theme="dark"] .internal-main .rp-track>i.series-1 {background:var(--admin-orange)}
 .app-layout.legacy-admin[data-theme="dark"] .internal-main .rp-track>i.series-2 {background:#527fb1}

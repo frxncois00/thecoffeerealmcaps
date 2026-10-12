@@ -1,6 +1,6 @@
-import { store } from '../../data/mockData'
-import { formatVatRate, buildVatExemptOrderBreakdown } from '../../utils/pricing'
-import { escapeHtml } from '../../utils/escapeHtml'
+import { store } from '../../data/mockData.js'
+import { formatVatRate, buildVatExemptOrderBreakdown } from '../../utils/pricing.js'
+import { escapeHtml } from '../../utils/escapeHtml.js'
 
 export const STORE_NAME = 'THE COFFEE REALM'
 export const STORE_ADDRESS = store.address || 'Lot 1 Block 210 Mark Street corner Dollar Street, Quezon City, Philippines, 1121'
@@ -128,6 +128,7 @@ export function normalizeReceiptData(order = {}, defaultVatRate = 0.12, defaultP
   return {
     orderNumber,
     receiptNumber,
+    realmPassportId: order.realmPassportId || order.realm_passport_id || null,
     counterNumber,
     diningOption,
     orderTypeRaw,
@@ -322,6 +323,7 @@ export function buildReceiptHtml(order, defaultVatRate = 0.12, defaultPricesIncl
     <div class="receipt-line"></div>
     <div class="receipt-row"><span class="receipt-label">Items:</span><span class="receipt-value">${data.itemCount}</span></div>
     <div class="receipt-line"></div>
+    ${data.realmPassportId ? `<div class="receipt-row"><span class="receipt-label">Realm Passport ID:</span><span class="receipt-value">${escapeHtml(data.realmPassportId)}</span></div>` : ''}
     <div class="receipt-footer">${footerTextHtml}</div>
     <div class="receipt-line"></div>
   </div>

@@ -15,6 +15,8 @@ export const PASSPORT_REWARDS = [
 export function completedPassportOrders(orders) {
   return [...new Map(orders.filter(order =>
     ['completed', 'received'].includes(String(order.status).trim().toLowerCase()) &&
+    (!order.payment_status || String(order.payment_status).trim().toLowerCase() === 'paid') &&
+    !order.is_voided &&
     !['refunded', 'partially_refunded', 'fully_refunded'].includes(String(order.refund_status).toLowerCase())
   ).map(order => [order.id, order])).values()]
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))

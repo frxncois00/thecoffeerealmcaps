@@ -63,10 +63,6 @@ export default function VisitUs({ store, mapUrl }) {
       </div>
 
       <motion.div className="realm-arrival" initial="hidden" whileInView="show" viewport={{ once: true, amount: .12 }} variants={reveal}>
-        <div className="realm-arrival-masthead">
-          <span>A neighborhood note</span>
-          <span>North Fairview · QC</span>
-        </div>
         <div className="realm-arrival-spread">
           <div className="realm-arrival-postcard">
             <div className="realm-arrival-heading">
@@ -96,12 +92,10 @@ export default function VisitUs({ store, mapUrl }) {
               <span className="realm-corner-dot" />
               <span className="realm-corner-note">A good place to pause.</span>
             </div>
-            <figcaption><span>Mark Street meets Dollar Street</span><span>Illustration · not to scale</span></figcaption>
             </figure>
           </div>
           <div className="realm-arrival-notes">
             <div className="realm-arrival-route">
-              <span className="eyebrow">The last few streets</span>
               <h4 id={`${arrivalId}-label`}>Make your way to the realm.</h4>
               <div className="realm-arrival-tabs" role="tablist" aria-labelledby={`${arrivalId}-label`}>
                 {arrivalRoutes.map(({ label }, index) => <button key={label} type="button" role="tab"
@@ -123,7 +117,6 @@ export default function VisitUs({ store, mapUrl }) {
             </article>)}
           </div>
         </div>
-        <div className="realm-arrival-signoff"><span>A little detour. A lovely cup.</span><span>With love, TCR</span></div>
       </motion.div>
     </div>
   </section>

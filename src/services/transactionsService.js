@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 import { dispatchOrderEmails } from './orderEmailService'
 import { escapeHtml } from '../utils/escapeHtml'
 
-const LIST_SELECT = `id,order_number,receipt_number,order_type,order_source,status,customer_id,customer_name,customer_email,customer_phone,
+const LIST_SELECT = `id,order_number,receipt_number,realm_passport_id,order_type,order_source,status,customer_id,customer_name,customer_email,customer_phone,
   delivery_address,schedule_date,schedule_time,subtotal,discount_type,discount_subtotal,discount_amount,vat_exempt_amount,delivery_fee,final_total,vat_rate,prices_include_vat,
   payment_status,payment_confirmed,payment_proof_path,cancellation_status,fulfillment_hold,cancellation_reason,cancellation_notes,cancelled_by_role,cancelled_at,
   refund_status,is_voided,voided_reason,voided_at,cashier_id,created_at,updated_at,
@@ -14,7 +14,7 @@ const SUMMARY_SELECT = `id,order_type,order_source,status,customer_id,final_tota
   payments!inner(method,status,reference_number),
   refunds(refund_amount,refund_status)`
 
-const DETAIL_SELECT = `id,order_number,receipt_number,order_type,order_source,status,customer_id,customer_name,customer_email,customer_phone,
+const DETAIL_SELECT = `id,order_number,receipt_number,realm_passport_id,order_type,order_source,status,customer_id,customer_name,customer_email,customer_phone,
   delivery_address,schedule_date,schedule_time,subtotal,discount_type,discount_subtotal,discount_amount,vat_exempt_amount,delivery_fee,final_total,vat_rate,prices_include_vat,
   payment_status,payment_confirmed,payment_proof_path,cancellation_status,fulfillment_hold,cancellation_reason,cancellation_notes,cancelled_by_role,cancelled_at,
   refund_status,is_voided,voided_reason,voided_at,cashier_id,created_at,updated_at,
@@ -34,6 +34,7 @@ function normalize(row, cashierNames = {}) {
     id: row.id,
     orderNumber: row.order_number,
     receiptNumber: row.receipt_number,
+    realmPassportId: row.realm_passport_id,
     orderType: row.order_type,
     orderSource: row.order_source,
     fulfillment: row.order_type === 'delivery' ? 'Delivery' : row.order_type === 'pickup' ? 'Pickup' : 'Walk-in',

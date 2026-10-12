@@ -4,6 +4,7 @@ export default function SummaryPage({ summary, loading }) {
     <dl className="rp-journey-counts">
       <div><dd>{loading ? '—' : summary.totalPurchases}</dd><dt>Total purchases</dt></div>
       <div><dd>{loading ? '—' : summary.rewardsEarned}</dd><dt>Rewards earned</dt></div>
+      <div><dd>{loading ? '—' : summary.rewardsClaimed}</dd><dt>Rewards claimed</dt></div>
     </dl>
     <div className="rp-next-reward">
       <span className="rp-field-label">{summary.complete ? 'Passport complete' : 'Next reward'}</span>

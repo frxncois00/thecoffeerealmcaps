@@ -47,6 +47,40 @@ test('empty, partial, milestone, and completed books produce matching summaries'
   assert.equal(model.summary.nextReward.title, PASSPORT_REWARDS[2][0])
 })
 
+test('claimed rewards remain visible while only unclaimed milestones can be redeemed', () => {
+  const model = buildPassportPresentation({ orders: ordersFor(12), claims: [{ reward_number: 1, claimed_at: '2026-10-12T08:00:00Z' }] })
+  assert.equal(model.summary.rewardsEarned, 2)
+  assert.equal(model.summary.rewardsClaimed, 1)
+  assert.deepEqual(model.summary.claimableRewards.map(reward => reward.number), [2])
+  assert.deepEqual(model.summary.claimedRewards.map(reward => reward.number), [1])
+  assert.equal(model.chapters[0].claimedAt, '2026-10-12T08:00:00Z')
+  assert.equal(model.chapters[1].claimedAt, null)
+})
+
+test('unpaid and voided completed orders cannot unlock a reward', () => {
+  const orders = [
+    ...ordersFor(4).map(order => ({ ...order, payment_status: 'paid' })),
+    { ...ordersFor(1)[0], id: 'unpaid', payment_status: 'pending' },
+    { ...ordersFor(1)[0], id: 'voided', payment_status: 'paid', is_voided: true },
+  ]
+  const model = buildPassportPresentation({ orders })
+  assert.equal(model.summary.totalPurchases, 4)
+  assert.equal(model.summary.rewardsEarned, 0)
+  assert.equal(model.summary.nextReward.remaining, 1)
+})
+
+test('linked walk-in purchases join online stamps once completed and disappear when refunded', () => {
+  const online = ordersFor(4).map(order => ({ ...order, order_type: 'pickup', payment_status: 'paid' }))
+  const walkIn = { id: 'cashier-order', order_number: 'W-001', order_type: 'walk-in', realm_passport_id: 'TCR-4827', payment_status: 'paid', status: 'Preparing', created_at: '2026-10-13T08:00:00Z' }
+  assert.equal(buildPassportPresentation({ orders: [...online, walkIn] }).summary.totalPurchases, 4)
+  const completed = { ...walkIn, status: 'Completed' }
+  const passport = buildPassportPresentation({ orders: [...online, completed] })
+  assert.equal(passport.summary.totalPurchases, 5)
+  assert.equal(passport.summary.rewardsEarned, 1)
+  assert.equal(passport.chapters[0].slots[4].orderNumber, 'W-001')
+  assert.equal(buildPassportPresentation({ orders: [...online, { ...completed, refund_status: 'refunded' }] }).summary.totalPurchases, 4)
+})
+
 test('refetching purchases in a different order preserves stamp keys and slots without mutating input', () => {
   const orders = Object.freeze(ordersFor(12).map(Object.freeze))
   const stampPositions = model => model.chapters.flatMap(chapter => chapter.slots)

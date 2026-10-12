@@ -1,4 +1,37 @@
 /* Landing chrome and ordering choreography, scoped to the café's home page. */
+@media (min-width: 981px) {
+  .is-landing-page .customer-header { padding-inline: 24px; }
+
+  .is-landing-page .customer-header > nav {
+    position: absolute;
+    inset: 0 24px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    pointer-events: none;
+  }
+
+  .is-landing-page .customer-nav-center {
+    position: static;
+    grid-column: 2;
+    width: auto;
+    margin: 0;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  .is-landing-page .customer-nav-actions {
+    grid-column: 3;
+    justify-self: end;
+    pointer-events: auto;
+  }
+
+  .is-landing-page .customer-brand {
+    position: relative;
+    z-index: 1;
+  }
+}
+
 .is-landing-page .customer-nav-center a {
   position: relative;
   isolation: isolate;

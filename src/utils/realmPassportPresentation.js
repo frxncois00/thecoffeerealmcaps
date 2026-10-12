@@ -4,8 +4,9 @@ const fieldText = (value, fallback) => typeof value === 'string' && value.trim()
 
 // This adapter prepares display values only. Order eligibility, ordering, reward
 // artwork, and progress always come from the existing passport utility.
-export function buildPassportPresentation({ profile, id, orders = [], benefit, loading = false } = {}) {
+export function buildPassportPresentation({ profile, id, orders = [], benefit, claims = [], loading = false } = {}) {
   const purchases = completedPassportOrders(orders)
+  const claimsByNumber = new Map(claims.map(claim => [Number(claim.reward_number), claim.claimed_at]))
   const username = fieldText(profile?.username, 'Member').replace(/^@/, '') || 'Member'
   const identity = {
     username,
@@ -25,6 +26,7 @@ export function buildPassportPresentation({ profile, id, orders = [], benefit, l
   const chapters = PASSPORT_REWARDS.map(([title, filename], index) => {
     const number = index + 1
     const progress = rewardProgress(loading ? 0 : purchases.length, number)
+    const claimedAt = claimsByNumber.get(number) || null
     const slots = Array.from({ length: 5 }, (_, slotIndex) => {
       const purchaseNumber = index * 5 + slotIndex + 1
       const order = loading ? null : purchases[purchaseNumber - 1]
@@ -51,6 +53,7 @@ export function buildPassportPresentation({ profile, id, orders = [], benefit, l
       milestone: number * 5,
       progress,
       status: progress === 5 ? 'unlocked' : progress > 0 ? 'in-progress' : 'locked',
+      claimedAt,
       slots,
       remaining: 5 - progress,
       loading,
@@ -62,6 +65,9 @@ export function buildPassportPresentation({ profile, id, orders = [], benefit, l
   const summary = {
     totalPurchases: loading ? null : purchases.length,
     rewardsEarned: loading ? null : chapters.filter(chapter => chapter.status === 'unlocked').length,
+    rewardsClaimed: loading ? null : chapters.filter(chapter => chapter.claimedAt).length,
+    claimableRewards: loading ? [] : chapters.filter(chapter => chapter.status === 'unlocked' && !chapter.claimedAt),
+    claimedRewards: loading ? [] : chapters.filter(chapter => chapter.claimedAt),
     nextReward: loading || !nextChapter ? null : {
       number: nextChapter.number,
       title: nextChapter.title,

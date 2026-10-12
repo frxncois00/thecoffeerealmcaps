@@ -29,6 +29,7 @@ import { getCurrentPortalSession, signOutPortal } from '../lib/auth'
 import { isSupabaseConfigured, supabase } from '../lib/supabase'
 import { sanitizePersonName, sanitizePhone } from '../utils/inputValidation'
 import { buildVatExemptOrderBreakdown, formatVatRate, vatExemptDiscountBreakdown } from '../utils/pricing'
+import PassportCheckoutLookup from '../components/cashier/PassportCheckoutLookup'
 import { ReceiptPaper } from '../components/common/ReceiptDocument'
 import { printReceipt } from '../components/common/receiptUtils'
 
@@ -341,6 +342,7 @@ function normalizeOrder(row) {
     id: row.id,
     orderNumber: row.order_number || row.reference_code || `Walk-in #${row.id}`,
     receiptNumber: row.receipt_number || row.receiptNumber || '',
+    realmPassportId: row.realm_passport_id || row.realmPassportId || null,
     customerName: row.customer_name || row.full_name || 'Walk-in Customer',
     subtotal: Number(row.subtotal || row.discount_subtotal || row.final_total || 0),
     discountAmount: Number(row.discount_amount || 0),
@@ -488,7 +490,7 @@ export default function CashierPage() {
         const [productResult, addonResult, orderResult, recipeResult, ingredientStockResult, mappingResult, finishedProductResult, orderStatsResult, onlineOrderResult] = await Promise.all([
           loadMenuItems(),
           supabase.from('addons').select('id,name,price,applies_to,is_available,sort_order,addon_subcategories(subcategory_id)').eq('is_available', true).order('sort_order', { ascending: true }),
-          supabase.from('orders').select('id,order_number,receipt_number,status,order_type,order_source,customer_name,subtotal,discount_subtotal,discount_amount,vat_exempt_amount,final_total,vat_rate,prices_include_vat,payment_status,payment_confirmed,discount_type,discount_customer_name,discount_id_number,created_at,order_items(*),payments(*)').order('created_at', { ascending: false }).limit(40),
+          supabase.from('orders').select('id,order_number,receipt_number,realm_passport_id,status,order_type,order_source,customer_name,subtotal,discount_subtotal,discount_amount,vat_exempt_amount,final_total,vat_rate,prices_include_vat,payment_status,payment_confirmed,discount_type,discount_customer_name,discount_id_number,created_at,order_items(*),payments(*)').order('created_at', { ascending: false }).limit(40),
           supabase.from('menu_item_ingredients').select('menu_item_id,ingredient_id,quantity_per_serving'),
           supabase.from('inventory_stock').select('ingredient_id,quantity'),
           supabase.from('finished_product_sale_mappings').select('menu_item_id,finished_product_id,variant_key,units_per_sale'),
@@ -839,7 +841,7 @@ export default function CashierPage() {
       return [...withoutOriginal, { ...item, lineKey, qty: quantity, customizations, addons }]
     })
   }
-  async function saveOrder() {
+  async function saveOrder(passport = null) {
     if (savingOrder) return false
     setError('')
     if (!cart.length) return setError('Add at least one item to the cart.')
@@ -865,7 +867,8 @@ export default function CashierPage() {
         counterNumber: activeOrder.counterNumber || '01',
         receiptNumber: localIdentifier('R'),
         status: 'Preparing',
-        customerName: resolvedCustomerName,
+        customerName: passport?.profile.full_name || resolvedCustomerName,
+        realmPassportId: passport?.id || null,
         diningOption: activeOrder.diningOption || 'dine_in',
         subtotal,
         discountAmount,
@@ -953,8 +956,9 @@ export default function CashierPage() {
         status: 'paid',
         paid_at: new Date().toISOString(),
       }
-      const { data: savedOrder, error: orderError } = await supabase.rpc('create_cashier_order', {
+      const { data: savedOrder, error: orderError } = await supabase.rpc('create_cashier_order_with_passport', {
         request_payload: { order: orderPayload, items: orderItems, payment: paymentPayload },
+        p_realm_id: passport?.id || null,
       })
       if (orderError || !savedOrder) {
         setError(`Order was not saved: ${orderError?.message || 'The server returned no order.'}`)
@@ -1285,7 +1289,7 @@ export default function CashierPage() {
         </div>
       )}
 
-      {showCheckout ? <CheckoutModal cart={cart} total={total} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat} discount={discount} breakdown={priceBreakdown} setDiscount={setDiscount} payment={payment} setPayment={setPayment} change={change} error={error} saving={savingOrder} onCancel={() => { if (!savingOrder) { setShowCheckout(false); setError('') } }} onConfirm={async () => { if (await saveOrder()) setShowCheckout(false) }} /> : null}
+      {showCheckout ? <CheckoutModal cart={cart} total={total} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat} discount={discount} breakdown={priceBreakdown} setDiscount={setDiscount} payment={payment} setPayment={setPayment} change={change} error={error} saving={savingOrder} onCancel={() => { if (!savingOrder) { setShowCheckout(false); setError(''); if (discount.passportSource) setDiscount(emptyDiscount()) } }} onConfirm={async (passport) => { if (await saveOrder(passport)) setShowCheckout(false) }} /> : null}
       {customizingProduct ? <ItemCustomizationModal product={customizingProduct} onClose={() => setCustomizingProduct(null)} onAdd={(customizations, addons, quantity) => { updateConfiguredItem(customizingProduct, customizations, addons, quantity); setCustomizingProduct(null) }} /> : null}
       {receipt ? <CashierReceipt order={receipt} onClose={() => setReceipt(null)} /> : null}
       {showOrderStatusModal ? (
@@ -1505,6 +1509,7 @@ function OrderSummary({ vatRate, pricesIncludeVat, breakdown }) {
 
 
 function CheckoutModal({ cart, total, vatRate, pricesIncludeVat, discount, breakdown, setDiscount, payment, setPayment, change, error, saving, onCancel, onConfirm }) {
+  const [passport, setPassport] = useState(null)
   const discountChoices = ['No Discount', 'PWD', 'Senior']
   const paymentChoices = [
     { value: 'Cash', label: 'Cash', icon: Banknote },
@@ -1541,6 +1546,7 @@ function CheckoutModal({ cart, total, vatRate, pricesIncludeVat, discount, break
           <span className="checkout-modal-icon"><ReceiptText size={20} /></span>
           <div><span className="cashier-kicker">Review order</span><h2 id="checkout-title">Checkout</h2></div>
         </div>
+        <PassportCheckoutLookup saving={saving} onMatch={setPassport} setDiscount={setDiscount} />
         <button type="button" onClick={onCancel} disabled={saving} aria-label="Close checkout">&times;</button>
       </header>
       <div className="checkout-modal-body">
@@ -1565,7 +1571,7 @@ function CheckoutModal({ cart, total, vatRate, pricesIncludeVat, discount, break
         </section>
       </div>
       {error ? <div className="checkout-error">{error}</div> : null}
-      <footer className="checkout-actions"><button type="button" onClick={onCancel} disabled={saving}>Cancel</button><button type="button" onClick={onConfirm} disabled={saving} aria-busy={saving}>{saving ? 'Saving order...' : 'Confirm order'}</button></footer>
+      <footer className="checkout-actions"><button type="button" onClick={onCancel} disabled={saving}>Cancel</button><button type="button" onClick={() => onConfirm(passport)} disabled={saving} aria-busy={saving}>{saving ? 'Saving order...' : 'Confirm order'}</button></footer>
     </section>
   </div>
 }

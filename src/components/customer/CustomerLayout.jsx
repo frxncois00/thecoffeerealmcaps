@@ -210,7 +210,7 @@ export default function CustomerLayout() {
   return (
     <div className={`customer-app${isLandingPage ? ' is-landing-page' : ''}`} data-landing-motion={isLandingPage ? enabled : undefined}>
       {isLandingPage && <a className="landing-skip-link" href="#main-content">Skip to content</a>}
-      <header className={`customer-header${scrolled ? ' is-scrolled' : ''}`}>
+      <header className={`customer-header${customerUser ? ' is-authenticated' : ''}${scrolled ? ' is-scrolled' : ''}`}>
         <div className="customer-brand"><Brand /></div>
         <button className="mobile-cart" type="button" onClick={cart.openCart} aria-label={`Open cart${cart.itemCount ? `, ${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}` : ''}`} aria-haspopup="dialog" aria-controls="customer-cart-drawer" aria-expanded={cart.drawerOpen}>
           <ShoppingCart size={19} />
