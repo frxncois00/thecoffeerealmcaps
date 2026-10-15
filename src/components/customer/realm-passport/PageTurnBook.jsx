@@ -8,7 +8,7 @@ import './page-turn.css'
 
 // The engine owns its DOM shells; React owns only the portal contents.
 // Cleanup can safely destroy the engine without removing React-owned nodes.
-function OpenBook({ pages, renderPage, onClose, initialPage = 0 }) {
+function OpenBook({ pages, renderPage, onClose, initialPage = 0, navigationStart }) {
   const host = useRef(null)
   const engine = useRef(null)
   const gesture = useRef(null)
@@ -141,6 +141,7 @@ function OpenBook({ pages, renderPage, onClose, initialPage = 0 }) {
   const onRewards = !onProfile && !onSummary
   return <div className="rp-reader" onKeyDown={event => { if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); go(event.key === 'ArrowRight' ? 1 : -1) } }}>
     <nav className="rp-section-navigation" aria-label="Passport sections">
+      {navigationStart}
       <button type="button" onClick={() => goTo(0)} aria-current={onProfile ? 'page' : undefined} disabled={busy}><UserRound size={16} aria-hidden="true" />Profile</button>
       <button type="button" onClick={() => goTo(1)} aria-current={onRewards ? 'page' : undefined} disabled={busy}><Gift size={16} aria-hidden="true" />Rewards</button>
       <button type="button" onClick={() => goTo(pages.length - 1)} aria-current={onSummary ? 'page' : undefined} disabled={busy}><BookOpen size={16} aria-hidden="true" />Summary</button>
@@ -162,9 +163,10 @@ function OpenBook({ pages, renderPage, onClose, initialPage = 0 }) {
   </div>
 }
 
-function ClosedBook({ pages, renderCover, loading, onOpen }) {
+function ClosedBook({ pages, renderCover, loading, onOpen, navigationStart }) {
   return <div className="rp-reader is-closed">
     <nav className="rp-section-navigation" aria-label="Passport sections">
+      {navigationStart}
       <button type="button" onClick={() => onOpen(0)} disabled={loading}><UserRound size={16} aria-hidden="true" />Profile</button>
       <button type="button" onClick={() => onOpen(1)} disabled={loading}><Gift size={16} aria-hidden="true" />Rewards</button>
       <button type="button" onClick={() => onOpen(pages.length - 1)} disabled={loading}><BookOpen size={16} aria-hidden="true" />Summary</button>
@@ -181,7 +183,7 @@ function ClosedBook({ pages, renderCover, loading, onOpen }) {
   </div>
 }
 
-export default function PageTurnBook({ pages, renderPage, renderCover, loading }) {
+export default function PageTurnBook({ pages, renderPage, renderCover, loading, navigationStart }) {
   const [open, setOpen] = useState(false)
   const [targetPage, setTargetPage] = useState(0)
 
@@ -191,6 +193,6 @@ export default function PageTurnBook({ pages, renderPage, renderCover, loading }
   }
 
   return open && !loading
-    ? <OpenBook pages={pages} renderPage={renderPage} initialPage={targetPage} onClose={() => setOpen(false)}/>
-    : <ClosedBook pages={pages} renderCover={renderCover} loading={loading} onOpen={handleOpen}/>
+    ? <OpenBook pages={pages} renderPage={renderPage} initialPage={targetPage} onClose={() => setOpen(false)} navigationStart={navigationStart}/>
+    : <ClosedBook pages={pages} renderCover={renderCover} loading={loading} onOpen={handleOpen} navigationStart={navigationStart}/>
 }

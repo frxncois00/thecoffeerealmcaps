@@ -1,0 +1,157 @@
+.realm-passport-promo {
+  --passport-fiber: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='.08'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Cpath fill='%23938469' filter='url(%23paper)' d='M0 0h180v180H0z'/%3E%3C/svg%3E");
+  position: relative;
+  padding: 32px 24px 40px;
+  color: var(--forest);
+  background: #fff;
+}
+
+.realm-passport-promo-inner { width: min(840px, 100%); margin-inline: auto; text-align: center; }
+.realm-passport-promo-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 300px) minmax(0, 1fr);
+  grid-template-areas: 'order envelope reward';
+  align-items: center;
+  gap: 24px;
+  margin: 0 auto 24px;
+}
+.realm-passport-post { grid-area: envelope; position: relative; isolation: isolate; width: 100%; aspect-ratio: 1; }
+.realm-passport-envelope-back {
+  position: absolute;
+  inset: 40% 3% 0;
+  border-radius: 5px;
+  background: var(--passport-fiber), linear-gradient(150deg, #45614b, #233e2e 70%);
+  box-shadow: 0 20px 30px -16px #25301d55, 0 3px 5px #25301d14;
+}
+.realm-passport-envelope-back::before {
+  content: '';
+  position: absolute;
+  inset: -44% 0 99%;
+  clip-path: polygon(0 100%, 48% 1%, 52% 1%, 100% 100%);
+  background: var(--passport-fiber), linear-gradient(165deg, #55705a, #2c4835);
+}
+.realm-passport-cover-reveal { position: absolute; z-index: 1; top: 1%; left: 24%; width: 53%; }
+.realm-passport-cover-lift { transform: rotate(-7deg); transition: transform .5s var(--realm-ease, ease); }
+.realm-passport-cover-lift img {
+  width: 100%;
+  height: auto;
+  border-radius: 4% 6% 5% 3%;
+  box-shadow: -5px 8px 14px #13231935, 2px 1px 2px #17281a30;
+}
+.realm-passport-envelope-front { position: absolute; z-index: 2; inset: 40% 3% 0; overflow: hidden; border-radius: 4px; }
+.realm-passport-envelope-fold { position: absolute; inset: 0; }
+.realm-passport-envelope-fold-left {
+  clip-path: polygon(0 0, 59% 65%, 0 100%);
+  background: var(--passport-fiber), linear-gradient(115deg, #36543e, #294531);
+}
+.realm-passport-envelope-fold-right {
+  clip-path: polygon(100% 0, 41% 65%, 100% 100%);
+  background: var(--passport-fiber), linear-gradient(240deg, #314e39, #213c2b);
+}
+.realm-passport-envelope-fold-bottom {
+  clip-path: polygon(0 100%, 0 97%, 46% 47%, 54% 47%, 100% 97%, 100% 100%);
+  background: var(--passport-fiber), linear-gradient(180deg, #416047, #294531);
+}
+.realm-passport-envelope-front::after {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  border: 1px solid #dfd0a31a;
+  border-top: 0;
+  border-radius: 2px;
+  clip-path: polygon(0 0, 50% 56%, 100% 0, 100% 100%, 0 100%);
+}
+.realm-passport-paper-tab {
+  position: absolute;
+  z-index: 3;
+  top: 80%;
+  right: 0;
+  width: 44%;
+  padding: 9px 8px;
+  background: var(--passport-fiber), #fbf5e8;
+  color: #4d513f;
+  box-shadow: 1px 3px 7px #19271924;
+  transform: rotate(5deg);
+  font: italic .8rem/1.3 Georgia, serif;
+}
+.realm-passport-envelope-seal {
+  position: absolute;
+  z-index: 4;
+  top: 70%;
+  left: 41%;
+  display: grid;
+  place-items: center;
+  width: 18%;
+  height: 18%;
+  min-width: 0;
+  min-height: 0;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 3px double #dfc38b;
+  border-radius: 48% 51% 47% 50%;
+  background: var(--passport-fiber), #b99a60;
+  box-shadow: 1px 4px 7px #111f1a40, inset 0 0 0 4px #b0935f, inset 0 0 0 5px #e2c99099;
+  transition: filter .35s ease, box-shadow .35s ease;
+}
+.realm-passport-envelope-seal img { width: 85%; height: auto; max-height: 100%; min-width: 0; min-height: 0; aspect-ratio: 1; object-fit: contain; border-radius: 50%; filter: grayscale(1) sepia(1) brightness(2.2) contrast(.65); mix-blend-mode: multiply; opacity: .85; }
+.realm-passport-slip {
+  position: relative;
+  width: 100%;
+  max-width: 230px;
+  margin: 0;
+  padding: 18px 14px;
+  background: var(--passport-fiber), #fffaf0;
+  border: 1px solid #e2d7c2;
+  box-shadow: 0 9px 16px -10px #443b2640, 0 2px 3px #443b2608;
+  color: #354731;
+  font-size: .95rem;
+  line-height: 1.55;
+}
+.realm-passport-slip::before { content: ''; position: absolute; inset: 7px; border: 1px solid #b7a17233; pointer-events: none; }
+.realm-passport-slip span { display: block; font-weight: 700; }
+.realm-passport-slip-order { grid-area: order; justify-self: end; transform: translateY(20px) rotate(-3deg); }
+.realm-passport-slip-reward { grid-area: reward; justify-self: start; transform: translateY(20px) rotate(3deg); }
+.realm-passport-promo-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  max-width: 100%;
+  padding: 12px 24px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--forest);
+  color: var(--cream);
+  font-size: .95rem;
+  font-weight: 700;
+  line-height: 1.5;
+  transition: background-color .2s ease;
+}
+.realm-passport-promo-button:focus-visible { outline: 2px solid #8b672c; outline-offset: 5px; }
+@media (hover: hover) and (pointer: fine) {
+  .realm-passport-post[data-hover-motion='true']:hover .realm-passport-cover-lift { transform: translateY(-8px) rotate(-7deg); }
+  .realm-passport-post:hover .realm-passport-envelope-seal { filter: brightness(1.12); box-shadow: 1px 4px 8px #111f1a40, 0 0 0 4px #d6bc7b24, inset 0 0 0 4px #b0935f, inset 0 0 0 5px #e2c99099; }
+  .realm-passport-promo-button:hover { background: #31513b; }
+}
+@media (max-width: 800px) {
+  .realm-passport-promo-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: 'envelope envelope' 'order reward'; gap: 22px 18px; max-width: 500px; }
+  .realm-passport-post { max-width: 280px; justify-self: center; }
+  .realm-passport-slip-order { transform: rotate(-2deg); }
+  .realm-passport-slip-reward { transform: rotate(2deg); }
+}
+@media (max-width: 480px) {
+  .realm-passport-promo { padding: 24px 18px 32px; }
+  .realm-passport-promo-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'envelope' 'order' 'reward'; gap: 12px; margin-bottom: 20px; }
+  .realm-passport-post { max-width: 250px; margin-bottom: 8px; }
+  .realm-passport-slip { max-width: 310px; justify-self: center; padding: 13px 12px; }
+  .realm-passport-slip span { display: inline; }
+  .realm-passport-slip-order { transform: rotate(-2deg); }
+  .realm-passport-slip-reward { transform: rotate(2deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .realm-passport-cover-reveal { transform: none !important; }
+  .realm-passport-cover-lift, .realm-passport-envelope-seal, .realm-passport-promo-button { transition: none; }
+  .realm-passport-post[data-hover-motion='true']:hover .realm-passport-cover-lift { transform: rotate(-7deg); }
+}
+html[data-realm-motion='reduced'] .realm-passport-cover-lift,
+html[data-realm-motion='reduced'] .realm-passport-envelope-seal { transition: none; }

@@ -6,6 +6,7 @@ import { useRealmMotion } from '../motion/useRealmMotion'
 import { motionTokens, revealVariants } from '../motion/config'
 import HeroMedia from '../components/landing/HeroMedia'
 import VisitUs from '../components/landing/VisitUs'
+import RealmPassportPromo from '../components/landing/RealmPassportPromo'
 import { LandingControls, HeroAtmosphere, RealmMarquee, StoryImage, JourneyTimeline } from '../components/landing/LandingAccents'
 import { Link } from 'react-router-dom'
 import BestSellerCarousel from '../components/BestSellerCarousel'
@@ -143,6 +144,8 @@ export default function HomePage() {
             <BestSellerCarousel items={featuredItems} onChoose={chooseFeaturedItem} />
           </Reveal>
         </section>}
+
+        <RealmPassportPromo customerUser={customerUser} />
 
         <HowOrderingWorks />
 

@@ -32,4 +32,7 @@
 .passport-confirm-actions button:first-child { border: 1px solid #c7c5b7; border-radius: 8px; padding: 8px 14px; background: transparent; color: inherit; cursor: pointer; }
 .passport-confirm-actions button:disabled { opacity: .6; cursor: wait; }
 .passport-claim-error { color: #a52b2b; }
+.passport-reward-list button:disabled { opacity: .55; cursor: not-allowed; }
+.passport-reward-list button.is-claimed { background: #e5ede3; color: #35583d; opacity: 1; cursor: default; }
+.passport-claim-notice { color: #35583d; }
 @media (max-width: 600px) { .checkout-modal-head { flex-wrap: wrap; gap: 12px; } .checkout-modal-head .passport-lookup { width: 100%; order: 3; padding-left: 0; margin-right: 0; } }

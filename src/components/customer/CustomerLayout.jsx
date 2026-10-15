@@ -14,8 +14,8 @@ import { lockBodyScroll, restoreBodyScrollIfIdle, unlockBodyScroll } from '../..
 import { useRealmMotion } from '../../motion/useRealmMotion'
 import '../landing-chrome-motion.css'
 
-const centerLinks = [['Menu', '/menu'], ['My Orders', '/orders'], ['Help', '/help'], ['Profile', '/profile']]
-const landingLinks = [['Menu', '#menu'], ['Our Story', '#about'], ['Visit Us', '#visit']]
+const centerLinks = [['Menu', '/menu'], ['Rewards', '/#rewards'], ['My Orders', '/orders'], ['Help', '/help'], ['Profile', '/profile']]
+const landingLinks = [['Menu', '#menu'], ['Rewards', '#rewards'], ['Our Story', '#about'], ['Visit Us', '#visit']]
 const money = (value) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value)
 
 export default function CustomerLayout() {
@@ -66,7 +66,7 @@ export default function CustomerLayout() {
   }, [open])
 
   useEffect(() => {
-    if (!isLandingPage || customerUser) return undefined
+    if (!isLandingPage) return undefined
     let frame = 0
     const updateActiveAnchor = () => {
       frame = 0
@@ -89,7 +89,7 @@ export default function CustomerLayout() {
       window.removeEventListener('scroll', scheduleUpdate)
       window.removeEventListener('resize', scheduleUpdate)
     }
-  }, [isLandingPage, customerUser])
+  }, [isLandingPage])
 
   useEffect(() => {
     const previousRestoration = window.history.scrollRestoration
@@ -230,7 +230,9 @@ export default function CustomerLayout() {
         <nav ref={navigationRef} id="customer-navigation" className={open ? 'open' : ''} aria-label="Main navigation">
           <div className="customer-nav-center">
             {customerUser
-              ? centerLinks.map(([label, to]) => <NavLink key={to} to={to} onClick={close}>{label}</NavLink>)
+              ? centerLinks.map(([label, to]) => to.startsWith('/#')
+                ? <a key={to} href={isLandingPage ? to.slice(1) : to} onClick={close} aria-current={isLandingPage && activeAnchor === to.slice(1) ? 'location' : undefined}>{label}</a>
+                : <NavLink key={to} to={to} onClick={close}>{label}</NavLink>)
               : isPublicLandingChrome
                 ? publicLinks.map(([label, href]) => <a key={href} href={href} onClick={close} aria-current={isLandingPage && activeAnchor === href ? 'location' : undefined}>{label}</a>)
                 : null}
