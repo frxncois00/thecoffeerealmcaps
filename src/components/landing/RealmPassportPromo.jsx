@@ -26,12 +26,6 @@ export default function RealmPassportPromo({ customerUser = false }) {
               <path d="M9 10c-3 4-4 8-4 11" fill="none" stroke="#a36d40" strokeWidth="1.5" strokeLinecap="round" opacity=".5"/>
             </symbol>
             <symbol id={`${id}-sparkle-art`} viewBox="0 0 24 24"><path d="m12 0 2.6 9.4L24 12l-9.4 2.6L12 24l-2.6-9.4L0 12l9.4-2.6Z" fill="currentColor"/></symbol>
-            <symbol id={`${id}-cup-logo`} viewBox="0 0 48 48">
-              <path d="M7 30a17 17 0 0 1 34 0" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/>
-              <circle cx="24" cy="12" r="4.2" fill="currentColor"/>
-              <path d="M17 25h13v5a6.5 6.5 0 0 1-13 0Z" fill="currentColor"/>
-              <path d="M30 26h2a3 3 0 0 1 0 6h-3M15 38h18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-            </symbol>
             <symbol id={`${id}-check-art`} viewBox="0 0 24 24"><path d="m6 12 4 4 8-9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></symbol>
             <symbol id={`${id}-gift-art`} viewBox="0 0 24 24"><g fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 10v10h14V10M3 7h18v4H3zM12 7v13"/><path d="M12 7H8a2.5 2.5 0 1 1 2.5-2.5L12 7Zm0 0h4a2.5 2.5 0 1 0-2.5-2.5L12 7Z"/></g></symbol>
             <symbol id={`${id}-ink-art`} viewBox="0 0 70 70"><g fill="none" stroke="currentColor"><circle cx="35" cy="35" r="29" strokeWidth="1.5" strokeDasharray="2 3"/><circle cx="35" cy="35" r="23" strokeWidth="1"/><path d="m24 35 8 8 16-19" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round"/></g></symbol>
@@ -56,7 +50,7 @@ export default function RealmPassportPromo({ customerUser = false }) {
                     <div className="rpp-book-rise"><div className="rpp-book-float"><div className="rpp-book-tilt"><div className="rpp-book-feedback">
                       <div className="rpp-book">
                         <p className="rpp-book-brand">THE COFFEE REALM</p>
-                        <svg className="rpp-book-logo" aria-hidden="true"><use href={`#${id}-cup-logo`}/></svg>
+                        <img className="rpp-book-logo" src="/images/coffeerealmlogo.png" alt="" width="64" height="64" />
                         <p className="rpp-book-title">REALM<br />PASSPORT</p>
                         <svg className="rpp-book-flourish" viewBox="0 0 54 14" aria-hidden="true"><path d="M0 7h19m16 0h19" fill="none" stroke="currentColor"/><path d="m27 2 5 5-5 5-5-5Z" fill="none" stroke="currentColor"/></svg>
                       </div>
@@ -64,7 +58,7 @@ export default function RealmPassportPromo({ customerUser = false }) {
                   </div>
                 </div>
                 <div className="rpp-envelope-front"></div>
-                <div className="rpp-seal-position"><div className="rpp-seal"><svg aria-hidden="true"><use href={`#${id}-cup-logo`}/></svg><span className="rpp-seal-shine"></span></div></div>
+                <div className="rpp-seal-position"><div className="rpp-seal"><img src="/images/coffeerealmlogo.png" alt="" width="34" height="34" /><span className="rpp-seal-shine"></span></div></div>
                 <div className="rpp-note-position"><p className="rpp-note">Reserved for you.</p></div>
               </div>
             </div>

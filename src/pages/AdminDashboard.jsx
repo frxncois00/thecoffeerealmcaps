@@ -295,14 +295,11 @@ function AdminDashboardHome() {
     return () => { supabase.removeChannel(channel) }
   }, [load])
 
-  const attentionCount = metrics ? metrics.attentionOrders.length + metrics.pendingRefunds.length + metrics.outOfStockItems.length + metrics.criticalAuditEvents.length : 0
-
   return <AppShell
     role="admin"
     title="Dashboard"
     eyebrow="Real-time overview of your store performance and operations."
     onRefresh={load}
-    notificationCount={attentionCount}
     titleActions={<div className="ad-live-state"><i />Live monitoring{lastUpdated && <span>Updated {timeAgo(lastUpdated)}</span>}</div>}
   >
     {error && <div className="ad-error" role="alert"><AlertTriangle size={19} /><div><b>Dashboard unavailable</b><span>{error}</span></div><button type="button" onClick={() => load()}><RefreshCw size={15} />Try again</button></div>}

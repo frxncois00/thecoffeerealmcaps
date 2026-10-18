@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   AlertTriangle, Bell, Bike, Check, Clock, Coffee,
   ExternalLink, Grid2X2, List, Package, RefreshCw, Search, ShoppingBag, X,
@@ -7,6 +8,7 @@ import AppShell from '../components/AppShell'
 import { usePricing } from '../context/usePricing'
 import { money } from '../utils/money'
 import { describeError } from '../utils/describeError'
+import { orderDisplayStatus } from '../utils/orderDisplayStatus'
 import { buildVatExemptOrderBreakdown, formatVatRate } from '../utils/pricing'
 import {
   fetchOpsOrders, fetchOpsOrdersByIds, fetchAddonNameMap, confirmOrder, advanceOrderStatus, saveOrderTrackingLink,
@@ -23,7 +25,7 @@ const PENDING_STATUSES = ['Order Received', 'Awaiting Payment Verification', 'Pe
 const COLUMNS = [
   { key: 'pending', title: 'Pending Confirmation', subtitle: 'Verify payment proofs', icon: Clock, tone: 'amber' },
   { key: 'preparing', title: 'Preparing', subtitle: 'Orders being prepared', icon: Coffee, tone: 'blue' },
-  { key: 'ready', title: 'Ready to Claim', icon: Package, tone: 'green' },
+  { key: 'ready', title: 'Ready for Handover', subtitle: 'Customer pickup or delivery handoff', icon: Package, tone: 'green' },
   { key: 'delivery', title: 'Out for Delivery', subtitle: 'Orders currently being delivered', icon: Bike, tone: 'teal' },
 ]
 
@@ -140,6 +142,7 @@ function orderStatusTone(status) {
   if (s === 'cancelled') return 'cancelled'
   if (s === 'preparing' || s === 'in prep') return 'preparing'
   if (s === 'ready for pickup' || s === 'ready' || s === 'ready to claim') return 'pickup'
+  if (s === 'ready for delivery') return 'pickup'
   if (s === 'out for delivery' || s === 'delivery') return 'delivery'
   if (/pending|awaiting|received|ordered/i.test(s)) return 'attention'
   return 'neutral'
@@ -194,9 +197,9 @@ function mainActionFor(order) {
     if (isPayMongoMethod(method)) return { label: 'Awaiting PayMongo payment', next: null, kind: 'waiting', disabled: true, disabledReason: 'The order will unlock automatically after PayMongo confirms the payment.' }
     return { label: 'Verify Payment', next: null, kind: 'confirm', disabled: !order.payment_proof_path, disabledReason: 'Waiting for the customer to upload payment proof.' }
   }
-  // All order types go Preparing → Ready for Pickup first
+  // The stored ready state is shared by pickup and delivery orders.
   if (stage === 'preparing') {
-    return { label: 'Mark as Ready', next: 'Ready for Pickup', kind: 'advance' }
+    return { label: order.order_type === 'delivery' ? 'Mark Ready for Delivery' : 'Mark Ready to Claim', next: 'Ready for Pickup', kind: 'advance' }
   }
   if (stage === 'ready') {
     // Delivery orders proceed to Out for Delivery; everything else completes here
@@ -211,6 +214,9 @@ function mainActionFor(order) {
 }
 
 export default function OrderPreparationPage() {
+  const location = useLocation()
+  const notificationCancellation = location.state?.notificationCancellation
+  const initialNotificationCancellationRef = useRef(notificationCancellation)
   const [orders, setOrders] = useState([])
   const [newOrderIds, setNewOrderIds] = useState(() => new Set())
   const [addonNames, setAddonNames] = useState({})
@@ -242,6 +248,7 @@ export default function OrderPreparationPage() {
   const hasLoadedOrdersRef = useRef(false)
   const loadSequenceRef = useRef(0)
   const newOrderTimersRef = useRef(new Map())
+  useEffect(() => { initialNotificationCancellationRef.current = notificationCancellation }, [notificationCancellation])
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(timer) }, [])
   useEffect(() => {
     let active = true
@@ -251,12 +258,12 @@ export default function OrderPreparationPage() {
         const preferences = await fetchStaffPreferences(profile.id)
         if (!active) return
         const remembered = getRememberedStaffFilters('orders')
-        setActiveTab(normalizeOrderTab(remembered?.activeTab || preferences.order_queue))
+        setActiveTab(initialNotificationCancellationRef.current ? 'cancelled' : normalizeOrderTab(remembered?.activeTab || preferences.order_queue))
         setSortBy(remembered?.sortBy || preferences.order_sort)
         setFulfillmentFilter(remembered?.fulfillmentFilter || preferences.fulfillment_filter)
         setRowsPerPage(Number(preferences.rows_per_page) || 25)
         if (remembered) {
-          setSearch(remembered.search || '')
+          setSearch(initialNotificationCancellationRef.current?.orderNumber || remembered.search || '')
           setPaymentFilter(remembered.paymentFilter || 'all')
           const todayStr = new Date().toLocaleDateString('en-CA')
           const yesterdayCalc = new Date()
@@ -264,7 +271,7 @@ export default function OrderPreparationPage() {
           const yesterdayStr = yesterdayCalc.toLocaleDateString('en-CA')
           const remDate = remembered.dateFilter
           const isRecentDate = remDate === '' || remDate === todayStr || remDate === yesterdayStr
-          setDateFilter(isRecentDate ? remDate : todayStr)
+          setDateFilter(initialNotificationCancellationRef.current ? '' : isRecentDate ? remDate : todayStr)
         }
       } catch { /* Defaults remain available if preferences have not been migrated yet. */ }
       finally { if (active) setFiltersReady(true) }
@@ -276,6 +283,13 @@ export default function OrderPreparationPage() {
     if (!filtersReady) return
     rememberStaffFilters('orders', { activeTab, search, fulfillmentFilter, paymentFilter, dateFilter, sortBy })
   }, [activeTab, dateFilter, filtersReady, fulfillmentFilter, paymentFilter, search, sortBy])
+
+  useEffect(() => {
+    if (!notificationCancellation?.openedAt) return
+    setActiveTab('cancelled')
+    setSearch(notificationCancellation.orderNumber || '')
+    setDateFilter('')
+  }, [notificationCancellation?.openedAt, notificationCancellation?.orderNumber])
 
   const flagNewOrder = useCallback((order) => {
     if (!order?.id) return
@@ -446,7 +460,7 @@ export default function OrderPreparationPage() {
         if (next === 'Out for Delivery') await saveOrderTrackingLink(order.id, trackingUrl)
         dismissOrderNotification(order.id)
         patchOrder(order.id, { status: next, ...(next === 'Out for Delivery' ? { tracking_url: trackingUrl || null } : {}) })
-        pushToast('success', `${order.order_number} is now ${next}.`)
+        pushToast('success', `${order.order_number} is now ${orderDisplayStatus({ ...order, status: next })}.`)
       }
       setDrawerOrder((current) => (current && current.id === order.id ? { ...current, status: next || 'Preparing' } : current))
     } catch (cause) {
@@ -847,7 +861,7 @@ function OrderCard({ order, isNew = false, busy, onView, onMain, onCancel }) {
 
 function OrderTable({ orders, newOrderIds = new Set(), busyId, onView, onMain, onCancel }) {
   if (!orders.length) return <div className="ops-empty"><ShoppingBag size={20} /><span>No orders match these filters.</span></div>
-  return <div className="ops-order-table-wrap"><table className="ops-order-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th>Main action</th><th>Others</th></tr></thead><tbody>{orders.map((order) => { const main = mainActionFor(order); const isCancelBlocked = isOrderCancellationBlocked(order.status); const canCancel = stageOf(order) !== 'completed' && stageOf(order) !== 'cancelled' && !cancellationRequested(order); return <tr key={order.id} className={newOrderIds.has(order.id) ? 'is-new-order' : undefined}><td><b>{order.order_number}</b><small>{timeAgo(order.created_at)}</small></td><td>{getOrderCustomerName(order)}</td><td>{order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</td><td>{itemCount(order)}</td><td>{paymentMethodLabel(paymentMethod(order))}</td><td><span className={`ops-table-status ops-table-status--${orderStatusTone(order.status)}`}>{order.status}</span></td><td><b>{money(order.final_total)}</b></td><td>{main && <button type="button" className="ops-main-action compact" disabled={busyId === order.id || main.disabled} onClick={() => onMain(order, main)}>{busyId === order.id ? 'Please wait…' : main.label}</button>}</td><td><div className="ops-table-actions"><button type="button" className="ops-secondary-action compact" onClick={() => onView(order)}>View details</button>{canCancel && <button type="button" className="ops-destructive-action compact" disabled={busyId === order.id || isCancelBlocked} title={isCancelBlocked ? CANNOT_CANCEL_IN_PROGRESS_REASON : undefined} onClick={isCancelBlocked ? undefined : () => onCancel(order)}>Cancel</button>}</div></td></tr>})}</tbody></table></div>
+  return <div className="ops-order-table-wrap"><table className="ops-order-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th>Main action</th><th>Others</th></tr></thead><tbody>{orders.map((order) => { const main = mainActionFor(order); const isCancelBlocked = isOrderCancellationBlocked(order.status); const canCancel = stageOf(order) !== 'completed' && stageOf(order) !== 'cancelled' && !cancellationRequested(order); return <tr key={order.id} className={newOrderIds.has(order.id) ? 'is-new-order' : undefined}><td><b>{order.order_number}</b><small>{timeAgo(order.created_at)}</small></td><td>{getOrderCustomerName(order)}</td><td>{order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</td><td>{itemCount(order)}</td><td>{paymentMethodLabel(paymentMethod(order))}</td><td><span className={`ops-table-status ops-table-status--${orderStatusTone(orderDisplayStatus(order))}`}>{orderDisplayStatus(order)}</span></td><td><b>{money(order.final_total)}</b></td><td>{main && <button type="button" className="ops-main-action compact" disabled={busyId === order.id || main.disabled} onClick={() => onMain(order, main)}>{busyId === order.id ? 'Please wait…' : main.label}</button>}</td><td><div className="ops-table-actions"><button type="button" className="ops-secondary-action compact" onClick={() => onView(order)}>View details</button>{canCancel && <button type="button" className="ops-destructive-action compact" disabled={busyId === order.id || isCancelBlocked} title={isCancelBlocked ? CANNOT_CANCEL_IN_PROGRESS_REASON : undefined} onClick={isCancelBlocked ? undefined : () => onCancel(order)}>Cancel</button>}</div></td></tr>})}</tbody></table></div>
 }
 
 function OrderTablePagination({ total, page, pages, rowsPerPage, onPage }) {
@@ -1052,6 +1066,7 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
   const [proofUrl, setProofUrl] = useState('')
   const [proofError, setProofError] = useState('')
   const [trackingUrl, setTrackingUrl] = useState(order.tracking_url || '')
+  const [activeSection, setActiveSection] = useState('overview')
   const drawerBodyRef = useRef(null)
   const method = paymentMethod(order)
   const stage = stageOf(order)
@@ -1065,6 +1080,7 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
   const paymentTone = orderPaymentTone(order)
   const refundMeta = orderRefundMeta(order)
   const payment = order.payments?.[0]
+  const fulfillmentName = order.order_type === 'delivery' ? 'Delivery' : order.order_type === 'walk-in' ? 'Walk-in' : 'Pickup'
   const sectionIds = {
     overview: `order-overview-${order.id}`,
     order: `order-items-${order.id}`,
@@ -1082,14 +1098,30 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
   useEffect(() => { setTrackingUrl(order.tracking_url || '') }, [order.id, order.tracking_url])
 
   const scrollToSection = (section) => {
+    setActiveSection(section)
     drawerBodyRef.current?.querySelector(`#${sectionIds[section]}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  const updateActiveSection = () => {
+    const body = drawerBodyRef.current
+    if (!body) return
+    const top = body.getBoundingClientRect().top + 60
+    const visible = Object.entries(sectionIds).filter(([, id]) => {
+      const element = body.querySelector(`#${id}`)
+      return element && element.getBoundingClientRect().top <= top
+    })
+    setActiveSection(visible.at(-1)?.[0] || 'overview')
   }
 
   const timeline = [
     { label: 'Order placed', done: true, at: order.created_at },
     { label: 'Payment verified', done: method === 'cod' || order.payment_confirmed, at: order.payment_confirmed_at || (method === 'cod' ? order.updated_at : null) },
     { label: 'Preparing', done: !PENDING_STATUSES.includes(order.status) && order.status !== 'Cancelled', at: !PENDING_STATUSES.includes(order.status) && order.status !== 'Cancelled' ? order.updated_at : null },
-    { label: order.order_type === 'delivery' ? 'Out for delivery' : 'Ready to claim', done: ['Ready for Pickup', 'Out for Delivery', 'Completed', 'Received'].includes(order.status), at: ['Ready for Pickup', 'Out for Delivery', 'Completed', 'Received'].includes(order.status) ? order.out_for_delivery_at || order.updated_at : null },
+    ...(order.order_type === 'delivery' ? [
+      { label: 'Ready for Delivery', done: ['Ready for Pickup', 'Out for Delivery', 'Received'].includes(order.status), at: order.status === 'Ready for Pickup' ? order.updated_at : null },
+      { label: 'Out for Delivery', done: ['Out for Delivery', 'Received'].includes(order.status), at: order.out_for_delivery_at || (order.status === 'Out for Delivery' ? order.updated_at : null) },
+    ] : [
+      { label: 'Ready to Claim', done: ['Ready for Pickup', 'Completed'].includes(order.status), at: order.status === 'Ready for Pickup' ? order.updated_at : null },
+    ]),
     { label: order.order_type === 'delivery' ? 'Received by customer' : 'Completed', done: order.order_type === 'delivery' ? order.status === 'Received' : order.status === 'Completed', at: order.order_type === 'delivery' ? order.received_at : order.completed_at || (order.status === 'Completed' ? order.updated_at : null) },
   ]
   if (cancellationRequested(order)) timeline.push({ label: 'Cancellation review requested', done: false, at: order.cancellation_requested_at })
@@ -1100,25 +1132,27 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
       <aside className="ops-drawer txn-drawer ops-order-drawer" role="dialog" aria-modal="true" aria-labelledby="ops-order-drawer-title">
         <header className="txn-drawer-header">
           <div><span className="settings-kicker">{orderTypeLabel(order.order_type)}</span><h2 id="ops-order-drawer-title">{order.order_number}</h2></div>
-          <div className="txn-header-total" aria-label={`Order total ${money(order.final_total)}`}><span>Total</span><b>{money(order.final_total)}</b></div>
           <button type="button" onClick={onClose} aria-label="Close order details"><X size={20} /></button>
         </header>
 
         <nav className="txn-drawer-nav" aria-label="Order details sections">
           {Object.entries({ overview: 'Overview', order: 'Order', payment: 'Payment', history: 'History' }).map(([key, label]) => (
-            <button key={key} type="button" onClick={() => scrollToSection(key)}>{label}</button>
+            <button key={key} type="button" className={activeSection === key ? 'is-active' : undefined} aria-current={activeSection === key ? 'location' : undefined} onClick={() => scrollToSection(key)}>{label}</button>
           ))}
         </nav>
 
-        <div className="ops-drawer-body txn-drawer-body" ref={drawerBodyRef}>
+        <div className="ops-drawer-body txn-drawer-body" ref={drawerBodyRef} onScroll={updateActiveSection}>
           <section id={sectionIds.overview} className="txn-detail-overview txn-drawer-section">
-            <div className="txn-section-heading">
-              <div><span>At a glance</span><h3>Order overview</h3></div>
-              <div className="txn-pill-row">
-                <span className={`status-chip status-chip--${orderStatusTone(order.status)}`}>{order.status}</span>
-                <span className={`status-chip status-chip--${paymentTone}`}>{paymentLabel}</span>
-                <span className={`status-chip status-chip--${refundMeta.tone}`}>{refundMeta.label}</span>
+            <div className="ops-order-hero">
+              <div className="ops-order-hero-top">
+                <div><span>Order total</span><strong>{money(order.final_total)}</strong></div>
+                <span className={`ops-order-hero-status ops-order-hero-status--${orderStatusTone(orderDisplayStatus(order))}`}>{orderDisplayStatus(order)}</span>
               </div>
+              <dl className="ops-order-hero-facts">
+                <div><dt>{fulfillmentName}</dt><dd>{scheduleLabel(order)}</dd></div>
+                <div><dt>Payment</dt><dd>{paymentMethodLabel(method)} · {paymentLabel}</dd></div>
+                <div><dt>Refund</dt><dd>{refundMeta.label}</dd></div>
+              </dl>
             </div>
             {cancellationRequested(order) && (
               <div className="txn-order-alert txn-order-alert--review">
@@ -1132,32 +1166,23 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
                 <div><b>Cancelled{order.cancelled_by_role ? ` by ${order.cancelled_by_role}` : ''}</b><p>{order.cancellation_reason || 'No reason provided.'}</p><small>{refundStatusLabel(order.refund_status)}</small></div>
               </div>
             )}
-            <div className="txn-overview-cards">
-              <article className="txn-info-card">
-                <span>Customer</span>
-                <b>{getOrderCustomerName(order) || 'Guest customer'}</b>
-                <small>{order.customer_email || order.customer_phone ? 'Contact details on file' : 'No contact details recorded'}</small>
-                {order.customer_phone && <p>Phone: {order.customer_phone}</p>}
-              </article>
-              <article className="txn-info-card">
-                <span>Fulfillment</span>
-                <b>{order.order_type === 'delivery' ? 'Delivery' : order.order_type === 'walk-in' ? 'Dine-in / Take-out' : 'Pickup'}</b>
-                <small>{orderTypeLabel(order.order_type)} · {paymentMethodLabel(method)}</small>
-                <p>{scheduleLabel(order)}</p>
-              </article>
+            <div className="ops-order-overview-block">
+              <h3>Customer</h3>
+              <strong>{getOrderCustomerName(order) || 'Guest customer'}</strong>
+              {order.customer_phone && <div className="ops-order-overview-row"><span>Phone</span><b>{order.customer_phone}</b></div>}
+              {order.customer_email && <div className="ops-order-overview-row"><span>Email</span><b>{order.customer_email}</b></div>}
+              {!order.customer_phone && !order.customer_email && <small>No contact details recorded</small>}
             </div>
-            <div className="txn-detail-grid">
-              <div><span>Created</span><b>{formatOrderDateTime(order.created_at)}</b></div>
-              <div><span>Payment status</span><b>{paymentLabel}</b></div>
-              <div><span>Scheduled</span><b>{scheduleLabel(order)}</b></div>
-              {order.customer_email && <div><span>Email</span><b>{order.customer_email}</b></div>}
-              {order.customer_phone && <div><span>Phone</span><b>{order.customer_phone}</b></div>}
-              {order.delivery_address && <div className="wide"><span>Delivery address</span><b>{order.delivery_address}</b></div>}
+            <div className="ops-order-overview-block">
+              <h3>{fulfillmentName}</h3>
+              {order.delivery_address && <p className="ops-order-address">{order.delivery_address}</p>}
+              <div className="ops-order-overview-row"><span>Scheduled</span><b>{scheduleLabel(order)}</b></div>
+              <div className="ops-order-overview-row"><span>Placed</span><b>{formatOrderDateTime(order.created_at)}</b></div>
             </div>
           </section>
 
           <section id={sectionIds.order} className="txn-drawer-section">
-            <div className="txn-section-heading"><div><span>Order details</span><h3>Items and totals</h3></div><b className="txn-item-count">{itemCount(order)} item{itemCount(order) === 1 ? '' : 's'}</b></div>
+            <div className="txn-section-heading"><div><span>Order details</span><h3>Items</h3></div><b className="txn-item-count">{itemCount(order)} item{itemCount(order) === 1 ? '' : 's'}</b></div>
             <ul className="txn-item-list">
               {(order.order_items || []).map((item) => {
                 const custom = item.customizations || {}

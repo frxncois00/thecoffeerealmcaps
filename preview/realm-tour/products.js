@@ -3,7 +3,6 @@
 // "Slice of ..." entries are separate menu items. Availability is not synchronized.
 export const products = [
   { id: 'beef-tapa', name: 'Beef Tapa', category: 'Meals', badge: 'Comfort food', theme: 'clay', shape: 'plate', price: '\u20b1176', description: 'Plain rice, classic beef tapa, fried egg' },
-  { id: 'biscoff-latte', name: 'Biscoff Latte', category: 'Coffee', badge: 'From the bar', theme: 'caramel', shape: 'drink', word: 'sip', price: '\u20b1210', description: 'Biscoff spread, milk, espresso shot, biscoff foam, biscoff cookie' },
   { id: 'red-velvet-cake', name: 'Red Velvet Cake', category: 'Cakes', badge: 'Cake time', theme: 'wine', shape: 'cake', word: 'velvet', price: '\u20b12,400', priceUnit: 'whole cake', description: 'Classic red velvet with smooth cream cheese frosting' },
   { id: 'biscoff-burnt-cheesecake', name: 'Biscoff Burnt Cheesecake', category: 'Cakes', badge: 'One last slice', theme: 'oat', shape: 'cake', price: '\u20b12,600', priceUnit: 'whole cake', description: 'Creamy burnt cheesecake topped with rich Biscoff spread and cookie crumbs' },
 ].map(product => ({ ...product, image: `/images/realm-tour/${product.id}.png` }))
@@ -24,6 +23,7 @@ export const flavors = [
   { id: 'matcha', name: 'Matcha', word: 'matcha', cup: 'matcha-cup.png', bubble: 'matcha-bubble.png', color: '#adbc98', mist: '#edf1d8', accent: '#3a5a40', width: 1113, height: 1414 },
   { id: 'darkwhite-chocolate', name: 'Dark White Chocolate', word: 'chocolate', cup: 'darkwhite-chocolate-cup.png', bubble: 'darkwhite-chocolate-bubble.png', color: '#c1a087', mist: '#fbebd5', accent: '#69432e', width: 1122, height: 1402 },
   { id: 'strawberry-milk', name: 'Strawberry Milk', word: 'strawberry', cup: 'strawberry-milk-cup.png', bubble: 'strawberry-milk-bubble.png', color: '#d3a3a3', mist: '#f9e1d7', accent: '#8b414b', width: 1023, height: 1538 },
+  { id: 'biscoff-latte', name: 'Biscoff Latte', word: 'biscoff', cup: 'biscoff-latte.png', bubble: 'biscoff-latte-bubble.png', color: '#cdaa7b', mist: '#f6dfb9', accent: '#754522', width: 1087, height: 1447, price: '\u20b1210', description: 'Biscoff spread, milk, espresso shot, biscoff foam, biscoff cookie' },
 ]
 
 // BEGIN CAKE WHEEL — explicit public assets, in gondola order.

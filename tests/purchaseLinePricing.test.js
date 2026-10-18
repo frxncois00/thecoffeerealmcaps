@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { pricePerPurchaseUnit, updatePurchaseLine } from '../src/utils/purchaseLinePricing.js'
+import { changePurchaseUnit, pricePerPurchaseUnit, updatePurchaseLine } from '../src/utils/purchaseLinePricing.js'
 
 test('prices synchronize in both directions and retain the last edited basis', () => {
   let line = { quantityOrdered: '3', estimatedTotalCost: '30' }
@@ -25,4 +25,13 @@ test('handles empty quantities, cleared prices, zero prices, and fractional quan
   line = updatePurchaseLine(line, 'purchaseUnitPrice', '0')
   assert.equal(line.estimatedTotalCost, '0.00')
   assert.equal(pricePerPurchaseUnit({ quantityOrdered: '0', estimatedTotalCost: '10' }), '')
+})
+test('changing purchase unit preserves ordered stock and total cost', () => {
+  const kiloLine = updatePurchaseLine({ purchaseUnit: 'kg', quantityOrdered: '0.9', estimatedTotalCost: '' }, 'purchaseUnitPrice', '150')
+  assert.equal(kiloLine.estimatedTotalCost, '135.00')
+  const gramLine = changePurchaseUnit(kiloLine, 'g', 1000, 1)
+  assert.equal(gramLine.quantityOrdered, '900')
+  assert.equal(gramLine.estimatedTotalCost, '135.00')
+  assert.equal(pricePerPurchaseUnit(gramLine), '0.15')
+  assert.equal(changePurchaseUnit(gramLine, 'kg', 1, 1000).quantityOrdered, '0.9')
 })

@@ -258,7 +258,7 @@ export default function StaffSettingsPage({ role = 'staff' }) {
           <fieldset className="staff-notification-preference-group">
             <legend><span className="staff-notification-group-icon"><Monitor size={18} /></span><span><b>System Notifications</b><small>Temporary popups that confirm the result of actions while you work.</small></span></legend>
             <div className="staff-settings-toggles">
-              <SettingToggle id="system-change-popups" checked={preferences.system_change_popups} onChange={(value) => updatePreference('system_change_popups', value)} title="Changes and updates" description="Show a popup after an item, order, transaction, or stock record is added, updated, removed, or changed." />
+              <SettingToggle id="system-change-popups" checked={preferences.system_change_popups} onChange={(value) => updatePreference('system_change_popups', value)} title="Changes and updates" description="Show brief confirmations for changes you make to items, orders, transactions, and stock." />
               <SettingToggle id="system-error-popups" checked={preferences.system_error_popups} onChange={(value) => updatePreference('system_error_popups', value)} title="Errors and failed actions" description="Show a popup when an attempted operation cannot be completed." />
             </div>
           </fieldset>

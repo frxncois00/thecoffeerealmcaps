@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Coffee, Copy, CreditCard, ExternalLink, Info, Link2, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Trash2, Unlink, X, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Clock3, Coffee, Copy, CreditCard, ExternalLink, Info, Link2, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Trash2, Unlink, X, XCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -19,6 +19,8 @@ import { isCustomerRole } from '../../lib/auth'
 import { customerSupabase as supabase, isSupabaseConfigured } from '../../lib/supabase'
 import { SYSTEM_DEFAULTS, fetchPublicDeliveryAreas, fetchPublicPortalData } from '../../services/adminPortalConfigurationService'
 import { normalizeOrderTemperature } from '../../utils/temperature'
+import { orderPreparationRange } from '../../utils/orderPreparationEstimate'
+import { customerOrderDisplayStatus, isDeliveryReady, orderTrackingSteps } from '../../utils/orderDisplayStatus'
 import { buildVatExemptOrderBreakdown, formatVatRate, vatExemptDiscountBreakdown } from '../../utils/pricing'
 import { IMAGE_UPLOAD_ACCEPT, validateImageFile } from '../../utils/imageUpload'
 import { clearCheckoutDraft, readCheckoutDraft, writeCheckoutDraft } from '../../utils/checkoutDraft'
@@ -62,7 +64,7 @@ const orderStatusLabel=(order,{fresh=false}={})=>{
   const raw=String(order?.status||'').trim()
   if(!raw)return initialOrderStatusLabel(method)
   if(raw==='Pending Confirmation')return 'Awaiting Payment Verification'
-  return raw
+  return customerOrderDisplayStatus(order)
 }
 const orderStatusTone=status=>{
   const normalized=String(status||'').trim().toLowerCase()
@@ -85,8 +87,8 @@ const completionMessage=order=>orderPaymentMethod(order)==='cod'?'Your order has
 const completionNote=order=>{const notes=[];if(orderPaymentMethod(order)==='cod')notes.push('Please prepare the exact amount. Payment will be collected upon delivery.');else notes.push('Your order will be processed after the payment proof is verified.');if((order?.order_type||order?.fulfillment)==='pickup')notes.push('You will be notified when your order is ready to claim.');return notes.join(' ')}
 const estimatedTimeLabel=order=>((order?.order_type||order?.fulfillment)==='pickup'?'Estimated ready time':'Estimated delivery time')
 const mergePlacedOrderData=({order,form,items,total})=>{const payment=orderPaymentMethod(order)||form.payment;const fulfillment=order?.order_type||order?.fulfillment||form.fulfillment;return {...order,payment_method:payment,payment_status:order?.payment_status||'pending',payments:order?.payments?.length?order.payments:[{method:payment,status:order?.payment_status||'pending'}],order_type:fulfillment,schedule_date:order?.schedule_date||form.scheduleDate,schedule_time:order?.schedule_time||form.scheduleTime,delivery_address:order?.delivery_address||(fulfillment==='delivery'?`${form.address}, Brgy. ${form.barangay}, ${form.city}, ${form.province}`:''),final_total:Number(order?.final_total??order?.total??total??0),total:Number(order?.total??order?.final_total??total??0),order_items:order?.order_items?.length?order.order_items:items.map(item=>({id:item.lineId,quantity:item.quantity}))}}
-const trackingSteps=order=>((order?.order_type||order?.fulfillment)==='pickup'?[initialOrderStatusLabel(orderPaymentMethod(order)),'Confirmed','Preparing','Ready to Claim','Completed']:[initialOrderStatusLabel(orderPaymentMethod(order)),'Confirmed','Preparing','Out for Delivery','Received'])
-const trackingStatusCopy=(order,status)=>status==='Awaiting Payment Verification'?'Your payment proof is waiting for review.':status==='Order Received'?'Your order is waiting for store confirmation.':status==='Confirmed'?`Scheduled for ${orderScheduleLabel(order)}`:status==='Preparing'?'The kitchen and bar are preparing your order.':status==='Out for Delivery'?'Your order is on the way. Confirm once it arrives.':status==='Ready for Pickup'||status==='Ready to Claim'?'Your order is ready to claim at the store.':status==='Received'?'You confirmed that this delivery was received.':status==='Completed'?'This order has been completed.':'Waiting for update'
+const trackingSteps=order=>orderTrackingSteps(order,initialOrderStatusLabel(orderPaymentMethod(order)))
+const trackingStatusCopy=(order,status)=>status==='Awaiting Payment Verification'?'Your payment proof is waiting for review.':status==='Order Received'?'Your order is waiting for store confirmation.':status==='Confirmed'?`Scheduled for ${orderScheduleLabel(order)}`:status==='Preparing'?(isDeliveryReady(order)?'Your order is prepared and waiting to go out for delivery.':'The kitchen and bar are preparing your order.'):status==='Out for Delivery'?'Your order is on the way. Confirm once it arrives.':status==='Ready for Pickup'||status==='Ready to Claim'?'Your order is ready to claim at the store.':status==='Received'?'You confirmed that this delivery was received.':status==='Completed'?'This order has been completed.':'Waiting for update'
 const clockMinutes=(value,fallback)=>{const [hour,minute]=String(value||'').split(':').map(Number);return Number.isFinite(hour)&&Number.isFinite(minute)?hour*60+minute:fallback}
 const manilaCurrentTime=()=>{const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());const map=Object.fromEntries(parts.map(part=>[part.type,part.value]));return `${String(map.hour).padStart(2,'0')}:${String(map.minute).padStart(2,'0')}`}
 const emptyCheckoutForm=()=>({fullName:'',email:'',contact:'',fulfillment:'delivery',address:'',barangay:'',city:'Quezon City',province:'Metro Manila',postal:'',instructions:'',payment:'cod',paymentReference:'',scheduleDate:manilaDate(),scheduleTime:'10:00',deliveryFee:0,deliveryZone:'',estimatedDeliveryTime:'',applyBenefitDiscount:false,coordinates:null})
@@ -735,6 +737,15 @@ function OrderItemsSummary({order,addonNames,compact}){
   </div>)}</div>
 }
 
+function PreparationEstimate({order}){
+  const estimate=orderPreparationRange(order)
+  return <div className="order-preparation-estimate">
+    <Clock3 size={19} aria-hidden="true"/>
+    <div><strong>Estimated preparation: {estimate?`${estimate.min}–${estimate.max} min`:'being confirmed'}</strong>
+      <small>{estimate?'Based on item count and preparation type. Timing may vary with the kitchen queue.':'We’ll update your order status as soon as timing is available.'}</small></div>
+  </div>
+}
+
 const cardEnter=index=>({initial:{opacity:0,y:10},animate:{opacity:1,y:0},transition:{duration:0.28,delay:Math.min(index*0.05,0.3),ease:[0.22,1,0.36,1]}})
 
 function CurrentOrderCard({order,addonNames,onView,onCancel,onTrack,onReceive,receiving,index=0}){
@@ -746,7 +757,8 @@ function CurrentOrderCard({order,addonNames,onView,onCancel,onTrack,onReceive,re
       <div><h2>{customerOrderNumber(order.order_number)}</h2><p>{new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(order.created_at))} · {fulfillmentLabel(order.order_type)}</p></div>
       <span className={`status-chip ${isCancellationReview(order)?'status-chip--attention':orderStatusTone(status)}`}>{isCancellationReview(order)?<AlertTriangle size={14}/>:<StatusIcon status={status}/>} {isCancellationReview(order)?'Cancellation under review':status}</span>
     </header>
-    <p className="order-status-message">{isCancellationReview(order)?'Your order is on hold while the store checks payment and refund requirements.':STATUS_MESSAGE[status]||'Waiting for update'}</p>
+    <p className="order-status-message">{isCancellationReview(order)?'Your order is on hold while the store checks payment and refund requirements.':isDeliveryReady(order)?'Your order is prepared and waiting to go out for delivery.':STATUS_MESSAGE[status]||'Waiting for update'}</p>
+    {status==='Preparing'&&!isDeliveryReady(order)&&!isCancellationReview(order)&&<PreparationEstimate order={order}/>}
     <div className="order-mini-tracker">{steps.map((step,index)=><span key={step} className={index<=currentIndex?'done':''} title={step}/>)}</div>
     {status==='Out for Delivery'&&order.tracking_url&&<a className="order-tracking-link" href={order.tracking_url} target="_blank" rel="noreferrer" aria-label="Open live delivery tracking in a new tab">
       <span className="order-tracking-link-icon"><Bike size={20}/></span>
@@ -936,12 +948,13 @@ function TrackOrderModal({order,onClose,onReceive,receiving}){
   const currentIndex=Math.max(steps.indexOf(status),0)
   return <motion.div className="track-modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}}
     initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:0.2}}>
-    <motion.section className="track-modal" role="dialog" aria-modal="true" aria-labelledby="track-modal-title"
+    <motion.section className={`track-modal${status==='Preparing'&&!isDeliveryReady(order)&&!isCancellationReview(order)?' has-preparation-estimate':''}`} role="dialog" aria-modal="true" aria-labelledby="track-modal-title"
       initial={{opacity:0,scale:0.92,y:16}} animate={{opacity:1,scale:1,y:0}} exit={{opacity:0,scale:0.95,y:8}}
       transition={{type:'spring',stiffness:340,damping:28}}>
       <button className="payment-modal-close" type="button" onClick={onClose} aria-label="Close">×</button>
       <span className="payment-modal-kicker">Live order status</span>
       <h2 id="track-modal-title">{customerOrderNumber(order.order_number)}</h2>
+      {status==='Preparing'&&!isDeliveryReady(order)&&!isCancellationReview(order)&&<PreparationEstimate order={order}/>}
       <div className="track-modal-steps">
         {steps.map((step,index)=>{
           const done=index<currentIndex

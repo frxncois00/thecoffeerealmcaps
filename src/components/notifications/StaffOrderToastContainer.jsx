@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bell, Bike, Coffee, Package, Volume2, VolumeX, ArrowRight, X } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Ban, Bell, Bike, Coffee, Package, PackageCheck, Volume2, VolumeX, X } from 'lucide-react'
 import { money } from '../../utils/money'
 import { isSoundMuted, toggleSoundMuted } from '../../utils/notificationSound'
 
@@ -119,7 +119,41 @@ function SingleOrderToast({ toast, onDismiss, onViewOrder, muted, onToggleMute }
   )
 }
 
-export default function StaffOrderToastContainer({ toasts, onDismiss, onViewOrder }) {
+function ActivityToast({ notification, onDismiss, onView, muted, onToggleMute }) {
+  const [isDismissing, setIsDismissing] = useState(false)
+  const isRestock = notification.target?.kind === 'daily-restock'
+  const isCancellation = notification.category === 'cancellations'
+  const Icon = isRestock ? PackageCheck : isCancellation ? Ban : AlertTriangle
+  const action = isRestock ? 'View products' : isCancellation ? 'View order' : 'View stock'
+
+  const dismiss = () => {
+    if (isDismissing) return
+    setIsDismissing(true)
+    window.setTimeout(() => onDismiss(notification.id), 300)
+  }
+  const view = () => {
+    if (isDismissing) return
+    setIsDismissing(true)
+    window.setTimeout(() => {
+      onDismiss(notification.id)
+      onView(notification)
+    }, 150)
+  }
+
+  return <div className={`staff-order-toast staff-activity-toast${isDismissing ? ' is-dismissing' : ''}`} data-category={notification.category} data-kind={notification.target?.kind} role="alert" aria-live="assertive">
+    <div className="staff-order-toast-header">
+      <div className="staff-order-toast-badge"><Icon size={15} aria-hidden="true" /><span>{notification.title}</span></div>
+      <div className="staff-order-toast-controls">
+        <button type="button" className="staff-order-toast-mute-btn" onClick={onToggleMute} title={muted ? 'Unmute notification sound' : 'Mute notification sound'} aria-label={muted ? 'Unmute notification sound' : 'Mute notification sound'}>{muted ? <VolumeX size={14} /> : <Volume2 size={14} />}</button>
+        <button type="button" className="staff-order-toast-close-btn" onClick={dismiss} title={`Dismiss ${notification.title} notification`} aria-label={`Dismiss ${notification.title} notification`}><X size={16} aria-hidden="true" /></button>
+      </div>
+    </div>
+    <div className="staff-activity-toast-copy">{notification.message}</div>
+    <div className="staff-order-toast-footer"><button type="button" className="staff-order-toast-view-btn" onClick={view}>{action}<ArrowRight size={14} aria-hidden="true" /></button></div>
+  </div>
+}
+
+export default function StaffOrderToastContainer({ toasts, activityToasts = [], onDismiss, onDismissActivity, onViewOrder, onViewActivity }) {
   const [muted, setMuted] = useState(() => isSoundMuted())
 
   useEffect(() => {
@@ -135,23 +169,21 @@ export default function StaffOrderToastContainer({ toasts, onDismiss, onViewOrde
     setMuted(next)
   }
 
-  if (!toasts || toasts.length === 0) return null
+  if ((!toasts || toasts.length === 0) && activityToasts.length === 0) return null
+
+  const visibleToasts = [
+    ...(toasts || []).map((toast) => ({ kind: 'order', item: toast })),
+    ...activityToasts.map((notification) => ({ kind: 'activity', item: notification })),
+  ].sort((a, b) => new Date(b.item.createdAt).getTime() - new Date(a.item.createdAt).getTime())
 
   return (
     <aside
       className="staff-order-toast-container"
-      aria-label="New order alerts"
+      aria-label="Staff activity alerts"
     >
-      {toasts.map((toast) => (
-        <SingleOrderToast
-          key={toast.id}
-          toast={toast}
-          onDismiss={onDismiss}
-          onViewOrder={onViewOrder}
-          muted={muted}
-          onToggleMute={handleToggleMute}
-        />
-      ))}
+      {visibleToasts.map(({ kind, item }) => kind === 'order'
+        ? <SingleOrderToast key={`order:${item.id}`} toast={item} onDismiss={onDismiss} onViewOrder={onViewOrder} muted={muted} onToggleMute={handleToggleMute} />
+        : <ActivityToast key={`activity:${item.id}`} notification={item} onDismiss={onDismissActivity} onView={onViewActivity} muted={muted} onToggleMute={handleToggleMute} />)}
     </aside>
   )
 }

@@ -1,8 +1,8 @@
 import { useEffect, useId, useMemo, useState } from 'react'
 import { AlertTriangle, Check, ClipboardCheck, FileImage, FileText, ImagePlus, Package, PackageCheck, Plus, Send, ShieldAlert, Store, Trash2, Upload, X } from 'lucide-react'
 import PurchaseStockBoard from '../components/PurchaseStockBoard'
-import { pricePerPurchaseUnit, updatePurchaseLine } from '../utils/purchaseLinePricing'
-import { needsRestock, suggestedQuantity } from '../utils/purchaseStock'
+import { changePurchaseUnit, pricePerPurchaseUnit, updatePurchaseLine } from '../utils/purchaseLinePricing'
+import { needsRestock, suggestedPurchaseAmount } from '../utils/purchaseStock'
 import AppShell from '../components/AppShell'
 import { useAuth } from '../context/AuthContext'
 import { describeError } from '../utils/describeError'
@@ -178,10 +178,10 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
 
   function openCreateForSupplier(supplierName, lowStock) {
     const supplier = suppliers.find((entry) => entry.name === supplierName)
-    const suggested = (lowStock || []).map((item) => ({
-      itemType: item.itemType, itemId: item.id, purchaseUnit: purchaseDisplay(item.unit, suggestedQuantity(item)).unit,
-      quantityOrdered: purchaseDisplay(item.unit, suggestedQuantity(item)).quantity, estimatedTotalCost: '',
-    }))
+    const suggested = (lowStock || []).map((item) => {
+      const amount = suggestedPurchaseAmount(item)
+      return { itemType: item.itemType, itemId: item.id, purchaseUnit: amount.unit, quantityOrdered: amount.quantity, estimatedTotalCost: '' }
+    })
     setDraft({ ...EMPTY_DRAFT, supplierName: supplierName === 'Unassigned supplier' ? '' : supplierName, supplierContact: supplier?.contact || '', items: suggested.length ? suggested : EMPTY_DRAFT.items })
     setFormOpen(true)
   }
@@ -444,18 +444,20 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
           <section className="po-create-order">
             <div className="po-create-section-heading"><span>Purchase order</span><h3>Order information</h3></div>
             <div className="po-form-grid"><Field label="Requested delivery"><input type="date" value={values.requestedDeliveryDate} onChange={(event) => set('requestedDeliveryDate', event.target.value)} /></Field></div>
-            <div className="po-section-heading"><div><h3>Items to order</h3><small>Enter the supplier quantity and unit. Inventory conversion happens automatically.</small></div><button type="button" className="ops-secondary-action compact" onClick={() => setValues((current) => ({ ...current, items: [...current.items, { itemType: 'ingredient', itemId: '', purchaseUnit: '', quantityOrdered: '', estimatedTotalCost: '' }] }))}><Plus size={14} /> Add line</button></div>
+             <div className="po-section-heading"><div><h3>Items to order</h3><small>Suggested amounts round up to a practical purchase quantity. Price per unit uses the selected unit.</small></div><button type="button" className="ops-secondary-action compact" onClick={() => setValues((current) => ({ ...current, items: [...current.items, { itemType: 'ingredient', itemId: '', purchaseUnit: '', quantityOrdered: '', estimatedTotalCost: '' }] }))}><Plus size={14} /> Add line</button></div>
             <div className="po-order-columns" aria-hidden="true"><span>Item name</span><span>Unit</span><span>Quantity</span><span>Total price</span><span>Price / unit</span><span /></div>
             <div className="po-form-lines">{values.items.map((line, index) => {
               const selectedOption = options.find((option) => option.id === line.itemId && option.itemType === line.itemType)
               const choices = unitChoices(selectedOption?.unit)
               const purchaseUnit = line.purchaseUnit || selectedOption?.unit || ''
-              const perUnit = Number(line.quantityOrdered) > 0 ? Number(line.estimatedTotalCost || 0) / Number(line.quantityOrdered) : 0
-              const factor = unitFactor(selectedOption?.unit, purchaseUnit)
               return <div className="po-form-line po-order-line" key={`${index}-${line.itemId}`}>
                 <div className="po-line-item"><IngredientCombobox options={options.filter((option) => option.itemType === 'ingredient')} value={itemSearches[index] || selectedOption?.name || ''} placeholder="Select item" ariaLabel={`Select item for line ${index + 1}`} onChange={(value) => setItemSearches((current) => ({ ...current, [index]: value }))} onSelect={(item) => { setLine(index, 'itemType', item.itemType); setLine(index, 'itemId', item.id); setLine(index, 'purchaseUnit', unitChoices(item.unit)[0].value); setItemSearches((current) => ({ ...current, [index]: item.name })) }} /></div>
-                <select value={purchaseUnit} onChange={(event) => setLine(index, 'purchaseUnit', event.target.value)} aria-label="Purchase unit" required disabled={!selectedOption}><option value="">Unit</option>{choices.map((choice) => <option value={choice.value} key={choice.value}>{choice.value}</option>)}</select>
-                <input type="number" min="0.001" step="0.001" placeholder="Qty" aria-label="Purchase quantity" value={line.quantityOrdered} onChange={(event) => setLine(index, 'quantityOrdered', event.target.value)} required />
+                <select value={purchaseUnit} onChange={(event) => {
+                  const newUnit = event.target.value
+                  setValues((current) => ({ ...current, items: current.items.map((item, itemIndex) => itemIndex === index
+                    ? changePurchaseUnit(item, newUnit, unitFactor(selectedOption?.unit, purchaseUnit), unitFactor(selectedOption?.unit, newUnit)) : item) }))
+                }} aria-label="Purchase unit" required disabled={!selectedOption}><option value="">Unit</option>{choices.map((choice) => <option value={choice.value} key={choice.value}>{choice.value}</option>)}</select>
+                <input type="number" min="0.000001" step="any" placeholder="Qty" aria-label="Purchase quantity" value={line.quantityOrdered} onChange={(event) => setLine(index, 'quantityOrdered', event.target.value)} required />
                 <input type="number" min="0" step="0.01" placeholder="₱ Total" aria-label="Estimated total price" value={line.estimatedTotalCost} onChange={(event) => setLine(index, 'estimatedTotalCost', event.target.value)} required />
                 <input type="number" min="0" step="any" inputMode="decimal" placeholder={`₱ / ${purchaseUnit || 'unit'}`} aria-label="Price per purchase unit" title={`Price per ${purchaseUnit || 'purchase unit'}`} value={pricePerPurchaseUnit(line)} onChange={(event) => setLine(index, 'purchaseUnitPrice', event.target.value)} />
                 <button type="button" className="po-line-remove" onClick={() => setValues((current) => ({ ...current, items: current.items.length === 1 ? current.items : current.items.filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Remove line"><X size={16} /></button>

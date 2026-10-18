@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ArrowRight, Check, Package, Search, AlertTriangle } from 'lucide-react'
-import { stockKey, suggestedQuantity, groupStockBySupplier } from '../utils/purchaseStock'
+import { stockKey, suggestedPurchaseAmount, groupStockBySupplier } from '../utils/purchaseStock'
 import './purchase-stock-board.css'
 
 const number = (value) => Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -27,10 +27,11 @@ export default function PurchaseStockBoard({ items, loading, isAdmin, getSupplie
     {loading && !items.length ? <div className="stock-empty" role="status">Loading stock levels…</div> : !matching.length ? <div className="stock-empty"><Check size={28} /><h3>{items.length ? 'No matching items' : 'Stock is looking healthy'}</h3><p>{items.length ? 'Try another filter or search.' : 'Ingredients that need replenishment will appear here.'}</p></div> : <div className="stock-grid">{visible.map((item, index) => {
       const key = stockKey(item), isOut = Number(item.quantity) <= 0, checked = selected.includes(key)
       const ratio = Math.min(100, Math.max(0, Number(item.quantity) / Math.max(Number(item.minStockLevel), 1) * 100))
+      const suggested = suggestedPurchaseAmount(item)
       return <label key={key} className={`stock-card ${checked ? 'is-selected' : ''} ${isOut ? 'is-out' : ''}`} style={{ '--stock-delay': `${Math.min(index, 5) * 35}ms` }}>
         <div className="stock-card-top"><h3><span className="stock-severity" role="img" aria-label={isOut ? 'Out of stock' : 'Low stock'} title={isOut ? 'Out of stock' : 'Low stock'}><AlertTriangle size={15} /></span>{item.name}</h3>{!isAdmin && <input type="checkbox" aria-label={`Select ${item.name}`} checked={checked} onChange={() => toggle(key)} />}</div>
         <p className="stock-supplier">{getSupplier(item) || 'Choose supplier when ordering'}</p>
-        <div className="stock-meter" role="progressbar" aria-label={`${item.name} stock relative to minimum`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={ratio} aria-valuetext={`${number(item.quantity)} ${item.unit} remaining; minimum ${number(item.minStockLevel)}; suggested order ${number(suggestedQuantity(item))} ${item.unit}`} title={`${number(item.quantity)} ${item.unit} remaining · Min. ${number(item.minStockLevel)} · Suggested +${number(suggestedQuantity(item))} ${item.unit}`}><span style={{ width: `${ratio}%` }} /></div>
+        <div className="stock-meter" role="progressbar" aria-label={`${item.name} stock relative to minimum`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={ratio} aria-valuetext={`${number(item.quantity)} ${item.unit} remaining; minimum ${number(item.minStockLevel)}; suggested order ${number(suggested.quantity)} ${suggested.unit}`} title={`${number(item.quantity)} ${item.unit} remaining · Min. ${number(item.minStockLevel)} · Suggested +${number(suggested.quantity)} ${suggested.unit}`}><span style={{ width: `${ratio}%` }} /></div>
 
       </label>
     })}</div>}

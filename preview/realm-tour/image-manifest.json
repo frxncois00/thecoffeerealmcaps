@@ -1,0 +1,865 @@
+{
+  "beef-tapa.png": {
+    "width": 1254,
+    "height": 1254,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/beef-tapa-320.webp",
+        "bytes": 37020
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/beef-tapa-640.webp",
+        "bytes": 113242
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/beef-tapa-960.webp",
+        "bytes": 218156
+      },
+      {
+        "width": 1200,
+        "src": "/images/realm-tour/optimized/beef-tapa-1200.webp",
+        "bytes": 300286
+      }
+    ]
+  },
+  "red-velvet-cake.png": {
+    "width": 1254,
+    "height": 1254,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/red-velvet-cake-320.webp",
+        "bytes": 43942
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/red-velvet-cake-640.webp",
+        "bytes": 143170
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/red-velvet-cake-960.webp",
+        "bytes": 272958
+      },
+      {
+        "width": 1200,
+        "src": "/images/realm-tour/optimized/red-velvet-cake-1200.webp",
+        "bytes": 381024
+      }
+    ]
+  },
+  "biscoff-burnt-cheesecake.png": {
+    "width": 1254,
+    "height": 1254,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/biscoff-burnt-cheesecake-320.webp",
+        "bytes": 49068
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/biscoff-burnt-cheesecake-640.webp",
+        "bytes": 169462
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/biscoff-burnt-cheesecake-960.webp",
+        "bytes": 349652
+      },
+      {
+        "width": 1200,
+        "src": "/images/realm-tour/optimized/biscoff-burnt-cheesecake-1200.webp",
+        "bytes": 494666
+      }
+    ]
+  },
+  "matcha-cup.png": {
+    "width": 1113,
+    "height": 1414,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/matcha-cup-320.webp",
+        "bytes": 28028
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/matcha-cup-640.webp",
+        "bytes": 79962
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/matcha-cup-960.webp",
+        "bytes": 144544
+      },
+      {
+        "width": 1113,
+        "src": "/images/realm-tour/optimized/matcha-cup-1113.webp",
+        "bytes": 177366
+      }
+    ]
+  },
+  "matcha-bubble.png": {
+    "width": 1254,
+    "height": 1254,
+    "variants": [
+      {
+        "width": 160,
+        "src": "/images/realm-tour/optimized/matcha-bubble-160.webp",
+        "bytes": 11702
+      },
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/matcha-bubble-320.webp",
+        "bytes": 31402
+      },
+      {
+        "width": 480,
+        "src": "/images/realm-tour/optimized/matcha-bubble-480.webp",
+        "bytes": 57380
+      }
+    ]
+  },
+  "darkwhite-chocolate-cup.png": {
+    "width": 1122,
+    "height": 1402,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/darkwhite-chocolate-cup-320.webp",
+        "bytes": 31864
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/darkwhite-chocolate-cup-640.webp",
+        "bytes": 96682
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/darkwhite-chocolate-cup-960.webp",
+        "bytes": 182446
+      },
+      {
+        "width": 1122,
+        "src": "/images/realm-tour/optimized/darkwhite-chocolate-cup-1122.webp",
+        "bytes": 225990
+      }
+    ]
+  },
+  "darkwhite-chocolate-bubble.png": {
+    "width": 1234,
+    "height": 1274,
+    "variants": [
+      {
+        "width": 160,
+        "src": "/images/realm-tour/optimized/darkwhite-chocolate-bubble-160.webp",
+        "bytes": 14804
+      },
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/darkwhite-chocolate-bubble-320.webp",
+        "bytes": 41956
+      },
+      {
+        "width": 480,
+        "src": "/images/realm-tour/optimized/darkwhite-chocolate-bubble-480.webp",
+        "bytes": 78372
+      }
+    ]
+  },
+  "strawberry-milk-cup.png": {
+    "width": 1023,
+    "height": 1538,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/strawberry-milk-cup-320.webp",
+        "bytes": 36968
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/strawberry-milk-cup-640.webp",
+        "bytes": 107116
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/strawberry-milk-cup-960.webp",
+        "bytes": 199696
+      },
+      {
+        "width": 1023,
+        "src": "/images/realm-tour/optimized/strawberry-milk-cup-1023.webp",
+        "bytes": 214714
+      }
+    ]
+  },
+  "strawberry-milk-bubble.png": {
+    "width": 1230,
+    "height": 1278,
+    "variants": [
+      {
+        "width": 160,
+        "src": "/images/realm-tour/optimized/strawberry-milk-bubble-160.webp",
+        "bytes": 16264
+      },
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/strawberry-milk-bubble-320.webp",
+        "bytes": 45226
+      },
+      {
+        "width": 480,
+        "src": "/images/realm-tour/optimized/strawberry-milk-bubble-480.webp",
+        "bytes": 83050
+      }
+    ]
+  },
+  "biscoff-latte.png": {
+    "width": 1087,
+    "height": 1447,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/biscoff-latte-320.webp",
+        "bytes": 31488
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/biscoff-latte-640.webp",
+        "bytes": 92114
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/biscoff-latte-960.webp",
+        "bytes": 173576
+      },
+      {
+        "width": 1087,
+        "src": "/images/realm-tour/optimized/biscoff-latte-1087.webp",
+        "bytes": 203892
+      }
+    ]
+  },
+  "biscoff-latte-bubble.png": {
+    "width": 1254,
+    "height": 1254,
+    "variants": [
+      {
+        "width": 160,
+        "src": "/images/realm-tour/optimized/biscoff-latte-bubble-160.webp",
+        "bytes": 13732
+      },
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/biscoff-latte-bubble-320.webp",
+        "bytes": 36768
+      },
+      {
+        "width": 480,
+        "src": "/images/realm-tour/optimized/biscoff-latte-bubble-480.webp",
+        "bytes": 66736
+      }
+    ]
+  },
+  "cake1.jpg": {
+    "width": 1024,
+    "height": 1024,
+    "variants": [
+      {
+        "width": 160,
+        "src": "/images/realm-tour/optimized/cake1-160.webp",
+        "bytes": 6960
+      },
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/cake1-320.webp",
+        "bytes": 23330
+      },
+      {
+        "width": 480,
+        "src": "/images/realm-tour/optimized/cake1-480.webp",
+        "bytes": 44400
+      }
+    ]
+  },
+  "cake2.jpg": {
+    "width": 1024,
+    "height": 1024,
+    "variants": [
+      {
+        "width": 160,
+        "src": "/images/realm-tour/optimized/cake2-160.webp",
+        "bytes": 8428
+      },
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/cake2-320.webp",
+        "bytes": 20284
+      },
+      {
+        "width": 480,
+        "src": "/images/realm-tour/optimized/cake2-480.webp",
+        "bytes": 34438
+      }
+    ]
+  },
+  "cake3.jpg": {
+    "width": 1024,
+    "height": 1024,
+    "variants": [
+      {
+        "width": 160,
+        "src": "/images/realm-tour/optimized/cake3-160.webp",
+        "bytes": 10426
+      },
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/cake3-320.webp",
+        "bytes": 27946
+      },
+      {
+        "width": 480,
+        "src": "/images/realm-tour/optimized/cake3-480.webp",
+        "bytes": 47620
+      }
+    ]
+  },
+  "cake4.jpg": {
+    "width": 1024,
+    "height": 1024,
+    "variants": [
+      {
+        "width": 160,
+        "src": "/images/realm-tour/optimized/cake4-160.webp",
+        "bytes": 8930
+      },
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/cake4-320.webp",
+        "bytes": 23090
+      },
+      {
+        "width": 480,
+        "src": "/images/realm-tour/optimized/cake4-480.webp",
+        "bytes": 36724
+      }
+    ]
+  },
+  "cake5.jpg": {
+    "width": 1024,
+    "height": 1024,
+    "variants": [
+      {
+        "width": 160,
+        "src": "/images/realm-tour/optimized/cake5-160.webp",
+        "bytes": 9510
+      },
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/cake5-320.webp",
+        "bytes": 28158
+      },
+      {
+        "width": 480,
+        "src": "/images/realm-tour/optimized/cake5-480.webp",
+        "bytes": 47736
+      }
+    ]
+  },
+  "cake6.jpg": {
+    "width": 1024,
+    "height": 1024,
+    "variants": [
+      {
+        "width": 160,
+        "src": "/images/realm-tour/optimized/cake6-160.webp",
+        "bytes": 10028
+      },
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/cake6-320.webp",
+        "bytes": 27910
+      },
+      {
+        "width": 480,
+        "src": "/images/realm-tour/optimized/cake6-480.webp",
+        "bytes": 47194
+      }
+    ]
+  },
+  "cake7.jpg": {
+    "width": 1024,
+    "height": 1024,
+    "variants": [
+      {
+        "width": 160,
+        "src": "/images/realm-tour/optimized/cake7-160.webp",
+        "bytes": 7526
+      },
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/cake7-320.webp",
+        "bytes": 23722
+      },
+      {
+        "width": 480,
+        "src": "/images/realm-tour/optimized/cake7-480.webp",
+        "bytes": 44994
+      }
+    ]
+  },
+  "cake8.jpg": {
+    "width": 1024,
+    "height": 1024,
+    "variants": [
+      {
+        "width": 160,
+        "src": "/images/realm-tour/optimized/cake8-160.webp",
+        "bytes": 9492
+      },
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/cake8-320.webp",
+        "bytes": 27652
+      },
+      {
+        "width": 480,
+        "src": "/images/realm-tour/optimized/cake8-480.webp",
+        "bytes": 48132
+      }
+    ]
+  },
+  "cake9.jpg": {
+    "width": 1024,
+    "height": 1024,
+    "variants": [
+      {
+        "width": 160,
+        "src": "/images/realm-tour/optimized/cake9-160.webp",
+        "bytes": 9694
+      },
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/cake9-320.webp",
+        "bytes": 28258
+      },
+      {
+        "width": 480,
+        "src": "/images/realm-tour/optimized/cake9-480.webp",
+        "bytes": 50998
+      }
+    ]
+  },
+  "Alfredopasta.png": {
+    "width": 1371,
+    "height": 1148,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/Alfredopasta-320.webp",
+        "bytes": 29424
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/Alfredopasta-640.webp",
+        "bytes": 91428
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/Alfredopasta-960.webp",
+        "bytes": 174556
+      },
+      {
+        "width": 1200,
+        "src": "/images/realm-tour/optimized/Alfredopasta-1200.webp",
+        "bytes": 242428
+      }
+    ]
+  },
+  "Pestopasta.png": {
+    "width": 1370,
+    "height": 1148,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/Pestopasta-320.webp",
+        "bytes": 30998
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/Pestopasta-640.webp",
+        "bytes": 98584
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/Pestopasta-960.webp",
+        "bytes": 193492
+      },
+      {
+        "width": 1200,
+        "src": "/images/realm-tour/optimized/Pestopasta-1200.webp",
+        "bytes": 271224
+      }
+    ]
+  },
+  "SpicyPeanutpasta.png": {
+    "width": 1371,
+    "height": 1148,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/SpicyPeanutpasta-320.webp",
+        "bytes": 30726
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/SpicyPeanutpasta-640.webp",
+        "bytes": 88042
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/SpicyPeanutpasta-960.webp",
+        "bytes": 165496
+      },
+      {
+        "width": 1200,
+        "src": "/images/realm-tour/optimized/SpicyPeanutpasta-1200.webp",
+        "bytes": 226930
+      }
+    ]
+  },
+  "MacandCheesepasta.png": {
+    "width": 1371,
+    "height": 1148,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/MacandCheesepasta-320.webp",
+        "bytes": 30050
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/MacandCheesepasta-640.webp",
+        "bytes": 91838
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/MacandCheesepasta-960.webp",
+        "bytes": 172600
+      },
+      {
+        "width": 1200,
+        "src": "/images/realm-tour/optimized/MacandCheesepasta-1200.webp",
+        "bytes": 236046
+      }
+    ]
+  },
+  "pc1.jpg": {
+    "width": 1440,
+    "height": 960,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/pc1-320.webp",
+        "bytes": 10166
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/pc1-640.webp",
+        "bytes": 23666
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/pc1-960.webp",
+        "bytes": 41416
+      }
+    ]
+  },
+  "pc3.jpg": {
+    "width": 1440,
+    "height": 1613,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/pc3-320.webp",
+        "bytes": 16912
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/pc3-640.webp",
+        "bytes": 54014
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/pc3-960.webp",
+        "bytes": 107046
+      }
+    ]
+  },
+  "pc2.jpg": {
+    "width": 1440,
+    "height": 1613,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/pc2-320.webp",
+        "bytes": 9118
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/pc2-640.webp",
+        "bytes": 29886
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/pc2-960.webp",
+        "bytes": 64010
+      }
+    ]
+  },
+  "pc4.jpg": {
+    "width": 1440,
+    "height": 1613,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/pc4-320.webp",
+        "bytes": 13578
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/pc4-640.webp",
+        "bytes": 38208
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/pc4-960.webp",
+        "bytes": 68036
+      }
+    ]
+  },
+  "pc5.jpg": {
+    "width": 1440,
+    "height": 1613,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/pc5-320.webp",
+        "bytes": 16480
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/pc5-640.webp",
+        "bytes": 41966
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/pc5-960.webp",
+        "bytes": 68270
+      }
+    ]
+  },
+  "pc6.jpg": {
+    "width": 1440,
+    "height": 1613,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/pc6-320.webp",
+        "bytes": 22106
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/pc6-640.webp",
+        "bytes": 72782
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/pc6-960.webp",
+        "bytes": 146896
+      }
+    ]
+  },
+  "pc7.jpg": {
+    "width": 1440,
+    "height": 1613,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/pc7-320.webp",
+        "bytes": 14336
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/pc7-640.webp",
+        "bytes": 35160
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/pc7-960.webp",
+        "bytes": 56374
+      }
+    ]
+  },
+  "pc8.jpg": {
+    "width": 1440,
+    "height": 1613,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/pc8-320.webp",
+        "bytes": 20760
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/pc8-640.webp",
+        "bytes": 70142
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/pc8-960.webp",
+        "bytes": 139202
+      }
+    ]
+  },
+  "pc10.jpg": {
+    "width": 1440,
+    "height": 1721,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/pc10-320.webp",
+        "bytes": 16468
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/pc10-640.webp",
+        "bytes": 49066
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/pc10-960.webp",
+        "bytes": 92482
+      }
+    ]
+  },
+  "pc11.jpg": {
+    "width": 1440,
+    "height": 1721,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/pc11-320.webp",
+        "bytes": 23918
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/pc11-640.webp",
+        "bytes": 73298
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/pc11-960.webp",
+        "bytes": 145274
+      }
+    ]
+  },
+  "pc44.jpg": {
+    "width": 1440,
+    "height": 1613,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/pc44-320.webp",
+        "bytes": 25314
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/pc44-640.webp",
+        "bytes": 77170
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/pc44-960.webp",
+        "bytes": 148674
+      }
+    ]
+  },
+  "pc9.jpg": {
+    "width": 1440,
+    "height": 1613,
+    "variants": [
+      {
+        "width": 320,
+        "src": "/images/realm-tour/optimized/pc9-320.webp",
+        "bytes": 41904
+      },
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/pc9-640.webp",
+        "bytes": 145454
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/pc9-960.webp",
+        "bytes": 285274
+      }
+    ]
+  },
+  "storefront-facade.jpg": {
+    "width": 1440,
+    "height": 1440,
+    "variants": [
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/storefront-facade-640.webp",
+        "bytes": 103538
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/storefront-facade-960.webp",
+        "bytes": 204768
+      },
+      {
+        "width": 1200,
+        "src": "/images/realm-tour/optimized/storefront-facade-1200.webp",
+        "bytes": 299262
+      },
+      {
+        "width": 1440,
+        "src": "/images/realm-tour/optimized/storefront-facade-1440.webp",
+        "bytes": 386120
+      }
+    ]
+  },
+  "lounge-interior.jpg": {
+    "width": 1440,
+    "height": 1440,
+    "variants": [
+      {
+        "width": 640,
+        "src": "/images/realm-tour/optimized/lounge-interior-640.webp",
+        "bytes": 67510
+      },
+      {
+        "width": 960,
+        "src": "/images/realm-tour/optimized/lounge-interior-960.webp",
+        "bytes": 119856
+      },
+      {
+        "width": 1200,
+        "src": "/images/realm-tour/optimized/lounge-interior-1200.webp",
+        "bytes": 165776
+      },
+      {
+        "width": 1440,
+        "src": "/images/realm-tour/optimized/lounge-interior-1440.webp",
+        "bytes": 206434
+      }
+    ]
+  }
+}

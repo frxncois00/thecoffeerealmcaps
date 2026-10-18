@@ -19,6 +19,7 @@ import {
 } from '../services/notificationCenterService'
 import { clearManagementSessionState, requestManagementDataRefresh, useManagementSessionState, writeManagementSessionState } from '../hooks/useManagementSessionState'
 import StaffOrderToastContainer from './notifications/StaffOrderToastContainer'
+import ClearNotificationsDialog from './notifications/ClearNotificationsDialog'
 import { playOrderChime } from '../utils/notificationSound'
 import { raimu } from './raimu/raimuMachine'
 import { readRaimuPreference, saveRaimuPreference } from './raimu/useRaimu'
@@ -52,7 +53,7 @@ async function submitterName(id) {
   return data?.full_name || data?.username || 'a staff member'
 }
 
-export default function AppShell({ role, title, eyebrow, children, actions, titleActions, onRefresh, onNotifications, notificationCount = 0, reportMode = false, hidePageHeader = false, activeOrderId = null }) {
+export default function AppShell({ role, title, eyebrow, children, actions, titleActions, onRefresh, onNotifications, reportMode = false, hidePageHeader = false, activeOrderId = null }) {
   const groups = role === 'admin' ? adminGroups : staffGroups
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -81,8 +82,10 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
     .join('') || 'ST'
   const visibleNotifications = notifications.filter((item) => role === 'admin' ? item.category !== 'orders' : item.category !== 'approvals')
   const unreadNotificationCount = visibleNotifications.filter((item) => !item.read).length
-  const visibleNotificationCount = Math.max(notificationCount, unreadNotificationCount)
+  const visibleNotificationCount = unreadNotificationCount
   const [orderToasts, setOrderToasts] = useManagementSessionState(`${role}:shell:order-toasts`, [])
+  const [activityToasts, setActivityToasts] = useManagementSessionState(`${role}:shell:activity-toasts`, [])
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
 
   useEffect(() => {
     if (role !== 'staff' || pathname !== '/staff' || !activeOrderId) return
@@ -208,7 +211,10 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
         }
         const saved = addStaffNotification(user.id, notification).find((item) => item.eventKey === eventKey)
         const justRan = Date.now() - new Date(settings.last_run_at).getTime() < 120000
-        if (staffPreferences.system_change_popups && saved && justRan) {
+        if (saved && justRan && role === 'staff') {
+          setActivityToasts((current) => [saved, ...current.filter((item) => item.id !== saved.id)])
+          playOrderChime()
+        } else if (staffPreferences.system_change_popups && saved && justRan) {
           setRestockToast(saved)
           playOrderChime()
         }
@@ -221,7 +227,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
     void checkDailyRestock()
     const timer = window.setInterval(checkDailyRestock, 10000)
     return () => { active = false; window.clearInterval(timer) }
-  }, [role, user?.id, staffPreferences.system_change_popups])
+  }, [role, user?.id, staffPreferences.system_change_popups, setActivityToasts])
 
   useEffect(() => {
     if (!restockToast) return undefined
@@ -259,7 +265,16 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   useEffect(() => {
     if (!['staff', 'admin'].includes(role) || !user?.id || !isSupabaseConfigured) return undefined
     const add = (notification) => {
-      try { return addStaffNotification(user.id, notification) }
+      try {
+        const before = getStaffNotifications(user.id)
+        const after = addStaffNotification(user.id, notification)
+        const added = after[0]?.id !== before[0]?.id ? after[0] : null
+        if (role === 'staff' && added && ['inventory', 'cancellations'].includes(added.category)) {
+          setActivityToasts((current) => [added, ...current.filter((item) => item.id !== added.id)])
+          playOrderChime()
+        }
+        return added
+      }
       catch (error) { console.error('[Notification Center] Could not save alert:', error); return null }
     }
     const channel = supabase.channel(`management-notification-center-${user.id}`)
@@ -372,7 +387,10 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
             const label = row.order_number || 'An order'
             const reason = row.cancellation_reason ? ` Reason: ${row.cancellation_reason}.` : ''
             add({ category: 'cancellations', title: reviewRequested ? 'Cancellation review requested' : 'Customer cancellation',
-              message: reviewRequested ? `${label} is on hold while payment and refund requirements are reviewed.${reason}` : `${label} was cancelled by the customer. No verified payment was recorded.${reason}` })
+              message: reviewRequested ? `${label} is on hold while payment and refund requirements are reviewed.${reason}` : `${label} was cancelled by the customer. No verified payment was recorded.${reason}`,
+              target: { kind: 'cancellation', id: row.id, orderNumber: row.order_number },
+              eventKey: `cancellation:${row.id}:${reviewRequested ? 'review' : 'cancelled'}:${reviewRequested ? row.cancellation_requested_at : row.cancelled_at || row.cancellation_requested_at || row.updated_at}`,
+              createdAt: reviewRequested ? row.cancellation_requested_at || createdAt : row.cancelled_at || createdAt })
           }
         }
       } else if (staffPreferences.notify_low_stock && table === 'inventory_stock') receiveStock(payload, 'ingredient')
@@ -409,7 +427,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
       else console.warn('[Notification Center] Realtime channel:', status)
     })
     return () => { active = false; supabase.removeChannel(channel) }
-  }, [role, setOrderToasts, staffPreferences.notify_customer_cancellations, staffPreferences.notify_low_stock, staffPreferences.notify_menu_changes, staffPreferences.notify_new_orders, staffPreferences.notify_payment_proofs, user?.id])
+  }, [role, setActivityToasts, setOrderToasts, staffPreferences.notify_customer_cancellations, staffPreferences.notify_low_stock, staffPreferences.notify_menu_changes, staffPreferences.notify_new_orders, staffPreferences.notify_payment_proofs, user?.id])
 
   useEffect(() => {
     const themeColor = document.querySelector('meta[name="theme-color"]')
@@ -438,16 +456,18 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   const readNotification = (notificationId) => markStaffNotificationRead(user?.id, notificationId)
   const openNotification = async (notification) => {
     readNotification(notification.id)
+    setActivityToasts((current) => current.filter((item) => item.id !== notification.id))
     const target = notification.target
+    if (target?.kind === 'order') setOrderToasts((current) => current.filter((item) => item.id !== target.id))
     if (!target) return
     setNotificationsOpen(false)
     writeManagementSessionState(`${role}:shell:notifications-open`, false)
-    if (target.kind === 'order' && role === 'staff') {
+    if ((target.kind === 'order' || target.kind === 'cancellation') && role === 'staff') {
       try {
         const [order] = await fetchOpsOrdersByIds([target.id])
         if (order) writeManagementSessionState('staff:orders:drawer', order)
       } catch (error) { console.error('[Notification Center] Could not open order:', error) }
-      navigate('/staff')
+      navigate('/staff', target.kind === 'cancellation' ? { state: { notificationCancellation: { orderNumber: target.orderNumber, openedAt: Date.now() } } } : undefined)
     } else if (target.kind === 'inventory' || target.kind === 'daily-restock') {
       const itemType = target.kind === 'daily-restock' ? 'finished_product' : target.itemType
       const name = target.kind === 'daily-restock' ? '' : target.name
@@ -467,7 +487,13 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
     else if (role === 'admin' && target.kind === 'menu-approval') navigate('/admin/menu-approvals')
   }
   const readAllNotifications = () => markAllStaffNotificationsRead(user?.id)
-  const clearNotifications = () => clearStaffNotifications(user?.id)
+  const clearNotifications = () => {
+    clearStaffNotifications(user?.id)
+    setOrderToasts([])
+    setActivityToasts([])
+    setRestockToast(null)
+    setClearConfirmOpen(false)
+  }
   const toggleRaimu = () => {
     const visible = !raimuVisible
     setRaimuVisible(visible)
@@ -534,9 +560,14 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   const handleDismissOrderToast = (id) => {
     setOrderToasts((current) => current.filter((t) => t.id !== id))
   }
+  const handleDismissActivityToast = (id) => {
+    setActivityToasts((current) => current.filter((item) => item.id !== id))
+  }
 
   const handleViewOrderToast = async (order) => {
     if (!order) return
+    const savedAlert = getStaffNotifications(user?.id).find((item) => item.eventKey === `order:${order.id}`)
+    if (savedAlert) markStaffNotificationRead(user?.id, savedAlert.id)
     try {
       const fullOrder = order.order_items ? order : (await fetchOpsOrdersByIds([order.id]))[0] || order
       writeManagementSessionState('staff:orders:drawer', fullOrder)
@@ -568,12 +599,15 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
         <button className="sidebar-exit" type="button" onClick={() => setLogoutOpen(true)}><LogOut size={19}/><span>Logout</span></button>
       </div>
     </aside>
-    <main className="app-main internal-main">{!hidePageHeader && <header className={`page-header internal-page-header${eyebrow ? '' : ' is-compact'}${role === 'admin' ? ' is-admin-surface-header' : ''}`}><div><div className={`internal-title-row${titleActions ? ' has-title-actions' : ''}`}><h1>{title}</h1>{titleActions}</div>{eyebrow && <span>{eyebrow}</span>}</div><div className="header-actions"><div className="internal-utility-bar" aria-label="Workspace utilities"><div className="internal-live-datetime">{role === 'admin' && <CalendarDays size={16} aria-hidden="true" />}<div className="internal-live-datetime-copy"><span>{new Intl.DateTimeFormat('en-PH', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', ...(role === 'admin' || reportMode ? { timeZone: 'Asia/Manila' } : {}) }).format(now)}</span><b>{new Intl.DateTimeFormat('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true, ...(role === 'admin' || reportMode ? { timeZone: 'Asia/Manila' } : {}) }).format(now)} PHT</b></div></div><button type="button" className={`internal-utility-button raimu-toggle${raimuVisible ? ' is-active' : ''}`} aria-label={reportMode ? 'AI assistant' : raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} aria-pressed={raimuVisible} title={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} onClick={toggleRaimu}><Bot size={18} aria-hidden="true" /></button><div className={`internal-notification-anchor ${bellAnimated ? 'is-ringing' : ''}`} ref={notificationAnchorRef}><button type="button" className="internal-utility-button" aria-label={reportMode ? `Notifications${visibleNotificationCount ? `, ${visibleNotificationCount} unread` : ''}` : `Open notifications${visibleNotificationCount ? `, ${visibleNotificationCount} unread` : ''}`} aria-expanded={['staff', 'admin'].includes(role) ? notificationsOpen : undefined} aria-controls={role === 'staff' ? 'staff-notification-center' : undefined} title="Notifications" onClick={openNotifications}><Bell size={18} />{visibleNotificationCount > 0 && <span className={`internal-utility-badge ${bellAnimated ? 'is-popping' : ''}`}>{visibleNotificationCount > 99 ? '99+' : visibleNotificationCount}</span>}</button>{['staff', 'admin'].includes(role) && notificationsOpen && <aside className="staff-notification-center" id="staff-notification-center" role="dialog" aria-modal="false" aria-labelledby="staff-notification-title"><header><div><span>Notification center</span><h2 id="staff-notification-title">Recent activity</h2></div><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={18} /></button></header><div className="staff-notification-actions"><button type="button" onClick={readAllNotifications} disabled={!unreadNotificationCount}><CheckCheck size={16} />Read all</button><button type="button" className="is-destructive" onClick={clearNotifications} disabled={!visibleNotifications.length}><Trash2 size={16} />Clear</button></div><div className="staff-notification-list">{visibleNotifications.length ? visibleNotifications.map((notification) => <button type="button" className={notification.read ? 'is-read' : 'is-unread'} data-category={notification.category} key={notification.id} onClick={() => void openNotification(notification)}><i aria-hidden="true" /><span><b>{notification.title}</b><small>{notification.message}</small><time dateTime={notification.createdAt}>{notificationTime(notification.createdAt)}</time></span></button>) : <div className="staff-notification-empty"><Bell size={22} /><b>{role === 'admin' && notificationCount > 0 ? `${notificationCount} items need attention` : 'You’re all caught up'}</b><span>{role === 'admin' && notificationCount > 0 ? 'Review the dashboard attention cards for details.' : 'Operational alerts will stack here as they arrive.'}</span></div>}</div><footer><button type="button" onClick={() => { setNotificationsOpen(false); navigate(role === 'admin' ? '/admin/preferences' : '/staff/settings') }}>Notification settings</button></footer></aside>}</div><button type="button" className="internal-utility-button" aria-label={reportMode ? 'Refresh data' : refreshing ? 'Refreshing current page data' : 'Refresh current page data'} aria-busy={refreshing} title={refreshing ? 'Refreshing data…' : 'Refresh data'} onClick={refreshPage} disabled={refreshing}><RefreshCw size={18} className={refreshing ? 'spin' : ''} /></button></div>{actions}</div></header>}{children}</main>
+    <main className="app-main internal-main">{!hidePageHeader && <header className={`page-header internal-page-header${eyebrow ? '' : ' is-compact'}${role === 'admin' ? ' is-admin-surface-header' : ''}`}><div><div className={`internal-title-row${titleActions ? ' has-title-actions' : ''}`}><h1>{title}</h1>{titleActions}</div>{eyebrow && <span>{eyebrow}</span>}</div><div className="header-actions"><div className="internal-utility-bar" aria-label="Workspace utilities"><div className="internal-live-datetime">{role === 'admin' && <CalendarDays size={16} aria-hidden="true" />}<div className="internal-live-datetime-copy"><span>{new Intl.DateTimeFormat('en-PH', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', ...(role === 'admin' || reportMode ? { timeZone: 'Asia/Manila' } : {}) }).format(now)}</span><b>{new Intl.DateTimeFormat('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true, ...(role === 'admin' || reportMode ? { timeZone: 'Asia/Manila' } : {}) }).format(now)} PHT</b></div></div><button type="button" className={`internal-utility-button raimu-toggle${raimuVisible ? ' is-active' : ''}`} aria-label={reportMode ? 'AI assistant' : raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} aria-pressed={raimuVisible} title={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} onClick={toggleRaimu}><Bot size={18} aria-hidden="true" /></button><div className={`internal-notification-anchor ${bellAnimated ? 'is-ringing' : ''}`} ref={notificationAnchorRef}><button type="button" className="internal-utility-button" aria-label={reportMode ? `Notifications${visibleNotificationCount ? `, ${visibleNotificationCount} unread` : ''}` : `Open notifications${visibleNotificationCount ? `, ${visibleNotificationCount} unread` : ''}`} aria-expanded={['staff', 'admin'].includes(role) ? notificationsOpen : undefined} aria-controls={role === 'staff' ? 'staff-notification-center' : undefined} title="Notifications" onClick={openNotifications}><Bell size={18} />{visibleNotificationCount > 0 && <span className={`internal-utility-badge ${bellAnimated ? 'is-popping' : ''}`}>{visibleNotificationCount > 99 ? '99+' : visibleNotificationCount}</span>}</button>{['staff', 'admin'].includes(role) && notificationsOpen && <aside className="staff-notification-center" id="staff-notification-center" role="dialog" aria-modal="false" aria-labelledby="staff-notification-title"><header><div><span>Notification center</span><h2 id="staff-notification-title">Recent activity</h2></div><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={18} /></button></header><div className="staff-notification-actions"><button type="button" onClick={readAllNotifications} disabled={!unreadNotificationCount}><CheckCheck size={16} />Read all</button><button type="button" className="is-destructive" onClick={() => setClearConfirmOpen(true)} disabled={!visibleNotifications.length}><Trash2 size={16} />Clear</button></div><div className="staff-notification-list">{visibleNotifications.length ? visibleNotifications.map((notification) => <button type="button" className={notification.read ? 'is-read' : 'is-unread'} data-category={notification.category} key={notification.id} onClick={() => void openNotification(notification)}><i aria-hidden="true" /><span><b>{notification.title}</b><small>{notification.message}</small><time dateTime={notification.createdAt}>{notificationTime(notification.createdAt)}</time></span></button>) : <div className="staff-notification-empty"><Bell size={22} /><b>You’re all caught up</b><span>Operational alerts will stack here as they arrive.</span></div>}</div><footer><button type="button" onClick={() => { setNotificationsOpen(false); navigate(role === 'admin' ? '/admin/preferences' : '/staff/settings') }}>Notification settings</button></footer></aside>}</div><button type="button" className="internal-utility-button" aria-label={reportMode ? 'Refresh data' : refreshing ? 'Refreshing current page data' : 'Refresh current page data'} aria-busy={refreshing} title={refreshing ? 'Refreshing data…' : 'Refresh data'} onClick={refreshPage} disabled={refreshing}><RefreshCw size={18} className={refreshing ? 'spin' : ''} /></button></div>{actions}</div></header>}{children}</main>
     {role === 'staff' && (
       <StaffOrderToastContainer
         toasts={orderToasts}
+        activityToasts={activityToasts}
         onDismiss={handleDismissOrderToast}
+        onDismissActivity={handleDismissActivityToast}
         onViewOrder={handleViewOrderToast}
+        onViewActivity={(notification) => void openNotification(notification)}
       />
     )}
     {restockToast && <div className="daily-restock-toast" role="alert" aria-live="assertive">
@@ -582,6 +616,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
       <button type="button" className="daily-restock-toast-view" onClick={() => { setRestockToast(null); void openNotification(restockToast) }}>View products</button>
       <button type="button" className="daily-restock-toast-close" aria-label="Dismiss daily restock notification" onClick={() => setRestockToast(null)}><X size={16} /></button>
     </div>}
+    <ClearNotificationsDialog open={clearConfirmOpen} count={notifications.length} onCancel={() => setClearConfirmOpen(false)} onConfirm={clearNotifications} />
     <LogoutConfirmModal open={logoutOpen} busy={loggingOut} onCancel={() => setLogoutOpen(false)} onConfirm={confirmLogout} />
     {logoutError && (
       <div className="customer-logout-error-banner" role="alert">

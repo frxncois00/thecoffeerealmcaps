@@ -19,3 +19,16 @@ export function updatePurchaseLine(line, key, value) {
   }
   return next
 }
+
+export function changePurchaseUnit(line, unit, fromFactor, toFactor) {
+  const quantity = Number(line.quantityOrdered)
+  if (line.quantityOrdered === '' || !Number.isFinite(quantity) || quantity <= 0) return { ...line, purchaseUnit: unit }
+  const converted = quantity * fromFactor / toFactor
+  return {
+    ...line,
+    purchaseUnit: unit,
+    quantityOrdered: String(Number(converted.toFixed(6))),
+    // Keep the line total fixed; the displayed unit price follows the new unit.
+    priceInput: 'total',
+  }
+}
