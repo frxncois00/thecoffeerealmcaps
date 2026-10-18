@@ -1,0 +1,69 @@
+@keyframes admin-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+body[data-admin-motion] {
+  --admin-entrance: admin-fade-in 0.3s ease-in-out backwards;
+}
+
+/* Animate individual admin surfaces, never the page wrapper or sidebar. */
+body[data-admin-motion] #root :is(
+  .internal-page-header, .admin-mfa-card,
+  .internal-main article, .internal-main form, .internal-main nav,
+  .internal-main table, .internal-main .panel,
+  .internal-main [class$="-tabs"], .internal-main [class*="-tabs "],
+  .internal-main .report-filter-bar, .internal-main .ua-toolbar,
+  [role="dialog"], [role="alertdialog"], dialog[open],
+  .internal-main [class$="-card"], .internal-main [class*="-card "],
+  .internal-main [class$="-panel"], .internal-main [class*="-panel "],
+  .ops-popup-modal > *, .ops-drawer > header, .ops-drawer-footer,
+  .ops-drawer-body > section, .ops-drawer-body > .ops-drawer-cancelled,
+  .ua-toast, .daily-restock-toast, .txn-filter-backdrop,
+  .dash-stat-row, .cancel-bar-row, .srp-channel-row-animated,
+  .cancel-area, .cancel-chart-point, .ad-sales-point,
+  .cancel-bars li > i > span, .srp-channel-progress i
+),
+body[data-admin-motion] :is(
+  .admin-fade-in, [role="dialog"], [role="alertdialog"], dialog[open],
+  .ops-modal-backdrop, .ops-drawer-backdrop, .po-modal-backdrop,
+  .po-drawer-backdrop, .ua-overlay, .ua-drawer-scrim, .auth-confirm-backdrop
+) {
+  opacity: 1;
+  animation: var(--admin-entrance) !important;
+}
+
+body[data-admin-motion] #root :is(.dash-fade-in, .cancel-report-enter, .ir-page-enter) {
+  animation: none !important;
+}
+
+/* Replaced entrance keyframes must not leave their content offset or hidden. */
+body[data-admin-motion] #root :is(
+  .ops-popup-modal > *, .ops-drawer > header, .ops-drawer-footer,
+  .ops-drawer-body > section, .ops-drawer-body > .ops-drawer-cancelled
+) {
+  transform: none;
+}
+
+body[data-admin-motion] #root [data-admin-fade-reset] {
+  --admin-entrance: none;
+}
+
+body[data-admin-motion] .auth-logout-card {
+  transform: none !important;
+}
+
+body[data-admin-motion] #root .ad-sales-line-clip {
+  animation: none !important;
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-admin-motion] {
+    --admin-entrance: none;
+  }
+}
+
+html[data-staff-motion="reduce"] body[data-admin-motion] {
+  --admin-entrance: none;
+}

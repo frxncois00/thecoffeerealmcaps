@@ -39,7 +39,7 @@ export default function BenefitsReviewModule({ refreshSignal, compact = false })
   }, [revision, refreshSignal])
   const pages = Math.max(1, Math.ceil(result.count / 10))
   return <section className={`ua-module benefit-admin${compact ? ' is-compact' : ''}`}>
-    <header className="ua-module-intro"><div><span className="ua-module-icon"><BadgeCheck size={20}/></span><div><h2>Benefits verification</h2><p>{compact ? 'Review benefit applications.' : 'Review Senior Citizen and PWD applications.'}</p></div></div></header>
+    {!compact && <header className="ua-module-intro"><div><span className="ua-module-icon"><BadgeCheck size={20}/></span><div><h2>Benefits verification</h2><p>Review Senior Citizen and PWD applications.</p></div></div></header>}
     <div className="benefit-status-navigation">
       <nav className="benefit-status-tabs" aria-label="Application status">
         {BENEFIT_TABS.map(value => <button key={value} type="button" aria-current={status === value ? 'page' : undefined} onClick={() => { setStatus(value); setPage(1); setSelected(null); setNotice('') }}>{value === 'all' ? 'All applications' : BENEFIT_STATUS[value]}<b>{counts[value] ?? '—'}</b></button>)}

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
 import CustomerLayout from './components/customer/CustomerLayout'
 import CustomerPageMotion from './components/customer/CustomerPageMotion'
+import AdminPageMotion from './components/AdminPageMotion'
 import './customer-motion.css'
 import CustomerProtectedRoute from './routes/CustomerProtectedRoute'
 import AdminDashboard from './pages/AdminDashboard'
@@ -44,6 +45,7 @@ export default function App() {
   return (
     <>
       <CustomerPageMotion />
+      <AdminPageMotion />
       <Routes>
         <Route element={<CustomerLayout />}>
           <Route path="/" element={<HomePage />} />

@@ -181,7 +181,7 @@ function matchesApprovalChangeType(item, filter) {
   return (terms[filter] || []).some((term) => types.some((type) => type.includes(term)))
 }
 
-export function MenuApprovalsQueue({ onAction, compact = false }) {
+export function MenuApprovalsQueue({ onAction, compact = false, refreshSignal = 0 }) {
   const [status, setStatus] = useState('pending')
   const [changeType, setChangeType] = useState('all')
   const [sort, setSort] = useState('newest')
@@ -194,7 +194,7 @@ export function MenuApprovalsQueue({ onAction, compact = false }) {
     window.addEventListener('storage', refresh)
     window.addEventListener('menu-approval-requests-changed', refresh)
     return () => { window.clearInterval(interval); window.removeEventListener('storage', refresh); window.removeEventListener('menu-approval-requests-changed', refresh) }
-  }, [])
+  }, [refreshSignal])
   const rows = requests.filter((item) => (status === 'all' || item.state === status) && matchesApprovalChangeType(item, changeType))
   const sortedRows = [...rows].sort((a, b) => sort === 'oldest' ? new Date(a.createdAt) - new Date(b.createdAt) : new Date(b.createdAt) - new Date(a.createdAt))
   const pageSize = 8
@@ -206,8 +206,8 @@ export function MenuApprovalsQueue({ onAction, compact = false }) {
     rejected: requests.filter((item) => item.state === 'rejected').length,
   }
 
-  return <section className={`ac-approval-section${compact ? ' is-compact' : ''}`} aria-labelledby="menu-approvals-title">
-    <header className="ac-approval-header"><div><span className="ac-approval-icon"><ClipboardCheck size={21}/></span><div><h2 id="menu-approvals-title">Menu approvals</h2><p>{compact ? 'Review staff menu changes.' : 'Review staff menu changes before publishing.'}</p></div></div></header>
+  return <section className={`ac-approval-section${compact ? ' is-compact' : ''}`} aria-label="Menu approvals">
+    {!compact && <header className="ac-approval-header"><div><span className="ac-approval-icon"><ClipboardCheck size={21}/></span><div><h2>Menu approvals</h2><p>Review staff menu changes before publishing.</p></div></div></header>}
     <div className="ac-approval-controls">
       <div className="ac-approval-tabs" role="tablist" aria-label="Menu approval status">
         {[['pending', 'Pending approval', counts.pending], ['approved', 'Approved', counts.approved], ['rejected', 'Rejected', counts.rejected]].map(([key, label, count]) => <button key={key} type="button" role="tab" aria-selected={status === key} className={status === key ? 'is-active' : ''} onClick={() => { setStatus(key); setPage(1) }}>{label}<b>{count}</b></button>)}

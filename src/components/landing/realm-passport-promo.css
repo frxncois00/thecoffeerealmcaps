@@ -1,157 +1,268 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap");
+
+/* Isolated from the member passport and the rest of the landing page. */
 .realm-passport-promo {
-  --passport-fiber: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='paper'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='.08'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Cpath fill='%23938469' filter='url(%23paper)' d='M0 0h180v180H0z'/%3E%3C/svg%3E");
+  --gold: #D9B66A;
+  --gold-light: #F1D38D;
+  --cream: #F3EBD8;
+  --paper: #F6F0E0;
+  --green: #12301F;
+  --green-center: #1E4A31;
+  --passport: #0E3623;
+  --envelope-back: #2A5A3B;
+  --envelope-flap: #356B47;
+  --envelope-front: #2F6140;
+  --bean: #7A4A2B;
+  --entrance-duration: 780ms;
+  --passport-duration: 1100ms;
+  --ticket-duration: 850ms;
+  --seal-duration: 620ms;
+  --detail-duration: 650ms;
+  --hover-duration: 240ms;
+  --float-duration: 7s;
+  --sway-duration: 8s;
+  --steam-duration: 3.2s;
+  --stamp-duration: 5.4s;
+  --shine-duration: 6s;
+  --glow-duration: 7s;
+  --progress-duration: 4.8s;
+  --gift-duration: 5.6s;
+  --overshoot: cubic-bezier(.2, .9, .3, 1.2);
   position: relative;
-  padding: 32px 24px 40px;
-  color: var(--forest);
-  background: #fff;
+  isolation: isolate;
+  overflow: hidden;
+  padding: 68px 28px 64px;
+  color: var(--cream);
+  background: radial-gradient(ellipse at 50% 43%, var(--green-center) 0%, var(--green) 74%);
+  font-family: "DM Sans", sans-serif;
+  text-align: center;
+  -webkit-font-smoothing: antialiased;
+}
+.realm-passport-promo *, .realm-passport-promo *::before, .realm-passport-promo *::after { box-sizing: border-box; }
+.realm-passport-promo svg { display: block; }
+.realm-passport-promo .rpp-heading { position: relative; z-index: 2; margin-inline: auto; }
+.realm-passport-promo .rpp-eyebrow { margin: 0 0 19px; color: var(--gold); font-size: 12px; font-weight: 600; letter-spacing: .28em; line-height: 1.7; }
+.realm-passport-promo h2 { margin: 0; font-family: "Fraunces", Georgia, serif; font-size: 52px; font-weight: 500; letter-spacing: -.045em; line-height: 1.12; text-wrap: balance; }
+.realm-passport-promo h2 em { color: var(--gold); font-weight: 400; }
+.realm-passport-promo .rpp-subtitle { max-width: 440px; margin: 16px auto 0; font-size: 15px; line-height: 1.65; text-wrap: balance; }
+.realm-passport-promo .rpp-stage { position: relative; width: 100%; max-width: 1040px; height: 470px; margin: 9px auto 0; }
+
+/* Motion layers: position > parallax > entrance > ambient > hover. */
+.realm-passport-promo .rpp-parallax { width: 100%; height: 100%; transform: translate3d(var(--px, 0px), var(--py, 0px), 0); transition: transform var(--hover-duration) ease-out; }
+.realm-passport-promo .rpp-mail-anchor { position: absolute; z-index: 2; bottom: 18px; left: calc(50% - 170px); width: 340px; height: 410px; }
+.realm-passport-promo .rpp-mail { position: relative; width: 100%; height: 100%; }
+.realm-passport-promo .rpp-envelope-shadow { position: absolute; inset: auto 26px -9px; height: 180px; border-radius: 30px; box-shadow: 0 22px 40px #04180c66; }
+.realm-passport-promo .rpp-envelope-back { position: absolute; z-index: 1; right: 15px; bottom: 0; left: 15px; height: 210px; border-radius: 6px; background: var(--envelope-back); }
+.realm-passport-promo .rpp-envelope-flap { position: absolute; z-index: 1; right: 15px; bottom: 194px; left: 15px; height: 120px; background: linear-gradient(150deg, var(--envelope-flap), var(--envelope-back)); clip-path: polygon(0 100%, 50% 0, 100% 100%); }
+.realm-passport-promo .rpp-passport-window { position: absolute; z-index: 2; inset: -25px 0 0; overflow: hidden; border-radius: 7px; }
+.realm-passport-promo .rpp-book-position { position: absolute; top: 63px; left: 65px; width: 210px; height: 290px; perspective: 850px; }
+.realm-passport-promo .rpp-book-rise, .realm-passport-promo .rpp-book-float, .realm-passport-promo .rpp-book-tilt, .realm-passport-promo .rpp-book-feedback { width: 100%; height: 100%; }
+.realm-passport-promo .rpp-book-rise { transform: rotate(-4deg); }
+.realm-passport-promo .rpp-book-float { position: relative; perspective: 850px; }
+.realm-passport-promo .rpp-book-float::before { content: ""; position: absolute; inset: -40px; z-index: -1; border-radius: 50%; background: radial-gradient(ellipse, #d9b66a20, #d9b66a00 68%); opacity: .6; }
+.realm-passport-promo .rpp-book-tilt { position: relative; transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform var(--hover-duration) ease-out; }
+.realm-passport-promo .rpp-book-tilt::after { content: ""; position: absolute; z-index: -1; inset: 6px; border-radius: 8px; box-shadow: 0 26px 42px #03150bcc; opacity: 0; transition: opacity var(--hover-duration) ease; }
+.realm-passport-promo .rpp-book-tilt.is-hovered::after { opacity: 1; }
+.realm-passport-promo .rpp-book {
+  position: relative; width: 100%; height: 100%; padding: 36px 20px 20px; border-radius: 8px;
+  background: linear-gradient(100deg, #082b1b66, transparent 9%, #ffffff03 12%, transparent 70%), var(--passport);
+  box-shadow: 1px 1px 0 #ffffff0d inset, 0 9px 23px #061d1680; color: var(--gold);
+}
+.realm-passport-promo .rpp-book::before { content: ""; position: absolute; inset: 13px; border: 1px solid var(--gold); border-radius: 4px; opacity: .8; }
+.realm-passport-promo .rpp-book-brand { position: relative; margin: 0; font-size: 7px; font-weight: 600; letter-spacing: .22em; line-height: 1.6; white-space: nowrap; }
+.realm-passport-promo .rpp-book-logo { width: 48px; height: 48px; margin: 32px auto 19px; }
+.realm-passport-promo .rpp-book-title { margin: 0; font-family: "Fraunces", Georgia, serif; font-size: 25px; font-weight: 500; letter-spacing: .05em; line-height: 1.08; }
+.realm-passport-promo .rpp-book-flourish { width: 51px; height: 14px; margin: 22px auto 0; opacity: .6; }
+.realm-passport-promo .rpp-envelope-front { position: absolute; z-index: 3; right: 15px; bottom: 0; left: 15px; height: 210px; border-radius: 0 0 6px 6px; background: var(--envelope-front); clip-path: polygon(0 0, 50% 40%, 100% 0, 100% 100%, 0 100%); }
+.realm-passport-promo .rpp-envelope-front::before { content: ""; position: absolute; inset: 0; background: var(--envelope-flap); opacity: .5; clip-path: polygon(0 0, 100% 100%, 0 100%); }
+.realm-passport-promo .rpp-envelope-front::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, #12301f1c, transparent); clip-path: polygon(0 100%, 50% 40%, 100% 100%); }
+.realm-passport-promo .rpp-seal-position { position: absolute; z-index: 5; left: calc(50% - 28px); bottom: 42px; width: 56px; height: 56px; }
+.realm-passport-promo .rpp-seal { position: relative; display: grid; width: 100%; height: 100%; place-items: center; overflow: hidden; border-radius: 50%; background: radial-gradient(circle at 32% 23%, #f1d38d, var(--gold) 48%, #ad833c 100%); box-shadow: 0 4px 6px #08201655, 0 1px 2px #f6df9d inset; color: #916b2d; }
+.realm-passport-promo .rpp-seal::before { content: ""; position: absolute; inset: 6px; border: 1px solid #a47b363f; border-radius: 50%; }
+.realm-passport-promo .rpp-seal svg { width: 28px; height: 28px; opacity: .68; }
+.realm-passport-promo .rpp-seal-shine { position: absolute; inset: -25px; background: linear-gradient(110deg, transparent 30%, #fff4cd70 48%, transparent 65%); transform: translateX(-120%); }
+.realm-passport-promo .rpp-note-position { position: absolute; z-index: 6; right: 4px; bottom: 31px; width: 139px; }
+.realm-passport-promo .rpp-note { margin: 0; padding: 10px 8px; background: var(--paper); color: var(--green); box-shadow: 0 4px 7px #061d1633; font-family: "Fraunces", Georgia, serif; font-size: 14px; font-style: italic; line-height: 1.3; transform: rotate(5deg); }
+
+/* Tickets retain real text; the central paper craft is decorative. */
+.realm-passport-promo .rpp-ticket-position { position: absolute; z-index: 3; top: 220px; width: clamp(190px, 23vw, 232px); }
+.realm-passport-promo .rpp-ticket-left { left: 1.5%; --ticket-angle: -3deg; --ticket-x: -85px; --ticket-entry-angle: -12deg; --ticket-delay: 580ms; }
+.realm-passport-promo .rpp-ticket-right { right: 1.5%; --ticket-angle: 2deg; --ticket-x: 85px; --ticket-entry-angle: 11deg; --ticket-delay: 700ms; }
+.realm-passport-promo .rpp-ticket { position: relative; display: flex; min-height: 103px; flex-direction: column; justify-content: center; margin: 0; padding: 23px 12px; background: var(--paper); color: var(--green); box-shadow: 0 10px 23px #071d1633, 0 1px 0 #fff9e7 inset; transform: rotate(var(--ticket-angle)); font-size: 14px; line-height: 1.65; }
+.realm-passport-promo .rpp-ticket strong { display: block; font-weight: 700; }
+
+.realm-passport-promo .rpp-object { position: absolute; z-index: 1; pointer-events: none; }
+.realm-passport-promo .rpp-object svg { width: 100%; height: 100%; overflow: visible; }
+.realm-passport-promo .rpp-object-reveal, .realm-passport-promo .rpp-object-float { width: 100%; height: 100%; }
+.realm-passport-promo .rpp-object-float { transform: rotate(var(--object-angle, 0deg)); }
+.realm-passport-promo .rpp-bean { color: var(--bean); }
+.realm-passport-promo .rpp-bean-one { left: 22%; top: 67px; width: 30px; height: 40px; --object-angle: 22deg; --float-duration: 6.4s; --float-delay: -2.1s; --reveal-delay: 1080ms; }
+.realm-passport-promo .rpp-bean-two { right: 20%; top: 93px; width: 27px; height: 35px; --object-angle: 62deg; --float-duration: 8.2s; --float-delay: -4.6s; --reveal-delay: 1160ms; }
+.realm-passport-promo .rpp-bean-three { left: 13%; bottom: 96px; width: 23px; height: 29px; --object-angle: 48deg; --float-duration: 5.7s; --float-delay: -1.4s; --reveal-delay: 1280ms; }
+.realm-passport-promo .rpp-bean-four { right: 12%; bottom: 87px; width: 18px; height: 25px; --object-angle: -29deg; --float-duration: 7.6s; --float-delay: -5.3s; --reveal-delay: 1360ms; }
+.realm-passport-promo .rpp-cup { left: 1%; top: 93px; width: 61px; height: 66px; --object-angle: -9deg; --float-duration: 8.8s; --float-delay: -3s; --reveal-delay: 1000ms; }
+.realm-passport-promo .rpp-steam { transform-box: fill-box; transform-origin: center; opacity: .6; }
+.realm-passport-promo .rpp-steam-two { --steam-delay: -1.05s; }
+.realm-passport-promo .rpp-steam-three { --steam-delay: -2.1s; }
+.realm-passport-promo .rpp-rubber-stamp { right: .5%; top: 102px; width: 59px; height: 72px; --reveal-delay: 1240ms; }
+.realm-passport-promo .rpp-stamp-press { width: 100%; height: 100%; transform: rotate(12deg); }
+.realm-passport-promo .rpp-ink { right: 14%; bottom: 20px; width: 65px; height: 65px; color: var(--gold); --reveal-delay: 1420ms; }
+.realm-passport-promo .rpp-ink-static { opacity: .38; transform: rotate(-15deg); }
+.realm-passport-promo .rpp-ink-pulse { position: absolute; inset: 0; opacity: 0; transform: rotate(-15deg); }
+.realm-passport-promo .rpp-sparkle { color: var(--gold); --twinkle-duration: 3.2s; }
+.realm-passport-promo .rpp-sparkle-one { top: 26px; left: 35%; width: 23px; height: 23px; --reveal-delay: 1450ms; --twinkle-delay: -1.2s; }
+.realm-passport-promo .rpp-sparkle-two { top: 43px; right: 30%; width: 15px; height: 15px; --reveal-delay: 1510ms; --twinkle-duration: 2.7s; --twinkle-delay: -.5s; }
+.realm-passport-promo .rpp-sparkle-three { bottom: 30px; left: 29%; width: 18px; height: 18px; --reveal-delay: 1570ms; --twinkle-duration: 3.8s; --twinkle-delay: -2.5s; }
+
+.realm-passport-promo .rpp-footer { position: relative; z-index: 4; }
+.realm-passport-promo .rpp-progress { display: flex; justify-content: center; gap: 17px; margin: 10px 0 0; padding: 0; list-style: none; }
+.realm-passport-promo .rpp-progress li { position: relative; display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border: 1.5px dashed #d9b66a85; border-radius: 50%; color: var(--gold); }
+.realm-passport-promo .rpp-progress .rpp-collected { border: 0; color: var(--green); }
+.realm-passport-promo .rpp-collected::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--gold); }
+.realm-passport-promo .rpp-progress svg { position: relative; width: 21px; height: 21px; }
+.realm-passport-promo .rpp-progress .rpp-gift { border-style: solid; border-color: var(--gold); }
+.realm-passport-promo .rpp-empty::after { content: ""; position: absolute; inset: -1.5px; border: 1.5px dashed var(--gold); border-radius: 50%; opacity: 0; }
+.realm-passport-promo .rpp-caption { margin: 13px 0 0; color: var(--cream); font-size: 12px; line-height: 1.5; }
+.realm-passport-promo .rpp-claim { position: relative; display: inline-flex; min-height: 50px; align-items: center; justify-content: center; gap: 12px; overflow: hidden; margin-top: 27px; padding: 14px 26px; border: 0; border-radius: 10px; background: var(--gold); color: var(--green); font: 600 15px/1.5 "DM Sans", sans-serif; cursor: pointer; touch-action: manipulation; transition: transform var(--hover-duration) ease; }
+.realm-passport-promo .rpp-claim::before { content: ""; position: absolute; inset: 0; background: var(--gold-light); opacity: 0; transition: opacity var(--hover-duration) ease; }
+.realm-passport-promo .rpp-claim::after { content: ""; position: absolute; inset: -20px; background: linear-gradient(110deg, transparent 35%, #fff5d05c 50%, transparent 65%); transform: translateX(-120%); transition: transform 650ms ease; }
+.realm-passport-promo .rpp-claim span, .realm-passport-promo .rpp-claim svg { position: relative; z-index: 1; }
+.realm-passport-promo .rpp-claim svg { width: 18px; height: 18px; transition: transform var(--hover-duration) ease; }
+.realm-passport-promo .rpp-claim:focus-visible { outline: 2px solid var(--cream); outline-offset: 5px; }
+.realm-passport-promo .rpp-claim:active { transform: scale(.98); }
+@media (hover: hover) and (pointer: fine) {
+  .realm-passport-promo .rpp-claim:hover { transform: translateY(-2px); }
+  .realm-passport-promo .rpp-claim:hover::before { opacity: 1; }
+  .realm-passport-promo .rpp-claim:hover::after { transform: translateX(120%); }
+  .realm-passport-promo .rpp-claim:hover svg { transform: translateX(3px); }
+  .realm-passport-promo .rpp-claim:hover:active { transform: translateY(0) scale(.98); }
 }
 
-.realm-passport-promo-inner { width: min(840px, 100%); margin-inline: auto; text-align: center; }
-.realm-passport-promo-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 300px) minmax(0, 1fr);
-  grid-template-areas: 'order envelope reward';
-  align-items: center;
-  gap: 24px;
-  margin: 0 auto 24px;
+/* Entrance only runs after the section intersects. No JS = final static state. */
+.realm-passport-promo.rpp-motion:not(.is-revealed) .rpp-mail,
+.realm-passport-promo.rpp-motion:not(.is-revealed) .rpp-ticket-reveal,
+.realm-passport-promo.rpp-motion:not(.is-revealed) .rpp-object-reveal { opacity: 0; }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-mail { animation: rpp-envelope-in var(--entrance-duration) both ease-out; }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-book-rise { animation: rpp-passport-in var(--passport-duration) 260ms both var(--overshoot); }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-seal { animation: rpp-seal-in var(--seal-duration) 1000ms both var(--overshoot); }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-ticket-reveal { animation: rpp-ticket-in var(--ticket-duration) var(--ticket-delay) both var(--overshoot); }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-note { animation: rpp-note-in var(--detail-duration) 1750ms both var(--overshoot); }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-object-reveal { animation: rpp-object-in var(--detail-duration) var(--reveal-delay) both ease-out; }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-book-float { animation: rpp-passport-float var(--float-duration) 1500ms infinite ease-in-out; }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-book-float::before { animation: rpp-glow var(--glow-duration) 1500ms infinite ease-in-out; }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-ticket { animation: rpp-ticket-sway var(--sway-duration) 1600ms infinite ease-in-out; }
+.realm-passport-promo .rpp-ticket-right .rpp-ticket { --sway-duration: 9.3s; }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-object-float { animation: rpp-object-float var(--float-duration) var(--float-delay, 0s) infinite ease-in-out; }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-steam { animation: rpp-steam var(--steam-duration) var(--steam-delay, 0s) infinite ease-out; }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-twinkle { animation: rpp-twinkle var(--twinkle-duration) var(--twinkle-delay, 0s) infinite ease-in-out; }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-stamp-press { animation: rpp-stamp-press var(--stamp-duration) 1900ms infinite ease-in-out; }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-ink-pulse { animation: rpp-ink var(--stamp-duration) 1900ms infinite ease-out; }
+.realm-passport-promo.rpp-motion.is-revealed .rpp-seal-shine { animation: rpp-shine var(--shine-duration) 1300ms infinite ease-in-out; }
+.realm-passport-promo.rpp-motion .rpp-progress:not(.is-revealed) .rpp-collected::before,
+.realm-passport-promo.rpp-motion .rpp-progress:not(.is-revealed) .rpp-collected svg { opacity: 0; }
+.realm-passport-promo.rpp-motion .rpp-progress.is-revealed .rpp-collected::before { animation: rpp-fill 620ms 100ms both var(--overshoot); }
+.realm-passport-promo.rpp-motion .rpp-progress.is-revealed .rpp-collected svg { animation: rpp-check 450ms 400ms both var(--overshoot); }
+.realm-passport-promo.rpp-motion .rpp-progress.is-revealed .rpp-empty::after { animation: rpp-progress-pulse var(--progress-duration) var(--pulse-delay) infinite ease-out; }
+.realm-passport-promo.rpp-motion .rpp-progress.is-revealed .rpp-gift svg { animation: rpp-gift var(--gift-duration) 1900ms infinite ease-in-out; }
+/* Do not replay entrances when reduced motion is toggled off later. */
+.realm-passport-promo.rpp-entrance-complete .rpp-mail,
+.realm-passport-promo.rpp-entrance-complete .rpp-book-rise,
+.realm-passport-promo.rpp-entrance-complete .rpp-seal,
+.realm-passport-promo.rpp-entrance-complete .rpp-ticket-reveal,
+.realm-passport-promo.rpp-entrance-complete .rpp-note,
+.realm-passport-promo.rpp-entrance-complete .rpp-object-reveal { animation: none !important; }
+.realm-passport-promo .rpp-progress.is-complete .rpp-collected::before,
+.realm-passport-promo .rpp-progress.is-complete .rpp-collected svg { animation: none !important; }
+/* Pause ambient work when the section is offscreen or the tab is hidden. */
+.realm-passport-promo.rpp-paused .rpp-book-float,
+.realm-passport-promo.rpp-paused .rpp-book-float::before,
+.realm-passport-promo.rpp-paused .rpp-ticket,
+.realm-passport-promo.rpp-paused .rpp-object-float,
+.realm-passport-promo.rpp-paused .rpp-steam,
+.realm-passport-promo.rpp-paused .rpp-twinkle,
+.realm-passport-promo.rpp-paused .rpp-stamp-press,
+.realm-passport-promo.rpp-paused .rpp-ink-pulse,
+.realm-passport-promo.rpp-paused .rpp-seal-shine,
+.realm-passport-promo.rpp-paused .rpp-empty::after,
+.realm-passport-promo.rpp-paused .rpp-gift svg { animation-play-state: paused !important; }
+
+@keyframes rpp-envelope-in { from { opacity: 0; transform: translateY(38px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes rpp-passport-in { from { opacity: 0; transform: translateY(175px) rotate(2deg); } 25% { opacity: 1; } to { opacity: 1; transform: translateY(0) rotate(-4deg); } }
+@keyframes rpp-seal-in { from { opacity: 0; transform: scale(1.6) rotate(-12deg); } 60% { opacity: 1; transform: scale(.94) rotate(2deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes rpp-ticket-in { from { opacity: 0; transform: translateX(var(--ticket-x)) translateY(18px) rotate(var(--ticket-entry-angle)); } to { opacity: 1; transform: translateX(0) translateY(0) rotate(0); } }
+@keyframes rpp-note-in { from { opacity: 0; transform: translateY(12px) scale(.8) rotate(10deg); } to { opacity: 1; transform: translateY(0) scale(1) rotate(5deg); } }
+@keyframes rpp-object-in { from { opacity: 0; transform: translateY(12px) scale(.8); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes rpp-passport-float { 0%, 100% { transform: translateY(0); } 30% { transform: translateY(-6px); } 75% { transform: translateY(6px); } }
+@keyframes rpp-glow { 0%, 100% { opacity: .3; transform: scale(.94); } 50% { opacity: .8; transform: scale(1.06); } }
+@keyframes rpp-ticket-sway { 0%, 100% { transform: rotate(var(--ticket-angle)); } 50% { transform: rotate(calc(var(--ticket-angle) + 1.5deg)); } }
+@keyframes rpp-object-float { 0%, 100% { transform: translateY(-10px) rotate(calc(var(--object-angle, 0deg) - 8deg)); } 50% { transform: translateY(10px) rotate(calc(var(--object-angle, 0deg) + 8deg)); } }
+@keyframes rpp-steam { 0% { opacity: 0; transform: translateY(6px) scaleX(.75); } 25% { opacity: .8; } 100% { opacity: 0; transform: translateY(-13px) scaleX(1.2); } }
+@keyframes rpp-twinkle { 0%, 100% { opacity: .4; transform: scale(.6); } 50% { opacity: 1; transform: scale(1.2); } }
+@keyframes rpp-stamp-press { 0%, 63%, 100% { transform: translateY(0) rotate(12deg); } 70% { transform: translateY(-4px) rotate(7deg); } 76%, 79% { transform: translateY(10px) rotate(4deg); } 87% { transform: translateY(-3px) rotate(12deg); } }
+@keyframes rpp-ink { 0%, 75% { opacity: 0; transform: rotate(-15deg) scale(.7); } 79% { opacity: .9; transform: rotate(-15deg) scale(1.08); } 84% { opacity: .7; transform: rotate(-15deg) scale(1); } 100% { opacity: 0; transform: rotate(-15deg) scale(1.02); } }
+@keyframes rpp-shine { 0% { opacity: 0; transform: translateX(-120%); } 2% { opacity: 1; } 13% { opacity: 1; transform: translateX(120%); } 14%, 100% { opacity: 0; transform: translateX(120%); } }
+@keyframes rpp-fill { from { opacity: 0; transform: scale(.3); } to { opacity: 1; transform: scale(1); } }
+@keyframes rpp-check { from { opacity: 0; transform: scale(.3) rotate(-20deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes rpp-progress-pulse { 0%, 26%, 100% { opacity: 0; transform: scale(1); } 10% { opacity: .85; transform: scale(1.12); } }
+@keyframes rpp-gift { 0%, 72%, 100% { transform: rotate(0); } 76%, 84% { transform: rotate(-8deg); } 80%, 88% { transform: rotate(8deg); } 92% { transform: rotate(0); } }
+
+@media (min-width: 768px) and (max-width: 880px) {
+  .realm-passport-promo .rpp-mail-anchor { transform: scale(.92); transform-origin: center bottom; }
 }
-.realm-passport-post { grid-area: envelope; position: relative; isolation: isolate; width: 100%; aspect-ratio: 1; }
-.realm-passport-envelope-back {
-  position: absolute;
-  inset: 40% 3% 0;
-  border-radius: 5px;
-  background: var(--passport-fiber), linear-gradient(150deg, #45614b, #233e2e 70%);
-  box-shadow: 0 20px 30px -16px #25301d55, 0 3px 5px #25301d14;
+@media (max-width: 767px) {
+  .realm-passport-promo { padding: 49px 20px 48px; }
+  .realm-passport-promo .rpp-eyebrow { max-width: 330px; margin: 0 auto 16px; font-size: 10px; letter-spacing: .23em; }
+  .realm-passport-promo h2 { max-width: 550px; margin-inline: auto; font-size: clamp(35px, 6.2vw, 46px); letter-spacing: -.04em; }
+  .realm-passport-promo .rpp-subtitle { max-width: 360px; font-size: 14px; }
+  .realm-passport-promo .rpp-stage { display: flex; height: auto; min-height: 614px; flex-direction: column; align-items: center; gap: 17px; padding-top: 410px; margin-top: 10px; padding-bottom: 13px; }
+  .realm-passport-promo .rpp-mail-anchor { top: 4px; bottom: auto; transform: scale(.86); transform-origin: center center; }
+  .realm-passport-promo .rpp-ticket-position { position: relative; top: auto; right: auto; left: auto; width: min(274px, 86%); }
+  .realm-passport-promo .rpp-ticket { min-height: 82px; padding: 17px 12px; }
+  .realm-passport-promo .rpp-ticket-left { --ticket-angle: -2deg; --ticket-x: -40px; }
+  .realm-passport-promo .rpp-ticket-right { --ticket-angle: 1.5deg; --ticket-x: 40px; }
+  .realm-passport-promo .rpp-bean-three, .realm-passport-promo .rpp-bean-four { display: none; }
+  .realm-passport-promo .rpp-bean-one { left: 8%; top: 70px; width: 22px; height: 30px; }
+  .realm-passport-promo .rpp-bean-two { right: 5%; top: 168px; width: 20px; height: 27px; }
+  .realm-passport-promo .rpp-cup { left: 0; top: 175px; width: 42px; height: 48px; }
+  .realm-passport-promo .rpp-rubber-stamp { right: 0; top: 51px; width: 41px; height: 52px; }
+  .realm-passport-promo .rpp-ink { right: 0; top: 340px; bottom: auto; width: 44px; height: 44px; }
+  .realm-passport-promo .rpp-sparkle-one { top: 12px; left: 28%; width: 17px; height: 17px; }
+  .realm-passport-promo .rpp-sparkle-two { top: 22px; right: 24%; width: 12px; height: 12px; }
+  .realm-passport-promo .rpp-sparkle-three { top: 360px; left: 6%; bottom: auto; width: 15px; height: 15px; }
+  .realm-passport-promo .rpp-progress { gap: 13px; margin-top: 17px; }
+  .realm-passport-promo .rpp-claim { margin-top: 24px; min-height: 50px; }
 }
-.realm-passport-envelope-back::before {
-  content: '';
-  position: absolute;
-  inset: -44% 0 99%;
-  clip-path: polygon(0 100%, 48% 1%, 52% 1%, 100% 100%);
-  background: var(--passport-fiber), linear-gradient(165deg, #55705a, #2c4835);
+@media (max-width: 359px) {
+  .realm-passport-promo { padding-inline: 14px; }
+  .realm-passport-promo .rpp-mail-anchor { transform: scale(.77); }
+  .realm-passport-promo .rpp-stage { padding-top: 389px; min-height: 593px; }
+  .realm-passport-promo .rpp-progress { gap: 11px; }
 }
-.realm-passport-cover-reveal { position: absolute; z-index: 1; top: 1%; left: 24%; width: 53%; }
-.realm-passport-cover-lift { transform: rotate(-7deg); transition: transform .5s var(--realm-ease, ease); }
-.realm-passport-cover-lift img {
-  width: 100%;
-  height: auto;
-  border-radius: 4% 6% 5% 3%;
-  box-shadow: -5px 8px 14px #13231935, 2px 1px 2px #17281a30;
-}
-.realm-passport-envelope-front { position: absolute; z-index: 2; inset: 40% 3% 0; overflow: hidden; border-radius: 4px; }
-.realm-passport-envelope-fold { position: absolute; inset: 0; }
-.realm-passport-envelope-fold-left {
-  clip-path: polygon(0 0, 59% 65%, 0 100%);
-  background: var(--passport-fiber), linear-gradient(115deg, #36543e, #294531);
-}
-.realm-passport-envelope-fold-right {
-  clip-path: polygon(100% 0, 41% 65%, 100% 100%);
-  background: var(--passport-fiber), linear-gradient(240deg, #314e39, #213c2b);
-}
-.realm-passport-envelope-fold-bottom {
-  clip-path: polygon(0 100%, 0 97%, 46% 47%, 54% 47%, 100% 97%, 100% 100%);
-  background: var(--passport-fiber), linear-gradient(180deg, #416047, #294531);
-}
-.realm-passport-envelope-front::after {
-  content: '';
-  position: absolute;
-  inset: 5px;
-  border: 1px solid #dfd0a31a;
-  border-top: 0;
-  border-radius: 2px;
-  clip-path: polygon(0 0, 50% 56%, 100% 0, 100% 100%, 0 100%);
-}
-.realm-passport-paper-tab {
-  position: absolute;
-  z-index: 3;
-  top: 80%;
-  right: 0;
-  width: 44%;
-  padding: 9px 8px;
-  background: var(--passport-fiber), #fbf5e8;
-  color: #4d513f;
-  box-shadow: 1px 3px 7px #19271924;
-  transform: rotate(5deg);
-  font: italic .8rem/1.3 Georgia, serif;
-}
-.realm-passport-envelope-seal {
-  position: absolute;
-  z-index: 4;
-  top: 70%;
-  left: 41%;
-  display: grid;
-  place-items: center;
-  width: 18%;
-  height: 18%;
-  min-width: 0;
-  min-height: 0;
-  aspect-ratio: 1;
-  overflow: hidden;
-  border: 3px double #dfc38b;
-  border-radius: 48% 51% 47% 50%;
-  background: var(--passport-fiber), #b99a60;
-  box-shadow: 1px 4px 7px #111f1a40, inset 0 0 0 4px #b0935f, inset 0 0 0 5px #e2c99099;
-  transition: filter .35s ease, box-shadow .35s ease;
-}
-.realm-passport-envelope-seal img { width: 85%; height: auto; max-height: 100%; min-width: 0; min-height: 0; aspect-ratio: 1; object-fit: contain; border-radius: 50%; filter: grayscale(1) sepia(1) brightness(2.2) contrast(.65); mix-blend-mode: multiply; opacity: .85; }
-.realm-passport-slip {
-  position: relative;
-  width: 100%;
-  max-width: 230px;
-  margin: 0;
-  padding: 18px 14px;
-  background: var(--passport-fiber), #fffaf0;
-  border: 1px solid #e2d7c2;
-  box-shadow: 0 9px 16px -10px #443b2640, 0 2px 3px #443b2608;
-  color: #354731;
-  font-size: .95rem;
-  line-height: 1.55;
-}
-.realm-passport-slip::before { content: ''; position: absolute; inset: 7px; border: 1px solid #b7a17233; pointer-events: none; }
-.realm-passport-slip span { display: block; font-weight: 700; }
-.realm-passport-slip-order { grid-area: order; justify-self: end; transform: translateY(20px) rotate(-3deg); }
-.realm-passport-slip-reward { grid-area: reward; justify-self: start; transform: translateY(20px) rotate(3deg); }
-.realm-passport-promo-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  max-width: 100%;
-  padding: 12px 24px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: var(--forest);
-  color: var(--cream);
-  font-size: .95rem;
-  font-weight: 700;
-  line-height: 1.5;
-  transition: background-color .2s ease;
-}
-.realm-passport-promo-button:focus-visible { outline: 2px solid #8b672c; outline-offset: 5px; }
-@media (hover: hover) and (pointer: fine) {
-  .realm-passport-post[data-hover-motion='true']:hover .realm-passport-cover-lift { transform: translateY(-8px) rotate(-7deg); }
-  .realm-passport-post:hover .realm-passport-envelope-seal { filter: brightness(1.12); box-shadow: 1px 4px 8px #111f1a40, 0 0 0 4px #d6bc7b24, inset 0 0 0 4px #b0935f, inset 0 0 0 5px #e2c99099; }
-  .realm-passport-promo-button:hover { background: #31513b; }
-}
-@media (max-width: 800px) {
-  .realm-passport-promo-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: 'envelope envelope' 'order reward'; gap: 22px 18px; max-width: 500px; }
-  .realm-passport-post { max-width: 280px; justify-self: center; }
-  .realm-passport-slip-order { transform: rotate(-2deg); }
-  .realm-passport-slip-reward { transform: rotate(2deg); }
-}
-@media (max-width: 480px) {
-  .realm-passport-promo { padding: 24px 18px 32px; }
-  .realm-passport-promo-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'envelope' 'order' 'reward'; gap: 12px; margin-bottom: 20px; }
-  .realm-passport-post { max-width: 250px; margin-bottom: 8px; }
-  .realm-passport-slip { max-width: 310px; justify-self: center; padding: 13px 12px; }
-  .realm-passport-slip span { display: inline; }
-  .realm-passport-slip-order { transform: rotate(-2deg); }
-  .realm-passport-slip-reward { transform: rotate(2deg); }
-}
+/* CSS is the backstop; JS also detaches pointer handlers on preference changes. */
 @media (prefers-reduced-motion: reduce) {
-  .realm-passport-cover-reveal { transform: none !important; }
-  .realm-passport-cover-lift, .realm-passport-envelope-seal, .realm-passport-promo-button { transition: none; }
-  .realm-passport-post[data-hover-motion='true']:hover .realm-passport-cover-lift { transform: rotate(-7deg); }
+  .realm-passport-promo *, .realm-passport-promo *::before, .realm-passport-promo *::after { animation: none !important; transition: none !important; }
+  .realm-passport-promo .rpp-mail, .realm-passport-promo .rpp-ticket-reveal, .realm-passport-promo .rpp-object-reveal,
+  .realm-passport-promo .rpp-collected::before, .realm-passport-promo .rpp-collected svg { opacity: 1 !important; }
+  .realm-passport-promo .rpp-parallax, .realm-passport-promo .rpp-book-tilt { transform: none !important; }
+  .realm-passport-promo .rpp-claim:hover, .realm-passport-promo .rpp-claim:active, .realm-passport-promo .rpp-claim:hover svg { transform: none; }
 }
-html[data-realm-motion='reduced'] .realm-passport-cover-lift,
-html[data-realm-motion='reduced'] .realm-passport-envelope-seal { transition: none; }
+
+/* Honor the landing page motion kill switch as well as the OS preference. */
+.realm-passport-promo:not(.rpp-motion) *,
+.realm-passport-promo:not(.rpp-motion) *::before,
+.realm-passport-promo:not(.rpp-motion) *::after { transition: none !important; }
+.realm-passport-promo:not(.rpp-motion) .rpp-claim:hover,
+.realm-passport-promo:not(.rpp-motion) .rpp-claim:active,
+.realm-passport-promo:not(.rpp-motion) .rpp-claim:hover svg { transform: none; }
+
+/* Outrank shared customer-route button motion without changing other controls. */
+.landing-page .realm-passport-promo .rpp-claim:not(:disabled):not([aria-disabled="true"]) {
+  transition: transform var(--hover-duration) ease;
+}
+.landing-page .realm-passport-promo .rpp-claim:not(:disabled):not([aria-disabled="true"]):active {
+  transform: scale(.98);
+}
+.landing-page .realm-passport-promo:not(.rpp-motion) .rpp-claim:not(:disabled):not([aria-disabled="true"]):is(:hover, :active) { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .landing-page .realm-passport-promo .rpp-claim:not(:disabled):not([aria-disabled="true"]):is(:hover, :active) { transform: none; }
+}

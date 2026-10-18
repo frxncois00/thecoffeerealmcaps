@@ -7,6 +7,7 @@ import { describeError } from '../utils/describeError'
 export default function MenuApprovalsPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [refreshSignal, setRefreshSignal] = useState(0)
   async function handleAction(request, state) {
     try {
       await updateMenuApprovalRequest(request.id, state)
@@ -16,5 +17,5 @@ export default function MenuApprovalsPage() {
       setError(describeError(cause, 'The approval decision could not be saved.'))
     }
   }
-  return <AppShell role="admin" title="Menu Approvals" eyebrow="Operations" hidePageHeader><div className="menu-approvals-page">{error ? <p className="form-error" role="alert">{error}</p> : null}{notice ? <p className="form-success" role="status">{notice}</p> : null}<MenuApprovalsQueue onAction={handleAction} compact /></div></AppShell>
+  return <AppShell role="admin" title="Menu Approvals" eyebrow="Operations" onRefresh={() => setRefreshSignal(value => value + 1)}><div className="menu-approvals-page">{error ? <p className="form-error" role="alert">{error}</p> : null}{notice ? <p className="form-success" role="status">{notice}</p> : null}<MenuApprovalsQueue onAction={handleAction} compact refreshSignal={refreshSignal} /></div></AppShell>
 }

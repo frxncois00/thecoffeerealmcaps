@@ -14,7 +14,7 @@ import { lockBodyScroll, restoreBodyScrollIfIdle, unlockBodyScroll } from '../..
 import { useRealmMotion } from '../../motion/useRealmMotion'
 import '../landing-chrome-motion.css'
 
-const centerLinks = [['Menu', '/menu'], ['Rewards', '/#rewards'], ['My Orders', '/orders'], ['Help', '/help'], ['Profile', '/profile']]
+const centerLinks = [['Menu', '/menu'], ['My Orders', '/orders'], ['Help', '/help'], ['Profile', '/profile']]
 const landingLinks = [['Menu', '#menu'], ['Rewards', '#rewards'], ['Our Story', '#about'], ['Visit Us', '#visit']]
 const money = (value) => new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value)
 
@@ -40,7 +40,9 @@ export default function CustomerLayout() {
   const close = () => setOpen(false)
   const isLandingPage = location.pathname === '/'
   const isPublicLandingChrome = true
-  const publicLinks = landingLinks.map(([label, href]) => [label, isLandingPage ? href : `/${href}`])
+  const publicLinks = landingLinks
+    .filter(([, href]) => !user || href !== '#rewards')
+    .map(([label, href]) => [label, isLandingPage ? href : `/${href}`])
 
   useEffect(() => {
     if (!open) return undefined

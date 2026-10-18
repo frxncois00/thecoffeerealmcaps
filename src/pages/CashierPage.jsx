@@ -1123,7 +1123,7 @@ export default function CashierPage() {
             <img src="/images/cashier-logo-transparent.png" alt="" />
           </span>
           <div><span className="cashier-kicker">Walk-in point of sale</span><strong>The Coffee Realm</strong></div>
-          <span
+          {cashierStatus.tone !== 'ready' && <span
             className={`cashier-connection-status is-${cashierStatus.tone}`}
             role="status"
             aria-live="polite"
@@ -1136,7 +1136,7 @@ export default function CashierPage() {
               <b className="cashier-status-label">{cashierStatus.label}</b>
               <small className="cashier-status-detail">{cashierStatus.detail}</small>
             </span>
-          </span>
+          </span>}
         </div>
         <div className="cashier-top-meta">
           <div className="cashier-time" aria-label={`Current time ${cashierTime}`}>
