@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from 'react'
-import { AlertTriangle, Check, ClipboardCheck, FileImage, FileText, ImagePlus, Package, PackageCheck, Plus, Send, ShieldAlert, Store, Trash2, Upload, X } from 'lucide-react'
+import { AlertTriangle, Check, FileImage, FileText, ImagePlus, Package, PackageCheck, Plus, Send, ShieldAlert, Store, Trash2, Upload, X } from 'lucide-react'
 import PurchaseStockBoard from '../components/PurchaseStockBoard'
 import { changePurchaseUnit, pricePerPurchaseUnit, updatePurchaseLine } from '../utils/purchaseLinePricing'
 import { needsRestock, suggestedPurchaseAmount } from '../utils/purchaseStock'
@@ -237,7 +237,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   }
 
   return (
-    <AppShell role={role} title="Purchase Orders" eyebrow={isAdmin ? 'Approval queue' : 'Inventory purchasing'} onRefresh={load} actions={<button type="button" className="ops-icon-button" aria-label="Refresh purchase orders" title="Refresh" onClick={load} disabled={loading}><ClipboardCheck size={18} /></button>}>
+    <AppShell role={role} title="Purchase Orders" eyebrow={isAdmin ? 'Approval queue' : 'Inventory purchasing'} onRefresh={load}>
       {error ? <div className="po-alert is-error" role="alert">{error}<button type="button" onClick={() => setError('')} aria-label="Dismiss error"><X size={15} /></button></div> : null}
       {notice ? <div className="po-alert is-success" role="status"><Check size={15} />{notice}</div> : null}
 
