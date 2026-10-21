@@ -62,14 +62,43 @@ export default function HeroMedia({ heroRef }) {
     } catch { switching.current = false }
   }, [active])
 
+  useEffect(() => {
+    // iOS may reject autoplay until a gesture, even for an inline muted video.
+    // Retry from the gesture itself so Safari retains user activation.
+    const resume = () => {
+      if (!allowed.current) return
+      const video = videos.current[active]
+      if (video?.ended) advance()
+      else if (video?.paused) video.play().catch(() => {})
+    }
+    window.addEventListener('touchend', resume, { passive: true })
+    window.addEventListener('pointerup', resume, { passive: true })
+    window.addEventListener('keydown', resume)
+    return () => {
+      window.removeEventListener('touchend', resume)
+      window.removeEventListener('pointerup', resume)
+      window.removeEventListener('keydown', resume)
+    }
+  }, [active, advance])
+
   return <motion.div className="landing-hero-media" aria-hidden="true" style={{ y: ambient ? y : 0 }}>
     <img className="realm-hero-poster" src="/assets/img/espresso.webp" alt="" fetchPriority="high" />
     {sources.map((clip, index) => <video
       key={index}
-      ref={element => { videos.current[index] = element }}
+      ref={element => {
+        if (element) {
+          element.defaultMuted = true
+          element.muted = true
+        }
+        videos.current[index] = element
+      }}
       className={`landing-hero-video ${active === index && started ? 'is-active' : ''}`}
       src={started || (enabled && visible) ? CLIPS[clip] : undefined}
-      muted playsInline preload={index === active ? 'metadata' : 'none'}
+      autoPlay={enabled && visible && pageVisible && index === active}
+      muted playsInline preload={index === active ? 'auto' : 'none'}
+      onCanPlay={event => {
+        if (allowed.current && index === active) event.currentTarget.play().catch(() => {})
+      }}
       onPlaying={() => setStarted(true)}
       onTimeUpdate={event => {
         const video = event.currentTarget
