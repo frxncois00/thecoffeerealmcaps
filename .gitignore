@@ -10,3 +10,6 @@ supabase/.temp/
 .claude/settings.local.json
 /tmp/
 /%SystemDrive%/
+
+.vercel
+.env*

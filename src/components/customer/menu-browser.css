@@ -27,6 +27,7 @@
 
 .menu-category-strip { box-sizing: border-box; }
 .menu-category-strip button { transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease; }
+.customer-app .menu-category-strip button:not(:disabled):is(:hover, :active) { transform: none; }
 @media (prefers-reduced-motion: reduce) { .menu-category-strip button { transition: none; } }
 .menu-back-to-top { display: flex; justify-content: center; padding: 10px 0 28px; }
 .menu-back-to-top button { border: 0; background: transparent; color: var(--cr-green); font-weight: 650; text-decoration: underline; text-underline-offset: 4px; }

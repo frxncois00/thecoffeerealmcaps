@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import ProtectedRoute from './components/ProtectedRoute'
+import SearchMetadata from './components/SearchMetadata'
 import CustomerLayout from './components/customer/CustomerLayout'
 import CustomerPageMotion from './components/customer/CustomerPageMotion'
 import AdminPageMotion from './components/AdminPageMotion'
@@ -44,6 +45,7 @@ const protect = (page) => <CustomerProtectedRoute>{page}</CustomerProtectedRoute
 export default function App() {
   return (
     <>
+      <SearchMetadata />
       <CustomerPageMotion />
       <AdminPageMotion />
       <Routes>

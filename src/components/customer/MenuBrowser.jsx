@@ -14,6 +14,8 @@ export default function MenuBrowser({ products, loading, error, renderProduct })
   const [query, setQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState('Best Sellers')
   const browser = useRef(null)
+  const navigatingCategory = useRef(false)
+  const navigationTimer = useRef(0)
   const filtered = filterMenu(products, { query })
   const categories = [...new Set(products.map(product => product.category))].sort((a, b) => categoryRank(a) - categoryRank(b))
   const bestsellers = selectBestsellers(filtered)
@@ -27,6 +29,7 @@ export default function MenuBrowser({ products, loading, error, renderProduct })
     let frame = 0
     const update = () => {
       frame = 0
+      if (navigatingCategory.current) return
       const sections = [...(browser.current?.querySelectorAll('[data-menu-category]') || [])]
       const offset = (browser.current?.querySelector('.menu-category-strip')?.getBoundingClientRect().bottom || 140) + 24
       let current = sections[0]
@@ -35,15 +38,43 @@ export default function MenuBrowser({ products, loading, error, renderProduct })
       }
       if (current) setActiveCategory(current.dataset.menuCategory)
     }
-    const onScroll = () => { if (!frame) frame = requestAnimationFrame(update) }
+    const finishNavigation = () => {
+      clearTimeout(navigationTimer.current)
+      navigatingCategory.current = false
+      if (!frame) frame = requestAnimationFrame(update)
+    }
+    const onScroll = () => {
+      if (navigatingCategory.current) {
+        clearTimeout(navigationTimer.current)
+        navigationTimer.current = setTimeout(finishNavigation, 160)
+        return
+      }
+      if (!frame) frame = requestAnimationFrame(update)
+    }
     window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', onScroll)
+    window.addEventListener('touchstart', finishNavigation, { passive: true })
+    window.addEventListener('wheel', finishNavigation, { passive: true })
     onScroll()
-    return () => { window.removeEventListener('scroll', onScroll); window.removeEventListener('resize', onScroll); cancelAnimationFrame(frame) }
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+      window.removeEventListener('touchstart', finishNavigation)
+      window.removeEventListener('wheel', finishNavigation)
+      clearTimeout(navigationTimer.current)
+      navigatingCategory.current = false
+      cancelAnimationFrame(frame)
+    }
   }, [groupKey])
   const goToCategory = name => {
+    const section = document.getElementById(sectionId(name))
+    if (!section) return
+    navigatingCategory.current = true
+    clearTimeout(navigationTimer.current)
+    // Release even when the selected section is already at its destination.
+    navigationTimer.current = setTimeout(() => { navigatingCategory.current = false }, 1500)
     setActiveCategory(name)
-    document.getElementById(sectionId(name))?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' })
+    section.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' })
   }
   useEffect(() => {
     const strip = browser.current?.querySelector('.menu-category-strip')

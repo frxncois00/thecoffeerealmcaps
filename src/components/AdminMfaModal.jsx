@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { portalSupabase } from '../lib/supabase'
-import { getPortalSecurityStatus, portalSecurityRequest } from '../services/portalSessionService'
+import { getPortalSecurityStatus, portalSecurityRequest, saveAuthenticatorName } from '../services/portalSessionService'
 import '../pages/admin-mfa.css'
 
 export default function AdminMfaModal({ userId, onClose, onUpdated }) {
@@ -11,6 +11,7 @@ export default function AdminMfaModal({ userId, onClose, onUpdated }) {
   const [factorId, setFactorId] = useState('')
   const [code, setCode] = useState('')
   const [setup, setSetup] = useState(null)
+  const [keyName, setKeyName] = useState('')
   const [codes, setCodes] = useState(null)
   const [confirm, setConfirm] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -40,15 +41,16 @@ export default function AdminMfaModal({ userId, onClose, onUpdated }) {
     try {
       if (action === 'add') {
         await verifyExisting()
-        const { data, error: failure } = await portalSupabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Admin ${crypto.randomUUID().slice(0, 8)}` })
+        const { data, error: failure } = await portalSupabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `Authenticator ${crypto.randomUUID().slice(0, 8)}` })
         if (failure) throw failure
-        setSetup(data); setCode('')
+        setSetup(data); setKeyName(''); setCode('')
       } else if (action === 'activate') {
+        await saveAuthenticatorName(setup.id, keyName)
         const { error: failure } = await portalSupabase.auth.mfa.challengeAndVerify({ factorId: setup.id, code: code.trim() })
         if (failure) throw failure
-        setSetup(null); setCode(''); setMessage('Authenticator added. Existing keys still work.')
+        setSetup(null); setCode(''); setKeyName(''); setMessage('Authenticator added. Existing keys still work.')
         const result = await getPortalSecurityStatus(userId)
-        setStatus(result); onUpdated(Boolean(result.factors?.length))
+        setStatus(result); setFactorId(setup.id); onUpdated(Boolean(result.factors?.length))
       } else {
         await verifyExisting()
         const result = await portalSecurityRequest('generate_backup')
@@ -66,10 +68,12 @@ export default function AdminMfaModal({ userId, onClose, onUpdated }) {
     </> : status && <>
       {setup && <div className="admin-mfa-setup"><img src={setup.totp.qr_code} alt="Scan with your authenticator app" width="210" height="210" /><code>{setup.totp.secret}</code></div>}
       <form inert={confirm} onSubmit={(event) => { event.preventDefault(); if (setup) void run('activate') }}>
+        {setup && <><label htmlFor="manage-key-name">Authenticator name</label>
+        <input id="manage-key-name" value={keyName} onChange={(event) => setKeyName(event.target.value)} placeholder="e.g. Work phone" maxLength={100} autoComplete="off" required disabled={busy} /></>}
         {!setup && status.factors?.length > 1 && <><label htmlFor="manage-factor">Authenticator</label><select id="manage-factor" value={factorId} onChange={(event) => setFactorId(event.target.value)}>{status.factors.map((factor) => <option key={factor.id} value={factor.id}>{factor.friendly_name || 'Authenticator'}</option>)}</select></>}
         {(setup || factorId) && <><label htmlFor="manage-code">{setup ? 'New authenticator code' : 'Current authenticator code'}</label>
         <input id="manage-code" value={code} onChange={(event) => setCode(event.target.value)} autoComplete="one-time-code" inputMode="numeric" pattern="[0-9]{6}" maxLength={6} required disabled={busy} /></>}
-        {setup ? <button type="submit" className="admin-mfa-primary" disabled={busy || !/^\d{6}$/.test(code)}>Activate key</button> : <>
+        {setup ? <button type="submit" className="admin-mfa-primary" disabled={busy || !keyName.trim() || !/^\d{6}$/.test(code)}>Activate key</button> : <>
           <button type="button" className="admin-mfa-primary" disabled={busy || (Boolean(factorId) && !/^\d{6}$/.test(code))} onClick={() => run('add')}>Generate new key</button>
           {factorId && <button type="button" className="admin-mfa-secondary" disabled={busy || !/^\d{6}$/.test(code)} onClick={() => setConfirm(true)}>Replace backup codes</button>}
         </>}

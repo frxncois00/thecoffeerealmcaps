@@ -51,7 +51,7 @@ export default function RaimuWidget() {
   const { user, profile, loading } = useAuth()
   const normalizedRole = normalizeRole(profile?.role)
   const role = normalizedRole === 'operational_staff' ? 'staff' : normalizedRole
-  const [closed, setClosed] = useState(() => readRaimuPreference('raimu-visible', 'true') === 'false')
+  const [closed, setClosed] = useState(() => readRaimuPreference('raimu-visible', 'false') === 'false')
   const allowed = Boolean(user) && ['admin', 'staff', 'cashier'].includes(role)
 
   useEffect(() => {

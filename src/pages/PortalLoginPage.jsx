@@ -6,6 +6,8 @@ import { fetchStaffPreferences } from '../services/staffSettingsService'
 import { recordPortalSession } from '../services/portalSessionService'
 import { EMAIL_MAX_LENGTH } from '../utils/inputValidation'
 import { isFutureJwtError } from '../lib/profileRetry'
+import { saveRaimuPreference } from '../components/raimu/useRaimu'
+import { useTheme } from '../context/ThemeContext'
 
 export default function PortalLoginPage() {
   const [role, setRole] = useState('admin')
@@ -15,6 +17,7 @@ export default function PortalLoginPage() {
   const [message, setMessage] = useState('')
   const navigate = useNavigate()
   const location = useLocation()
+  const { setPreference } = useTheme()
 
   async function submit(event) {
     event.preventDefault()
@@ -27,9 +30,12 @@ export default function PortalLoginPage() {
     const password = String(form.get('password') || '')
 
     try {
+      saveRaimuPreference('raimu-visible', false)
+      window.dispatchEvent(new CustomEvent('raimu-visibility-change', { detail: { visible: false } }))
       const { profile, security } = await signInPortal({ identifier, password, role })
       try { await recordPortalSession() } catch { /* Session status already registered the login when security is enabled. */ }
       const normalizedRole = normalizeRole(profile.role || role)
+      if (normalizedRole === 'admin') setPreference('light')
       if (normalizedRole === 'admin' && security && !security.authorized) {
         navigate('/admin/mfa', { replace: true })
         return
@@ -42,8 +48,6 @@ export default function PortalLoginPage() {
           target = workspaceRoutes[preferences.landing_view] || target
         } catch { /* The standard staff landing page remains available before the preference migration is deployed. */ }
       }
-      window.localStorage.setItem('raimu-visible', 'false')
-      window.dispatchEvent(new CustomEvent('raimu-visibility-change', { detail: { visible: false } }))
       navigate(target, { replace: true })
     } catch (error) {
       setMessage(isFutureJwtError(error)

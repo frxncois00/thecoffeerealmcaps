@@ -61,7 +61,25 @@ async function invokeSecurity(action, body) {
 export async function getPortalSecurityStatus(userId) {
   const trustedBrowserToken = userId && typeof localStorage !== 'undefined'
     ? localStorage.getItem(`${TRUST_PREFIX}${userId}`) : null
-  return portalSecurityRequest('status', { trustedBrowserToken })
+  const result = await portalSecurityRequest('status', { trustedBrowserToken })
+  if (!result.factors?.length) return result
+  const { data, error } = await portalSupabase.auth.getUser()
+  if (error) throw error
+  return {
+    ...result,
+    factors: result.factors.map((factor) => ({
+      ...factor,
+      friendly_name: data.user?.user_metadata?.[`mfa_name_${factor.id}`] || factor.friendly_name,
+    })),
+  }
+}
+
+export async function saveAuthenticatorName(factorId, name) {
+  const friendlyName = name.trim()
+  if (!friendlyName || friendlyName.length > 100) throw new Error('Enter an authenticator name between 1 and 100 characters.')
+  // Display labels only; factor IDs and verification remain managed by Supabase MFA.
+  const { error } = await portalSupabase.auth.updateUser({ data: { [`mfa_name_${factorId}`]: friendlyName } })
+  if (error) throw error
 }
 
 export async function trustCurrentBrowser(userId) {
