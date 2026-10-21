@@ -3,15 +3,17 @@ import { createPortal } from 'react-dom'
 import { ArrowRight, Star, UserRound } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useRealmMotion } from '../motion/useRealmMotion'
-import { motionTokens, revealVariants } from '../motion/config'
+import { motionTokens, landingRevealVariants as revealVariants } from '../motion/config'
 import HeroMedia from '../components/landing/HeroMedia'
 import VisitUs from '../components/landing/VisitUs'
 import RealmPassportPromo from '../components/landing/RealmPassportPromo'
-import { LandingControls, HeroAtmosphere, RealmMarquee, StoryImage, JourneyTimeline } from '../components/landing/LandingAccents'
+import StoryIntro from '../components/landing/StoryIntro'
+import { LandingControls, HeroAtmosphere, RealmMarquee, JourneyTimeline } from '../components/landing/LandingAccents'
 import { Link } from 'react-router-dom'
 import BestSellerCarousel from '../components/BestSellerCarousel'
-import Reveal from '../components/Reveal'
+import Reveal from '../components/landing/LandingReveal'
 import HowOrderingWorks from '../components/HowOrderingWorks'
+import '../components/landing/compact-sections.css'
 import GuestAuthPrompt from '../components/customer/GuestAuthPrompt'
 import { useAuth } from '../context/AuthContext'
 import { store } from '../data/mockData'
@@ -147,25 +149,12 @@ export default function HomePage() {
 
         <RealmPassportPromo customerUser={customerUser} />
 
-        <HowOrderingWorks />
-
         <section className="landing-about" id="about" aria-labelledby="about-title">
-          <div className="landing-about-intro">
-            <Reveal tag="div" className="landing-about-image-wrap">
-              <StoryImage />
-            </Reveal>
-            <Reveal tag="div" className="landing-about-copy" delay={0.08}>
-              <span className="eyebrow">Our story</span>
-              <h2 id="about-title">The Coffee Realm began at home.</h2>
-              <p>Founded by Mary Grace Baula Jose and Ian Jose, The Coffee Realm grew from a shared passion for coffee and years of café experience into a welcoming place for coffee, food, and desserts in North Fairview, Quezon City.</p>
-              <p>What started as a small home-based business now serves both walk-in and online customers, with a growing team behind every order.</p>
-            </Reveal>
-          </div>
+          <StoryIntro />
 
           <Reveal tag="div" className="landing-about-journey" delay={0.06}>
             <div className="landing-about-journey-heading">
-              <span className="eyebrow">Our journey</span>
-              <h3>Small beginnings, steady steps.</h3>
+              <h3 className="eyebrow journey-title">Our Journey</h3>
             </div>
             <JourneyTimeline>
               <Reveal tag="li" y={16}><span className="landing-about-timeline-marker">01</span><div><h4>2021 — Started from home</h4><p>During the pandemic, coffee was prepared and sold on a small scale from home.</p></div></Reveal>
@@ -179,23 +168,32 @@ export default function HomePage() {
 
         </section>
 
+        <HowOrderingWorks />
+
         <section className="section landing-reviews" id="reviews" aria-labelledby="reviews-title">
           <Reveal tag="div" className="reviews-intro">
-            <div><span className="eyebrow">From the realm</span><h2 id="reviews-title">What our customers say.</h2></div>
+            <div><h2 id="reviews-title">What our customers say.</h2></div>
           </Reveal>
           <motion.div
             className="reviews-grid-react"
+            role="region"
+            aria-label="Customer reviews"
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, amount: 0.2 }}
             variants={{ hidden: {}, show: { transition: { staggerChildren: enabled ? motionTokens.stagger : 0 } } }}
           >
-            {portalData.testimonials.map((review, index) => <motion.article className={`review-card-react review-card-react--${index % 3}`} key={review.id || review.name} variants={fadeUp} whileHover={ambient ? { y: -6 } : undefined}>
-              <div className="review-card-top"><span className="review-quote-mark">“</span><div className="review-stars" aria-label={`${review.rating || 5} star review`}>{Array.from({ length: review.rating || 5 }, (_, starIndex) => <Star key={starIndex} fill="currentColor"/>)}</div></div>
-              <p>{review.quote}</p>
+            {portalData.testimonials.map((review, index) => <motion.article className={`review-card-react review-card-react--${index % 3}`} key={review.id || review.name} initial={enabled ? 'hidden' : false} whileInView="show" viewport={{ once: true, amount: 0.15 }} variants={fadeUp} whileHover={ambient ? { y: -6 } : undefined}>
+              <div className="review-card-top">
+                <p>{review.quote}</p>
+                <span className="review-quote-mark" aria-hidden="true">“</span>
+              </div>
               <footer>
-                <span className="review-author-avatar">{review.avatar_url ? <img src={review.avatar_url} alt="" loading="lazy" decoding="async" /> : <UserRound size={17} />}</span>
-                <b>{review.username || review.name}</b>
+                <div className="review-author">
+                  <span className="review-author-avatar">{review.avatar_url ? <img src={review.avatar_url} alt="" loading="lazy" decoding="async" /> : <UserRound size={17} />}</span>
+                  <b>{review.username || review.name}</b>
+                </div>
+                <div className="review-stars" aria-label={`${review.rating || 5} star review`}>{Array.from({ length: review.rating || 5 }, (_, starIndex) => <Star key={starIndex} fill="currentColor" aria-hidden="true" />)}</div>
               </footer>
             </motion.article>)}
           </motion.div>

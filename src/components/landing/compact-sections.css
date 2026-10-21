@@ -1,0 +1,147 @@
+/* Keep the ordering journey and customer stories compact on touch screens. */
+@media (max-width: 1024px) {
+  .customer-landing .ordering-works,
+  .customer-landing .landing-reviews { padding: 44px 24px; }
+  .customer-landing .ordering-works::before { display: none; }
+  .customer-landing .ordering-works-heading,
+  .customer-landing .reviews-intro { margin-bottom: 24px; }
+  .customer-landing .ordering-works-heading h2,
+  .customer-landing .reviews-intro h2 { font-size: clamp(2rem, 4.6vw, 3rem); line-height: 1.08; }
+  .customer-landing .ordering-works-heading p { max-width: 480px; font-size: .875rem; line-height: 1.5; }
+  .customer-landing .ordering-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+  .customer-landing .ordering-cluster { width: 100%; height: auto; aspect-ratio: 1.25; margin-bottom: 8px; }
+  .customer-landing .ordering-step-copy h3 { font-size: 1.15rem; line-height: 1.2; }
+  .customer-landing .ordering-step-copy p { font-size: .8rem; line-height: 1.5; }
+  .customer-landing .ordering-works-action { margin-top: 24px; }
+  .customer-app .customer-landing .reviews-grid-react {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row;
+    grid-auto-columns: auto; gap: 16px;
+    width: 100%; margin: 0; padding: 0;
+    overflow: visible;
+    align-items: stretch;
+  }
+  .customer-landing .reviews-grid-react:focus-visible { outline: 2px solid #31583a; outline-offset: 4px; }
+  .customer-landing .review-card-react { min-width: 0; min-height: 180px; padding: 20px; border-radius: 18px; scroll-snap-align: start; box-shadow: none; }
+  .customer-landing .review-card-react--1 { transform: none; }
+  .customer-landing .review-card-react p { margin: 20px 0 24px; font-size: 1rem; line-height: 1.6; overflow-wrap: anywhere; }
+  .customer-landing .review-card-react b { font-size: .9375rem; overflow-wrap: anywhere; }
+  .customer-landing .review-card-react footer { min-width: 0; }
+  .customer-landing .review-quote-mark { font-size: 2.6rem; }
+  .customer-landing .review-card-top { min-width: 0; flex-wrap: wrap; gap: 8px; }
+  .customer-landing .review-stars { min-width: 0; max-width: 100%; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+  .customer-landing .review-stars svg { flex: 0 0 20px; width: 20px; height: 20px; }
+  .customer-landing .realm-reviews-empty { min-height: 0; padding: 8px 0; }
+}
+
+@media (max-width: 600px) {
+  .customer-landing .ordering-works,
+  .customer-landing .landing-reviews { padding: 32px 16px; }
+  .customer-landing .ordering-works-heading,
+  .customer-landing .reviews-intro { margin-bottom: 18px; }
+  .customer-landing .ordering-works-heading .eyebrow,
+  .customer-landing .reviews-intro .eyebrow { font-size: .65rem; }
+  .customer-landing .ordering-works-heading h2,
+  .customer-landing .reviews-intro h2 { font-size: clamp(1.8rem, 6.5vw, 2.4rem); margin-top: 8px; }
+  .customer-landing .ordering-works-heading p { font-size: .8rem; }
+  .customer-landing .ordering-steps { gap: 10px; }
+  .customer-landing .ordering-cluster { aspect-ratio: 1.1; margin-bottom: 4px; }
+  .customer-landing .ordering-step-mark { width: 28px; height: 28px; }
+  .customer-landing .ordering-step-mark svg { width: 18px; height: 18px; }
+  .customer-landing .ordering-step-copy h3 { margin: 6px 0; font-size: clamp(.875rem, 2.7vw, 1rem); line-height: 1.25; }
+  .customer-landing .ordering-step-copy p { font-size: .75rem; line-height: 1.45; }
+  .customer-landing .ordering-works-action { margin-top: 20px; }
+  .customer-landing .review-card-react { padding: 22px; min-height: 0; }
+  .customer-landing .review-author-avatar { width: 36px; height: 36px; }
+}
+@media (max-width: 700px) {
+  .customer-app .customer-landing .reviews-grid-react { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
+/* Compact visit information without shrinking links or hiding useful details. */
+@media (max-width: 1024px) {
+  .customer-landing .realm-visit { padding: 44px 24px 16px; }
+  .customer-landing .realm-visit-main { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+  .customer-landing .realm-visit h2 { margin: 12px 0; font-size: clamp(2rem, 4vw, 3rem); }
+  .customer-landing .realm-visit-intro { margin-bottom: 12px; font-size: .85rem; line-height: 1.5; }
+  .customer-landing .realm-visit-details { margin: 18px 0; gap: 10px; font-size: .8rem; line-height: 1.5; }
+  .customer-landing .realm-visit-details > div { gap: 8px; min-width: 0; }
+  .customer-landing .realm-visit-details a { min-height: 44px; display: inline-flex; align-items: flex-start; }
+  .customer-landing .realm-visit-map { padding: 10px 10px 0; }
+  .customer-landing .realm-visit-map-frame { min-height: 0; height: 260px; aspect-ratio: auto; }
+  .customer-landing .realm-visit-map-top { padding-bottom: 8px; }
+  .customer-landing .realm-visit-map figcaption { min-height: 48px; padding-block: 4px; }
+  .customer-landing .realm-arrival { margin-top: 24px; padding: 22px; }
+  .customer-landing .realm-arrival-spread { gap: 22px; }
+  .customer-landing .realm-arrival-heading { margin-bottom: 14px; }
+  .customer-landing .realm-arrival-heading h3 { font-size: 2rem; }
+  .customer-landing .realm-arrival-notes { padding-left: 20px; }
+  .customer-landing .realm-arrival-notes h4 { font-size: 1.15rem; margin-top: 0; }
+  .customer-landing .realm-arrival-notes p { font-size: .78rem; line-height: 1.5; }
+  .customer-landing .realm-arrival-tabs { margin-block: 12px; }
+  .customer-landing .realm-arrival-tabs button { padding-inline: 10px; white-space: normal; }
+  .customer-landing .realm-arrival-route-copy { min-height: 0; padding-bottom: 14px; }
+  .customer-landing .realm-arrival-welcome { padding-block: 14px; }
+}
+@media (max-width: 700px) {
+  .customer-landing .realm-visit { padding: 32px 16px 12px; }
+  .customer-landing .realm-visit-main { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .customer-landing .realm-visit h2 { max-width: none; font-size: clamp(1.8rem, 6.5vw, 2.4rem); }
+  .customer-landing .realm-visit-details { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 16px 0 10px; font-size: .75rem; }
+  .customer-landing .realm-visit-details svg { width: 16px; height: 16px; }
+  .customer-landing .realm-visit-details span { min-width: 0; overflow-wrap: anywhere; }
+  .customer-landing .realm-visit-map-frame { height: 180px; }
+  .customer-landing .realm-visit-map-top { flex-direction: row; min-height: 30px; font-size: .62rem; }
+  .customer-landing .realm-visit-map figcaption { flex-direction: row; font-size: .6rem; }
+  .customer-landing .realm-arrival { padding: 16px; margin-top: 18px; }
+  .customer-landing .realm-arrival-spread { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .customer-landing .realm-arrival-postcard { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); align-items: center; gap: 12px; }
+  .customer-landing .realm-arrival-heading { flex-wrap: wrap; margin: 0; gap: 10px; }
+  .customer-landing .realm-arrival-heading h3 { font-size: clamp(1.4rem, 5vw, 2rem); }
+  .customer-landing .realm-arrival-seal { width: 48px; height: 54px; gap: 2px; }
+  .customer-landing .realm-arrival-seal svg { width: 16px; height: 16px; }
+  .customer-landing .realm-arrival-seal > span { font-size: .35rem; }
+  .customer-landing .realm-corner-cafe { gap: 2px; border-radius: 5px; }
+  .customer-landing .realm-corner-cafe svg { width: 14px; height: 14px; }
+  .customer-landing .realm-corner-cafe span { font-size: clamp(9px, 2.2vw, 14px); }
+  .customer-landing .realm-corner-note { font-size: clamp(8px, 1.9vw, 12px); }
+  .customer-landing .realm-arrival-notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px 0 0; border-left: 0; }
+  .customer-landing .realm-arrival-route { grid-column: 1 / -1; }
+  .customer-landing .realm-arrival-route > h4 { max-width: none; }
+  .customer-landing .realm-arrival-route-copy { padding-bottom: 0; }
+  .customer-landing .realm-arrival-tabs { width: 100%; }
+  .customer-landing .realm-arrival-tabs button { flex: 1; }
+  .customer-landing .realm-arrival-welcome { padding: 12px 0 0; }
+  .customer-landing .realm-arrival-welcome h4 { font-size: 1rem; }
+}
+
+/* Review copy above, author and rating below; wrap the footer on narrow cards. */
+.customer-landing .review-card-react { min-height: 0; padding-block: 18px; }
+.customer-landing .review-card-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 16px; margin-bottom: 16px; }
+.customer-landing .review-card-top p { max-width: none; margin: 0; overflow-wrap: anywhere; }
+.customer-landing .review-card-top .review-quote-mark { line-height: .7; transform: scaleX(-1); }
+.customer-landing .review-card-react footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; }
+.customer-landing .review-author { display: flex; align-items: center; gap: 10px; flex: 1 1 120px; min-width: 0; }
+.customer-landing .review-author b { min-width: 0; overflow-wrap: anywhere; }
+.customer-landing .review-card-react footer .review-stars { flex: 0 0 auto; max-width: 100%; margin-left: auto; gap: 4px; }
+
+.customer-landing .landing-about-journey-heading .journey-title {
+  margin: 0;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.4;
+  letter-spacing: .16em;
+}
+
+.customer-landing .realm-visit-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin: 16px 0 24px; }
+.customer-landing .realm-visit-title-row h2 { margin: 0; max-width: none; }
+.customer-landing .realm-visit-title-row .realm-open-status { flex: none; margin: 0; }
+
+.customer-landing .realm-arrival-heading {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+.customer-landing .realm-arrival-heading h3 { min-width: 0; }
+.customer-landing .realm-arrival-heading .realm-arrival-seal { margin-left: auto; }
+@media (max-width: 700px) {
+  .customer-landing .realm-arrival-postcard { grid-template-columns: minmax(0, 1fr); }
+  .customer-landing .realm-arrival-heading { width: 100%; }
+}

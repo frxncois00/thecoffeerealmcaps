@@ -2,14 +2,13 @@ import { useRef } from 'react'
 import { motion, useInView } from 'framer-motion'
 import { ArrowRight, CakeSlice, Coffee, UtensilsCrossed } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { motionTokens, revealVariants } from '../motion/config'
+import { motionTokens, landingRevealVariants as revealVariants } from '../motion/config'
 import { useRealmMotion } from '../motion/useRealmMotion'
 
 const steps = [
   {
     number: '01',
     title: 'Choose a hearty meal',
-    copy: 'Start with one of our filling comfort-food favorites.',
     label: 'Katsu Curry, Beef Tapa, and Corned Beef & Spam',
     icon: UtensilsCrossed,
     items: [
@@ -21,7 +20,6 @@ const steps = [
   {
     number: '02',
     title: 'Add snacks and drinks',
-    copy: 'Round it out with something crunchy and a handcrafted drink.',
     label: 'Classic Nachos, Nuggets & Fries, Biscoff Latte, and Matcha Latte',
     icon: Coffee,
     items: [
@@ -34,7 +32,6 @@ const steps = [
   {
     number: '03',
     title: 'Finish with something sweet',
-    copy: 'Complete your order with cake, tiramisu, or a box of bestselling cookies.',
     label: 'Red Velvet Cake, Tiramisu, and Cookies Bestseller Box',
     icon: CakeSlice,
     items: [
@@ -66,9 +63,7 @@ export default function HowOrderingWorks() {
         viewport={{ once: true, amount: 0.35 }}
         variants={itemVariants}
       >
-        <span className="eyebrow">Build your perfect café order</span>
-        <h2 id="ordering-works-title">How ordering works.</h2>
-        <p>Start savory, add your favorite sips and sides, then save room for something sweet.</p>
+        <h2 id="ordering-works-title">How ordering works?</h2>
       </motion.header>
 
       <motion.div
@@ -105,7 +100,6 @@ export default function HowOrderingWorks() {
               <div className="ordering-step-copy">
                 <span className="ordering-step-mark" aria-hidden="true"><Icon size={22} /><span>{step.number}</span></span>
                 <h3>{step.title}</h3>
-                <p>{step.copy}</p>
               </div>
             </motion.article>
           )

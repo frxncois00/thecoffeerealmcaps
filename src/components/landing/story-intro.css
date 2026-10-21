@@ -1,0 +1,84 @@
+.customer-landing .landing-about-image-wrap { position: relative; }
+.landing-story-trigger,
+.landing-story-overlay { display: none; }
+
+@media (max-width: 820px) {
+  .customer-landing .landing-about-intro > .landing-about-copy { display: none; }
+  .customer-landing .landing-about-image-wrap { background: #101d16; }
+  .customer-landing .landing-about-image-wrap .realm-story-image { transition: opacity .3s ease; }
+  .customer-landing .landing-about-image-wrap.is-story-open .realm-story-image { opacity: .25; }
+
+  .customer-landing .landing-story-trigger {
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    max-width: calc(100% - 36px);
+    padding: 0;
+    border: 0;
+    border-radius: 24px;
+    background: transparent;
+    color: #f7f4eb;
+    text-align: left;
+    cursor: pointer;
+  }
+  .landing-story-trigger-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 48px;
+    width: 48px;
+    height: 48px;
+    border: 1px solid #fff9;
+    border-radius: 50%;
+    background: #f7f4eb;
+    color: #193c2c;
+    box-shadow: 0 4px 18px #13221840;
+    font: 600 26px/1 Georgia, serif;
+  }
+  .landing-story-trigger-label { font-size: .85rem; font-weight: 600; line-height: 1.35; text-shadow: 0 1px 5px #000, 0 1px 12px #000; }
+  .landing-story-trigger:active .landing-story-trigger-icon { background: #e5e7d7; }
+
+  .customer-landing .landing-story-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: block;
+    background: #101d1633;
+    color: #f7f4eb;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity .3s ease, visibility .3s;
+  }
+  .customer-landing .is-story-open .landing-story-overlay { opacity: 1; visibility: visible; pointer-events: auto; }
+  .landing-story-overlay-copy {
+    position: absolute;
+    inset: 88px 24px 24px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: #f7f4eb80 transparent;
+    text-align: left;
+  }
+  .landing-story-overlay .eyebrow { display: block; color: #d8cda7; font-size: .65rem; }
+  .landing-story-overlay h2 {
+    margin: 12px 0 18px;
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.65rem, 6.4vw, 2.35rem);
+    line-height: 1.08;
+    letter-spacing: -.035em;
+    font-weight: 600;
+    color: #fffdf5;
+  }
+  .landing-story-overlay p { margin: 0 0 14px; color: #f0eee6; font-size: .875rem; line-height: 1.65; }
+  .landing-story-overlay p:last-child { margin-bottom: 0; }
+  .landing-story-overlay-copy:focus-visible { outline: 2px solid #d8cda7; outline-offset: 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-landing .landing-about-image-wrap .realm-story-image,
+  .customer-landing .landing-story-overlay { transition: none; }
+}

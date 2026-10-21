@@ -54,13 +54,25 @@ export function JourneyTimeline({ children }) {
   const ref = useRef(null)
   const { enabled } = useRealmMotion()
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start 78%', 'end 65%'] })
+  useEffect(() => {
+    const wrapper = ref.current
+    const lastItem = wrapper?.querySelector('li:last-child')
+    if (!lastItem) return undefined
+    const updateEnd = () => {
+      wrapper.style.setProperty('--timeline-end', `${Math.max(0, lastItem.offsetHeight - 18)}px`)
+    }
+    updateEnd()
+    const observer = new ResizeObserver(updateEnd)
+    observer.observe(lastItem)
+    return () => observer.disconnect()
+  }, [])
   return <div ref={ref} className="realm-timeline-wrap">
     <motion.span className="realm-timeline-ink" aria-hidden="true" style={{ scaleY: enabled ? scrollYProgress : 1 }} />
     <ol className="landing-about-timeline">{children}</ol>
   </div>
 }
 
-export function OpenStatus() {
+export function OpenStatus({ compact = false }) {
   const [hour, setHour] = useState(() => getHour())
   useEffect(() => {
     const timer = window.setInterval(() => setHour(getHour()), 60_000)
@@ -68,7 +80,7 @@ export function OpenStatus() {
   }, [])
   const open = hour >= 10
   return <span className={`realm-open-status ${open ? 'is-open' : ''}`} title="Based on our regular hours in Asia/Manila">
-    <i aria-hidden="true" />{open ? 'Open now · until midnight' : 'Opens at 10:00 AM'}
+    <i aria-hidden="true" />{open ? (compact ? 'Open now' : 'Open now · until midnight') : 'Opens at 10:00 AM'}
   </span>
 }
 

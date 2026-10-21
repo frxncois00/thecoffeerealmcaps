@@ -8,10 +8,12 @@ export function useMenuCatalog() {
   useEffect(() => {
     let active = true
     let refreshTimer
+    let latestRequest = 0
     const refresh = () => {
+      const requestId = ++latestRequest
       fetchMenuCatalog()
-        .then((data) => { if (active) setState({ ...data, loading: false, error: '' }) })
-        .catch((error) => { if (active) setState((current) => ({ ...current, loading: false, error: error.message || 'Unable to load the menu.' })) })
+        .then((data) => { if (active && requestId === latestRequest) setState({ ...data, loading: false, error: '' }) })
+        .catch((error) => { if (active && requestId === latestRequest) setState((current) => ({ ...current, loading: false, error: error.message || 'Unable to load the menu.' })) })
     }
     const scheduleRefresh = () => {
       window.clearTimeout(refreshTimer)
@@ -20,14 +22,18 @@ export function useMenuCatalog() {
 
     refresh()
     window.addEventListener('focus', scheduleRefresh)
+    window.addEventListener('online', scheduleRefresh)
+    const fallbackTimer = window.setInterval(scheduleRefresh, 30000)
     const channel = supabase.channel('customer-menu-availability')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'menu_items' }, scheduleRefresh)
-      .subscribe()
+      .subscribe((status) => { if (status === 'SUBSCRIBED') scheduleRefresh() })
 
     return () => {
       active = false
       window.clearTimeout(refreshTimer)
+      window.clearInterval(fallbackTimer)
       window.removeEventListener('focus', scheduleRefresh)
+      window.removeEventListener('online', scheduleRefresh)
       supabase.removeChannel(channel)
     }
   }, [])

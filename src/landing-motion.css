@@ -47,6 +47,8 @@ body:has(.is-landing-page) { min-width: 0; }
   .customer-landing :is(.button,.text-link,.hero-tour-link):hover svg { transform: translateX(4px); }
   .customer-landing .button:hover { transform: translateY(-3px); }
   .customer-landing .button:active { transform: translateY(0) scale(.97); }
+}
+@media (min-width:821px) and (hover:hover) and (pointer:fine) {
   .customer-landing .landing-about-journey-heading { position: sticky; top: 140px; align-self: start; }
 }
 @media (max-width:760px) {
@@ -81,3 +83,7 @@ html[data-realm-motion="reduced"] .customer-landing :is(.button,.text-link,.hero
 }
 
 .realm-reviews-empty { color: var(--muted); padding: 24px 0; min-height: 120px; font-size: .95rem; }
+
+/* End both timeline layers at the final marker, regardless of text wrapping. */
+.customer-landing .realm-timeline-ink,
+.customer-landing .landing-about-timeline::before { bottom: var(--timeline-end, 20px); }

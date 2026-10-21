@@ -1,4 +1,3 @@
-import { Facebook, Instagram, MessageCircle } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { CONTENT_DEFAULTS } from '../services/adminPortalConfigurationService'
@@ -83,9 +82,9 @@ export function LandingFooter({ animated = false }) {
   return <footer className="landing-footer-react">
     <motion.div className="footer-bottom-line" initial={animated ? 'hidden' : false} whileInView={animated ? 'show' : undefined} viewport={{ once: true, amount: 0.2 }} variants={revealVariants(enabled, 14)}>
       <div className="footer-social-links">
-        <a href={content.facebookUrl} target="_blank" rel="noreferrer" aria-label="Facebook" title="Facebook"><Facebook size={18} /></a>
-        <a href={content.tiktokUrl} target="_blank" rel="noreferrer" aria-label="TikTok" title="TikTok"><MessageCircle size={18} /></a>
-        <a href={content.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram" title="Instagram"><Instagram size={18} /></a>
+        <a href={content.facebookUrl} target="_blank" rel="noreferrer" aria-label="Facebook" title="Facebook"><img src="/icons/social/facebook.svg" alt="" width="36" height="36" /></a>
+        <a href={content.tiktokUrl} target="_blank" rel="noreferrer" aria-label="TikTok" title="TikTok"><img src="/icons/social/tiktok.svg" alt="" width="36" height="36" /></a>
+        <a href={content.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram" title="Instagram"><img src="/icons/social/instagram.svg" alt="" width="36" height="36" /></a>
       </div>
       <nav className="footer-legal" aria-label="Footer links"><Link to="/privacy-policy">Privacy Policy</Link><Link to="/terms-of-use">Terms of Use</Link></nav>
       <span>© 2026 The Coffee Realm. All rights reserved.</span>

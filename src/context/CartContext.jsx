@@ -4,6 +4,8 @@ import { useAuth } from './AuthContext'
 import { fetchMenuCatalog } from '../services/menuService'
 import { customerSupabase as supabase } from '../lib/supabase'
 
+import { checkCartStock, STOCK_MESSAGE } from '../services/cartStock'
+
 const CartContext = createContext(null)
 const LEGACY_GUEST_KEY = 'coffee-realm-guest-cart-v1'
 const GUEST_KEY = 'coffee-realm-guest-cart-v2'
@@ -49,6 +51,9 @@ export function CartProvider({ children }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [checkingAvailability, setCheckingAvailability] = useState(false)
   const [availabilityError, setAvailabilityError] = useState('')
+  const [cartError, setCartError] = useState('')
+  const [stockShortage, setStockShortage] = useState(false)
+  const mutationQueue = useRef(Promise.resolve())
   const stateRef = useRef(cartState)
   const availabilityRequestRef = useRef(0)
   stateRef.current = cartState
@@ -82,6 +87,9 @@ export function CartProvider({ children }) {
       localStorage.removeItem(LEGACY_GUEST_KEY)
     }
     setAvailabilityError('')
+    setCartError('')
+    setStockShortage(false)
+    ++availabilityRequestRef.current
     setCartState({ ownerKey, items: nextItems })
   }, [ownerKey])
 
@@ -93,15 +101,41 @@ export function CartProvider({ children }) {
   const items = cartState.ownerKey === ownerKey ? cartState.items : []
   const setItems = useCallback((update) => {
     if (!ownerKey) return
-    setCartState((current) => {
-      const currentItems = current.ownerKey === ownerKey ? current.items : []
+    mutationQueue.current = mutationQueue.current.then(async () => {
+      if (stateRef.current.ownerKey !== ownerKey) return
+      const currentItems = stateRef.current.items
       const nextItems = typeof update === 'function' ? update(currentItems) : update
-      return { ownerKey, items: nextItems }
+      const onlyReducing = nextItems.every((item) => currentItems.some((old) => old.lineId === item.lineId && signature(old) === signature(item) && old.quantity >= item.quantity))
+      setCheckingAvailability(true)
+      ++availabilityRequestRef.current
+      try {
+        const fits = await checkCartStock(supabase, nextItems)
+        if (!onlyReducing && !fits) {
+          setCartError(STOCK_MESSAGE)
+          setDrawerOpen(true)
+          return
+        }
+        if (stateRef.current.ownerKey !== ownerKey) return
+        ++availabilityRequestRef.current
+        setStockShortage(!fits)
+        const nextState = { ownerKey, items: nextItems }
+        stateRef.current = nextState
+        setCartState(nextState)
+        setCartError(fits ? '' : STOCK_MESSAGE)
+      } catch (error) {
+        setCartError(error.message)
+        setDrawerOpen(true)
+      } finally {
+        setCheckingAvailability(false)
+      }
     })
+    return mutationQueue.current
   }, [ownerKey])
 
   const refreshAvailability = useCallback(async () => {
     if (!ownerKey) return { ok: false, available: false }
+    await mutationQueue.current
+    if (stateRef.current.ownerKey !== ownerKey) return { ok: false, available: false }
     const requestId = ++availabilityRequestRef.current
     setCheckingAvailability(true)
     setAvailabilityError('')
@@ -110,8 +144,14 @@ export function CartProvider({ children }) {
       const current = stateRef.current
       const currentItems = current.ownerKey === ownerKey ? current.items : []
       const nextItems = applyCatalogAvailability(currentItems, products)
-      if (requestId === availabilityRequestRef.current) setCartState({ ownerKey, items: nextItems })
-      return { ok: true, available: nextItems.every((item) => item.available !== false) }
+      const stockAvailable = await checkCartStock(supabase, nextItems)
+      if (requestId === availabilityRequestRef.current) setStockShortage(!stockAvailable)
+      if (requestId === availabilityRequestRef.current && !stockAvailable) setAvailabilityError(STOCK_MESSAGE)
+      if (requestId === availabilityRequestRef.current && stateRef.current.ownerKey === ownerKey) {
+        stateRef.current = { ownerKey, items: nextItems }
+        setCartState(stateRef.current)
+      }
+      return { ok: true, available: stockAvailable && nextItems.every((item) => item.available !== false) }
     } catch {
       if (requestId === availabilityRequestRef.current) setAvailabilityError('We could not verify current stock. Please try again.')
       return { ok: false, available: false }
@@ -123,13 +163,22 @@ export function CartProvider({ children }) {
   useEffect(() => {
     if (!ownerKey || cartState.ownerKey !== ownerKey) return undefined
     refreshAvailability()
-    const scheduleRefresh = () => refreshAvailability()
+    let refreshTimer
+    const scheduleRefresh = () => {
+      window.clearTimeout(refreshTimer)
+      refreshTimer = window.setTimeout(refreshAvailability, 100)
+    }
+    const fallbackTimer = window.setInterval(scheduleRefresh, 30000)
     window.addEventListener('focus', scheduleRefresh)
+    window.addEventListener('online', scheduleRefresh)
     const channel = supabase.channel(`customer-cart-availability-${user?.id || 'guest'}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'menu_items' }, scheduleRefresh)
-      .subscribe()
+      .subscribe((status) => { if (status === 'SUBSCRIBED') scheduleRefresh() })
     return () => {
+      window.clearTimeout(refreshTimer)
+      window.clearInterval(fallbackTimer)
       window.removeEventListener('focus', scheduleRefresh)
+      window.removeEventListener('online', scheduleRefresh)
       supabase.removeChannel(channel)
     }
   }, [cartState.ownerKey, ownerKey, refreshAvailability, user?.id])
@@ -157,8 +206,8 @@ export function CartProvider({ children }) {
   const itemCount = items.reduce((count, item) => count + item.quantity, 0)
   const subtotal = items.reduce((total, item) => total + ((item.unitPrice + (item.addons || []).reduce((sum, addon) => sum + addon.price, 0)) * item.quantity), 0)
   const unavailableItems = items.filter((item) => item.available === false)
-  const hasUnavailableItems = unavailableItems.length > 0
-  const value = { items, addItem, updateQuantity, removeItem, clearCart, itemCount, subtotal, unavailableItems, hasUnavailableItems, checkingAvailability, availabilityError, refreshAvailability, drawerOpen, openCart, closeCart }
+  const hasUnavailableItems = stockShortage || unavailableItems.length > 0
+  const value = { items, addItem, updateQuantity, removeItem, clearCart, itemCount, subtotal, unavailableItems, stockShortage, hasUnavailableItems, checkingAvailability, availabilityError: cartError || availabilityError, refreshAvailability, drawerOpen, openCart, closeCart }
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>
 }
 

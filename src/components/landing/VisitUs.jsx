@@ -1,7 +1,7 @@
 import { useId, useState } from 'react'
 import { ArrowUpRight, Clock, Coffee, Mail, MapPin, Phone } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { motionTokens, revealVariants } from '../../motion/config'
+import { motionTokens, landingRevealVariants as revealVariants } from '../../motion/config'
 import { useRealmMotion } from '../../motion/useRealmMotion'
 import { OpenStatus } from './LandingAccents'
 import './visit-us.css'
@@ -11,11 +11,6 @@ const mapEmbed = 'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3859.012
 const arrivalRoutes = [
   { label: 'Driving over', copy: 'Turn in from Dollar Street, then look for a parking space along Mark Street near the café.' },
   { label: 'Taking a tricycle', copy: 'Ask your driver to drop you off near Mark Street and Dollar Street in North Fairview.' },
-]
-
-const welcomeNotes = [
-  { title: 'Follow the green.', copy: 'Our green storefront and The Coffee Realm name on the corner glass will let you know you’ve arrived.' },
-  { title: 'A hand at the door.', copy: 'Our café is on the ground floor, with one step at the entrance. Our team is happy to help with the door.' },
 ]
 
 export default function VisitUs({ store, mapUrl }) {
@@ -38,10 +33,10 @@ export default function VisitUs({ store, mapUrl }) {
     <div className="realm-visit-inner">
       <div className="realm-visit-main">
         <motion.div className="realm-visit-copy" initial="hidden" whileInView="show" viewport={{ once: true, amount: .16 }} variants={reveal}>
-          <span className="eyebrow">Visit or contact us</span>
-          <h2 id="realm-visit-title">Come by or get in touch.</h2>
-          <p className="realm-visit-intro">We’d love to welcome you in North Fairview or help you with your next coffee order.</p>
-          <OpenStatus />
+          <div className="realm-visit-title-row">
+            <h2 id="realm-visit-title">Come by or get in touch.</h2>
+            <OpenStatus compact />
+          </div>
 
           <address className="realm-visit-details">
             <div><MapPin size={19} aria-hidden="true" /><span>{store.address}</span></div>
@@ -111,10 +106,6 @@ export default function VisitUs({ store, mapUrl }) {
                 </div>)}
               </div>
             </div>
-            {welcomeNotes.map(({ title, copy }) => <article className="realm-arrival-welcome" key={title}>
-              <h4>{title}</h4>
-              <p>{copy}</p>
-            </article>)}
           </div>
         </div>
       </motion.div>

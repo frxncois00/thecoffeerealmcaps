@@ -342,20 +342,21 @@ function CartDrawer({ cart, user }) {
                 <div className="drawer-item-actions">
                   <button onClick={() => cart.updateQuantity(item.lineId, item.quantity - 1)} aria-label={`Decrease ${item.name}`} disabled={item.available===false}><Minus /></button>
                   <b>{item.quantity}</b>
-                  <button onClick={() => cart.updateQuantity(item.lineId, item.quantity + 1)} aria-label={`Increase ${item.name}`} disabled={item.available===false}><Plus /></button>
+                  <button onClick={() => cart.updateQuantity(item.lineId, item.quantity + 1)} aria-label={`Increase ${item.name}`} disabled={item.available===false||cart.checkingAvailability}><Plus /></button>
                   <button className="remove-line" onClick={() => cart.removeItem(item.lineId)} aria-label={`Remove ${item.name}`}><Trash2 /></button>
                 </div>
               </div>
             </article>
           ))}
         </div>
+        {cart.availabilityError&&<p className="drawer-availability-warning" role="alert">{cart.availabilityError}</p>}
         {cart.items.length > 0 && (
           <footer>
             <div><span>VATable Sale</span><b>{money(baseAmount)}</b></div>
             <div className="customer-vat-row"><span>{formatVatRate(pricing.vatRate)} VAT</span><b>{money(vatAmount)}</b></div>
             <p>Delivery fees and discounts are calculated during checkout.</p>
-            {cart.hasUnavailableItems&&<p className="drawer-availability-warning" role="alert">Remove {cart.unavailableItems.length} unavailable item{cart.unavailableItems.length===1?'':'s'} before checkout.</p>}
-            {cart.availabilityError&&<p className="drawer-availability-warning" role="alert">{cart.availabilityError}</p>}
+            {cart.unavailableItems.length>0&&<p className="drawer-availability-warning" role="alert">Remove {cart.unavailableItems.length} unavailable item{cart.unavailableItems.length===1?'':'s'} before checkout.</p>}
+
             <button className="primary-button" type="button" disabled={cart.hasUnavailableItems||cart.checkingAvailability||proceeding} onClick={proceedToCheckout}>{cart.checkingAvailability||proceeding?'Checking availability…':cart.hasUnavailableItems?'Checkout unavailable':'Proceed to checkout'}</button>
             <button className="drawer-clear" type="button" onClick={() => setConfirmClear(true)}><Trash2 />Clear cart</button>
           </footer>

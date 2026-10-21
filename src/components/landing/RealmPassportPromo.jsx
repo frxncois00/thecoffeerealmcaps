@@ -1,6 +1,7 @@
 import { useId, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import usePassportPromoMotion from './usePassportPromoMotion'
+import { PASSPORT_ASSETS } from '../../utils/realmPassport'
 import './realm-passport-promo.css'
 
 export default function RealmPassportPromo({ customerUser = false }) {
@@ -35,7 +36,6 @@ export default function RealmPassportPromo({ customerUser = false }) {
         <header className="rpp-heading">
           <p className="rpp-eyebrow">THE COFFEE REALM · MEMBER'S EDITION</p>
           <h2 id={`${id}-title`}>Every cup earns <em>its stamp.</em></h2>
-          <p className="rpp-subtitle">Order, sip, collect. Your passport fills as you explore the realm.</p>
         </header>
 
         <div className="rpp-stage">
@@ -49,10 +49,7 @@ export default function RealmPassportPromo({ customerUser = false }) {
                   <div className="rpp-book-position">
                     <div className="rpp-book-rise"><div className="rpp-book-float"><div className="rpp-book-tilt"><div className="rpp-book-feedback">
                       <div className="rpp-book">
-                        <p className="rpp-book-brand">THE COFFEE REALM</p>
-                        <img className="rpp-book-logo" src="/images/coffeerealmlogo.png" alt="" width="64" height="64" />
-                        <p className="rpp-book-title">REALM<br />PASSPORT</p>
-                        <svg className="rpp-book-flourish" viewBox="0 0 54 14" aria-hidden="true"><path d="M0 7h19m16 0h19" fill="none" stroke="currentColor"/><path d="m27 2 5 5-5 5-5-5Z" fill="none" stroke="currentColor"/></svg>
+                        <img className="rpp-book-cover" src={`${PASSPORT_ASSETS}realm-passport-cover-v3.png`} alt="" width="1024" height="1536" loading="lazy" decoding="async" draggable="false" />
                       </div>
                     </div></div></div></div>
                   </div>

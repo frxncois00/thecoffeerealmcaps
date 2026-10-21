@@ -1,3 +1,4 @@
+import { checkCartStock, STOCK_MESSAGE } from '../services/cartStock'
 import {
   Banknote,
   Check,
@@ -464,6 +465,7 @@ export default function CashierPage() {
   const [showCheckout, setShowCheckout] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [error, setError] = useState('')
+  const [liveStockError, setLiveStockError] = useState('')
   const [cashierProfile, setCashierProfile] = useState(null)
   const [savingOrder, setSavingOrder] = useState(false)
   const [clock, setClock] = useState(() => new Date())
@@ -474,12 +476,14 @@ export default function CashierPage() {
 
   useEffect(() => {
     let ignore = false
+    let latestLoad = 0
     async function loadCashierData({ background = false } = {}) {
+      const loadId = ++latestLoad
       if (background) setIsRefreshingData(true)
       else if (isSupabaseConfigured) setLoading(true)
       try {
         const { profile } = await getCurrentPortalSession()
-        if (ignore) return
+        if (ignore || loadId !== latestLoad) return
         setCashierProfile(profile)
         if (!isSupabaseConfigured) {
           setNotice('Supabase is not configured yet, showing local sample menu.')
@@ -498,7 +502,7 @@ export default function CashierPage() {
           supabase.from('order_items').select('menu_item_id,quantity'),
           supabase.from('orders').select('id,order_number,status,order_type,order_source,customer_name,created_at').eq('order_source', 'customer_pos').in('status', ['Preparing', 'Ready for Pickup']).order('created_at', { ascending: true }),
         ])
-        if (ignore) return
+        if (ignore || loadId !== latestLoad) return
         if (!productResult.error) {
           const orderCounts = new Map()
           if (!orderStatsResult.error && orderStatsResult.data) {
@@ -533,11 +537,11 @@ export default function CashierPage() {
           setLastSyncedAt(new Date())
         }
       } catch (cause) {
-        if (!ignore) setDataSyncError(cause?.message || 'Live data could not be refreshed.')
+        if (!ignore && loadId === latestLoad) setDataSyncError(cause?.message || 'Live data could not be refreshed.')
       } finally {
-        if (!ignore) {
+        if (!ignore && loadId === latestLoad) {
           if (background) setIsRefreshingData(false)
-          else setLoading(false)
+          setLoading(false)
         }
       }
     }
@@ -559,7 +563,7 @@ export default function CashierPage() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'finished_product_sale_mappings' }, refreshLiveData)
         .subscribe((status) => {
           if (ignore) return
-          if (status === 'SUBSCRIBED') setRealtimeState('live')
+          if (status === 'SUBSCRIBED') { setRealtimeState('live'); refreshLiveData() }
           else if (status === 'TIMED_OUT') setRealtimeState('reconnecting')
           else if (status === 'CHANNEL_ERROR' || status === 'CLOSED') setRealtimeState('offline')
           else setRealtimeState('connecting')
@@ -646,6 +650,13 @@ export default function CashierPage() {
   }, [activeOrderId, orderTabs])
   const activeOrder = orderTabs.find((tab) => tab.id === activeOrderId) || orderTabs[0] || createOrderTab(1)
   const cart = activeOrder.cart
+  useEffect(() => {
+    let active = true
+    checkCartStock(supabase, cart)
+      .then((fits) => { if (active) setLiveStockError(fits ? '' : STOCK_MESSAGE) })
+      .catch((cause) => { if (active) setLiveStockError(cause.message) })
+    return () => { active = false }
+  }, [cart, products])
   const customerName = activeOrder.customerName
   const discount = activeOrder.discount
   const payment = activeOrder.payment
@@ -654,8 +665,28 @@ export default function CashierPage() {
     setOrderTabs((current) => current.map((tab) => tab.id === activeOrder.id ? { ...tab, ...updater(tab) } : tab))
   }
 
+  const cartMutationQueue = useRef(Promise.resolve())
+  const orderTabsRef = useRef(orderTabs)
+  orderTabsRef.current = orderTabs
   function setCart(updater) {
-    updateActiveOrder((tab) => ({ cart: typeof updater === 'function' ? updater(tab.cart) : updater }))
+    const tabId = activeOrder.id
+    cartMutationQueue.current = cartMutationQueue.current.then(async () => {
+      const tab = orderTabsRef.current.find((entry) => entry.id === tabId)
+      if (!tab) return
+      const next = typeof updater === 'function' ? updater(tab.cart) : updater
+      const onlyReducing = next.every((item) => tab.cart.some((old) => old.lineKey === item.lineKey && old.qty >= item.qty))
+      try {
+        if (!onlyReducing && !await checkCartStock(supabase, next)) {
+          setError(STOCK_MESSAGE)
+          return
+        }
+        orderTabsRef.current = orderTabsRef.current.map((entry) => entry.id === tabId ? { ...entry, cart: next } : entry)
+        setOrderTabs((current) => current.map((entry) => entry.id === tabId ? { ...entry, cart: next } : entry))
+        setError('')
+      } catch (error) {
+        setError(error.message)
+      }
+    })
   }
 
   function setCustomerName(value) {
@@ -845,6 +876,7 @@ export default function CashierPage() {
     if (savingOrder) return false
     setError('')
     if (!cart.length) return setError('Add at least one item to the cart.')
+    if (liveStockError) return setError(liveStockError)
     if (discount.enabled) {
       if (!['PWD', 'Senior'].includes(discount.type)) return setError('Select PWD or Senior discount type.')
       if (!discount.customerName.trim() || !discount.idNumber.trim()) return setError('Discount customer name and ID number are required.')
@@ -1269,8 +1301,8 @@ export default function CashierPage() {
             <POSCart cart={cart} products={products} onQty={changeQty} onEdit={editCartItem} />
             <div className="cashier-checkout-block">
               <OrderSummary vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat} breakdown={cartPreviewBreakdown} />
-              {error ? <div className="cashier-error">{error}</div> : null}
-              <button type="button" className="legacy-charge" onClick={() => setShowCheckout(true)} disabled={!cart.length}>Checkout</button>
+              {error || liveStockError ? <div className="cashier-error" role="alert">{error || liveStockError}</div> : null}
+              <button type="button" className="legacy-charge" onClick={() => setShowCheckout(true)} disabled={!cart.length || Boolean(liveStockError)}>Checkout</button>
             </div>
           </aside>
         </>}
