@@ -1,0 +1,7 @@
+Use case: background-extraction.
+Asset type: transparent food cutout for The Coffee Realm website ordering scene.
+Input image: the supplied chicken-sandwich-reference.png is the edit target.
+Primary request: extract ONLY the two chicken sandwich halves from this exact photograph onto a genuinely transparent background with an alpha channel. Remove the white ceramic plate, white tabletop/background, plate shadow, and all surrounding props.
+Preserve the exact two-half arrangement, their original scale relative to each other, the camera angle, toasted bread shape and crumb texture, visible golden fried chicken pieces, melted yellow cheese, green lettuce, creamy sauce, and the snug small paper sleeves already around the sandwiches. Do not change ingredients, redesign the sandwich, add garnish, add bread or extra pieces, or invent a different sandwich.
+Composition: keep both complete sandwich halves together centered with a modest transparent margin, no cropping, square canvas. Retain only a very subtle natural contact shadow immediately underneath the sandwich if needed; no plate-shaped shadow.
+Style: realistic product photography matching the source, sharp natural edges. No text, no logos, no watermark, no checkerboard or solid background. True transparency is required.

@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowRight, Star, UserRound } from 'lucide-react'
+import { ArrowRight, Laptop, Package, ParkingCircle, Star, UserRound, Wifi } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useRealmMotion } from '../motion/useRealmMotion'
 import { motionTokens, landingRevealVariants as revealVariants } from '../motion/config'
 import HeroMedia from '../components/landing/HeroMedia'
+import CookieNotice from '../components/landing/CookieNotice'
 import VisitUs from '../components/landing/VisitUs'
 import RealmPassportPromo from '../components/landing/RealmPassportPromo'
 import StoryIntro from '../components/landing/StoryIntro'
+import FacebookPosts from '../components/landing/FacebookPosts'
 import { LandingControls, HeroAtmosphere, RealmMarquee, JourneyTimeline } from '../components/landing/LandingAccents'
 import { Link } from 'react-router-dom'
 import BestSellerCarousel from '../components/BestSellerCarousel'
 import Reveal from '../components/landing/LandingReveal'
 import HowOrderingWorks from '../components/HowOrderingWorks'
+import RatingStars from '../components/customer/RatingStars'
+import { customerSupabase as supabase } from '../lib/supabase'
 import '../components/landing/compact-sections.css'
 import GuestAuthPrompt from '../components/customer/GuestAuthPrompt'
 import { useAuth } from '../context/AuthContext'
@@ -20,8 +24,8 @@ import { store } from '../data/mockData'
 import { useProductCustomization } from '../hooks/useProductCustomization'
 import { isCustomerRole } from '../lib/auth'
 import { CONTENT_DEFAULTS, SYSTEM_DEFAULTS, fetchPublicPortalData } from '../services/adminPortalConfigurationService'
-import { fetchMenuCatalog } from '../services/menuService'
-import { catalog as fallbackCatalog } from '../data/customerCatalog'
+import { useMenuCatalog } from '../hooks/useMenuCatalog'
+import { selectBestsellers } from '../utils/menuFilters'
 
 // BEGIN TOUR LAUNCH — the only production-side exception; scoped to this one link.
 function RealmTourLaunchLink() {
@@ -61,37 +65,29 @@ export default function HomePage() {
   const fadeUp = revealVariants(enabled)
   const [portalData, setPortalData] = useState({ content: CONTENT_DEFAULTS, system: SYSTEM_DEFAULTS, testimonials: [] })
   const [portalLoaded, setPortalLoaded] = useState(false)
-  const [menuCatalog, setMenuCatalog] = useState(() => fallbackCatalog.filter((product) => product.available))
+  const [feedbackSummary, setFeedbackSummary] = useState(null)
+  const { products: menuCatalog, loading: menuLoading } = useMenuCatalog()
   const content = portalData.content
   const publicStore = { ...store, ...portalData.system.store }
-  const featuredItems = useMemo(() => {
-    const selected = (content.featured?.itemIds || []).map(String)
-    const byId = new Map(menuCatalog.map((item) => [String(item.id), item]))
-    const explicit = selected.map((id) => byId.get(id)).filter(Boolean)
-    if (explicit.length > 0) return explicit
-
-    const flagged = menuCatalog.filter((item) => item.isBestseller || item.isFeatured)
-    if (flagged.length > 0) return flagged.slice(0, 6)
-
-    const available = menuCatalog.slice(0, 6)
-    if (available.length > 0) return available
-
-    return fallbackCatalog.slice(0, 6)
-  }, [content.featured?.itemIds, menuCatalog])
+  const featuredItems = useMemo(() => selectBestsellers(menuCatalog), [menuCatalog])
 
   useEffect(() => {
     let active = true
-    Promise.allSettled([fetchPublicPortalData(), fetchMenuCatalog()]).then(([configResult, catalogResult]) => {
+    Promise.allSettled([fetchPublicPortalData()]).then(([configResult]) => {
       if (!active) return
       setPortalLoaded(true)
       if (configResult.status === 'fulfilled' && configResult.value) {
         setPortalData(configResult.value)
       }
-      if (catalogResult.status === 'fulfilled' && catalogResult.value) {
-        const available = (catalogResult.value.products || []).filter((product) => product.available)
-        if (available.length > 0) setMenuCatalog(available)
-      }
     }).catch(() => {})
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    supabase.rpc('customer_feedback_summary').then(({ data, error }) => {
+      if (active && !error && Number(data?.[0]?.review_count) > 0) setFeedbackSummary(data[0])
+    })
     return () => { active = false }
   }, [])
 
@@ -110,6 +106,7 @@ export default function HomePage() {
   return (
     <div className="storefront customer-landing">
       <LandingControls />
+      <CookieNotice />
       <main className="landing-page" id="main-content" tabIndex={-1}>
         <section ref={heroRef} className="hero landing-hero" id="home" aria-labelledby="hero-title">
           <HeroMedia heroRef={heroRef} />
@@ -142,14 +139,13 @@ export default function HomePage() {
             <div><span className="eyebrow">{content.featured.eyebrow}</span><h2>{content.featured.title}</h2></div>
             <Link className="text-link dark" to="/menu">See full menu <ArrowRight size={17} /></Link>
           </Reveal>
-          <Reveal tag="div" delay={0.1}>
-            <BestSellerCarousel items={featuredItems} onChoose={chooseFeaturedItem} />
-          </Reveal>
+          <BestSellerCarousel items={featuredItems} loading={menuLoading} onChoose={chooseFeaturedItem} />
         </section>}
 
         <RealmPassportPromo customerUser={customerUser} />
 
-        <section className="landing-about" id="about" aria-labelledby="about-title">
+        <section className="landing-about" id="about" aria-label="Our story">
+          <div className="landing-about-layout">
           <StoryIntro />
 
           <Reveal tag="div" className="landing-about-journey" delay={0.06}>
@@ -165,7 +161,13 @@ export default function HomePage() {
               <Reveal tag="li" y={16}><span className="landing-about-timeline-marker">06</span><div><h4>Serving our community</h4><p>Today, around 150 customers visit or order online on a typical day.</p></div></Reveal>
             </JourneyTimeline>
           </Reveal>
-
+          </div>
+          <div className="landing-about-amenities" aria-label="Café amenities">
+            <div><Laptop size={28} aria-hidden="true" /><span>Work-friendly space</span></div>
+            <div><Wifi size={28} aria-hidden="true" /><span>Wi-Fi available</span></div>
+            <div><ParkingCircle size={28} aria-hidden="true" /><span>Parking available</span></div>
+            <div><Package size={28} aria-hidden="true" /><span>Open for bulk orders</span></div>
+          </div>
         </section>
 
         <HowOrderingWorks />
@@ -173,6 +175,11 @@ export default function HomePage() {
         <section className="section landing-reviews" id="reviews" aria-labelledby="reviews-title">
           <Reveal tag="div" className="reviews-intro">
             <div><h2 id="reviews-title">What our customers say.</h2></div>
+            {feedbackSummary && <div className="reviews-rating-summary" aria-label={`${Number(feedbackSummary.average_rating).toFixed(1)} out of 5 stars from ${feedbackSummary.review_count} reviews`}>
+              <RatingStars rating={feedbackSummary.average_rating} />
+              <strong>{Number(feedbackSummary.average_rating).toFixed(1)} <span>out of 5</span></strong>
+              <small>({feedbackSummary.review_count} {Number(feedbackSummary.review_count) === 1 ? 'review' : 'reviews'})</small>
+            </div>}
           </Reveal>
           <motion.div
             className="reviews-grid-react"
@@ -200,6 +207,7 @@ export default function HomePage() {
           {portalData.testimonials.length === 0 && <p className="realm-reviews-empty" role="status">{portalLoaded ? 'Customer stories are on their way.' : 'Loading customer stories…'}</p>}
         </section>
 
+        <FacebookPosts />
         <VisitUs store={publicStore} mapUrl={store.map} />
       </main>
 

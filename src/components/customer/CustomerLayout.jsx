@@ -102,12 +102,17 @@ export default function CustomerLayout() {
   }, [])
 
   useLayoutEffect(() => {
-    if (location.hash) return undefined
+    if (location.hash) {
+      const frame = window.requestAnimationFrame(() => {
+        document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: 'start', behavior: 'instant' })
+      })
+      return () => window.cancelAnimationFrame(frame)
+    }
     const resetScroll = () => window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
     resetScroll()
     const frame = window.requestAnimationFrame(resetScroll)
     return () => window.cancelAnimationFrame(frame)
-  }, [location.hash, location.pathname])
+  }, [location.hash, location.pathname, location.key])
 
   useEffect(() => {
     if (!cart.drawerOpen) return undefined

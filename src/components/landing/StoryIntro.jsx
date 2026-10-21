@@ -46,8 +46,5 @@ export default function StoryIntro() {
         </div>
       </div>
     </Reveal>
-    <Reveal tag="div" className="landing-about-copy" delay={0.08}>
-      <StoryCopy titleId="about-title" />
-    </Reveal>
   </div>
 }

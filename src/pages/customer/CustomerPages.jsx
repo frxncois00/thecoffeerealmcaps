@@ -1,4 +1,7 @@
-import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Clock3, Coffee, Copy, CreditCard, ExternalLink, Info, Link2, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Trash2, Unlink, X, XCircle } from 'lucide-react'
+import MenuBrowser from '../../components/customer/MenuBrowser'
+import RatingStars from '../../components/customer/RatingStars'
+import '../../components/customer/menu-hero.css'
+import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Clock3, Coffee, Copy, CreditCard, ExternalLink, Info, Link2, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Store, Trash2, Truck, Unlink, X, XCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -29,9 +32,42 @@ import { extractReferenceNumberFromReceipt } from '../../services/ocrService'
 import DeliveryLocationPicker from '../../components/customer/DeliveryLocationPicker'
 import { ReceiptPaper } from '../../components/common/ReceiptDocument'
 import { printReceipt } from '../../components/common/receiptUtils'
-export function MenuPage(){const [query,setQuery]=useState('');const [category,setCategory]=useState('All');const [chipMotion,setChipMotion]=useState('All');const [guestPromptOpen,setGuestPromptOpen]=useState(false);const {user,profile}=useAuth();const customerUser=Boolean(user&&isCustomerRole(profile?.role));const {products,categories,loading,error}=useMenuCatalog();const {openProduct,modal}=useProductCustomization({alwaysCustomize:true,modalVariant:'menu-detail',beforeAdd:()=>{if(customerUser)return true;setGuestPromptOpen(true);return false}});useEffect(()=>{const timeout=window.setTimeout(()=>setChipMotion(''),460);return()=>window.clearTimeout(timeout)},[category]);useEffect(()=>{if(customerUser)setGuestPromptOpen(false)},[customerUser]);const filtered=products.filter(p=>p.available&&(category==='All'||p.category===category)&&`${p.name} ${p.description}`.toLowerCase().includes(query.toLowerCase()));return <main className="customer-main"><section className="page-hero"><span>Made fresh in North Fairview</span><h1>Find your next favorite.</h1></section><div className="menu-tools"><label><Search/><span className="sr-only">Search menu</span><input value={query} onChange={e=>setQuery(sanitizeCatalogText(e.target.value,100))} maxLength={100} placeholder="Search drinks, cakes, and meals"/></label><div className="menu-chip-row">{categories.map(c=><button className={`category-chip ${c===category?'active':''} ${c===chipMotion?'is-switching':''}`.trim()} onClick={()=>{setChipMotion(c);setCategory(c)}} key={c} type="button"><span>{c}</span></button>)}</div></div>{loading?<section className="customer-state">Loading today’s menu…</section>:error?<section className="customer-state error-state"><h2>We couldn’t load the menu.</h2><p>{error}</p></section>:<section className="customer-products menu-results-grid" key={`${category}-${query}`}>{filtered.map(p=><ProductCard key={p.id} product={p} onOpen={openProduct}/>)}</section>}
+export function MenuPage() {
+  const [guestPromptOpen, setGuestPromptOpen] = useState(false)
+  const { user, profile } = useAuth()
+  const customerUser = Boolean(user && isCustomerRole(profile?.role))
+  const { products, loading, error } = useMenuCatalog()
+  const [feedbackSummary, setFeedbackSummary] = useState(null)
+  const { openProduct, modal } = useProductCustomization({
+    alwaysCustomize: true, modalVariant: 'menu-detail',
+    beforeAdd: () => { if (customerUser) return true; setGuestPromptOpen(true); return false },
+  })
+  useEffect(() => { if (customerUser) setGuestPromptOpen(false) }, [customerUser])
+  useEffect(() => {
+    let active = true
+    supabase.rpc('customer_feedback_summary').then(({ data, error: feedbackError }) => {
+      if (active && !feedbackError && data?.[0]) setFeedbackSummary(data[0])
+    })
+    return () => { active = false }
+  }, [])
+  return <main className="customer-main">
+    <section className="page-hero menu-page-hero">
+      <h1 className="menu-origin-title">Made fresh in <em>North Fairview.</em></h1>
+      <div className="menu-service-summary">
+        <div className="menu-fulfillment-notes" aria-label="Order options">
+          <div className="menu-fulfillment-note"><span className="menu-fulfillment-icon"><Truck size={22} strokeWidth={1.6} aria-hidden="true" /></span><span><strong>Delivery</strong><small>Within Quezon City only.</small></span></div>
+          <div className="menu-fulfillment-note"><span className="menu-fulfillment-icon"><Store size={22} strokeWidth={1.6} aria-hidden="true" /></span><span><strong>Pickup</strong><small>We recommend pickup within 30 minutes of the ready notice.</small></span></div>
+        </div>
+        {feedbackSummary && <div className="menu-feedback-summary" aria-label={`${feedbackSummary.average_rating || 0} out of 5 stars from ${feedbackSummary.review_count} reviews`}>
+          <RatingStars rating={feedbackSummary.average_rating} />
+          <strong>{Number(feedbackSummary.average_rating || 0).toFixed(1)} <small>out of 5</small></strong>
+          <small>({feedbackSummary.review_count} {Number(feedbackSummary.review_count) === 1 ? 'review' : 'reviews'})</small>
+        </div>}
+      </div>
+    </section>
+    <MenuBrowser products={products} loading={loading} error={error} renderProduct={product => <ProductCard key={product.id} product={product} onOpen={openProduct} />} />
     {modal}
-    <GuestAuthPrompt open={guestPromptOpen} onClose={()=>setGuestPromptOpen(false)} returnTo="/menu" />
+    <GuestAuthPrompt open={guestPromptOpen} onClose={() => setGuestPromptOpen(false)} returnTo="/menu" />
   </main>
 }
 function ProductCard({product,onOpen}){const label=product.variations.length?`From ${money(Math.min(...product.variations.map(v=>v.price)))}`:money(product.basePrice);return <article className={`customer-product ${!product.available?'unavailable':''}`} data-product-id={product.id} role="button" tabIndex={0} aria-label={`View ${product.name} options`} onClick={event=>onOpen(product,event.currentTarget)} onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();onOpen(product,event.currentTarget)}}}><div className="customer-product-media"><img src={product.image} alt=""/></div><div><small>{product.category}</small><h2>{product.name}</h2><div className="product-badges">{product.temperatureType==='iced_only'&&<span>Cold only</span>}{product.temperatureType==='hot_only'&&<span>Hot only</span>}{product.temperatureType==='flexible'&&<span>Hot or cold</span>}{product.variations.length>0&&<span>Options available</span>}</div><footer><strong>{label}</strong>{product.available?<span className="round-action" aria-hidden="true"><Plus/></span>:<span>Unavailable</span>}</footer></div></article>}
@@ -696,7 +732,7 @@ export function MyOrdersPage(){
   }
 
   return <main className="customer-main">
-    <section className="page-title"><span>Your order history</span><h1>My orders</h1></section>
+    <section className="page-title"><h1>My orders</h1></section>
     <div className="order-tabs">
       <button className={tab==='current'?'active':''} onClick={()=>setTab('current')}>Current Orders{currentOrders.length>0&&<b className="order-tab-count">{currentOrders.length}</b>}</button>
       <button className={tab==='past'?'active':''} onClick={()=>setTab('past')}>Past Orders</button>
@@ -991,6 +1027,7 @@ export function ProfilePage(){
   const [statusTone,setStatusTone]=useState('')
   const [savingProfile,setSavingProfile]=useState(false)
   const [avatarFile,setAvatarFile]=useState(null)
+  const [avatarRemoved,setAvatarRemoved]=useState(false)
   const [avatarPreview,setAvatarPreview]=useState('')
   const [avatarError,setAvatarError]=useState('')
   const avatarInputRef=useRef(null)
@@ -1010,7 +1047,7 @@ export function ProfilePage(){
   },[])
   useEffect(()=>()=>{if(avatarPreview)URL.revokeObjectURL(avatarPreview)},[avatarPreview])
   const set=(key,value)=>setValues(current=>({...current,[key]:value}))
-  const avatarUrl=avatarPreview||profile?.avatar_url||''
+  const avatarUrl=avatarRemoved?'':avatarPreview||profile?.avatar_url||''
   const avatarInitials=(values.full_name||values.email||'Customer').trim().split(/\s+/).slice(0,2).map(part=>part[0]?.toUpperCase()).join('')||'CR'
   const chooseAvatar=async event=>{
     const file=event.target.files?.[0]
@@ -1019,6 +1056,7 @@ export function ProfilePage(){
       await validateProfilePicture(file)
       setAvatarError('')
       setAvatarFile(file)
+      setAvatarRemoved(false)
       setAvatarPreview(URL.createObjectURL(file))
     }catch(error){
       setAvatarFile(null)
@@ -1028,6 +1066,7 @@ export function ProfilePage(){
     }
   }
   const clearAvatarSelection=()=>{
+    setAvatarRemoved(false)
     setAvatarFile(null)
     setAvatarPreview('')
     setAvatarError('')
@@ -1044,7 +1083,7 @@ export function ProfilePage(){
     setStatusTone('')
     setStatus('Saving profile…')
     try{
-      const saved=await saveProfile(user.id,values,{avatarFile,previousAvatarPath:profile?.avatar_path||''})
+      const saved=await saveProfile(user.id,values,{avatarFile,removeAvatar:avatarRemoved,previousAvatarPath:profile?.avatar_path||''})
       updateProfile(current=>({...current,...saved}))
       clearAvatarSelection()
       setStatusTone('success')
@@ -1230,27 +1269,32 @@ export function ProfilePage(){
   }
 
   return <main className="customer-main narrow">
-    <section className="page-title"><span>Your account</span><h1>Profile</h1><p>Manage your picture, personal information, account security, and delivery addresses in one place.</p></section>
+    <section className="page-title"><h1>Profile</h1><p>Manage your picture, personal information, account security, and delivery addresses in one place.</p></section>
     <section className="settings-stack">
       <form className="account-card settings-section" onSubmit={submit} aria-busy={savingProfile}>
         <header><div><span className="settings-kicker">Profile details</span><h2>Personal information</h2></div><RealmPassportProfileLink/></header>
+        <div className="profile-identity-row">
         <div className="profile-picture-editor">
           <div className="profile-picture-preview">{avatarUrl?<img src={avatarUrl} alt={`Profile preview for ${values.full_name||'customer'}`}/>:<span aria-hidden="true">{avatarInitials}</span>}</div>
           <div className="profile-picture-copy">
-            <h3>Profile picture</h3>
+            <h3>Profile photo</h3>
             <p id="profile-picture-help">Choose a JPG, PNG, or WEBP image up to 5 MB.</p>
             <input ref={avatarInputRef} className="sr-only" id="profile-picture-input" type="file" accept={PROFILE_PICTURE_ACCEPT} aria-describedby={avatarError?'profile-picture-help profile-picture-error':'profile-picture-help'} onChange={chooseAvatar}/>
             <div className="profile-picture-actions">
-              <button className="secondary-button" type="button" onClick={()=>avatarInputRef.current?.click()}><Camera size={17}/>{avatarFile?'Change selected photo':'Choose photo'}</button>
-              {avatarFile?<button className="profile-picture-cancel" type="button" onClick={clearAvatarSelection}>Cancel selection</button>:null}
+              <button className="secondary-button" type="button" disabled={savingProfile} onClick={()=>avatarInputRef.current?.click()}>Update image</button>
+              <button className="profile-picture-cancel" type="button" disabled={savingProfile||!avatarUrl} onClick={()=>{clearAvatarSelection();setAvatarRemoved(true)}}>Remove</button>
             </div>
             {avatarFile?<small className="profile-picture-filename">Ready to save: {avatarFile.name}</small>:null}
+            {avatarRemoved?<small className="profile-picture-filename">Photo removed. Save profile to apply.</small>:null}
             {avatarError?<p className="profile-picture-error" id="profile-picture-error" role="alert">{avatarError}</p>:null}
           </div>
         </div>
-        <div className="form-grid">
+        <div className="profile-identity-fields">
           <RealmIdProfileField/>
           <Field label="Birthdate" type="date" value={profile?.birthdate || ''} readOnly required={false}/>
+        </div>
+        </div>
+        <div className="form-grid">
           <Field label="Full name" value={values.full_name} onChange={value=>set('full_name',sanitizePersonName(value,60))} maxLength={60} pattern="\S+(\s+\S+)+" title="Enter your first and last name (at least 2 words)."/>
           <Field label="Username" value={values.username} onChange={value=>set('username',sanitizeUsername(value,24))} minLength={3} maxLength={24} pattern="[A-Za-z0-9._-]{3,24}" autoComplete="username" autoCapitalize="none" spellCheck={false} title="Use 3-24 letters, numbers, periods, underscores, or hyphens."/>
           <Field label="Email address" type="email" value={values.email} onChange={value=>set('email',value.slice(0,EMAIL_MAX_LENGTH))} maxLength={EMAIL_MAX_LENGTH}/>

@@ -9,9 +9,9 @@ const helpGroups = [
 
 export default function HelpPage() {
   return <main className="customer-main">
-    <section className="page-hero help-hero"><span>Support center · North Fairview</span><h1>How can we help?</h1><p>Find quick answers about ordering, fulfillment, payments, cancellations, and refunds.</p></section>
+    <section className="page-hero help-hero"><h1>How can we help?</h1><p>Find quick answers about ordering, fulfillment, payments, cancellations, and refunds.</p></section>
     <section className="help-layout">
-      <div className="faq-column"><div className="section-heading"><div><span className="eyebrow">Frequently asked questions</span><h2>Everything you need to order smoothly.</h2></div></div><div className="faq-groups">{helpGroups.map((group, groupIndex) => <section className="faq-group" key={group.title}><h3>{group.title}</h3>{group.items.map(([question, answer], itemIndex) => <details key={question} open={groupIndex === 0 && itemIndex === 0}><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}</section>)}</div></div>
+      <div className="faq-column"><div className="section-heading"><div><span className="eyebrow">Frequently asked questions</span></div></div><div className="faq-groups">{helpGroups.map((group, groupIndex) => <section className="faq-group" key={group.title}><h3>{group.title}</h3>{group.items.map(([question, answer], itemIndex) => <details key={question} open={groupIndex === 0 && itemIndex === 0}><summary>{question}<span aria-hidden="true">+</span></summary><p>{answer}</p></details>)}</section>)}</div></div>
     </section>
   </main>
 }

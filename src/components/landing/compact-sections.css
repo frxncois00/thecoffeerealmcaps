@@ -65,10 +65,7 @@
   .customer-landing .realm-visit-details { margin: 18px 0; gap: 10px; font-size: .8rem; line-height: 1.5; }
   .customer-landing .realm-visit-details > div { gap: 8px; min-width: 0; }
   .customer-landing .realm-visit-details a { min-height: 44px; display: inline-flex; align-items: flex-start; }
-  .customer-landing .realm-visit-map { padding: 10px 10px 0; }
   .customer-landing .realm-visit-map-frame { min-height: 0; height: 260px; aspect-ratio: auto; }
-  .customer-landing .realm-visit-map-top { padding-bottom: 8px; }
-  .customer-landing .realm-visit-map figcaption { min-height: 48px; padding-block: 4px; }
   .customer-landing .realm-arrival { margin-top: 24px; padding: 22px; }
   .customer-landing .realm-arrival-spread { gap: 22px; }
   .customer-landing .realm-arrival-heading { margin-bottom: 14px; }
@@ -89,8 +86,6 @@
   .customer-landing .realm-visit-details svg { width: 16px; height: 16px; }
   .customer-landing .realm-visit-details span { min-width: 0; overflow-wrap: anywhere; }
   .customer-landing .realm-visit-map-frame { height: 180px; }
-  .customer-landing .realm-visit-map-top { flex-direction: row; min-height: 30px; font-size: .62rem; }
-  .customer-landing .realm-visit-map figcaption { flex-direction: row; font-size: .6rem; }
   .customer-landing .realm-arrival { padding: 16px; margin-top: 18px; }
   .customer-landing .realm-arrival-spread { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .customer-landing .realm-arrival-postcard { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); align-items: center; gap: 12px; }
@@ -144,4 +139,39 @@
 @media (max-width: 700px) {
   .customer-landing .realm-arrival-postcard { grid-template-columns: minmax(0, 1fr); }
   .customer-landing .realm-arrival-heading { width: 100%; }
+}
+
+/* Bring the ordering call to action and customer feedback closer together. */
+.customer-landing .ordering-works { padding-bottom: 32px; }
+.customer-landing .landing-reviews { padding-top: 32px; }
+@media (max-width: 600px) {
+  .customer-landing .ordering-works { padding-bottom: 20px; }
+  .customer-landing .landing-reviews { padding-top: 20px; }
+}
+
+/* Keep the reviews and social updates aligned and typographically consistent. */
+.customer-landing .reviews-rating-summary { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-shrink: 0; white-space: nowrap; color: #173b2a; }
+.reviews-rating-summary .menu-feedback-stars { display: flex; gap: 3px; }
+.reviews-rating-summary .menu-feedback-stars svg { width: 25px; height: 25px; }
+.reviews-rating-summary strong { font-family: 'Playfair Display', Georgia, serif; font-size: 1.9rem; font-weight: 600; line-height: 1; }
+.reviews-rating-summary strong span, .reviews-rating-summary small { font-family: 'DM Sans', sans-serif; font-size: .85rem; font-weight: 500; }
+@media (max-width: 760px) {
+  .customer-landing .reviews-intro { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; }
+  .customer-landing .reviews-rating-summary { margin-left: 0; justify-content: flex-start; flex-wrap: wrap; gap: 8px 12px; max-width: 100%; }
+}
+.customer-landing .landing-reviews { padding-bottom: 28px; }
+.customer-landing .facebook-posts { padding-top: 18px; }
+@media (max-width: 600px) {
+  .customer-landing .landing-reviews { padding-bottom: 20px; }
+  .customer-landing .facebook-posts { padding-top: 16px; }
+}
+.customer-landing .reviews-intro h2,
+.customer-landing .facebook-posts-heading h2 {
+  font: 500 clamp(2rem, 3.5vw, 3.4rem)/1.08 'Playfair Display', Georgia, serif;
+  letter-spacing: -.035em;
+  color: #173b2a;
+  white-space: normal;
+}
+@media (min-width: 601px) and (max-width: 1024px) {
+  .customer-landing .facebook-posts { padding-inline: 24px; }
 }

@@ -7,7 +7,7 @@ export async function fetchProfile(userId){const {data,error}=await supabase.fro
 const PROFILE_PICTURE_BUCKET='profile-pictures'
 export const PROFILE_PICTURE_ACCEPT=IMAGE_UPLOAD_ACCEPT
 export const validateProfilePicture=(file)=>validateImageFile(file,{label:'Profile picture'})
-export async function saveProfile(userId,values,{avatarFile=null,previousAvatarPath=''}={}){
+export async function saveProfile(userId,values,{avatarFile=null,removeAvatar=false,previousAvatarPath=''}={}){
   const cleanName=sanitizePersonName(values.full_name||'',60).trim()
   const cleanUsername=sanitizeUsername(String(values.username||'').trim(),24)
   const cleanPhone=sanitizePhone(values.phone||'')
@@ -17,6 +17,7 @@ export async function saveProfile(userId,values,{avatarFile=null,previousAvatarP
   if(cleanPhone&&!isValidPhone(cleanPhone))throw new Error('Contact number must contain 11 digits and start with 09.')
   let uploadedPath=''
   let nextValues={...values,full_name:cleanName,username:cleanUsername,phone:cleanPhone}
+  if(removeAvatar)nextValues={...nextValues,avatar_path:null,avatar_url:null}
   if(avatarFile){
     const {extension}=await validateProfilePicture(avatarFile)
     const uniqueId=globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random().toString(16).slice(2)}`
@@ -34,7 +35,7 @@ export async function saveProfile(userId,values,{avatarFile=null,previousAvatarP
     nextValues={...nextValues,avatar_path:uploadedPath,avatar_url:`${publicData.publicUrl}?v=${Date.now()}`}
   }
   const metadata={full_name:nextValues.full_name,phone:nextValues.phone}
-  if(nextValues.avatar_url)metadata.avatar_url=nextValues.avatar_url
+  if(Object.hasOwn(nextValues,'avatar_url'))metadata.avatar_url=nextValues.avatar_url
   const {data:authData,error:authError}=await supabase.auth.updateUser({data:metadata})
   if(authError){
     if(uploadedPath)await supabase.storage.from(PROFILE_PICTURE_BUCKET).remove([uploadedPath])

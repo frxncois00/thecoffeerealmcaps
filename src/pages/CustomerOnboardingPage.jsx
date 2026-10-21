@@ -17,6 +17,7 @@ export default function CustomerOnboardingPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const canAddPassword = user?.app_metadata?.provider === 'google'
 
   useEffect(() => {
     setValues({
@@ -76,7 +77,7 @@ export default function CustomerOnboardingPage() {
         <label className="onboarding-field"><span>Phone number</span><div><Phone size={18}/><input value={values.phone} onChange={(event)=>set('phone',event.target.value.replace(/\D/g,'').slice(0,11))} inputMode="numeric" autoComplete="tel" maxLength={11} pattern="09[0-9]{9}" placeholder="09XXXXXXXXX" required/></div></label>
         <BirthDatePicker value={values.birthdate} onChange={value => { set('birthdate', value); setError('') }} max={(() => { const date = new Date(); date.setFullYear(date.getFullYear() - 13); return date.toISOString().slice(0, 10) })()}/>
 
-        <label className="onboarding-password-choice"><input type="checkbox" checked={addPassword} onChange={(event)=>{setAddPassword(event.target.checked);setError('')}}/><span><b>Add a password</b><small>Sign in using your email when Google is unavailable.</small></span></label>
+        {canAddPassword && <label className="onboarding-password-choice"><input type="checkbox" checked={addPassword} onChange={(event)=>{setAddPassword(event.target.checked);setError('')}}/><span><b>Add a password</b><small>Sign in using your email when Google is unavailable.</small></span></label>}
         {addPassword?<div className="onboarding-password-fields">
           <label className="onboarding-field"><span>Password</span><div><Lock size={18}/><input type={showPassword?'text':'password'} value={password} onChange={(event)=>setPassword(event.target.value.slice(0,32))} minLength={8} maxLength={32} pattern="(?=.*[0-9]).{8,32}" autoComplete="new-password" required/><button type="button" onClick={()=>setShowPassword((shown)=>!shown)} aria-label={showPassword?'Hide password':'Show password'}>{showPassword?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
           <label className="onboarding-field"><span>Confirm password</span><div><Lock size={18}/><input type={showPassword?'text':'password'} value={confirmPassword} onChange={(event)=>setConfirmPassword(event.target.value.slice(0,32))} minLength={8} maxLength={32} autoComplete="new-password" required/></div></label>

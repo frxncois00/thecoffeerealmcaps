@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { ensureRealmId } from '../../services/realmPassportService'
+import './realm-passport-profile-link.css'
 
 export default function RealmPassportProfileLink() {
-  return <Link to="/realm-passport" style={{ textAlign: 'right', fontSize: 13 }}>Check Realm ID</Link>
+  return <Link to="/realm-passport" className="realm-passport-profile-link">View Realm Passport</Link>
 }
 
 export function RealmIdProfileField() {

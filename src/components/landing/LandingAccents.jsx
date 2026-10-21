@@ -46,7 +46,7 @@ export function StoryImage() {
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] })
   const y = useTransform(scrollYProgress, [0, 1], [-18, 18])
   return <div ref={ref} className="realm-story-image">
-    <motion.img src="/images/about-origin.jpg" alt="Warm home interior where The Coffee Realm began" loading="lazy" decoding="async" style={{ y: ambient ? y : 0, scale: ambient ? 1.08 : 1 }} />
+    <motion.img src="/images/about-storefront-graded.png" alt="The Coffee Realm storefront with outdoor seating and plants" loading="lazy" decoding="async" style={{ y: ambient ? y : 0, scale: ambient ? 1.08 : 1 }} />
   </div>
 }
 

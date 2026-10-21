@@ -5,7 +5,7 @@ import { motionTokens } from '../motion/config'
 export default function CoffeeCard({ id, item, index, count, offset, isActive, revealed, enabled, ambient, compact, onSelect, onChoose }) {
   const safeOffset = Number.isFinite(offset) ? offset : 0
   const distance = Math.abs(safeOffset)
-  const cardScale = isActive ? (compact ? 1.02 : 1.06) : distance === 1 ? 0.9 : 0.82
+  const cardScale = 1
   const cardOpacity = isActive ? 1 : distance === 1 ? 0.62 : distance === 2 ? 0.28 : 0
   const boundsRef = useRef(null)
   const previousOffset = useRef(safeOffset)
@@ -43,8 +43,8 @@ export default function CoffeeCard({ id, item, index, count, offset, isActive, r
       animate={{
         x: `${safeOffset * (compact ? 76 : 78)}%`,
         scale: cardScale,
-        opacity: revealed ? cardOpacity : 0,
-        y: (isActive ? -10 : 0) + (revealed || !enabled ? 0 : 18),
+        opacity: revealed && distance <= 2 ? 1 : 0,
+        y: (isActive ? -10 : distance === 1 ? 0 : 18) + (revealed || !enabled ? 0 : 18),
       }}
       transition={{
         ease: motionTokens.ease,
@@ -71,7 +71,8 @@ export default function CoffeeCard({ id, item, index, count, offset, isActive, r
           src={item.image || '/images/coffeerealmlogo.png'}
           alt={item.name}
           draggable={false}
-          loading="lazy"
+          loading={distance <= 1 ? 'eager' : 'lazy'}
+          fetchPriority={isActive ? 'high' : 'auto'}
           decoding="async"
           width="680"
           height="520"
@@ -85,6 +86,9 @@ export default function CoffeeCard({ id, item, index, count, offset, isActive, r
         <h3>{item.name}</h3>
         {item.description && <p>{item.description}</p>}
       </div>
+      <motion.div className="coffee-card-shade" aria-hidden="true"
+        initial={false} animate={{ opacity: 1 - cardOpacity }}
+        transition={{ duration: enabled ? motionTokens.duration.base : 0.15 }} />
       <button className="coffee-card-action" type="button" tabIndex={isActive ? 0 : -1}
         aria-label={`${isActive ? 'View' : 'Show'} ${item.name}`}
         onClick={() => {

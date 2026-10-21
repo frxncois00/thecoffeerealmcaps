@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
+import AppErrorBoundary from './components/AppErrorBoundary'
 import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import { PricingProvider } from './context/PricingContext'
@@ -19,5 +20,5 @@ import './admin-dark-palette.css'
 import './staff-reference.css'
 import './management-neutral-overlays.css'
 import './landing-motion.css'
-createRoot(document.getElementById('root')).render(<StrictMode><BrowserRouter><ThemeProvider><PricingProvider><AuthProvider><CartProvider><LogoutTransitionProvider><App /></LogoutTransitionProvider></CartProvider></AuthProvider></PricingProvider></ThemeProvider></BrowserRouter></StrictMode>)
+createRoot(document.getElementById('root')).render(<StrictMode><AppErrorBoundary><BrowserRouter><ThemeProvider><PricingProvider><AuthProvider><CartProvider><LogoutTransitionProvider><App /></LogoutTransitionProvider></CartProvider></AuthProvider></PricingProvider></ThemeProvider></BrowserRouter></AppErrorBoundary></StrictMode>)
 

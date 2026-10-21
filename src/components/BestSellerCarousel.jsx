@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { motion, useInView } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import CoffeeCard from './CoffeeCard'
 import { useRealmMotion } from '../motion/useRealmMotion'
@@ -8,8 +8,15 @@ import './coffee-carousel-motion.css'
 
 const SWIPE_THRESHOLD = 46
 
-export default function BestSellerCarousel({ items = [], onChoose }) {
-  if (!items?.length) return null
+export default function BestSellerCarousel({ items = [], onChoose, loading = false }) {
+  if (!items?.length) return (
+    <div className="coffee-carousel coffee-carousel-polished coffee-carousel-placeholder" role="status" aria-busy={loading}>
+      {loading ? <>
+        <div className="coffee-carousel-skeleton" aria-hidden="true"><div /><span /><span /></div>
+        <p>Loading bestsellers…</p>
+      </> : <p>Our bestsellers are taking a break. Explore the full menu above.</p>}
+    </div>
+  )
   return <CarouselBody items={items} onChoose={onChoose} />
 }
 
@@ -22,7 +29,6 @@ function CarouselBody({ items, onChoose }) {
   const wheelTimeRef = useRef(0)
   const carouselId = useId()
   const { enabled, ambient, compact } = useRealmMotion()
-  const hasEntered = useInView(carouselRef, { once: true, amount: 0.16 })
   const itemCount = items?.length || 0
   const safeActiveIndex = Number.isFinite(activeIndex) && activeIndex >= 0 && activeIndex < itemCount ? activeIndex : 0
 
@@ -130,7 +136,7 @@ function CarouselBody({ items, onChoose }) {
                 count={itemCount}
                 offset={offset}
                 isActive={offset === 0}
-                revealed={hasEntered || !enabled}
+                revealed
                 enabled={enabled}
                 ambient={ambient && !isDragging}
                 compact={compact}

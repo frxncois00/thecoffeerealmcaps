@@ -1,0 +1,48 @@
+.customer-app .realm-passport-profile-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  min-height: 44px;
+  max-width: 100%;
+  padding: 10px 13px;
+  border: 1px solid #ded6c5;
+  border-left: 3px solid #b69a63;
+  border-radius: 5px 11px 11px 5px;
+  background: #faf7ef;
+  color: var(--cr-green);
+  font-size: .8rem;
+  font-weight: 650;
+  line-height: 1.3;
+  text-decoration: none;
+  transition: background-color .18s ease, border-color .18s ease;
+}
+.customer-app .realm-passport-profile-link svg { flex: none; }
+.customer-app .realm-passport-profile-link:hover { background: #f1ecdf; border-color: #b69a63; }
+.customer-app .realm-passport-profile-link:focus-visible { outline: 2px solid var(--cr-green); outline-offset: 3px; }
+@media(prefers-reduced-motion:reduce) { .customer-app .realm-passport-profile-link { transition: none; } }
+
+.customer-app .profile-identity-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: center; gap: 24px; margin-bottom: 24px; }
+.customer-app .profile-identity-row .profile-picture-editor { grid-template-columns: auto minmax(0,1fr); justify-items: start; text-align: left; gap: 10px 14px; margin: 0; padding: 16px 0; min-width: 0; background: transparent; border: 0; box-shadow: none; }
+.customer-app .profile-identity-row .profile-picture-preview { width: 104px; height: 104px; grid-column: 1; grid-row: 1; }
+.customer-app .profile-identity-row .profile-picture-copy { display: contents; }
+.customer-app .profile-identity-row .profile-picture-copy h3 { grid-column: 2; grid-row: 1; }
+.customer-app .profile-identity-row .profile-picture-copy>p { grid-column: 1/-1; font-size: .7rem; line-height: 1.45; margin: 0; }
+.customer-app .profile-identity-row .profile-picture-actions { grid-column: 1/-1; justify-content: flex-start; flex-wrap: nowrap; margin-top: 2px; gap: 8px; }
+.customer-app .profile-identity-row .profile-picture-actions .secondary-button { width: auto; padding-inline: 12px; font-size: .75rem; white-space: normal; }
+.customer-app .profile-identity-row .profile-picture-cancel { padding-inline: 4px; font-size: .75rem; }
+.customer-app .profile-identity-row .profile-picture-cancel:disabled { opacity: .45; cursor: default; }
+.customer-app .profile-identity-row .profile-picture-filename { grid-column: 1/-1; }
+.customer-app .profile-identity-fields { display: grid; gap: 20px; min-width: 0; }
+.customer-app .profile-identity-fields .field, .customer-app .profile-identity-fields input { min-width: 0; width: 100%; }
+@media(max-width:600px) {
+  .customer-app .profile-identity-row { gap: 12px; grid-template-columns: minmax(0,1fr) minmax(0,1.15fr); }
+  .customer-app .profile-identity-row .profile-picture-editor { padding: 12px 0; gap: 8px; }
+  .customer-app .profile-identity-row .profile-picture-preview { width: 64px; height: 64px; border-width: 2px; }
+  .customer-app .profile-identity-row .profile-picture-copy h3 { font-size: .86rem; }
+  .customer-app .profile-identity-row .profile-picture-copy>p { font-size: .68rem; }
+  .customer-app .profile-identity-row .profile-picture-actions .secondary-button { padding-inline: 8px; font-size: .72rem; gap: 5px; white-space: normal; }
+  .customer-app .profile-identity-fields { gap: 16px; }
+  .customer-app .profile-identity-fields .field>span { font-size: .8rem; }
+  .customer-app .profile-identity-fields input { padding-inline: 8px; font-size: .85rem; }
+}

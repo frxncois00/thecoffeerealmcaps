@@ -1,4 +1,4 @@
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck, User, UserPlus } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, Lock, Mail, ShieldCheck, User } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { isCustomerRole } from '../lib/auth'
@@ -6,6 +6,7 @@ import { customerSupabase as supabase, isSupabaseConfigured } from '../lib/supab
 import { retryJwtTimingRequest } from '../lib/supabaseRetry'
 import { EMAIL_MAX_LENGTH, isValidEmail, isValidPassword, sanitizeEmail, sanitizeUsername } from '../utils/inputValidation'
 import AuthWelcomeScreen from '../components/auth/AuthWelcomeScreen'
+import { rememberCustomer, setRememberCustomer } from '../lib/customerAuthStorage'
 
 const otpDigits = 6
 const pause = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds))
@@ -13,7 +14,7 @@ function googleCallbackUrl() {
   return `${window.location.origin}/auth/callback`
 }
 
-export default function CustomerLoginPage({ initialMode = 'login' }) {
+export default function CustomerLoginPage({ initialMode = 'register' }) {
   const navigate = useNavigate()
   const location = useLocation()
   const authContainerRef = useRef(null)
@@ -29,11 +30,12 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [otpOpen, setOtpOpen] = useState(false)
   const [registeredEmail, setRegisteredEmail] = useState('')
-  const [pendingUsername, setPendingUsername] = useState('')
   const [otpCode, setOtpCode] = useState(Array(otpDigits).fill(''))
   const [authMessage, setAuthMessage] = useState(location.state?.authMessage || '')
   const [authError, setAuthError] = useState(location.state?.authError || '')
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const [rememberMe, setRememberMe] = useState(rememberCustomer)
   const [forgotEmail, setForgotEmail] = useState('')
   const [welcomeTransition, setWelcomeTransition] = useState(null)
 
@@ -57,13 +59,15 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
   }, [])
 
   async function continueWithGoogle() {
+    if (loading || googleLoading) return
+    setRememberCustomer(mode === 'login' ? rememberMe : true)
     setAuthError('')
     setAuthMessage('')
     if (!isSupabaseConfigured) return setAuthError('Supabase is not configured yet.')
 
     window.sessionStorage.setItem('tcr.oauth.returnTo', '/menu')
     window.sessionStorage.setItem('tcr.oauth.mode', mode)
-    setLoading(true)
+    setGoogleLoading(true)
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -74,7 +78,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
     })
 
     if (error) {
-      setLoading(false)
+      setGoogleLoading(false)
       setAuthError(error.message || 'Unable to continue with Google. Please try again.')
     }
   }
@@ -103,6 +107,8 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
 
   async function submitLogin(event) {
     event.preventDefault()
+    if (loading || googleLoading) return
+    setRememberCustomer(rememberMe)
     setAuthError('')
     setAuthMessage('')
     if (!isSupabaseConfigured) return setAuthError('Supabase is not configured yet.')
@@ -196,32 +202,31 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
 
   async function submitRegister(event) {
     event.preventDefault()
+    if (loading || googleLoading) return
+    setRememberCustomer(true)
     setAuthError('')
     setAuthMessage('')
     if (!isSupabaseConfigured) return setAuthError('Supabase is not configured yet.')
     const data = new FormData(event.currentTarget)
-    const username = sanitizeUsername(String(data.get('username') || '').trim(), 24)
     const email = String(data.get('email') || '').trim()
     const password = String(data.get('password') || '')
-    if (username.length < 3) return setAuthError('Username must be at least 3 characters long.')
     if (!isValidEmail(email)) return setAuthError('Enter a valid email address.')
     if (!isValidPassword(password)) return setAuthError('Password must be 8–32 characters and include at least 1 number.')
     setLoading(true)
     const { data: signupData, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { username, full_name: username, role: 'customer' } },
+      options: { data: { role: 'customer' } },
     })
     setLoading(false)
     if (error) return setAuthError(error.message || 'Unable to send OTP right now.')
     if (signupData.session) {
-      return navigate('/menu', { replace: true })
+      return navigate('/complete-profile', { replace: true })
     }
     setRegisteredEmail(email)
-    setPendingUsername(username)
     setOtpCode(Array(otpDigits).fill(''))
     setOtpOpen(true)
-    setAuthMessage('We sent a 6-digit The Coffee Realm verification code to your email. Check your inbox to complete registration.')
+    setAuthMessage('')
   }
 
   async function verifyOtp() {
@@ -238,8 +243,8 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
     setLoading(false)
     if (error) return setAuthError(error.message || 'Unable to verify OTP right now.')
     setOtpOpen(false)
-    setAuthMessage(`Account verified. Welcome, ${pendingUsername || 'customer'}!`)
-    navigate('/menu', { replace: true })
+    setAuthMessage('Account verified. Complete your account to continue.')
+    navigate('/complete-profile', { replace: true })
   }
 
   async function resendOtp() {
@@ -356,12 +361,19 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
               <div><User size={19} /><input name="identifier" type="text" maxLength={EMAIL_MAX_LENGTH} autoComplete="username" placeholder="Enter your username or email" onInput={(event) => { event.currentTarget.value = sanitizeEmail(event.currentTarget.value) }} /></div>
             </label>
             <label className="legacy-auth-input">
-              <span>Password <button type="button" onClick={openForgotPassword}>Forgot Password?</button></span>
+              <span>Password</span>
               <div><Lock size={19} /><input name="password" type={showLoginPassword ? 'text' : 'password'} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" placeholder="Enter your password" /><button type="button" aria-label="Toggle password visibility" onClick={() => setShowLoginPassword((value) => !value)}>{showLoginPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
             </label>
-            <button type="submit" className="legacy-auth-submit" disabled={loading}>{loading ? 'PLEASE WAIT...' : 'LOGIN'}</button>
+            <div className="auth-login-options">
+              <label><input type="checkbox" checked={rememberMe} onChange={event => setRememberMe(event.target.checked)} disabled={loading || googleLoading} />Remember me</label>
+              <button type="button" onClick={openForgotPassword} disabled={loading || googleLoading}>Forgot password?</button>
+            </div>
+            <button type="submit" className="legacy-auth-submit" disabled={loading || googleLoading}>{loading ? 'Please wait…' : 'Login'}</button>
             <AuthDivider />
-            <GoogleAuthButton onClick={continueWithGoogle} disabled={loading} />
+            <GoogleAuthButton onClick={continueWithGoogle} disabled={loading || googleLoading} loading={googleLoading} />
+            <p className="registration-legal-notice">
+              By signing in, you agree to our <Link to="/terms-of-use" target="_blank" rel="noopener noreferrer">Terms of Use</Link> and acknowledge our <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>.
+            </p>
           </form>
         </div>
 
@@ -371,33 +383,33 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
             {authError && mode === 'register' ? <AuthNotice variant="error" message={authError} /> : null}
             {authMessage && mode === 'register' ? <AuthNotice variant="success" message={authMessage} /> : null}
             <label className="legacy-auth-input">
-              <span>Username</span>
-              <div><User size={19} /><input name="username" type="text" placeholder="Choose a username" minLength="3" maxLength="24" pattern="[A-Za-z0-9._-]+" onInput={(event) => { event.currentTarget.value = sanitizeUsername(event.currentTarget.value, 24) }} /></div>
-            </label>
-            <label className="legacy-auth-input">
               <span>Email address</span>
               <div><Mail size={19} /><input name="email" type="email" maxLength={EMAIL_MAX_LENGTH} autoComplete="email" placeholder="Enter your email" onInput={(event) => { event.currentTarget.value = sanitizeEmail(event.currentTarget.value) }} /></div>
             </label>
             <label className="legacy-auth-input">
               <span>Password</span>
-              <div><Lock size={19} /><input name="password" type={showRegisterPassword ? 'text' : 'password'} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" placeholder="Create a password" /><button type="button" aria-label="Toggle password visibility" onClick={() => setShowRegisterPassword((value) => !value)}>{showRegisterPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
+              <div><Lock size={19} /><input name="password" type={showRegisterPassword ? 'text' : 'password'} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" placeholder="Create a password" autoComplete="new-password" aria-describedby="registration-password-hint" required /><button type="button" aria-label="Toggle password visibility" onClick={() => setShowRegisterPassword((value) => !value)}>{showRegisterPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
+              <small id="registration-password-hint" className="registration-password-hint">Use 8–32 characters with at least 1 number.</small>
             </label>
-            <button type="submit" className="legacy-auth-submit" disabled={loading}><UserPlus size={18} /> {loading ? 'SENDING...' : 'CREATE ACCOUNT'}</button>
+            <button type="submit" className="legacy-auth-submit" disabled={loading || googleLoading}>{loading ? 'Sending…' : 'Create account'}</button>
             <AuthDivider />
-            <GoogleAuthButton onClick={continueWithGoogle} disabled={loading} />
+            <GoogleAuthButton onClick={continueWithGoogle} disabled={loading || googleLoading} loading={googleLoading} />
+            <p className="registration-legal-notice">
+              By signing up, you agree to our <Link to="/terms-of-use" target="_blank" rel="noopener noreferrer">Terms of Use</Link> and acknowledge our <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</Link>.
+            </p>
           </form>
         </div>
 
         <div className="legacy-auth-toggle">
           <div className="legacy-auth-panel toggle-left">
             <img src="/images/coffeerealmlogo.png" alt="The Coffee Realm logo" />
-            <h2>Hello, Welcome!</h2>
+            <h2 className="auth-welcome-back"><span>Welcome back to</span><span>The Coffee Realm</span></h2>
             <p>Don't have an account?</p>
             <button type="button" onClick={() => { setAuthError(''); setAuthMessage(''); setMode('register') }}>Register Now!</button>
           </div>
           <div className="legacy-auth-panel toggle-right">
             <img src="/images/coffeerealmlogo.png" alt="The Coffee Realm logo" />
-            <h2>Welcome Back!</h2>
+            <h2 className="auth-welcome-register">Welcome to The Coffee Realm</h2>
             <p>Already have an account?</p>
             <button type="button" onClick={() => { setAuthError(''); setAuthMessage(''); setMode('login') }}>Login!</button>
           </div>
@@ -409,7 +421,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
           <p>Enter your account email and we will send a 6-digit password reset code.</p>
           {authError ? <AuthNotice variant="error" message={authError} /> : null}
           <label className="legacy-auth-input"><span>Email address</span><div><Mail size={19} /><input type="email" value={forgotEmail} maxLength={EMAIL_MAX_LENGTH} onChange={(event) => setForgotEmail(sanitizeEmail(event.target.value))} placeholder="Enter your email" /></div></label>
-          <button type="submit" className="legacy-auth-submit" disabled={loading}>{loading ? 'SENDING...' : 'SEND OTP CODE'}</button>
+          <button type="submit" className="legacy-auth-submit" disabled={loading || googleLoading}>{loading ? 'SENDING...' : 'SEND OTP CODE'}</button>
         </form> : null}
         {forgotStep === 'otp' ? <div>
           <div className="legacy-otp-icon"><ShieldCheck size={30} /></div>
@@ -417,8 +429,8 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
           {authError ? <AuthNotice variant="error" message={authError} /> : null}
           {authMessage ? <AuthNotice variant="success" message={authMessage} /> : null}
           <div className="legacy-otp-inputs" aria-label="Password reset OTP inputs" onPaste={(event) => handleOtpPaste(event, forgotOtp, setForgotOtpDigit, forgotOtpRefs)}>{forgotOtp.map((digit, index) => <input key={index} ref={(element) => { forgotOtpRefs.current[index] = element }} value={digit} onChange={(event) => handleOtpInput(index, event.target.value, forgotOtp, setForgotOtpDigit, forgotOtpRefs)} onKeyDown={(event) => handleOtpKeyDown(index, event, forgotOtp, setForgotOtpDigit, forgotOtpRefs)} onFocus={(event) => event.target.select()} inputMode="numeric" maxLength={otpDigits} aria-label={`Reset OTP digit ${index + 1}`} />)}</div>
-          <button type="button" className="legacy-auth-submit" onClick={verifyForgotOtp} disabled={loading}>{loading ? 'VERIFYING...' : 'VERIFY OTP'}</button>
-          <button type="button" className="legacy-auth-link-button" onClick={resendForgotOtp} disabled={loading}>Resend code</button>
+          <button type="button" className="legacy-auth-submit" onClick={verifyForgotOtp} disabled={loading || googleLoading}>{loading ? 'VERIFYING...' : 'VERIFY OTP'}</button>
+          <button type="button" className="legacy-auth-link-button" onClick={resendForgotOtp} disabled={loading || googleLoading}>Resend code</button>
         </div> : null}
         {forgotStep === 'password' ? <form onSubmit={submitNewPassword}>
           <p>Your code is verified. Create a new password for your account.</p>
@@ -426,17 +438,16 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
           <label className="legacy-auth-input"><span>New password</span><div><Lock size={19} /><input type="password" value={newPassword} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" onChange={(event) => setNewPassword(event.target.value.slice(0, 32))} placeholder="Enter new password" /></div></label>
           <label className="legacy-auth-input"><span>Confirm new password</span><div><Lock size={19} /><input type="password" value={confirmPassword} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" onChange={(event) => setConfirmPassword(event.target.value.slice(0, 32))} placeholder="Repeat new password" /></div></label>
           <p className="legacy-auth-hint">Use 8–32 characters with at least 1 number.</p>
-          <button type="submit" className="legacy-auth-submit" disabled={loading}>{loading ? 'UPDATING...' : 'UPDATE PASSWORD'}</button>
+          <button type="submit" className="legacy-auth-submit" disabled={loading || googleLoading}>{loading ? 'UPDATING...' : 'UPDATE PASSWORD'}</button>
         </form> : null}
       </AuthModal> : null}
-      {otpOpen ? <AuthModal title="Verify your account" onClose={() => setOtpOpen(false)}>
-        <div className="legacy-otp-icon"><ShieldCheck size={30} /></div>
+      {otpOpen ? <AuthModal title="Verify your account" icon={<ShieldCheck size={26} aria-hidden="true" />} onClose={() => setOtpOpen(false)}>
         <p>We sent a 6-digit verification code to <b>{registeredEmail}</b>. Enter the code here to create your account.</p>
         {authError ? <AuthNotice variant="error" message={authError} /> : null}
         {authMessage ? <AuthNotice variant="success" message={authMessage} /> : null}
         <div className="legacy-otp-inputs" aria-label="OTP code inputs" onPaste={(event) => handleOtpPaste(event, otpCode, setVerificationOtpDigit, verificationOtpRefs)}>{otpCode.map((digit, index) => <input key={index} ref={(element) => { verificationOtpRefs.current[index] = element }} value={digit} onChange={(event) => handleOtpInput(index, event.target.value, otpCode, setVerificationOtpDigit, verificationOtpRefs)} onKeyDown={(event) => handleOtpKeyDown(index, event, otpCode, setVerificationOtpDigit, verificationOtpRefs)} onFocus={(event) => event.target.select()} inputMode="numeric" maxLength={otpDigits} aria-label={`OTP digit ${index + 1}`} />)}</div>
-        <button type="button" className="legacy-auth-submit" onClick={verifyOtp} disabled={loading}>{loading ? 'VERIFYING...' : 'VERIFY OTP'}</button>
-        <button type="button" className="legacy-auth-link-button" onClick={resendOtp} disabled={loading}>Resend code</button>
+        <button type="button" className="legacy-auth-submit" onClick={verifyOtp} disabled={loading || googleLoading}>{loading ? 'VERIFYING...' : 'VERIFY OTP'}</button>
+        <button type="button" className="legacy-auth-link-button" onClick={resendOtp} disabled={loading || googleLoading}>Resend code</button>
       </AuthModal> : null}
     </main>
   )
@@ -450,10 +461,10 @@ function AuthDivider() {
   return <div className="legacy-auth-divider" role="separator"><span>or</span></div>
 }
 
-function GoogleAuthButton({ onClick, disabled }) {
+function GoogleAuthButton({ onClick, disabled, loading }) {
   return <button type="button" className="legacy-google-auth-button" onClick={onClick} disabled={disabled}>
     <GoogleMark />
-    <span>{disabled ? 'Connecting…' : 'Continue with Google'}</span>
+    <span>{loading ? 'Connecting…' : 'Continue with Google'}</span>
   </button>
 }
 
@@ -466,10 +477,10 @@ function GoogleMark() {
   </svg>
 }
 
-function AuthModal({ title, children, onClose }) {
+function AuthModal({ title, icon, children, onClose }) {
   return <div className="legacy-auth-modal-backdrop" role="dialog" aria-modal="true" aria-label={title}>
     <section className="legacy-auth-modal">
-      <header><h2>{title}</h2><button type="button" onClick={onClose} aria-label="Close">&times;</button></header>
+      <header><h2 className={icon ? 'auth-modal-title-with-icon' : undefined}>{icon && <span className="auth-modal-title-icon">{icon}</span>}{title}</h2><button type="button" onClick={onClose} aria-label="Close">&times;</button></header>
       {children}
     </section>
   </div>

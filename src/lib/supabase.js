@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { customerAuthStorage } from './customerAuthStorage'
 
 const fallbackUrl = 'https://jhkkocjbamoybdvcvoaa.supabase.co'
 const fallbackAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impoa2tvY2piYW1veWJkdmN2b2FhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3ODA3MzgsImV4cCI6MjEwMDM1NjczOH0.izmJt-CBjlmSr-fl-ryobfM-5GC-PrDqce1NJF_v0RI'
@@ -16,6 +17,7 @@ const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || fallbackAnonKey
 const makeClient = (storageKey, detectSessionInUrl = false) => url && anonKey ? createClient(url, anonKey, {
   auth: {
     storageKey,
+    ...(storageKey === 'coffee-realm-customer-auth' ? { storage: customerAuthStorage } : {}),
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl,

@@ -1,114 +1,109 @@
-import { useRef } from 'react'
-import { motion, useInView } from 'framer-motion'
-import { ArrowRight, CakeSlice, Coffee, UtensilsCrossed } from 'lucide-react'
+import { useState } from 'react'
+import { motion } from 'framer-motion'
+import { ArrowRight, Check } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { motionTokens, landingRevealVariants as revealVariants } from '../motion/config'
 import { useRealmMotion } from '../motion/useRealmMotion'
+import './ordering-ticket.css'
 
 const steps = [
-  {
-    number: '01',
-    title: 'Choose a hearty meal',
-    label: 'Katsu Curry, Beef Tapa, and Corned Beef & Spam',
-    icon: UtensilsCrossed,
-    items: [
-      { name: 'Beef Tapa', image: '/images/ordering/beef-tapa-cutout.webp', x: '25%', y: '57%', size: '52%', rotate: '-7deg', z: 1, delay: '-1.7s' },
-      { name: 'Corned Beef & Spam', image: '/images/ordering/corned-beef-spam-cutout.webp', x: '76%', y: '57%', size: '52%', rotate: '7deg', z: 1, delay: '-3.4s' },
-      { name: 'Katsu Curry', image: '/images/ordering/katsu-curry-cutout.webp', x: '50%', y: '39%', size: '62%', rotate: '-1deg', z: 2, delay: '0s' },
-    ],
-  },
-  {
-    number: '02',
-    title: 'Add snacks and drinks',
-    label: 'Classic Nachos, Nuggets & Fries, Biscoff Latte, and Matcha Latte',
-    icon: Coffee,
-    items: [
-      { name: 'Biscoff Latte', image: '/images/ordering/biscoff-latte-cutout.webp', x: '20%', y: '43%', size: '31%', rotate: '-6deg', z: 1, delay: '-2.8s' },
-      { name: 'Matcha Latte', image: '/images/ordering/matcha-latte-cutout.webp', x: '80%', y: '43%', size: '31%', rotate: '6deg', z: 1, delay: '-1.1s' },
-      { name: 'Classic Nachos', image: '/images/ordering/classic-nachos-cutout.webp', x: '36%', y: '65%', size: '49%', rotate: '-6deg', z: 2, delay: '-4.2s' },
-      { name: 'Nuggets & Fries', image: '/images/ordering/nuggets-fries-cutout.webp', x: '66%', y: '65%', size: '49%', rotate: '5deg', z: 3, delay: '-2s' },
-    ],
-  },
-  {
-    number: '03',
-    title: 'Finish with something sweet',
-    label: 'Red Velvet Cake, Tiramisu, and Cookies Bestseller Box',
-    icon: CakeSlice,
-    items: [
-      { name: 'Cookies Bestseller Box', image: '/images/ordering/bestseller-cookies-cutout.webp', x: '50%', y: '29%', size: '58%', rotate: '0deg', z: 1, delay: '-3.6s' },
-      { name: 'Red Velvet Cake', image: '/images/ordering/red-velvet-cake-cutout.webp', x: '29%', y: '61%', size: '54%', rotate: '-7deg', z: 2, delay: '-1.4s' },
-      { name: 'Tiramisu', image: '/images/ordering/tiramisu-cutout.webp', x: '70%', y: '61%', size: '52%', rotate: '7deg', z: 3, delay: '-4.8s' },
-    ],
-  },
+  { title: 'Browse the menu', description: 'Find your favorites.' },
+  { title: 'Add to cart', description: 'Choose your items and quantities.' },
+  { title: 'Check out', description: 'Confirm your order and payment.' },
+  { title: 'Wait or visit the store', description: 'Have it delivered or pick it up.' },
 ]
 
+const foods = [
+  { key: 'latte', image: 'biscoff-latte-cutout.webp', height: 680, imageWidth: 510, floating: { x: '48%', y: '-4%', width: '45%', rotate: 6 }, settled: { x: '42%', y: '15%', width: '36%', rotate: 0 } },
+  { key: 'meal', image: 'katsu-curry-cutout.webp', height: 760, imageWidth: 760, floating: { x: '-2%', y: '13%', width: '60%', rotate: -7 }, settled: { x: '8%', y: '37%', width: '39%', rotate: -2, scaleY: .7 } },
+  { key: 'sandwich', image: 'chicken-sandwich-cutout.webp', height: 1254, imageWidth: 1254, floating: { x: '20%', y: '57%', width: '38%', rotate: -5 }, settled: { x: '42%', y: '48%', width: '27%', rotate: 0 } },
+  { key: 'cake', image: 'red-velvet-slice-plate-cutout.webp', height: 1254, imageWidth: 1254, floating: { x: '64%', y: '51%', width: '30%', rotate: 5 }, settled: { x: '69%', y: '49%', width: '23%', rotate: 0 } },
+]
+
+const sampleReceiptItems = [
+  { name: 'Katsu Curry', price: 195 },
+  { name: 'Biscoff Latte', price: 160 },
+  { name: 'Chicken Sandwich', price: 145 },
+  { name: 'Red Velvet Slice', price: 150 },
+]
+const sampleTotal = sampleReceiptItems.reduce((total, item) => total + item.price, 0)
+
+// Decorative sample only: no customer, payment, or live order data is loaded here.
+function SampleOrderReceipt() {
+  return <div className="order-sample-receipt">
+    <div className="order-sample-receipt-heading">
+      <img src="/images/coffeerealmlogo.png" alt="" width="44" height="44" />
+      <strong>THE COFFEE REALM</strong>
+      <span className="order-sample-receipt-label">SAMPLE RECEIPT</span>
+    </div>
+    <div className="order-sample-receipt-rule" />
+    <div className="order-sample-receipt-row"><span>Order #:</span><span>SAMPLE-001</span></div>
+    <div className="order-sample-receipt-row"><span>Type:</span><span>Online / Pickup</span></div>
+    <div className="order-sample-receipt-rule" />
+    <div className="order-sample-receipt-item order-sample-receipt-columns"><span>QTY</span><span>ITEM</span><span>PHP</span></div>
+    {sampleReceiptItems.map((item) => <div className="order-sample-receipt-item" key={item.name}><span>1</span><span>{item.name}</span><span>{item.price.toFixed(2)}</span></div>)}
+    <div className="order-sample-receipt-rule" />
+    <div className="order-sample-receipt-row"><span>VATable Sale:</span><span>{(sampleTotal / 1.12).toFixed(2)}</span></div>
+    <div className="order-sample-receipt-row"><span>12% VAT:</span><span>{(sampleTotal - sampleTotal / 1.12).toFixed(2)}</span></div>
+    <div className="order-sample-receipt-row order-sample-receipt-total"><strong>TOTAL</strong><strong>PHP {sampleTotal.toFixed(2)}</strong></div>
+    <div className="order-sample-receipt-rule" />
+    <div className="order-sample-receipt-row"><span>Payment:</span><span>Cash</span></div>
+    <div className="order-sample-receipt-rule" />
+    <div className="order-sample-receipt-thanks">Thank you for choosing<br />The Coffee Realm.</div>
+  </div>
+}
+
+function OrderFoodScene({ step, enabled }) {
+  const transition = { duration: enabled ? .5 : 0, ease: [.22, 1, .36, 1] }
+  return <div className="order-food-scene" data-step={step + 1}>
+    <div className="order-food-halo" />
+    <div className="order-food-composition">
+    <motion.div className="order-food-tray" initial={false}
+      animate={{ opacity: step === 1 ? 1 : 0, scale: step === 1 ? 1 : .94, y: step === 1 ? 0 : 12 }} transition={transition}>
+      <img src="/images/ordering/cafe-serving-tray.webp" alt="" width="1774" height="887" decoding="async" draggable={false} />
+    </motion.div>
+    {foods.map((food) => {
+      const pose = step === 0 ? food.floating : food.settled
+      return <motion.div key={food.key} className={`order-food-item order-food-item-${food.key}`} initial={false}
+        animate={{ left: pose.x, top: pose.y, width: pose.width, rotate: pose.rotate, scaleY: pose.scaleY ?? 1, opacity: step < 2 ? 1 : 0 }} transition={transition}>
+        <img src={`/images/ordering/${food.image}`} alt="" width={food.imageWidth} height={food.height} loading="eager" decoding="async" draggable={false} />
+      </motion.div>
+    })}
+    </div>
+    <motion.div className="order-receipt-scene" initial={false}
+      animate={{ opacity: step === 2 ? 1 : 0, y: step === 2 ? 0 : 16, rotate: step === 2 ? -5 : -2 }} transition={transition}>
+      <SampleOrderReceipt />
+    </motion.div>
+    <motion.div className="order-bag-scene" initial={false}
+      animate={{ opacity: step === 3 ? 1 : 0, y: step === 3 ? 0 : 18, scale: step === 3 ? 1 : .96 }} transition={transition}>
+      <img src="/images/ordering/tcr-takeaway-bag.webp" alt="" width="1024" height="1536" decoding="async" draggable={false} />
+    </motion.div>
+  </div>
+}
 export default function HowOrderingWorks() {
-  const sectionRef = useRef(null)
-  const { enabled, ambient } = useRealmMotion()
-  const inView = useInView(sectionRef, { amount: 0.08 })
-  const itemVariants = revealVariants(enabled, 28)
-
-  return (
-    <section
-      ref={sectionRef}
-      className="ordering-works"
-      aria-labelledby="ordering-works-title"
-      data-ordering-ambient={ambient}
-      data-ordering-visible={inView}
-    >
-      <motion.header
-        className="ordering-works-heading"
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, amount: 0.35 }}
-        variants={itemVariants}
-      >
-        <h2 id="ordering-works-title">How ordering works?</h2>
-      </motion.header>
-
-      <motion.div
-        className="ordering-steps"
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, amount: 0.18 }}
-        variants={{ hidden: {}, show: { transition: { staggerChildren: enabled ? motionTokens.stagger : 0 } } }}
-      >
-        {steps.map((step) => {
-          const Icon = step.icon
-          return (
-            <motion.article className="ordering-step" variants={itemVariants} key={step.number}>
-              <div className="ordering-cluster" role="img" aria-label={step.label}>
-                {step.items.map((item) => (
-                  <img
-                    className="ordering-cluster-item"
-                    src={item.image}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    key={item.name}
-                    style={{
-                      '--item-x': item.x,
-                      '--item-y': item.y,
-                      '--item-size': item.size,
-                      '--item-rotate': item.rotate,
-                      '--item-z': item.z,
-                      '--item-delay': item.delay,
-                    }}
-                  />
-                ))}
-              </div>
-              <div className="ordering-step-copy">
-                <span className="ordering-step-mark" aria-hidden="true"><Icon size={22} /><span>{step.number}</span></span>
-                <h3>{step.title}</h3>
-              </div>
-            </motion.article>
-          )
-        })}
-      </motion.div>
-
-      <motion.div className="ordering-works-action" initial="hidden" whileInView="show" viewport={{ once: true }} variants={itemVariants}>
-        <Link className="button button-dark" to="/menu">Start your order <ArrowRight size={17} /></Link>
-      </motion.div>
-    </section>
-  )
+  const [active, setActive] = useState(0)
+  const { enabled, canHover } = useRealmMotion()
+  return <section className="order-journey" aria-labelledby="ordering-works-title">
+    <header className="order-journey-heading">
+      <h2 id="ordering-works-title">How ordering works<br /><em>Just four steps away.</em></h2>
+    </header>
+    <div className="order-ticket">
+      <div className="order-ticket-scene" aria-hidden="true">
+        <div className="order-ticket-art">
+          <OrderFoodScene step={active} enabled={enabled} />
+        </div>
+      </div>
+      <div className="order-ticket-details">
+        <ol className="order-ticket-steps">
+          {steps.map((step, index) => <li key={step.title}>
+            <button type="button" className="order-ticket-step" data-active={index === active} aria-pressed={index === active} onClick={() => setActive(index)} onFocus={() => setActive(index)} onMouseEnter={() => { if (canHover) setActive(index) }}>
+              <span className="order-ticket-number">0{index + 1}</span>
+              <span className="order-ticket-copy"><strong>{step.title}</strong><span>{step.description}</span></span>
+              <span className="order-ticket-step-arrow" aria-hidden="true">{index === 3 ? <Check size={17} /> : <ArrowRight size={17} />}</span>
+            </button>
+          </li>)}
+        </ol>
+        <Link className="order-ticket-cta" to="/menu">Start your order <ArrowRight size={18} aria-hidden="true" /></Link>
+      </div>
+    </div>
+  </section>
 }

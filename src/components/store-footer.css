@@ -1,0 +1,32 @@
+.customer-app .landing-footer-react { padding: 60px 5vw 26px; gap: 36px; }
+.store-footer-info { width: min(1380px, 100%); margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px 64px; }
+.store-footer-pages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 24px; padding-top: 16px; }
+.store-footer-page-group { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.store-footer-info .store-footer-pages a { text-decoration: none; }
+.store-footer-info .store-footer-pages a:hover { color: var(--gold); text-decoration: none; }
+.store-footer-info section { min-width: 0; }
+.store-footer-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; padding-top: 16px; }
+.store-footer-info .store-footer-heading h2 { margin: 0; }
+.store-footer-info h2 { margin: 0 0 16px; color: var(--cream); font-family: 'Playfair Display', Georgia, serif; font-size: 1.9rem; font-weight: 600; letter-spacing: -.03em; }
+.store-footer-info h3 { font-size: 1rem; line-height: 1.4; }
+.store-footer-info p, .store-footer-info li { font-size: .84rem; line-height: 1.75; }
+.store-footer-info p { margin: 0 0 12px; }
+.store-footer-info address { margin-top: 20px; font-style: normal; }
+.store-footer-info address p { display: flex; align-items: flex-start; gap: 12px; }
+.store-footer-info svg { flex-shrink: 0; color: #fff; }
+.store-footer-info address svg { margin-top: 4px; }
+.store-footer-info a { overflow-wrap: anywhere; text-decoration: none; }
+.store-footer-info .realm-open-status { width: fit-content; margin: 0; color: var(--cream); border-color: rgba(248, 246, 240, .25); background: transparent; }
+.store-footer-info .realm-open-status i { background: var(--gold); }
+.store-footer-info a:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+.customer-app .landing-footer-react .footer-bottom-line { width: min(1380px, 100%); margin-inline: auto; }
+@media (max-width: 900px) {
+  .store-footer-info { grid-template-columns: 1fr; gap: 20px; }
+}
+@media (max-width: 560px) {
+  .store-footer-info { grid-template-columns: 1fr; gap: 20px; }
+  .customer-app .landing-footer-react { padding: 36px 22px 24px; gap: 26px; }
+  .store-footer-info h2 { font-size: 1.7rem; }
+  .store-footer-pages { gap: 12px; }
+  .store-footer-info .store-footer-pages a { font-size: .8rem; line-height: 1.5; overflow-wrap: normal; }
+}

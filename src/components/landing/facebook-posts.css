@@ -1,0 +1,41 @@
+.facebook-posts { padding: 40px 5vw 72px; background: #f7faf7; color: #173b2a; }
+.facebook-posts-heading { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin: 0 auto 28px; max-width: none; }
+.facebook-posts-heading h2 { margin: 10px 0 0; font: 500 clamp(2rem, 3.5vw, 3.4rem)/1.08 'Playfair Display', Georgia, serif; letter-spacing: -.035em; }
+.facebook-posts-heading .eyebrow { font-size: .65rem; color: #687c6b; }
+.facebook-posts a { display: inline-flex; align-items: center; gap: 6px; color: #31583a; font-size: .8rem; text-decoration: none; }
+.facebook-posts a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.facebook-posts a:focus-visible { outline: 2px solid #31583a; outline-offset: 5px; }
+.facebook-posts-grid { display: grid; grid-template-columns: minmax(267px, .8fr) minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 28px; max-width: none; margin: auto; }
+.facebook-post { box-sizing: border-box; position: relative; isolation: isolate; width: 100%; max-width: 534px; min-width: 0; margin-inline: auto; padding: 16px; border-radius: 22px; box-shadow: 0 12px 26px #173b2a0d; }
+.facebook-post::before, .facebook-post::after { content: ''; position: absolute; pointer-events: none; }
+.facebook-post-embed { width: 100%; min-width: 0; text-align: center; background: transparent; border-radius: 11px; overflow: hidden; }
+.facebook-post iframe { display: block; max-width: 100%; border: 0; margin: 0 auto; background: transparent; }
+/* Three quiet frame treatments; decorations stay clear of the embedded controls. */
+.facebook-post-store-reel { max-width: 301px; background: #dce7dc; border: 1px solid #bacfbd; }
+.facebook-post-store-reel::before { inset: 6px; border: 1px dashed #8ca88e; border-radius: 17px; }
+.facebook-post-store-reel::after { width: 54px; height: 12px; top: -5px; left: calc(50% - 27px); background: #e6d7b5; opacity: .85; transform: rotate(-5deg); border-radius: 2px; }
+.facebook-post-store-post { background: #f0e8d7; border: 1px solid #dfd3b8; border-radius: 12px 26px 12px 26px; }
+.facebook-post-store-post::before { left: 5px; top: 5px; width: 29px; height: 29px; border-left: 2px solid #b99a60; border-top: 2px solid #b99a60; border-radius: 6px 0 0; }
+.facebook-post-store-post::after { right: 5px; bottom: 5px; width: 29px; height: 29px; border-right: 2px solid #b99a60; border-bottom: 2px solid #b99a60; border-radius: 0 0 6px; }
+.facebook-post-store-update { background: #234432; border: 1px solid #234432; }
+.facebook-post-store-update::before { inset: 6px; border: 1px solid #bfccac80; border-radius: 16px; }
+.facebook-post-store-update::after { width: 32px; height: 3px; left: calc(50% - 16px); bottom: 6px; background: #d3b67b; border-radius: 3px; }
+.facebook-posts-controls { display: none; }
+@media (max-width: 760px) {
+  .facebook-posts-grid > .facebook-post[data-active='false'] { display: none; }
+  .facebook-posts-grid { min-height: 510px; align-items: center; }
+  .facebook-posts-controls { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 340px; margin: 18px auto 0; }
+  .customer-landing .facebook-posts-controls button { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border: 1px solid #bacfbd; border-radius: 50%; background: #fff; color: #173b2a; cursor: pointer; }
+  .facebook-posts-controls button:focus-visible { outline: 2px solid #31583a; outline-offset: 4px; }
+  .facebook-posts-controls > span { font-size: .8rem; font-variant-numeric: tabular-nums; }
+  .facebook-posts-current-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@media (max-width: 1000px) {
+  .facebook-posts-grid { grid-template-columns: minmax(0, 500px); justify-content: center; }
+}
+@media (max-width: 600px) {
+  .facebook-posts { padding: 24px 16px 40px; }
+  .facebook-posts-heading { align-items: start; flex-direction: column; gap: 14px; margin-bottom: 20px; }
+  .facebook-posts-grid { gap: 24px; }
+}
+@media (prefers-reduced-motion: reduce) { .facebook-post { transition: none; } }

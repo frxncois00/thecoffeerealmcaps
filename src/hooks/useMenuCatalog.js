@@ -26,7 +26,7 @@ export function useMenuCatalog() {
     const fallbackTimer = window.setInterval(scheduleRefresh, 30000)
     const channel = supabase.channel('customer-menu-availability')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'menu_items' }, scheduleRefresh)
-      .subscribe((status) => { if (status === 'SUBSCRIBED') scheduleRefresh() })
+      .subscribe()
 
     return () => {
       active = false

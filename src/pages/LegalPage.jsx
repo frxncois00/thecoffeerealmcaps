@@ -3,6 +3,9 @@ import { motion } from 'framer-motion'
 import { CONTENT_DEFAULTS } from '../services/adminPortalConfigurationService'
 import { revealVariants } from '../motion/config'
 import { useRealmMotion } from '../motion/useRealmMotion'
+import { Clock, MapPin, Phone, Mail } from 'lucide-react'
+import { OpenStatus } from '../components/landing/LandingAccents'
+import '../components/store-footer.css'
 
 const sections = {
   privacy: {
@@ -80,13 +83,43 @@ export function LandingFooter({ animated = false }) {
   const content = CONTENT_DEFAULTS.footer
   const { enabled } = useRealmMotion()
   return <footer className="landing-footer-react">
+    <div className="store-footer-info">
+      <section className="store-footer-visit" aria-labelledby="store-footer-title">
+        <div className="store-footer-heading">
+          <h2 id="store-footer-title">The Coffee Realm</h2>
+          <OpenStatus compact />
+        </div>
+        <address>
+          <p><MapPin size={18} aria-hidden="true" /><span>Lot 1 Block 210 Mark Street corner Dollar Street, North Fairview, Quezon City</span></p>
+          <p><Clock size={18} aria-hidden="true" /><span>Open daily · 10:00 AM to 12:00 midnight</span></p>
+          <p><Phone size={18} aria-hidden="true" /><a href="tel:09669647796">0966 964 7796</a></p>
+          <p><Mail size={18} aria-hidden="true" /><a href="mailto:thecoffeerealmx@gmail.com">thecoffeerealmx@gmail.com</a></p>
+        </address>
+      </section>
+      <nav className="store-footer-pages" aria-label="Explore The Coffee Realm">
+        <div className="store-footer-page-group">
+        <Link to="/">Home</Link>
+        <Link to="/menu">Menu</Link>
+        <Link to="/about">About us</Link>
+        <Link to="/#reviews">Testimonials</Link>
+        </div>
+        <div className="store-footer-page-group">
+        <Link to="/#visit">Visit us</Link>
+        <Link to="/help">Help</Link>
+        <Link to="/register">Create account</Link>
+        </div>
+        <div className="store-footer-page-group">
+        <Link to="/privacy-policy">Privacy Policy</Link>
+        <Link to="/terms-of-use">Terms of Use</Link>
+        </div>
+      </nav>
+    </div>
     <motion.div className="footer-bottom-line" initial={animated ? 'hidden' : false} whileInView={animated ? 'show' : undefined} viewport={{ once: true, amount: 0.2 }} variants={revealVariants(enabled, 14)}>
       <div className="footer-social-links">
         <a href={content.facebookUrl} target="_blank" rel="noreferrer" aria-label="Facebook" title="Facebook"><img src="/icons/social/facebook.svg" alt="" width="36" height="36" /></a>
         <a href={content.tiktokUrl} target="_blank" rel="noreferrer" aria-label="TikTok" title="TikTok"><img src="/icons/social/tiktok.svg" alt="" width="36" height="36" /></a>
         <a href={content.instagramUrl} target="_blank" rel="noreferrer" aria-label="Instagram" title="Instagram"><img src="/icons/social/instagram.svg" alt="" width="36" height="36" /></a>
       </div>
-      <nav className="footer-legal" aria-label="Footer links"><Link to="/privacy-policy">Privacy Policy</Link><Link to="/terms-of-use">Terms of Use</Link></nav>
       <span>© 2026 The Coffee Realm. All rights reserved.</span>
     </motion.div>
   </footer>

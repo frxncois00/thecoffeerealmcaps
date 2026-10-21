@@ -1,4 +1,37 @@
 /* Scoped overrides keep the existing menu-card styling and brand palette intact. */
+.coffee-carousel-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+.coffee-carousel-placeholder > p {
+  margin: 0;
+  padding: 0 20px;
+  color: #e4ece5;
+  text-align: center;
+  font-size: .875rem;
+}
+.coffee-carousel-skeleton {
+  width: min(320px, 76vw);
+  height: 400px;
+  overflow: hidden;
+  border-radius: 24px;
+  background: #f5f6f2;
+}
+.coffee-carousel-skeleton > div { height: 68%; background: #dfe6dd; }
+.coffee-carousel-skeleton > span {
+  display: block;
+  height: 14px;
+  margin: 24px 24px 0;
+  border-radius: 8px;
+  background: #dfe6dd;
+}
+.coffee-carousel-skeleton > span:last-child { width: 55%; margin-top: 12px; }
+@media (max-width: 760px) {
+  .coffee-carousel-skeleton { width: min(270px, 76vw); height: 370px; border-radius: 20px; }
+}
 .coffee-carousel.coffee-carousel-polished {
   height: 540px;
   isolation: isolate;
@@ -16,6 +49,31 @@
   margin-top: -222px;
   transition: none;
   backface-visibility: hidden;
+  background: #fff;
+  color: #173b2a;
+  height: 400px;
+}
+.coffee-carousel-polished .coffee-card-body p {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.coffee-carousel-polished .coffee-card-body h3 {
+  color: #173b2a;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+/* Fade toward the section color without exposing the cards behind this one. */
+.coffee-carousel-polished .coffee-card-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  background: #193e29;
+  pointer-events: none;
 }
 .coffee-carousel-polished .coffee-card-action {
   position: absolute;
@@ -130,12 +188,15 @@
   .coffee-carousel.coffee-carousel-polished { height: 468px; }
   .coffee-carousel-polished .coffee-card {
     width: min(270px, 76vw);
+    height: 330px;
     margin-left: calc(min(270px, 76vw) * -0.5);
-    margin-top: -206px;
+    top: 28px;
+    margin-top: 0;
     border-radius: 20px;
     box-shadow: 0 14px 24px rgba(23, 59, 42, 0.12);
   }
   .coffee-carousel-polished .coffee-card-active { box-shadow: 0 18px 28px rgba(23, 59, 42, 0.2); }
+  .coffee-carousel-polished .coffee-card-image { height: auto; aspect-ratio: 340 / 260; }
   .coffee-carousel-polished .coffee-card-body { padding: 18px 18px 20px; }
   .coffee-carousel-polished .coffee-card-body h3 { font-size: 1.08rem; }
   .coffee-carousel-polished .coffee-card-body p { font-size: 0.8rem; }

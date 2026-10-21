@@ -17,18 +17,21 @@ const temperatures=type=>type==='flexible'?['Hot','Cold']:type==='hot_only'?['Ho
 const normalizeAddon=row=>({id:row.id,name:row.name,price:Number(row.price),appliesTo:row.applies_to||'both',targetTemperature:'both',subcategoryIds:Array.isArray(row.addon_subcategories)?row.addon_subcategories.map(link=>link.subcategory_id).filter(Boolean):null})
 export async function fetchMenuCatalog(){
  try {
-  const [{data:rows,error:menuError},{data:addonRows,error:addonError}]=await Promise.all([
+  const [{data:rows,error:menuError},{data:addonRows,error:addonError},{data:bestsellerRows,error:bestsellerError}]=await Promise.all([
    supabase.from('menu_items').select('*, subcategories(display_name,name), main_categories(display_name,name)').eq('is_archived',false).order('sort_order'),
    supabase.from('addons').select('*,addon_subcategories(subcategory_id)').eq('is_available',true).order('sort_order'),
+   supabase.rpc('customer_menu_bestsellers'),
   ])
   if(menuError)throw menuError
   if(addonError)throw addonError
   // The addons table is the checkout catalog. Menu items in the add_ons
   // subcategory are separate products, not a second source of selectable IDs.
+  if(bestsellerError)console.warn('[MenuCatalog] Monthly best sellers unavailable',bestsellerError.message)
+  const bestsellerRanks=new Map((bestsellerRows||[]).map(row=>[row.menu_item_id,Number(row.bestseller_rank)]))
   const addons=(addonRows||[]).map(normalizeAddon)
   const products=(rows||[]).filter(row=>(row.subcategories?.name||'')!=='add_ons').map(row=>{
    const category=row.subcategories?.display_name||row.subcategories?.name||'Menu'
-   return {id:row.id,slug:row.slug,name:row.name,category,description:row.description||'',basePrice:Number(row.price),image:imagePath(row.image_url),available:Boolean(row.is_available),isBestseller:Boolean(row.is_bestseller),isFeatured:Boolean(row.is_featured),onlineBenefitEligible:Boolean(row.online_benefit_eligible),itemType:row.item_type||'food',temperatureType:row.temperature_type||'none',temperatures:temperatures(row.temperature_type),allowIce:Boolean(row.allow_ice),iceLevels:row.allow_ice?['Less Ice','Default Ice','More Ice']:[],allowSugar:Boolean(row.allow_sugar),sugars:row.allow_sugar?['0%','25%','50%','75%','100%']:[],allowAddons:Boolean(row.allow_addons)||(row.subcategories?.name==='meals'),variations:parseVariants(row),addons:menuItemAddons(addons,row)}
+   return {id:row.id,slug:row.slug,name:row.name,category,description:row.description||'',basePrice:Number(row.price),image:imagePath(row.image_url),available:Boolean(row.is_available),isBestseller:bestsellerError?Boolean(row.is_bestseller):bestsellerRanks.has(row.id),bestsellerRank:bestsellerRanks.get(row.id),isFeatured:Boolean(row.is_featured),onlineBenefitEligible:Boolean(row.online_benefit_eligible),itemType:row.item_type||'food',temperatureType:row.temperature_type||'none',temperatures:temperatures(row.temperature_type),allowIce:Boolean(row.allow_ice),iceLevels:row.allow_ice?['Less Ice','Default Ice','More Ice']:[],allowSugar:Boolean(row.allow_sugar),sugars:row.allow_sugar?['0%','25%','50%','75%','100%']:[],allowAddons:Boolean(row.allow_addons)||(row.subcategories?.name==='meals'),variations:parseVariants(row),addons:menuItemAddons(addons,row)}
   })
   return {products,categories:['All',...new Set(products.filter(product=>product.available).map(product=>product.category))]}
  } catch (error) {

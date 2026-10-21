@@ -671,7 +671,7 @@ function ItemFormModal({ item, mainCategories, subcategories, onClose, onDelete,
                   <fieldset className="menu-option-group"><legend>Menu status</legend><div className="menu-option-grid">
                     <label className="menu-option-card"><input type="checkbox" checked={values.manualAvailable} onChange={(e) => set('manualAvailable', e.target.checked)} /><span><b>Available</b><small>Customers can order this item.</small></span></label>
                     <label className="menu-option-card"><input type="checkbox" checked={values.isFeatured} onChange={(e) => set('isFeatured', e.target.checked)} /><span><b>Featured</b><small>Give the item extra visibility.</small></span></label>
-                    <label className="menu-option-card"><input type="checkbox" checked={values.isBestseller} onChange={(e) => set('isBestseller', e.target.checked)} /><span><b>Bestseller</b><small>Show the bestseller marker.</small></span></label>
+                    <label className="menu-option-card"><input type="checkbox" checked={values.isBestseller} onChange={(e) => set('isBestseller', e.target.checked)} /><span><b>Bestseller</b><small>Prioritize in the five best sellers; monthly sales fill remaining spots.</small></span></label>
                   </div></fieldset>
                   <fieldset className="menu-option-group"><legend>Customer customization</legend><div className="menu-option-grid">
                     <label className="menu-option-card"><input type="checkbox" checked={values.allowIce} onChange={(e) => set('allowIce', e.target.checked)} /><span><b>Ice levels</b><small>Let customers choose ice amount.</small></span></label>
