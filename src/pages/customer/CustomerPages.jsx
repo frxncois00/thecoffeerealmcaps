@@ -81,8 +81,8 @@ const normalizePhone=value=>sanitizePhone(value)
 const normalizePostal=value=>String(value||'').replace(/\D/g,'').slice(0,6)
 const customerOrderNumber=value=>{const raw=String(value||'').trim();if(!raw)return '';if(/^(WI|CR)-\d{4}-\d{4,}$/i.test(raw))return raw.toUpperCase();if(/^#?D\d{10}$/i.test(raw))return raw.startsWith('#')?raw:`#${raw.toUpperCase()}`;if(/^\d{10,}$/.test(raw))return `#D${raw.slice(-10)}`;return raw}
 const paymentMethodLabel=value=>value==='cod'?'Cash on delivery':value==='bank_transfer'?'Bank transfer':value==='paymongo'?'PayMongo':value==='qrph'?'QRPh via PayMongo':'GCash'
-const validPaymentReference=(payment,value)=>payment==='gcash'?/^[0-9]{13}$/.test(String(value||'').trim()):payment==='bank_transfer'?/^[0-9]{10,25}$/.test(String(value||'').trim()):true
-const paymentReferenceMessage=payment=>payment==='bank_transfer'?'Enter 10 to 25 digits from your bank transfer receipt.':'Enter exactly 13 digits from your GCash receipt.'
+const validPaymentReference=(payment,value)=>payment==='gcash'?/^[0-9]{13}$/.test(String(value||'').trim()):payment==='bank_transfer'?/^[0-9]{6,25}$/.test(String(value||'').trim()):true
+const paymentReferenceMessage=payment=>payment==='bank_transfer'?'Enter 6 to 25 digits from your bank transfer receipt.':'Enter exactly 13 digits from your GCash receipt.'
 const fulfillmentLabel=value=>value==='pickup'?'Store pickup':'Delivery'
 const titleCase=value=>String(value||'').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim().replace(/\b\w/g,letter=>letter.toUpperCase())
 const orderPaymentMethod=order=>order?.payments?.[0]?.method||order?.payment_method||order?.payment||'gcash'
@@ -341,7 +341,7 @@ function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,ref
       </div>
       <div className="checkout-payment-column checkout-payment-column-proof">
         <div className="checkout-proof-field"><span>Payment screenshot</span><input ref={proofInputRef} id="checkout-proof-upload" className="proof-file-input" type="file" accept={IMAGE_UPLOAD_ACCEPT} tabIndex={-1} aria-hidden="true" onClick={event=>{event.currentTarget.value=''}} onChange={onProofChange}/><button type="button" className={`proof-dropzone${previewUrl?' has-preview':''}${validatingProof?' is-scanning':''}`} aria-describedby={previewUrl?undefined:'checkout-proof-help'} onClick={()=>proofInputRef.current?.click()}>{previewUrl?<><img className="proof-preview-image" src={previewUrl} alt="Selected payment proof preview"/>{validatingProof&&<span className="inline-proof-scanning"><span className="inline-proof-scan-line"/><RotateCcw className="spinning" size={22}/>Scanning receipt…</span>}<span className="proof-preview-action"><Camera size={17}/>{validatingProof?'Reading reference…':'Change screenshot'}</span></>:<><Camera/><strong>Upload screenshot</strong><small id="checkout-proof-help">JPG, PNG, or WEBP</small></>}</button>{proof&&<div className="proof-file" aria-live="polite"><span>{proof.name}</span><button type="button" onClick={onProofClear} disabled={validatingProof}>Remove</button></div>}{proofError&&<p className="field-hint error" role="alert">{proofError}</p>}</div>
-        <label className="field checkout-reference-field"><span>{label} reference number</span><input required type="text" value={referenceNumber} onChange={event=>changeReference(event.target.value)} onBlur={()=>onReferenceBlur?.(referenceNumber)} inputMode="numeric" autoComplete="off" maxLength={isGcash?13:25} minLength={isGcash?13:10} pattern={isGcash?'[0-9]{13}':'[0-9]{10,25}'} placeholder={isGcash?'Enter 13-digit reference':'Enter 10-25 digit reference'} title={paymentReferenceMessage(payment)} aria-invalid={Boolean(referenceError)} aria-describedby={referenceError?'checkout-reference-error':undefined}/>{referenceError&&<small id="checkout-reference-error" className="field-error-message" role="alert">{referenceError}</small>}</label>
+        <label className="field checkout-reference-field"><span>{label} reference number</span><input required type="text" value={referenceNumber} onChange={event=>changeReference(event.target.value)} onBlur={()=>onReferenceBlur?.(referenceNumber)} inputMode="numeric" autoComplete="off" maxLength={isGcash?13:25} minLength={isGcash?13:6} pattern={isGcash?'[0-9]{13}':'[0-9]{6,25}'} placeholder={isGcash?'Enter 13-digit reference':'Enter 6-25 digit reference'} title={paymentReferenceMessage(payment)} aria-invalid={Boolean(referenceError)} aria-describedby={referenceError?'checkout-reference-error':undefined}/>{referenceError&&<small id="checkout-reference-error" className="field-error-message" role="alert">{referenceError}</small>}</label>
       </div>
     </div>
   </section>
@@ -884,11 +884,29 @@ function CancelOrderModal({order,onClose,onConfirm}){
 function OrderDetailsDrawer({order,addonNames,onClose}){
   const { pricing } = usePricing()
   const [proofUrl,setProofUrl]=useState('')
+  const [activeSection,setActiveSection]=useState('overview')
+  const drawerBodyRef=useRef(null)
   const method=orderPaymentMethod(order)
   const vatRate=order.vat_rate ?? pricing.vatRate
   const pricesIncludeVat=order.prices_include_vat !== false
   const breakdown=buildVatExemptOrderBreakdown({subtotal:order.subtotal,discountSubtotal:order.discount_subtotal,discountType:order.discount_type,discountAmount:order.discount_amount,vatExemptAmount:order.vat_exempt_amount,vatRate,pricesIncludeVat})
   const status=orderStatusLabel(order)
+  const steps=trackingSteps(order)
+  const currentStep=Math.max(steps.indexOf(status),0)
+  const sections={overview:'Overview',order:'Order',payment:'Payment',history:'History'}
+  const scrollToSection=section=>{
+    setActiveSection(section)
+    const body=drawerBodyRef.current
+    const target=body?.querySelector(`#customer-order-${section}`)
+    if(body&&target)body.scrollTo({top:body.scrollTop+target.getBoundingClientRect().top-body.getBoundingClientRect().top,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'})
+  }
+  const updateActiveSection=()=>{
+    const body=drawerBodyRef.current
+    if(!body)return
+    const threshold=body.getBoundingClientRect().top+50
+    const visible=Object.keys(sections).filter(section=>body.querySelector(`#customer-order-${section}`)?.getBoundingClientRect().top<=threshold)
+    setActiveSection(visible.at(-1)||'overview')
+  }
   useEffect(()=>{
     if(!order.payment_proof_path||(method!=='gcash'&&method!=='bank_transfer'))return
     let active=true
@@ -896,19 +914,22 @@ function OrderDetailsDrawer({order,addonNames,onClose}){
     return()=>{active=false}
   },[order.id,order.payment_proof_path,method])
   return <motion.div className="ops-drawer-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)onClose()}} {...backdropMotion}>
-    <motion.aside className="ops-drawer" role="dialog" aria-modal="true" aria-labelledby="order-drawer-title" {...drawerPanelMotion}>
-      <header><div><span className="settings-kicker">{fulfillmentLabel(order.order_type)}</span><h2 id="order-drawer-title">{customerOrderNumber(order.order_number)}</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={20}/></button></header>
-      <div className="ops-drawer-body">
-        {isCancellationReview(order)&&<div className="ops-drawer-cancellation-review"><AlertTriangle size={16}/><div><b>Cancellation review in progress</b><p>Your order is on hold while the store checks payment and refund requirements.</p><small>{order.cancellation_reason}{order.cancellation_notes?` - ${order.cancellation_notes}`:''}</small></div></div>}
-        {order.status==='Cancelled'&&<div className="ops-drawer-cancelled"><AlertTriangle size={16}/><div><b>Cancelled</b><p>{order.cancellation_reason}{order.cancellation_notes?` — ${order.cancellation_notes}`:''}</p>{order.refund_status!=='not_applicable'&&<p>{refundStatusLabel(order.refund_status)}</p>}</div></div>}
-        <section><h3>Items</h3><OrderItemsSummary order={order} addonNames={addonNames}/></section>
-        <section><h3>{order.order_type==='pickup'?'Pickup information':'Delivery information'}</h3>{order.order_type==='delivery'&&order.delivery_address&&<p><MapPin size={13}/> {order.delivery_address}</p>}<p>Scheduled: {orderScheduleLabel(order)}</p>{order.delivery_notes&&<p>Notes: {order.delivery_notes}</p>}</section>
-        <section><h3>Payment</h3><p>{paymentMethodLabel(method)} · {orderPaymentStatus(order)}</p>
-          {(method==='gcash'||method==='bank_transfer')&&(proofUrl?<a href={proofUrl} target="_blank" rel="noreferrer"><img className="ops-proof-image" src={proofUrl} alt="Payment proof"/></a>:<p className="ops-proof-pending">No payment proof on file.</p>)}
+    <motion.aside className="ops-drawer txn-drawer ops-order-drawer customer-order-drawer" role="dialog" aria-modal="true" aria-labelledby="order-drawer-title" {...drawerPanelMotion}>
+      <header className="txn-drawer-header"><div><span className="settings-kicker">{fulfillmentLabel(order.order_type)} order</span><h2 id="order-drawer-title">{customerOrderNumber(order.order_number)}</h2></div><button type="button" onClick={onClose} aria-label="Close order details"><X size={20}/></button></header>
+      <nav className="txn-drawer-nav" aria-label="Order details sections">{Object.entries(sections).map(([key,label])=><button key={key} type="button" className={activeSection===key?'is-active':undefined} aria-current={activeSection===key?'location':undefined} onClick={()=>scrollToSection(key)}>{label}</button>)}</nav>
+      <div className="ops-drawer-body txn-drawer-body" ref={drawerBodyRef} onScroll={updateActiveSection}>
+        <section id="customer-order-overview" className="txn-detail-overview txn-drawer-section">
+          <div className="ops-order-hero">
+            <div className="ops-order-hero-top"><div><span>Order total</span><strong>{money(order.final_total)}</strong></div><span className={`ops-order-hero-status ops-order-hero-status--${orderStatusTone(status).replace('status-chip--','')}`}>{status}</span></div>
+            <dl className="ops-order-hero-facts"><div><dt>{fulfillmentLabel(order.order_type)}</dt><dd>{orderScheduleLabel(order)}</dd></div><div><dt>Payment</dt><dd>{paymentMethodLabel(method)} · {orderPaymentStatus(order)}</dd></div><div><dt>Refund</dt><dd>{refundStatusLabel(order.refund_status)||'No refund'}</dd></div></dl>
+          </div>
+          {isCancellationReview(order)&&<div className="ops-drawer-cancellation-review"><AlertTriangle size={16}/><div><b>Cancellation review in progress</b><p>Your order is on hold while the store checks payment and refund requirements.</p><small>{order.cancellation_reason}{order.cancellation_notes?` - ${order.cancellation_notes}`:''}</small></div></div>}
+          {order.status==='Cancelled'&&<div className="ops-drawer-cancelled"><AlertTriangle size={16}/><div><b>Cancelled</b><p>{order.cancellation_reason}{order.cancellation_notes?` — ${order.cancellation_notes}`:''}</p>{order.refund_status!=='not_applicable'&&<p>{refundStatusLabel(order.refund_status)}</p>}</div></div>}
+          <div className="ops-order-overview-block"><h3>{order.order_type==='pickup'?'Pickup':'Delivery'}</h3>{order.order_type==='delivery'&&order.delivery_address&&<p className="ops-order-address">{order.delivery_address}</p>}<div className="ops-order-overview-row"><span>Scheduled</span><b>{orderScheduleLabel(order)}</b></div><div className="ops-order-overview-row"><span>Placed</span><b>{new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(order.created_at))}</b></div>{order.delivery_notes&&<div className="ops-order-overview-row"><span>Notes</span><b>{order.delivery_notes}</b></div>}</div>
         </section>
-         <section><h3>Price breakdown</h3><div className="ops-price-rows">{breakdown.isVatExemptDiscount?<>{breakdown.regularBaseAmount>0&&<p><span>VATable Sale</span><b>{money(breakdown.regularBaseAmount)}</b></p>}<p><span>VAT-Exempt Sale</span><b>{money(breakdown.vatExemptSale)}</b></p><p><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.regularVatAmount)}</b></p><p><span>Less 20% SC/PWD Disc.</span><b>-{money(breakdown.discountAmount)}</b></p></>:<><p><span>VATable Sale</span><b>{money(breakdown.baseAmount)}</b></p><p><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.vatAmount)}</b></p></>}{order.order_type==='delivery'&&<p><span>Delivery fee</span><b>{money(order.delivery_fee||0)}</b></p>}<p className="ops-price-total"><span>Total</span><b>{money(order.final_total)}</b></p></div></section>
-        <section><h3>Order timeline</h3><ul className="ops-timeline">{trackingSteps(order).map((step,index)=>{const currentIndex=Math.max(trackingSteps(order).indexOf(status),0);return <li key={step} className={index<=currentIndex?'done':''}>{index<currentIndex?<Check size={13}/>:<StatusIcon status={step} size={13}/>} {step}</li>})}</ul></section>
-        <section><h3>Need help?</h3><a className="secondary-button" href="/help">Contact support</a></section>
+        <section id="customer-order-order" className="txn-drawer-section"><div className="txn-section-heading"><div><h3>Items</h3></div><b className="txn-item-count">{orderCount(order)} item{orderCount(order)===1?'':'s'}</b></div><ul className="txn-item-list">{(order.order_items||[]).map((raw,index)=>{const item=orderItemDetail(raw,addonNames);return <li key={raw.id||index}><div><b>{item.qty}× {item.name}</b><span>{money(item.total)}</span></div>{raw.unit_price!=null&&<small>Unit price: {money(raw.unit_price)} each</small>}{item.bits.length>0&&<small>{item.bits.join(' · ')}</small>}{item.addonList.length>0&&<small>Add-ons: {item.addonList.join(', ')}</small>}{item.instructions&&<small>Special instructions: {item.instructions}</small>}</li>})}</ul><div className="txn-total-list" aria-label="Order total breakdown">{breakdown.isVatExemptDiscount?<>{breakdown.regularBaseAmount>0&&<div><span>VATable Sale</span><b>{money(breakdown.regularBaseAmount)}</b></div>}<div><span>VAT-Exempt Sale</span><b>{money(breakdown.vatExemptSale)}</b></div><div><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.regularVatAmount)}</b></div><div><span>Less 20% SC/PWD Disc.</span><b>-{money(breakdown.discountAmount)}</b></div></>:<><div><span>VATable Sale</span><b>{money(breakdown.baseAmount)}</b></div><div><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.vatAmount)}</b></div></>}{order.order_type==='delivery'&&<div><span>Delivery fee</span><b>{money(order.delivery_fee||0)}</b></div>}<div className="total"><span>Total</span><b>{money(order.final_total)}</b></div></div></section>
+        <section id="customer-order-payment" className="txn-drawer-section"><div className="txn-section-heading"><div><h3>Payment</h3></div></div><div className="txn-payment-record"><div className="txn-payment-method"><span>Payment method</span><b>{paymentMethodLabel(method)} · {orderPaymentStatus(order)}</b></div>{(method==='gcash'||method==='bank_transfer')&&(proofUrl?<a className="txn-proof-card" href={proofUrl} target="_blank" rel="noreferrer"><img src={proofUrl} alt="Payment proof"/></a>:<p className="ops-proof-pending">No payment proof on file.</p>)}</div></section>
+        <section id="customer-order-history" className="txn-drawer-section"><div className="txn-section-heading"><div><h3>History</h3></div></div><ul className="txn-timeline">{steps.map((step,index)=><li key={step} className={index<=currentStep?'done':''}><span>{index<currentStep?<Check size={16}/>:<StatusIcon status={step} size={16}/>}</span><div><b>{step}</b><small>{index<=currentStep?'Reached':'Waiting for update'}</small></div></li>)}</ul><div className="customer-order-support"><h3>Need help?</h3><a className="secondary-button" href="/help">Contact support</a></div></section>
       </div>
     </motion.aside>
   </motion.div>

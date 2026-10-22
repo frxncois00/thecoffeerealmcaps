@@ -1009,6 +1009,7 @@ function TransactionDrawer({
   const [audit, setAudit] = useState([])
   const [proofUrl, setProofUrl] = useState('')
   const [loading, setLoading] = useState(true)
+  const [activeSection, setActiveSection] = useState('overview')
   const drawerBodyRef = useRef(null)
 
   useEffect(() => {
@@ -1054,6 +1055,9 @@ function TransactionDrawer({
   })
   const canRefund = canManageFinancialActions && paymentMeta.key === 'paid' && processedRefundAmount(transaction) < transaction.finalTotal && !transaction.isVoided
   const timeline = buildTimeline(transaction, audit)
+  const scheduleDisplay = transaction.scheduleDate || transaction.scheduleTime
+    ? [transaction.scheduleDate && formatDateInput(transaction.scheduleDate), transaction.scheduleTime && formatTime(transaction.scheduleTime)].filter(Boolean).join(' · ')
+    : 'Not scheduled'
   const sectionIds = {
     overview: `transaction-overview-${transaction.id}`,
     order: `transaction-order-${transaction.id}`,
@@ -1061,62 +1065,62 @@ function TransactionDrawer({
     history: `transaction-history-${transaction.id}`,
   }
   const scrollToSection = (section) => {
-    drawerBodyRef.current?.querySelector(`#${sectionIds[section]}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setActiveSection(section)
+    const body = drawerBodyRef.current
+    const target = body?.querySelector(`#${sectionIds[section]}`)
+    if (body && target) body.scrollTo({ top: body.scrollTop + target.getBoundingClientRect().top - body.getBoundingClientRect().top, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
+  }
+  const updateActiveSection = () => {
+    const body = drawerBodyRef.current
+    if (!body) return
+    const threshold = body.getBoundingClientRect().top + 50
+    const visible = Object.entries(sectionIds).filter(([, id]) => body.querySelector(`#${id}`)?.getBoundingClientRect().top <= threshold)
+    setActiveSection(visible.at(-1)?.[0] || 'overview')
   }
 
   return (
     <div className="ops-drawer-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
-      <aside className="ops-drawer txn-drawer" role="dialog" aria-modal="true" aria-labelledby="txn-drawer-title">
+      <aside className="ops-drawer txn-drawer ops-order-drawer admin-transaction-drawer" role="dialog" aria-modal="true" aria-labelledby="txn-drawer-title">
         <header className="txn-drawer-header">
           <div>
-            <span className="settings-kicker">{transaction.receiptNumber}</span>
+            <span className="settings-kicker">{transaction.fulfillment || 'Transaction'} order</span>
             <h2 id="txn-drawer-title">{transaction.orderNumber}</h2>
-          </div>
-          <div className="txn-header-total" aria-label={`Transaction total ${money(transaction.finalTotal)}`}>
-            <span>Total</span>
-            <b>{money(transaction.finalTotal)}</b>
           </div>
           <button type="button" onClick={onClose} aria-label="Close transaction details"><X size={20} /></button>
         </header>
 
         <nav className="txn-drawer-nav" aria-label="Transaction details sections">
           {Object.entries({ overview: 'Overview', order: 'Order', payment: 'Payment', history: 'History' }).map(([key, label]) => (
-            <button key={key} type="button" onClick={() => scrollToSection(key)}>{label}</button>
+            <button key={key} type="button" className={activeSection === key ? 'is-active' : undefined} aria-current={activeSection === key ? 'location' : undefined} onClick={() => scrollToSection(key)}>{label}</button>
           ))}
         </nav>
 
-        <div className="ops-drawer-body txn-drawer-body" ref={drawerBodyRef}>
+        <div className="ops-drawer-body txn-drawer-body" ref={drawerBodyRef} onScroll={updateActiveSection}>
           <section id={sectionIds.overview} className="txn-detail-overview txn-drawer-section">
-            <div className="txn-section-heading">
-              <div><span>At a glance</span><h3>Transaction overview</h3></div>
-              <div className="txn-pill-row">
-                <span className={`status-chip status-chip--${statusTone(transaction.isVoided ? 'Voided' : transaction.status)}`}>{transaction.isVoided ? 'Voided' : transaction.status}</span>
-                <span className={`status-chip status-chip--${paymentMeta.tone}`}>{paymentMeta.label}</span>
-                <span className={`status-chip status-chip--${refundMeta.tone}`}>{refundMeta.label}</span>
-              </div>
+            <div className="ops-order-hero">
+              <div className="ops-order-hero-top"><div><span>Order total</span><strong>{money(transaction.finalTotal)}</strong></div><span className={`ops-order-hero-status ops-order-hero-status--${statusTone(transaction.isVoided ? 'Voided' : transaction.status)}`}>{transaction.isVoided ? 'Voided' : transaction.status}</span></div>
+              <dl className="ops-order-hero-facts">
+                <div><dt>{transaction.fulfillment || 'Fulfillment'}</dt><dd>{scheduleDisplay}</dd></div>
+                <div><dt>Payment</dt><dd>{PAYMENT_METHOD_LABEL[transaction.paymentMethod] || '-'} · {paymentMeta.label}</dd></div>
+                <div><dt>Refund</dt><dd>{refundMeta.label}</dd></div>
+              </dl>
             </div>
             {transaction.isVoided && <p className="menu-badge-warning"><AlertTriangle size={13} /> Voided because: {transaction.voidedReason}</p>}
             {transaction.status === 'Cancelled' && <p className="menu-badge-warning"><AlertTriangle size={13} /> Cancelled by {transaction.cancelledByRole || 'Staff'} - {transaction.cancellationReason}{transaction.cancellationNotes ? ` (${transaction.cancellationNotes})` : ''}</p>}
-            <div className="txn-overview-cards">
-              <article className="txn-info-card">
-                <span>Customer</span>
-                <b>{transaction.customerName}</b>
-                <small>{transaction.isGuest ? 'Guest checkout' : 'Registered customer'}</small>
-                {(transaction.customerPhone || transaction.customerEmail) && <p>{transaction.customerPhone || transaction.customerEmail}</p>}
-              </article>
-              <article className="txn-info-card">
-                <span>Fulfillment</span>
-                <b>{transaction.fulfillment || 'Not specified'}</b>
-                <small>{getSourceLabel(transaction)} · {transaction.cashierName || 'No staff recorded'}</small>
-                {(transaction.scheduleDate || transaction.scheduleTime) && <p>{transaction.scheduleDate ? formatDateInput(transaction.scheduleDate) : ''}{transaction.scheduleDate && transaction.scheduleTime ? ' · ' : ''}{transaction.scheduleTime ? formatTime(transaction.scheduleTime) : ''}</p>}
-              </article>
+            <div className="ops-order-overview-block">
+              <h3>Customer</h3><strong>{transaction.customerName}</strong>
+              <small>{transaction.isGuest ? 'Guest checkout' : 'Registered customer'}</small>
+              {transaction.customerPhone && <div className="ops-order-overview-row"><span>Phone</span><b>{transaction.customerPhone}</b></div>}
+              {transaction.customerEmail && <div className="ops-order-overview-row"><span>Email</span><b>{transaction.customerEmail}</b></div>}
             </div>
-            <div className="txn-detail-grid">
-              <div><span>Created</span><b>{formatDateTime(transaction.createdAt)}</b></div>
-              <div><span>Staff / cashier</span><b>{transaction.cashierName || '-'}</b></div>
-              {transaction.customerEmail && <div><span>Email</span><b>{transaction.customerEmail}</b></div>}
-              {transaction.customerPhone && <div><span>Phone</span><b>{transaction.customerPhone}</b></div>}
-              {transaction.deliveryAddress && <div className="wide"><span>Delivery address</span><b>{transaction.deliveryAddress}</b></div>}
+            <div className="ops-order-overview-block">
+              <h3>{transaction.fulfillment || 'Fulfillment'}</h3>
+              {transaction.deliveryAddress && <p className="ops-order-address">{transaction.deliveryAddress}</p>}
+              <div className="ops-order-overview-row"><span>Scheduled</span><b>{scheduleDisplay}</b></div>
+              <div className="ops-order-overview-row"><span>Placed</span><b>{formatDateTime(transaction.createdAt)}</b></div>
+              <div className="ops-order-overview-row"><span>Source</span><b>{getSourceLabel(transaction)}</b></div>
+              <div className="ops-order-overview-row"><span>Staff / cashier</span><b>{transaction.cashierName || 'No staff recorded'}</b></div>
+              <div className="ops-order-overview-row"><span>Receipt</span><b>{transaction.receiptNumber}</b></div>
             </div>
           </section>
 

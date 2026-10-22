@@ -248,7 +248,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   }
 
   return (
-    <AppShell role={role} title="Purchase Orders" eyebrow={isAdmin ? 'Approval queue' : 'Inventory purchasing'} onRefresh={load}>
+    <AppShell role={role} title="Purchase Orders" eyebrow={isAdmin ? 'Approval queue' : undefined} onRefresh={load}>
       {error ? <div className="po-alert is-error" role="alert">{error}<button type="button" onClick={() => setError('')} aria-label="Dismiss error"><X size={15} /></button></div> : null}
       {notice ? <div className="po-alert is-success" role="status"><Check size={15} />{notice}</div> : null}
 

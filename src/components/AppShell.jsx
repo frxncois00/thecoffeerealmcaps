@@ -70,7 +70,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join('') || 'ST'
-  const visibleNotifications = notifications.filter((item) => role === 'admin' ? item.category !== 'orders' : item.category !== 'approvals')
+  const visibleNotifications = notifications.filter((item) => role === 'admin' ? item.category !== 'orders' : item.category !== 'approvals' && item.category !== 'menu')
   const unreadNotificationCount = visibleNotifications.filter((item) => !item.read).length
   const visibleNotificationCount = unreadNotificationCount
   const [orderToasts, setOrderToasts] = useManagementSessionState(`${role}:shell:order-toasts`, [])
@@ -387,7 +387,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
             message: `${row.item_name || 'Menu edit'} (${row.action || 'change'}) submitted by ${submitter} on ${submittedTime(row.created_at)}, needs approval`,
             target: { kind: 'menu-approval', id: row.id }, eventKey: `approval:menu:${row.id}`, createdAt: createdAt || row.created_at })
         })
-      } else if (table === 'menu_items' && staffPreferences.notify_menu_changes) {
+      } else if (role === 'admin' && table === 'menu_items' && staffPreferences.notify_menu_changes) {
         const name = row?.name || old?.name || 'A menu item'
         const action = eventType === 'INSERT' ? 'was added' : eventType === 'DELETE' ? 'was removed' : 'was updated'
         add({ category: 'menu', title: 'Menu changed', message: `${name} ${action}.` })

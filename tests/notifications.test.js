@@ -27,9 +27,10 @@ test('urgent toasts are silent additions only for fresh events in the active app
 })
 
 test('existing operational toasts are not duplicated by the new bell', () => {
-  for (const event_type of ['new_order', 'low_stock', 'out_of_stock', 'customer_cancelled', 'cancellation_requested', 'daily_restock']) {
+  for (const event_type of ['new_order', 'payment_proof', 'low_stock', 'out_of_stock', 'customer_cancelled', 'cancellation_requested', 'daily_restock']) {
     assert.equal(needsSilentToast({ toast: true, event_type, createdAt: new Date().toISOString() }, 'staff', true), false)
   }
+  assert.equal(needsSilentToast({ toast: true, event_type: 'payment_proof', createdAt: new Date().toISOString() }, 'admin', true), true)
 })
 
 test('notification links preserve the record and recipient workspace', () => {

@@ -1,5 +1,6 @@
 import { Bell, Check, CheckCheck, ChevronRight, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useNotificationHistory } from '../../hooks/useNotificationHistory'
 import { needsSilentToast, notificationDestination } from '../../utils/notifications'
@@ -10,9 +11,15 @@ function timeLabel(value) {
   return new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(value))
 }
 
+function customerTimeLabel(value) {
+  return new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Manila' }).format(new Date(value))
+}
+
 export default function NotificationBell({ userId, role, onOpen, animated = false }) {
   const [open, setOpen] = useState(false)
   const [working, setWorking] = useState(false)
+  const [confirmClear, setConfirmClear] = useState(false)
+  const [customerFilter, setCustomerFilter] = useState('all')
   const [toasts, setToasts] = useState([])
   const anchor = useRef(null)
   const button = useRef(null)
@@ -45,13 +52,13 @@ export default function NotificationBell({ userId, role, onOpen, animated = fals
     window.addEventListener('tcr:customer-toast', receive)
     return () => { pending.forEach(window.clearTimeout); window.removeEventListener('tcr:customer-toast', receive) }
   }, [role, userId])
-  useEffect(() => { setOpen(false) }, [location.key])
+  useEffect(() => { setOpen(false); setConfirmClear(false) }, [location.key])
   useEffect(() => {
     if (!open) return undefined
     closeButton.current?.focus()
-    const outside = event => { if (!anchor.current?.contains(event.target)) setOpen(false) }
+    const outside = event => { if (!anchor.current?.contains(event.target)) { setOpen(false); setConfirmClear(false) } }
     const escape = event => {
-      if (event.key === 'Escape') { event.stopPropagation(); setOpen(false); button.current?.focus() }
+      if (event.key === 'Escape') { event.stopPropagation(); setOpen(false); setConfirmClear(false); button.current?.focus() }
     }
     document.addEventListener('pointerdown', outside)
     document.addEventListener('keydown', escape)
@@ -68,32 +75,45 @@ export default function NotificationBell({ userId, role, onOpen, animated = fals
     else onOpen?.(item)
   }
   const run = async action => { if (working) return; setWorking(true); try { await action() } finally { setWorking(false) } }
+  const clearNotifications = async () => {
+    if (working) return
+    setWorking(true)
+    try { if (await feed.clear()) setConfirmClear(false) } finally { setWorking(false) }
+  }
+  const visibleItems = role === 'customer' && customerFilter === 'unread' ? feed.items.filter(item => !item.read) : feed.items
   return <>
     <div ref={anchor} className={`notification-anchor ${animated ? 'is-ringing' : ''}`}>
-      <button ref={button} type="button" className={role === 'customer' ? 'notification-bell-button' : 'internal-utility-button notification-bell-button'} aria-label={`Notifications${feed.unread ? `, ${feed.unread} unread` : ''}`} aria-expanded={open} aria-controls={panelId} onClick={() => setOpen(value => !value)}>
+      <button ref={button} type="button" className={role === 'customer' ? 'notification-bell-button' : 'internal-utility-button notification-bell-button'} aria-label={`Notifications${feed.unread ? `, ${feed.unread} unread` : ''}`} aria-expanded={open} aria-controls={panelId} onClick={() => { setConfirmClear(false); setOpen(value => !value) }}>
         <Bell size={19} />{feed.unread > 0 && <span className="notification-badge">{feed.unread > 99 ? '99+' : feed.unread}</span>}
       </button>
-      {open && <section id={panelId} className="notification-panel" role="dialog" aria-label="Notifications">
-        <header><strong>Notifications</strong><button ref={closeButton} type="button" aria-label="Close notifications" onClick={() => { setOpen(false); button.current?.focus() }}><X size={18} /></button></header>
+      {open && <section id={panelId} className={`notification-panel${role === 'customer' ? ' is-customer' : ''}`} role="dialog" aria-label="Notifications">
+        <header><strong>Notifications{role === 'customer' && <span className="notification-header-count" aria-label={`${feed.unread} unread`}>{feed.unread}</span>}</strong><button ref={closeButton} type="button" aria-label="Close notifications" onClick={() => { setOpen(false); setConfirmClear(false); button.current?.focus() }}><X size={role === 'customer' ? 20 : 18} /></button></header>
         <div className="notification-tools">
+          {role === 'customer' && <div className="notification-filters" role="group" aria-label="Filter notifications"><button type="button" className={customerFilter === 'all' ? 'is-active' : ''} aria-pressed={customerFilter === 'all'} onClick={() => setCustomerFilter('all')}>All</button><button type="button" className={customerFilter === 'unread' ? 'is-active' : ''} aria-pressed={customerFilter === 'unread'} onClick={() => setCustomerFilter('unread')}>Unread</button></div>}
+          <div className="notification-tool-actions">
           <button type="button" disabled={!feed.unread || working} onClick={() => void run(() => feed.markRead())}><CheckCheck size={15} />Mark all as read</button>
-          {role === 'customer' && <button type="button" disabled={!feed.items.length || working} onClick={() => void run(feed.clear)}>Clear all</button>}
+          {role === 'customer' && <button type="button" disabled={!feed.items.length || working} onClick={() => setConfirmClear(true)}>Clear</button>}
+          </div>
         </div>
+        {role === 'customer' && confirmClear && <div className="notification-clear-confirm" role="group" aria-label="Confirm clear notifications">
+          <p aria-live="polite">Clear all notifications? This can't be undone.</p>
+          <div><button type="button" disabled={working} onClick={() => setConfirmClear(false)}>Cancel</button><button type="button" disabled={working} onClick={() => void clearNotifications()}>{working ? 'Clearing…' : 'Clear all'}</button></div>
+        </div>}
         <div className="notification-scroll" aria-busy={feed.loading}>
           {feed.error && <div className="notification-empty" role="status">{feed.error}<button type="button" disabled={feed.loading} onClick={() => void feed.load()}>Retry</button></div>}
-          {!feed.items.length && !feed.error && <p className="notification-empty">{feed.loading ? 'Loading…' : 'No notifications yet'}</p>}
-          {feed.items.map(item => <article key={item.id} className={`notification-row ${item.read ? 'is-read' : 'is-unread'}`}>
-            <button type="button" className="notification-content" onClick={() => visit(item)} aria-label={`${item.read ? '' : 'Unread: '}${item.title}${item.target ? ', view details' : ', mark as read'}`}>
-              <span className="notification-dot" /><span><b>{item.title}</b>{item.message && <small>{item.message}</small>}<time dateTime={item.createdAt}>{timeLabel(item.createdAt)}</time></span>{item.target && <ChevronRight size={15} />}
+          {!visibleItems.length && !feed.error && <p className="notification-empty">{feed.loading ? 'Loading…' : customerFilter === 'unread' && role === 'customer' ? feed.hasMore ? 'No unread notifications here. Load more to check older ones.' : 'No unread notifications' : 'No notifications yet'}</p>}
+          {visibleItems.map(item => <article key={item.id} className={`notification-row ${item.read ? 'is-read' : 'is-unread'}`}>
+            <button type="button" className="notification-content" onClick={() => visit(item)} aria-label={`${item.read ? '' : 'Unread: '}${item.title}${item.message ? `, ${item.message}` : ''}${item.target ? ', view details' : ', mark as read'}`}>
+              {role === 'customer' ? <span className="notification-copy"><span className="notification-title-line"><b>{item.title}</b>{item.target?.orderNumber && <span className="notification-order-number">{item.target.orderNumber}</span>}</span><time dateTime={item.createdAt}>{customerTimeLabel(item.createdAt)}</time></span> : <><span className="notification-dot" /><span className="notification-copy"><b>{item.title}</b>{item.message && <small>{item.message}</small>}<time dateTime={item.createdAt}>{timeLabel(item.createdAt)}</time></span>{item.target && <ChevronRight size={15} />}</>}
             </button>
-            {!item.read && <button type="button" className="notification-read" aria-label={`Mark ${item.title} as read`} disabled={working} onClick={() => void run(() => feed.markRead(item.id))}><Check size={15} /></button>}
+            {!item.read && role !== 'customer' && <button type="button" className="notification-read" aria-label={`Mark ${item.title} as read`} disabled={working} onClick={() => void run(() => feed.markRead(item.id))}><Check size={15} /></button>}
           </article>)}
           {feed.hasMore && <button className="notification-load" type="button" disabled={feed.loading} onClick={() => void feed.load(true)}>{feed.loading ? 'Loading…' : 'Load more'}</button>}
         </div>
       </section>}
     </div>
-    <div className="notification-silent-toasts" aria-live="polite" aria-relevant="additions">
+    {createPortal(<div className={`notification-silent-toasts${role === 'customer' ? ' is-customer' : ''}`} aria-live="polite" aria-relevant="additions">
       {toasts.map(item => <div className="notification-silent-toast" key={item.id} role="status"><div><strong>{item.title}</strong>{item.message && <p>{item.message}</p>}{item.target && <button type="button" onClick={() => visit(item)}>View<ChevronRight size={14} /></button>}</div><button type="button" aria-label={`Dismiss ${item.title}`} onClick={() => setToasts(current => current.filter(value => value.id !== item.id))}><X size={17} /></button></div>)}
-    </div>
+    </div>, document.body)}
   </>
 }

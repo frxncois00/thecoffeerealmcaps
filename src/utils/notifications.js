@@ -18,7 +18,7 @@ export function needsSilentToast(notification, role, visible = globalThis.docume
   const age = Date.now() - new Date(notification.createdAt).getTime()
   if (age < -5000 || age > 60000) return false
   if (notification.event_type === 'daily_restock') return false
-  if (role === 'staff' && ['new_order', 'low_stock', 'out_of_stock', 'customer_cancelled', 'cancellation_requested'].includes(notification.event_type)) return false
+  if (role === 'staff' && ['new_order', 'payment_proof', 'low_stock', 'out_of_stock', 'customer_cancelled', 'cancellation_requested'].includes(notification.event_type)) return false
   return true
 }
 

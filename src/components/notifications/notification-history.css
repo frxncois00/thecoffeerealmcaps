@@ -36,7 +36,44 @@
 .notification-empty{padding:22px 16px;text-align:center;color:#788379;margin:0;font-size:13px}
 .notification-empty button{display:block;margin:8px auto 0}
 .notification-silent-toasts{position:fixed;left:24px;bottom:24px;z-index:1800;display:grid;gap:10px;max-width:min(350px,calc(100vw - 32px));pointer-events:none}
+.notification-silent-toasts.is-customer{top:94px;right:24px;bottom:auto;left:auto;width:min(350px,calc(100vw - 32px))}
 .notification-silent-toast{background:#fff;color:#263b2f;border:1px solid #dfe7e0;border-radius:12px;box-shadow:0 6px 24px #17382620;padding:14px;display:flex;gap:14px;align-items:flex-start;pointer-events:auto;font-size:13px}
 .notification-silent-toast>div{flex:1;min-width:0;overflow-wrap:anywhere}.notification-silent-toast p{margin:5px 0;color:#5d6c61;font-size:12px}
 .notification-silent-toast button{display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;color:#305d43;cursor:pointer;padding:4px;font:inherit}
-@media(max-width:700px){.notification-panel{position:fixed;top:76px;right:12px;left:auto}.notification-silent-toasts{left:16px;bottom:16px}}
+@media(max-width:700px){.notification-panel{position:fixed;top:76px;right:12px;left:auto}.notification-silent-toasts{left:16px;bottom:16px}.notification-silent-toasts.is-customer{top:80px;right:16px;bottom:auto;left:auto}}
+
+/* Customer notifications use compact, individually readable order-update cards. */
+.notification-panel.is-customer{width:min(400px,calc(100vw - 32px));border:0;border-radius:20px;box-shadow:0 20px 56px #132c1f24;font-size:13px}
+.notification-panel.is-customer header{align-items:center;padding:22px 24px 14px}
+.notification-panel.is-customer header strong{display:inline-flex;align-items:center;gap:7px;color:#172c22;font-size:20px;line-height:1.2;font-weight:700}
+.notification-header-count{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:#35664e;color:#fff;font-size:12px;font-weight:700}
+.notification-panel.is-customer header button{width:32px;height:32px;color:#71847a}
+.notification-panel.is-customer .notification-tools{align-items:center;gap:10px;padding:0 24px 15px;border-bottom:1px solid #edf1ec}
+.notification-filters{display:inline-flex;align-items:center;gap:3px;padding:3px;border-radius:999px;background:#edf3ef}
+.notification-panel.is-customer .notification-filters button{min-height:30px;padding:4px 12px;border-radius:999px;color:#798d80;font-size:12px;white-space:nowrap}
+.notification-panel.is-customer .notification-filters button.is-active{background:#fff;color:#1c4934;box-shadow:0 2px 5px #193e2712}
+.notification-tool-actions{display:flex;align-items:center;gap:16px}
+.notification-panel.is-customer .notification-tool-actions{margin-left:auto;gap:14px}
+.notification-panel.is-customer .notification-tool-actions button{padding:2px 0;color:#295f47;white-space:nowrap;font-size:12px}
+.notification-panel.is-customer .notification-tool-actions button svg{display:none}
+.notification-panel.is-customer .notification-clear-confirm{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;background:#f4f7f3;border-bottom:1px solid #e3eae3}
+.notification-panel.is-customer .notification-clear-confirm p{margin:0;color:#314b3b;font-size:12px;line-height:1.4}
+.notification-panel.is-customer .notification-clear-confirm>div{display:flex;flex-shrink:0;gap:6px}
+.notification-panel.is-customer .notification-clear-confirm button{min-height:32px;padding:5px 10px;border:1px solid #d4e0d5;border-radius:8px;background:#fff;color:#315842;font-size:12px;font-weight:600}
+.notification-panel.is-customer .notification-clear-confirm button:last-child{border-color:#234b36;background:#234b36;color:#fff}
+.notification-panel.is-customer .notification-scroll{display:flex;flex-direction:column;gap:10px;max-height:min(434px,calc(100dvh - 190px));padding:18px 20px 24px;background:#fff;scrollbar-color:#a8b6aa #f1f4f0;scrollbar-width:thin}
+.notification-panel.is-customer .notification-row{flex:none;align-items:stretch;overflow:hidden;border:0;border-radius:14px;background:#edf3ee}
+.notification-panel.is-customer .notification-row.is-unread{background:#e9f1eb}
+.notification-panel.is-customer .notification-row.is-read{background:#f2f5f1}
+.notification-panel.is-customer .notification-content{min-height:70px;padding:14px 16px;color:#173226}
+.notification-panel.is-customer .notification-content:hover{background:#e2ede5}
+.notification-panel.is-customer .notification-copy{display:block;min-width:0;width:100%}
+.notification-panel.is-customer .notification-title-line{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.notification-panel.is-customer .notification-title-line b{min-width:0;color:#173226;font-size:14px;font-weight:700;line-height:1.35}
+.notification-panel.is-customer .notification-order-number{flex:none;color:#839385;font-size:12px;white-space:nowrap}
+.notification-panel.is-customer .notification-content time{display:block;margin-top:5px;color:#839385;font-size:11px;line-height:1.4}
+.notification-panel.is-customer .notification-empty{padding:25px 16px}
+@media(max-width:700px){.notification-panel.is-customer{top:76px;right:16px}.notification-panel.is-customer .notification-scroll{max-height:calc(100dvh - 175px)}}
+@media(max-width:420px){.notification-panel.is-customer .notification-clear-confirm{align-items:flex-start;flex-direction:column;padding:12px 16px}.notification-panel.is-customer .notification-clear-confirm>div{align-self:flex-end}}
+@media(max-width:420px){.notification-panel.is-customer header{padding:18px 18px 13px}.notification-panel.is-customer .notification-tools{padding:0 18px 13px;gap:8px}.notification-panel.is-customer .notification-tool-actions{gap:9px}.notification-panel.is-customer .notification-tool-actions button{font-size:11px}.notification-panel.is-customer .notification-filters button{padding:4px 9px;font-size:11px}.notification-panel.is-customer .notification-scroll{padding:15px 16px 20px}.notification-panel.is-customer .notification-content{padding:12px 14px}.notification-panel.is-customer .notification-title-line{gap:7px}.notification-panel.is-customer .notification-title-line b{font-size:13px}.notification-panel.is-customer .notification-order-number{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.notification-panel.is-customer .notification-content{transition:none}}

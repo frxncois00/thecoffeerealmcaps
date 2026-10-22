@@ -6028,6 +6028,7 @@
 @media(max-width:900px){.inv-table-wrap{display:none}.inv-cards{display:block}}
 
 /* ---- My Orders (customer) ---- */
+.customer-app .order-tabs{margin-top:16px;margin-bottom:20px;border-bottom:0}
 .order-tabs button{position:relative}
 .order-tab-count{display:inline-flex;min-width:18px;height:18px;padding:0 5px;margin-left:6px;border-radius:999px;background:var(--cr-green);color:#fff;font-size:.66rem;align-items:center;justify-content:center}
 
@@ -9850,3 +9851,28 @@
     gap: 0;
   }
 }
+
+/* Customer order details use the same section hierarchy as the staff drawer. */
+.customer-order-drawer .ops-order-hero-top>div>span{color:#c7dacd}
+.customer-order-drawer .ops-order-hero-status--neutral{background:#e7f3e9;color:#22553c}
+.customer-order-drawer .ops-drawer-cancellation-review,.customer-order-drawer .ops-drawer-cancelled{margin-top:14px}
+.customer-order-drawer .txn-payment-record .txn-proof-card{margin:12px;padding:12px}
+.customer-order-drawer .txn-proof-card img{display:block;max-width:260px;max-height:260px;margin:auto;object-fit:contain}
+.customer-order-drawer .txn-payment-record .ops-proof-pending{padding:14px 15px;margin:0}
+.customer-order-drawer .txn-timeline li:not(.done)>span{background:#f4f5f3;color:#93a198;border-color:#e4e9e4}
+.customer-order-drawer .txn-timeline li:not(.done) b{color:#7a887e}
+.customer-order-drawer .customer-order-support{margin-top:22px;padding-top:18px;border-top:1px solid #e4eae4}
+.customer-order-drawer .customer-order-support h3{margin:0 0 10px!important;color:#677b6c!important;font-size:.7rem!important;font-weight:800;letter-spacing:.075em;text-transform:uppercase}
+.customer-order-drawer .customer-order-support .secondary-button{display:inline-flex;width:auto}
+@media(max-width:390px){.customer-order-drawer .ops-order-hero-facts{grid-template-columns:1fr 1fr}.customer-order-drawer .ops-order-hero-facts div:last-child{grid-column:1/-1}}
+
+/* Transaction History mirrors the staff detail drawer without changing its actions. */
+.admin-transaction-drawer .ops-order-hero{margin-bottom:2px}
+.admin-transaction-drawer .ops-order-hero :is(strong,dd){color:#fff!important}
+.admin-transaction-drawer .ops-order-hero :is(dt,.ops-order-hero-top>div>span){color:#c7dacd!important}
+.admin-transaction-drawer .ops-order-hero-status--completed,.admin-transaction-drawer .ops-order-hero-status--confirmed{background:#e7f3e9;color:#22553c}
+.admin-transaction-drawer .ops-order-hero-status--neutral{background:#edf0ed;color:#314a39}
+.admin-transaction-drawer .ops-order-overview-block>small{margin-bottom:8px}
+.admin-transaction-drawer .ops-order-overview-row{grid-template-columns:92px minmax(0,1fr)}
+.admin-transaction-drawer .txn-exception-section{padding:14px;margin-bottom:22px}
+@media(max-width:390px){.admin-transaction-drawer .ops-order-hero-facts{grid-template-columns:1fr 1fr}.admin-transaction-drawer .ops-order-hero-facts div:last-child{grid-column:1/-1}}

@@ -18,10 +18,12 @@ export function useNotificationHistory(userId, role, onLive) {
   const loadedPages = useRef(1)
 
   const countUnread = useCallback(async () => {
-    const { count, error: cause } = await client.from('user_notifications').select('id', { count: 'exact', head: true }).eq('user_id', userId).is('read_at', null).is('cleared_at', null)
+    let query = client.from('user_notifications').select('id', { count: 'exact', head: true }).eq('user_id', userId).is('read_at', null).is('cleared_at', null)
+    if (role === 'staff') query = query.neq('event_type', 'menu_changed')
+    const { count, error: cause } = await query
     if (cause) throw cause
     if (alive.current) setUnread(count || 0)
-  }, [client, userId])
+  }, [client, userId, role])
 
   const load = useCallback(async (more = false) => {
     if (!userId || !client || busy.current) return
@@ -37,6 +39,7 @@ export function useNotificationHistory(userId, role, onLive) {
       for (let page = 0; page < (more ? 1 : loadedPages.current); page += 1) {
         let query = client.from('user_notifications').select('*').eq('user_id', userId).is('cleared_at', null)
           .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(NOTIFICATION_PAGE_SIZE)
+        if (role === 'staff') query = query.neq('event_type', 'menu_changed')
         if (last) query = query.or(`created_at.lt.${last.created_at},and(created_at.eq.${last.created_at},id.lt.${last.id})`)
         const { data: rows, error: cause } = await query
         if (cause) throw cause
@@ -62,7 +65,7 @@ export function useNotificationHistory(userId, role, onLive) {
       // without letting its older snapshot overwrite the newer state.
       if (alive.current && requestVersion !== version.current) void load()
     }
-  }, [client, userId, countUnread])
+  }, [client, userId, role, countUnread])
 
   useEffect(() => {
     alive.current = true
@@ -71,7 +74,7 @@ export function useNotificationHistory(userId, role, onLive) {
     const seen = new Set()
     const channel = client.channel(`notification-history:${role}:${userId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_notifications', filter: `user_id=eq.${userId}` }, ({ eventType, new: row }) => {
-        if (!row?.id || !alive.current) return
+        if (!row?.id || !alive.current || (role === 'staff' && row.event_type === 'menu_changed')) return
         const item = normalizeNotification(row)
         version.current += 1
         setItems(current => mergeNotifications(current, [item]))
