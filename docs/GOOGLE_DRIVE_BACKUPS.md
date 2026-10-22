@@ -14,9 +14,9 @@ Daily runs export the complete database and only new or changed Storage objects.
 
 ```text
 Coffee Realm Backups/
-  Daily/<year>/<month>/<YYYY-MM-DD>/
-    database/database.tar.gz.enc
-    uploaded-files/uploaded-files.tar.gz.enc
+  Daily/<YYYY-MM-DD>/
+    database.tar.gz.enc
+    uploaded-files.tar.gz.enc
     checksums.txt
     backup-report.txt
   Monthly Full/<year>/<YYYY-MM>/
