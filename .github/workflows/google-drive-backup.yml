@@ -1,0 +1,113 @@
+name: Google Drive backup
+
+on:
+  schedule:
+    # 18:00 UTC is 02:00 the following day in the Philippines.
+    - cron: '0 18 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: coffee-realm-google-drive-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_ENCRYPTION_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+      RCLONE_CONFIG_COFFEEREALM_TYPE: drive
+      RCLONE_CONFIG_COFFEEREALM_SCOPE: drive
+      RCLONE_CONFIG_COFFEEREALM_TOKEN: ${{ secrets.GDRIVE_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Prepare backup tools
+        run: |
+          npm ci --ignore-scripts
+          sudo apt-get update
+          sudo apt-get install --yes rclone
+
+      - name: Set Philippine backup date
+        shell: bash
+        run: |
+          echo "BACKUP_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          echo "BACKUP_DATE=$(TZ=Asia/Manila date +%F)" >> "$GITHUB_ENV"
+          echo "BACKUP_YEAR=$(TZ=Asia/Manila date +%Y)" >> "$GITHUB_ENV"
+          echo "BACKUP_MONTH=$(TZ=Asia/Manila date '+%m - %B')" >> "$GITHUB_ENV"
+          echo "BACKUP_MONTH_KEY=$(TZ=Asia/Manila date +%Y-%m)" >> "$GITHUB_ENV"
+          echo "BACKUP_TYPE=$([ "$(TZ=Asia/Manila date +%d)" = 01 ] && echo monthly || echo daily)" >> "$GITHUB_ENV"
+
+      - name: Export complete database
+        shell: bash
+        run: |
+          mkdir -p .backup/database
+          npx supabase db dump --db-url "$SUPABASE_DB_URL" --role-only -f .backup/database/roles.sql
+          npx supabase db dump --db-url "$SUPABASE_DB_URL" -f .backup/database/schema.sql
+          npx supabase db dump --db-url "$SUPABASE_DB_URL" --data-only --use-copy -x "storage.buckets_vectors" -x "storage.vector_indexes" -f .backup/database/data.sql
+
+      - name: Load previous storage manifest
+        shell: bash
+        run: |
+          mkdir -p .backup/status
+          rclone copyto "coffeerealm:Coffee Realm Backups/Backup Status/storage-manifest.json" .backup/status/storage-manifest.json || true
+
+      - name: Export uploaded files
+        shell: bash
+        run: |
+          FULL_FLAG=false
+          if [ "$BACKUP_TYPE" = monthly ] || [ ! -s .backup/status/storage-manifest.json ]; then FULL_FLAG=true; fi
+          RESULT=$(node scripts/backup-storage.mjs --output .backup/uploaded-files --manifest-in .backup/status/storage-manifest.json --manifest-out .backup/storage-manifest.json --full "$FULL_FLAG")
+          echo "BACKUP_STORAGE_FILES=$(echo "$RESULT" | jq -r .downloadedFiles)" >> "$GITHUB_ENV"
+          echo "BACKUP_STORAGE_BYTES=$(echo "$RESULT" | jq -r .downloadedBytes)" >> "$GITHUB_ENV"
+
+      - name: Encrypt and verify backup files
+        shell: bash
+        run: |
+          mkdir -p ".backup/upload/Daily/$BACKUP_YEAR/$BACKUP_MONTH/$BACKUP_DATE/database"
+          mkdir -p ".backup/upload/Daily/$BACKUP_YEAR/$BACKUP_MONTH/$BACKUP_DATE/uploaded-files"
+          tar -czf .backup/database.tar.gz -C .backup database
+          tar -czf .backup/uploaded-files.tar.gz -C .backup uploaded-files storage-manifest.json
+          openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 -in .backup/database.tar.gz -out ".backup/upload/Daily/$BACKUP_YEAR/$BACKUP_MONTH/$BACKUP_DATE/database/database.tar.gz.enc" -pass env:BACKUP_ENCRYPTION_PASSWORD
+          openssl enc -aes-256-cbc -salt -pbkdf2 -iter 200000 -in .backup/uploaded-files.tar.gz -out ".backup/upload/Daily/$BACKUP_YEAR/$BACKUP_MONTH/$BACKUP_DATE/uploaded-files/uploaded-files.tar.gz.enc" -pass env:BACKUP_ENCRYPTION_PASSWORD
+          sha256sum ".backup/upload/Daily/$BACKUP_YEAR/$BACKUP_MONTH/$BACKUP_DATE/database/database.tar.gz.enc" ".backup/upload/Daily/$BACKUP_YEAR/$BACKUP_MONTH/$BACKUP_DATE/uploaded-files/uploaded-files.tar.gz.enc" > ".backup/upload/Daily/$BACKUP_YEAR/$BACKUP_MONTH/$BACKUP_DATE/checksums.txt"
+          DB_BYTES=$(stat -c%s ".backup/upload/Daily/$BACKUP_YEAR/$BACKUP_MONTH/$BACKUP_DATE/database/database.tar.gz.enc")
+          echo "BACKUP_DATABASE_BYTES=$DB_BYTES" >> "$GITHUB_ENV"
+          echo "BACKUP_DRIVE_PATH=Coffee Realm Backups/Daily/$BACKUP_YEAR/$BACKUP_MONTH/$BACKUP_DATE" >> "$GITHUB_ENV"
+          printf 'Status: Success\nDate: %s PHT\nType: %s\nDatabase: complete\nUploaded files in this run: %s\nRetention: 3 months\n' "$BACKUP_DATE" "$BACKUP_TYPE" "$BACKUP_STORAGE_FILES" > ".backup/upload/Daily/$BACKUP_YEAR/$BACKUP_MONTH/$BACKUP_DATE/backup-report.txt"
+
+      - name: Upload organized backup to Google Drive
+        shell: bash
+        run: |
+          rclone copy .backup/upload/Daily "coffeerealm:Coffee Realm Backups/Daily" --create-empty-src-dirs
+          rclone copyto .backup/storage-manifest.json "coffeerealm:Coffee Realm Backups/Backup Status/storage-manifest.json"
+          rclone copyto ".backup/upload/Daily/$BACKUP_YEAR/$BACKUP_MONTH/$BACKUP_DATE/backup-report.txt" "coffeerealm:Coffee Realm Backups/Backup Status/latest-backup-report.txt"
+          if [ "$BACKUP_TYPE" = monthly ]; then
+            rclone copy ".backup/upload/Daily/$BACKUP_YEAR/$BACKUP_MONTH/$BACKUP_DATE" "coffeerealm:Coffee Realm Backups/Monthly Full/$BACKUP_YEAR/$BACKUP_MONTH_KEY"
+          fi
+
+      - name: Apply retention
+        shell: bash
+        run: |
+          rclone delete "coffeerealm:Coffee Realm Backups/Daily" --min-age 90d --drive-use-trash=true
+          rclone rmdirs "coffeerealm:Coffee Realm Backups/Daily" --leave-root
+          rclone delete "coffeerealm:Coffee Realm Backups/Monthly Full" --min-age 90d --drive-use-trash=true
+          rclone rmdirs "coffeerealm:Coffee Realm Backups/Monthly Full" --leave-root
+
+      - name: Record result for Admin Settings
+        if: always()
+        env:
+          BACKUP_RUN_STATUS: ${{ job.status }}
+        run: node scripts/record-backup-status.mjs

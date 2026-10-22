@@ -7,6 +7,7 @@ import { animate, motion, MotionConfig, useMotionValue, useReducedMotion, useTra
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
+import CustomerMessagesPage from './CustomerMessagesPage'
 import ContentManagementPage from './ContentManagementPage'
 import SystemSettingsPage from './SystemSettingsPage'
 import UsersAccessPage from './UsersAccessPage'
@@ -243,6 +244,7 @@ export default function AdminDashboard() {
   if (pathname === '/admin/users-access/benefits') return <Navigate to="/admin/benefits-verification" replace />
   if (pathname === '/admin/raimu-knowledge') return <Navigate to="/admin" replace />
   if (pathname.startsWith('/admin/users-access/')) return <UsersAccessPage />
+  if (pathname === '/admin/messages') return <CustomerMessagesPage role="admin" />
   if (pathname === '/admin/content') return <ContentManagementPage />
   if (pathname === '/admin/menu-approvals') return <MenuApprovalsPage />
   if (pathname === '/admin/benefits-verification') return <BenefitsVerificationPage />

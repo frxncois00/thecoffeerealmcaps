@@ -3,6 +3,7 @@ import {
   CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, Inbox, Mail,
   MessageCircleQuestion, Reply, Search, Send, ShoppingBag, X,
 } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import { describeError } from '../utils/describeError'
 import { fetchCustomerMessages, replyToCustomerMessage } from '../services/customerMessageService'
@@ -40,7 +41,9 @@ function messageSearchText(message) {
     message.message, message.inquiry_type, message.quantity].filter(Boolean).join(' ').toLowerCase()
 }
 
-export default function CustomerMessagesPage() {
+export default function CustomerMessagesPage({ role = 'staff' }) {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [messages, setMessages] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -65,6 +68,14 @@ export default function CustomerMessagesPage() {
   }
 
   useEffect(() => { load() }, [])
+  useEffect(() => {
+    const id = location.state?.notificationMessageId
+    if (!id || loading) return
+    const message = messages.find(item => item.id === id)
+    if (message) setSelected(message)
+    else setError('This message is no longer available.')
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location.state, location.pathname, loading, messages, navigate])
   useEffect(() => { setPage(1) }, [deferredQuery, filter, pageSize])
   useEffect(() => {
     if (!toast) return undefined
@@ -100,7 +111,7 @@ export default function CustomerMessagesPage() {
     setToast(`Reply sent to ${updated.customer_email}.`)
   }
 
-  return <AppShell role="staff" title="Customer Messages" eyebrow="Customer care inbox" onRefresh={load}>
+  return <AppShell role={role} title="Customer Messages" eyebrow="Customer care inbox" onRefresh={load}>
     <section className="cm-page" aria-busy={loading}>
       <div className="cm-summary-grid" aria-label="Message summary">
         <SummaryCard icon={Inbox} label="Total messages" value={messages.length} detail="Across all customer channels" tone="green" />

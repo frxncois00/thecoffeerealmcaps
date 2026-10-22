@@ -766,7 +766,7 @@ export default function CashierPage() {
       ? { label: 'Offline', detail: 'Live updates paused', tone: 'warning' }
       : loading || isRefreshingData
         ? { label: loading ? 'Syncing' : 'Updating', detail: 'Refreshing live data', tone: 'syncing' }
-        : dataSyncError || notice
+        : dataSyncError
           ? { label: 'Needs attention', detail: dataSyncError ? 'Data sync issue' : 'Check menu data', tone: 'warning' }
           : realtimeState === 'reconnecting'
             ? { label: 'Reconnecting', detail: 'Restoring live data', tone: 'syncing' }
@@ -855,6 +855,8 @@ export default function CashierPage() {
     setNotice(addedCount ? `${addedCount} item${addedCount === 1 ? '' : 's'} added from the previous order.` : 'No items from the previous order are currently in stock.')
   }
   function changeQty(lineKey, delta) {
+    const item = cart.find(line => line.lineKey === lineKey)
+    if (item && item.qty + delta <= 0) setNotice(`${item.name} removed.`)
     setCart((current) => current.map((item) => item.lineKey === lineKey ? { ...item, qty: item.qty + delta } : item).filter((item) => item.qty > 0))
   }
 
@@ -864,6 +866,7 @@ export default function CashierPage() {
   }
 
   function updateConfiguredItem(item, customizations, addons, quantity) {
+    setNotice(`${item.name} updated.`)
     setCart((current) => {
       const withoutOriginal = current.filter((line) => line.lineKey !== item.lineKey)
       const lineKey = makeLineKey(item, customizations, addons)
@@ -928,6 +931,7 @@ export default function CashierPage() {
 
       if (!isSupabaseConfigured) {
         setTransactions((current) => [orderDraft, ...current])
+        setNotice(`Order ${orderDraft.orderNumber} saved locally.`)
         setReceipt(orderDraft)
         setCart([])
         setCustomerName('')
@@ -994,6 +998,7 @@ export default function CashierPage() {
       })
       if (orderError || !savedOrder) {
         setError(`Order was not saved: ${orderError?.message || 'The server returned no order.'}`)
+        setNotice('Order could not be saved. Check the checkout details.')
         return false
       }
 
@@ -1011,6 +1016,7 @@ export default function CashierPage() {
         change: Number(savedOrder.change_amount ?? orderDraft.change),
       }
       setTransactions((current) => [saved, ...current])
+      setNotice(`Payment recorded. Order ${saved.orderNumber} saved.`)
       setReceipt(saved)
       setCart([])
       setCustomerName('')
@@ -1021,6 +1027,10 @@ export default function CashierPage() {
         return current.map((tab) => tab.id === activeOrder.id ? { ...tab, counterNumber: String(nextCounter).padStart(2, '0') } : tab)
       })
       return true
+    } catch (cause) {
+      setError(cause?.message || 'Could not save the order. Please try again.')
+      setNotice('Order could not be saved. Please try again.')
+      return false
     } finally {
       setSavingOrder(false)
     }
@@ -1274,7 +1284,7 @@ export default function CashierPage() {
               <div className="cashier-ticket-header-top">
                 <div className="cashier-order-heading"><span className="cashier-order-heading-text"><b>Order no. {activeOrder.counterNumber || '01'} - {cartCount} {cartCount === 1 ? 'item' : 'items'}</b></span></div>
                 <div className="cashier-cart-actions">
-                  <button type="button" className="cashier-reorder" onClick={reorderLatestOrder} disabled={!transactions.length}>Reorder</button><button type="button" className="cashier-clear-cart" onClick={() => setCart([])} disabled={!cart.length}>Clear cart</button>
+                  <button type="button" className="cashier-reorder" onClick={reorderLatestOrder} disabled={!transactions.length}>Reorder</button><button type="button" className="cashier-clear-cart" onClick={() => { setCart([]); setNotice('Cart cleared.') }} disabled={!cart.length}>Clear cart</button>
                 </div>
               </div>
               <div className="cashier-dining-selector" role="group" aria-label="Dining option">
@@ -1323,7 +1333,7 @@ export default function CashierPage() {
 
       {showCheckout ? <CheckoutModal cart={cart} total={total} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat} discount={discount} breakdown={priceBreakdown} setDiscount={setDiscount} payment={payment} setPayment={setPayment} change={change} error={error} saving={savingOrder} onCancel={() => { if (!savingOrder) { setShowCheckout(false); setError(''); if (discount.passportSource) setDiscount(emptyDiscount()) } }} onConfirm={async (passport) => { if (await saveOrder(passport)) setShowCheckout(false) }} /> : null}
       {customizingProduct ? <ItemCustomizationModal product={customizingProduct} onClose={() => setCustomizingProduct(null)} onAdd={(customizations, addons, quantity) => { updateConfiguredItem(customizingProduct, customizations, addons, quantity); setCustomizingProduct(null) }} /> : null}
-      {receipt ? <CashierReceipt order={receipt} onClose={() => setReceipt(null)} /> : null}
+      {receipt ? <CashierReceipt order={receipt} onNotice={setNotice} onClose={() => setReceipt(null)} /> : null}
       {showOrderStatusModal ? (
         <OrderStatusModal
           orders={transactions}
@@ -1679,7 +1689,7 @@ function TransactionDetailsView({ order, onBack }) {
       </div>
     </section>
 }
-function CashierReceipt({ order, onClose }) {
+function CashierReceipt({ order, onClose, onNotice }) {
   const { pricing } = usePricing()
   return (
     <div className="cashier-receipt-backdrop">
@@ -1691,7 +1701,7 @@ function CashierReceipt({ order, onClose }) {
           <ReceiptPaper order={order} defaultVatRate={pricing.vatRate} defaultPricesIncludeVat={pricing.pricesIncludeVat} />
         </div>
         <footer className="cashier-receipt-actions">
-          <button type="button" onClick={() => printReceipt(order, pricing.vatRate, pricing.pricesIncludeVat)}>Print</button>
+          <button type="button" onClick={() => { if (!printReceipt(order, pricing.vatRate, pricing.pricesIncludeVat)) onNotice('The print window was blocked. Allow popups and try again.') }}>Print</button>
           <button type="button" onClick={onClose}>Close</button>
         </footer>
       </section>

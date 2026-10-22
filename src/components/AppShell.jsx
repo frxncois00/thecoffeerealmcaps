@@ -1,4 +1,4 @@
-import { BarChart3, Bell, Bot, Boxes, CalendarDays, CheckCheck, ClipboardCheck, ClipboardList, Coffee, FileBarChart, LayoutDashboard, LogOut, MenuSquare, Moon, PackageCheck, ReceiptText, RefreshCw, Settings, ShieldCheck, Sun, Trash2, Users, X } from 'lucide-react'
+import { BarChart3, Bot, Boxes, CalendarDays, ClipboardCheck, ClipboardList, Coffee, FileBarChart, LayoutDashboard, LogOut, MenuSquare, Moon, PackageCheck, ReceiptText, RefreshCw, Settings, ShieldCheck, Sun, Users, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 
@@ -14,12 +14,12 @@ import { fetchFinishedProducts, fetchIngredients } from '../services/opsInventor
 import { money } from '../utils/money'
 import { DEFAULT_STAFF_PREFERENCES, fetchStaffPreferences, getCachedStaffPreferences, rememberStaffFilters, subscribeToStaffPreferences } from '../services/staffSettingsService'
 import {
-  addStaffNotification, clearStaffNotifications, getStaffNotifications, markAllStaffNotificationsRead,
+  addStaffNotification, getStaffNotifications,
   markStaffNotificationRead, subscribeToStaffNotifications,
 } from '../services/notificationCenterService'
 import { clearManagementSessionState, requestManagementDataRefresh, useManagementSessionState, writeManagementSessionState } from '../hooks/useManagementSessionState'
 import StaffOrderToastContainer from './notifications/StaffOrderToastContainer'
-import ClearNotificationsDialog from './notifications/ClearNotificationsDialog'
+import NotificationBell from './notifications/NotificationBell'
 import { playOrderChime } from '../utils/notificationSound'
 import { raimu } from './raimu/raimuMachine'
 import { readRaimuPreference, saveRaimuPreference } from './raimu/useRaimu'
@@ -35,14 +35,6 @@ const adminGroups = [
 ]
 const staffGroups = [{ label:'', links:[['Order Preparation','/staff',ClipboardList],['Inventory Management','/staff/inventory',Boxes],['Purchase Orders','/staff/purchase-orders',ClipboardCheck],['Manage Menu','/staff/menu',Coffee],['Transactions','/staff/transactions',ReceiptText],['Settings','/staff/settings',Settings]] }]
 
-function notificationTime(value) {
-  const elapsed = Date.now() - new Date(value).getTime()
-  if (elapsed < 60000) return 'Just now'
-  if (elapsed < 3600000) return `${Math.floor(elapsed / 60000)}m ago`
-  if (elapsed < 86400000) return `${Math.floor(elapsed / 3600000)}h ago`
-  return new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric' }).format(new Date(value))
-}
-
 function submittedTime(value) {
   return value ? new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(value)) : 'just now'
 }
@@ -53,7 +45,7 @@ async function submitterName(id) {
   return data?.full_name || data?.username || 'a staff member'
 }
 
-export default function AppShell({ role, title, eyebrow, children, actions, titleActions, onRefresh, onNotifications, reportMode = false, hidePageHeader = false, activeOrderId = null }) {
+export default function AppShell({ role, title, eyebrow, children, actions, titleActions, onRefresh, reportMode = false, hidePageHeader = false, activeOrderId = null }) {
   const groups = role === 'admin' ? adminGroups : staffGroups
   const navigate = useNavigate()
   const { pathname } = useLocation()
@@ -62,12 +54,10 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   const { setTransition: setLogoutTransition } = useLogoutTransition()
   const [logoutError, setLogoutError] = useState('')
   const [now, setNow] = useState(() => new Date())
-  const [notificationsOpen, setNotificationsOpen] = useManagementSessionState(`${role}:shell:notifications-open`, false)
   const [refreshing, setRefreshing] = useState(false)
   const [raimuVisible, setRaimuVisible] = useState(() => readRaimuPreference('raimu-visible', 'false') !== 'false')
   const [notifications, setNotifications] = useState([])
   const [staffPreferences, setStaffPreferences] = useState(getCachedStaffPreferences)
-  const notificationAnchorRef = useRef(null)
   const navRef = useRef(null)
   const { preference, resolvedTheme, setPreference } = useTheme()
   const { profile, user } = useAuth()
@@ -85,7 +75,6 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   const visibleNotificationCount = unreadNotificationCount
   const [orderToasts, setOrderToasts] = useManagementSessionState(`${role}:shell:order-toasts`, [])
   const [activityToasts, setActivityToasts] = useManagementSessionState(`${role}:shell:activity-toasts`, [])
-  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
 
   useEffect(() => {
     if (role !== 'staff' || pathname !== '/staff' || !activeOrderId) return
@@ -247,22 +236,6 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   }, [role, staffPreferences.font_size, staffPreferences.reduced_motion])
 
   useEffect(() => {
-    if (!notificationsOpen) return undefined
-    const closeOnOutsideClick = (event) => {
-      if (!notificationAnchorRef.current?.contains(event.target)) setNotificationsOpen(false)
-    }
-    const closeOnEscape = (event) => {
-      if (event.key === 'Escape') setNotificationsOpen(false)
-    }
-    document.addEventListener('mousedown', closeOnOutsideClick)
-    document.addEventListener('keydown', closeOnEscape)
-    return () => {
-      document.removeEventListener('mousedown', closeOnOutsideClick)
-      document.removeEventListener('keydown', closeOnEscape)
-    }
-  }, [notificationsOpen, setNotificationsOpen])
-
-  useEffect(() => {
     if (!['staff', 'admin'].includes(role) || !user?.id || !isSupabaseConfigured) return undefined
     const add = (notification) => {
       try {
@@ -307,7 +280,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
       }
       stockByKey.set(key, { quantity, minimum, name, unit })
       const wasLow = old && old.quantity <= old.minimum
-      if (!staffPreferences.notify_low_stock || quantity > minimum || wasLow || (payload.eventType !== 'INSERT' && !old)) return
+      if (!staffPreferences.notify_low_stock || quantity > minimum || (wasLow && !(quantity <= 0 && old.quantity > 0)) || (payload.eventType !== 'INSERT' && !old)) return
       add({
         category: 'inventory', title: quantity <= 0 ? 'Out of stock' : 'Low stock',
         message: `${name} running low — ${quantity} ${unit || 'units'} left`,
@@ -448,11 +421,6 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
     }
   }
 
-  const openNotifications = () => {
-    if (onNotifications) onNotifications()
-    else if (role === 'staff' || role === 'admin') setNotificationsOpen((current) => !current)
-  }
-
   const readNotification = (notificationId) => markStaffNotificationRead(user?.id, notificationId)
   const openNotification = async (notification) => {
     readNotification(notification.id)
@@ -460,8 +428,6 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
     const target = notification.target
     if (target?.kind === 'order') setOrderToasts((current) => current.filter((item) => item.id !== target.id))
     if (!target) return
-    setNotificationsOpen(false)
-    writeManagementSessionState(`${role}:shell:notifications-open`, false)
     if ((target.kind === 'order' || target.kind === 'cancellation') && role === 'staff') {
       try {
         const [order] = await fetchOpsOrdersByIds([target.id])
@@ -485,14 +451,6 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
       }
     } else if (role === 'admin' && target.kind === 'purchase-order') navigate('/admin/purchase-orders')
     else if (role === 'admin' && target.kind === 'menu-approval') navigate('/admin/menu-approvals')
-  }
-  const readAllNotifications = () => markAllStaffNotificationsRead(user?.id)
-  const clearNotifications = () => {
-    clearStaffNotifications(user?.id)
-    setOrderToasts([])
-    setActivityToasts([])
-    setRestockToast(null)
-    setClearConfirmOpen(false)
   }
   const toggleRaimu = () => {
     const visible = !raimuVisible
@@ -599,7 +557,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
         <button className="sidebar-exit" type="button" onClick={() => setLogoutOpen(true)}><LogOut size={19}/><span>Logout</span></button>
       </div>
     </aside>
-    <main className="app-main internal-main">{!hidePageHeader && <header className={`page-header internal-page-header${eyebrow ? '' : ' is-compact'}${role === 'admin' ? ' is-admin-surface-header' : ''}`}><div><div className={`internal-title-row${titleActions ? ' has-title-actions' : ''}`}><h1>{title}</h1>{titleActions}</div>{eyebrow && <span>{eyebrow}</span>}</div><div className="header-actions"><div className="internal-utility-bar" aria-label="Workspace utilities"><div className="internal-live-datetime">{role === 'admin' && <CalendarDays size={16} aria-hidden="true" />}<div className="internal-live-datetime-copy"><span>{new Intl.DateTimeFormat('en-PH', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', ...(role === 'admin' || reportMode ? { timeZone: 'Asia/Manila' } : {}) }).format(now)}</span><b>{new Intl.DateTimeFormat('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true, ...(role === 'admin' || reportMode ? { timeZone: 'Asia/Manila' } : {}) }).format(now)} PHT</b></div></div><button type="button" className={`internal-utility-button raimu-toggle${raimuVisible ? ' is-active' : ''}`} aria-label={reportMode ? 'AI assistant' : raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} aria-pressed={raimuVisible} title={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} onClick={toggleRaimu}><Bot size={18} aria-hidden="true" /></button><div className={`internal-notification-anchor ${bellAnimated ? 'is-ringing' : ''}`} ref={notificationAnchorRef}><button type="button" className="internal-utility-button" aria-label={reportMode ? `Notifications${visibleNotificationCount ? `, ${visibleNotificationCount} unread` : ''}` : `Open notifications${visibleNotificationCount ? `, ${visibleNotificationCount} unread` : ''}`} aria-expanded={['staff', 'admin'].includes(role) ? notificationsOpen : undefined} aria-controls={role === 'staff' ? 'staff-notification-center' : undefined} title="Notifications" onClick={openNotifications}><Bell size={18} />{visibleNotificationCount > 0 && <span className={`internal-utility-badge ${bellAnimated ? 'is-popping' : ''}`}>{visibleNotificationCount > 99 ? '99+' : visibleNotificationCount}</span>}</button>{['staff', 'admin'].includes(role) && notificationsOpen && <aside className="staff-notification-center" id="staff-notification-center" role="dialog" aria-modal="false" aria-labelledby="staff-notification-title"><header><div><span>Notification center</span><h2 id="staff-notification-title">Recent activity</h2></div><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Close notifications"><X size={18} /></button></header><div className="staff-notification-actions"><button type="button" onClick={readAllNotifications} disabled={!unreadNotificationCount}><CheckCheck size={16} />Read all</button><button type="button" className="is-destructive" onClick={() => setClearConfirmOpen(true)} disabled={!visibleNotifications.length}><Trash2 size={16} />Clear</button></div><div className="staff-notification-list">{visibleNotifications.length ? visibleNotifications.map((notification) => <button type="button" className={notification.read ? 'is-read' : 'is-unread'} data-category={notification.category} key={notification.id} onClick={() => void openNotification(notification)}><i aria-hidden="true" /><span><b>{notification.title}</b><small>{notification.message}</small><time dateTime={notification.createdAt}>{notificationTime(notification.createdAt)}</time></span></button>) : <div className="staff-notification-empty"><Bell size={22} /><b>You’re all caught up</b><span>Operational alerts will stack here as they arrive.</span></div>}</div><footer><button type="button" onClick={() => { setNotificationsOpen(false); navigate(role === 'admin' ? '/admin/preferences' : '/staff/settings') }}>Notification settings</button></footer></aside>}</div><button type="button" className="internal-utility-button" aria-label={reportMode ? 'Refresh data' : refreshing ? 'Refreshing current page data' : 'Refresh current page data'} aria-busy={refreshing} title={refreshing ? 'Refreshing data…' : 'Refresh data'} onClick={refreshPage} disabled={refreshing}><RefreshCw size={18} className={refreshing ? 'spin' : ''} /></button></div>{actions}</div></header>}{children}</main>
+    <main className="app-main internal-main">{!hidePageHeader && <header className={`page-header internal-page-header${eyebrow ? '' : ' is-compact'}${role === 'admin' ? ' is-admin-surface-header' : ''}`}><div><div className={`internal-title-row${titleActions ? ' has-title-actions' : ''}`}><h1>{title}</h1>{titleActions}</div>{eyebrow && <span>{eyebrow}</span>}</div><div className="header-actions"><div className="internal-utility-bar" aria-label="Workspace utilities"><div className="internal-live-datetime">{role === 'admin' && <CalendarDays size={16} aria-hidden="true" />}<div className="internal-live-datetime-copy"><span>{new Intl.DateTimeFormat('en-PH', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', ...(role === 'admin' || reportMode ? { timeZone: 'Asia/Manila' } : {}) }).format(now)}</span><b>{new Intl.DateTimeFormat('en-PH', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true, ...(role === 'admin' || reportMode ? { timeZone: 'Asia/Manila' } : {}) }).format(now)} PHT</b></div></div><button type="button" className={`internal-utility-button raimu-toggle${raimuVisible ? ' is-active' : ''}`} aria-label={reportMode ? 'AI assistant' : raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} aria-pressed={raimuVisible} title={raimuVisible ? 'Close Raimu support assistant' : 'Open Raimu support assistant'} onClick={toggleRaimu}><Bot size={18} aria-hidden="true" /></button><NotificationBell key={`${role}:${user?.id}`} userId={user?.id} role={role} onOpen={openNotification} animated={bellAnimated} /><button type="button" className="internal-utility-button" aria-label={reportMode ? 'Refresh data' : refreshing ? 'Refreshing current page data' : 'Refresh current page data'} aria-busy={refreshing} title={refreshing ? 'Refreshing data…' : 'Refresh data'} onClick={refreshPage} disabled={refreshing}><RefreshCw size={18} className={refreshing ? 'spin' : ''} /></button></div>{actions}</div></header>}{children}</main>
     {role === 'staff' && (
       <StaffOrderToastContainer
         toasts={orderToasts}
@@ -616,7 +574,6 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
       <button type="button" className="daily-restock-toast-view" onClick={() => { setRestockToast(null); void openNotification(restockToast) }}>View products</button>
       <button type="button" className="daily-restock-toast-close" aria-label="Dismiss daily restock notification" onClick={() => setRestockToast(null)}><X size={16} /></button>
     </div>}
-    <ClearNotificationsDialog open={clearConfirmOpen} count={notifications.length} onCancel={() => setClearConfirmOpen(false)} onConfirm={clearNotifications} />
     <LogoutConfirmModal open={logoutOpen} busy={loggingOut} onCancel={() => setLogoutOpen(false)} onConfirm={confirmLogout} />
     {logoutError && (
       <div className="customer-logout-error-banner" role="alert">

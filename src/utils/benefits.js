@@ -9,7 +9,7 @@ export function benefitLinkLabel(application) {
     rejected: 'View rejected Senior Citizen / PWD application',
   }[application.status] || 'View Senior Citizen / PWD verification'
 }
-export function validateBenefitInformation(values, today = new Date(), accountBirthdate = '') {
+export function validateBenefitPersonalInformation(values, today = new Date(), accountBirthdate = '') {
   if (!['senior', 'pwd'].includes(values.kind)) return 'Choose an applicant type.'
   if (!/^[\p{L}][\p{L}\p{M} .'-]{1,59}$/u.test(values.full_name.trim())) return 'Enter your full name (2–60 characters).'
   const birth = new Date(`${values.date_of_birth}T00:00:00`)
@@ -23,6 +23,11 @@ export function validateBenefitInformation(values, today = new Date(), accountBi
     if (accountAge < 60) return 'Senior Citizen applications require an account birthdate showing age 60 or older.'
   }
   if (values.kind === 'senior' && age < 60) return 'Senior Citizen applicants must be at least 60 years old.'
+  return ''
+}
+export function validateBenefitInformation(values, today = new Date(), accountBirthdate = '') {
+  const personalError = validateBenefitPersonalInformation(values, today, accountBirthdate)
+  if (personalError) return personalError
   if (!/^[0-9]{3,20}$/.test(values.id_number)) return 'Enter an ID number with 3–20 digits only.'
   return ''
 }

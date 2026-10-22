@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle, Ban, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Clock3, Download, ExternalLink, Eye,
   FileText, Filter, MoreVertical, PhilippinePeso, Printer, ReceiptText, RotateCcw,
@@ -222,6 +222,7 @@ function deriveTab(orderSource, fulfillment, orderStatus, voidedOnly) {
 
 export default function TransactionsPage() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { pricing } = usePricing()
   const [transactions, setTransactions] = useState([])
   const [summaryRows, setSummaryRows] = useState([])
@@ -263,6 +264,19 @@ export default function TransactionsPage() {
   const [refundProcessTarget, setRefundProcessTarget] = useManagementSessionState(`${sessionScope}:refund-process`, null)
   const [voidTarget, setVoidTarget] = useManagementSessionState(`${sessionScope}:void`, null)
   const [correctionTarget, setCorrectionTarget] = useManagementSessionState(`${sessionScope}:payment-correction`, null)
+
+  useEffect(() => {
+    const id = location.state?.notificationOrderId
+    if (!id) return undefined
+    let active = true
+    fetchTransactionById(id).then(order => {
+      if (!active) return
+      if (order) setDetailTarget(order)
+      else setError('This order is no longer available.')
+      navigate(location.pathname, { replace: true, state: null })
+    }).catch(() => { if (active) setError('Could not open this order.') })
+    return () => { active = false }
+  }, [location.state, location.pathname, navigate, setDetailTarget])
 
   const deferredSearch = useDeferredValue(search)
   const queryRef = useRef(null)

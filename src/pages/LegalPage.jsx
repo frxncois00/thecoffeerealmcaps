@@ -100,7 +100,7 @@ export function LandingFooter({ animated = false }) {
         <div className="store-footer-page-group">
         <Link to="/">Home</Link>
         <Link to="/menu">Menu</Link>
-        <Link to="/about">About us</Link>
+        <Link to="/#about">About us</Link>
         <Link to="/#reviews">Testimonials</Link>
         </div>
         <div className="store-footer-page-group">

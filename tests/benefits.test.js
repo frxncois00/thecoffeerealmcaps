@@ -1,9 +1,17 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { validateBenefitInformation, benefitLinkLabel } from '../src/utils/benefits.js'
+import { validateBenefitInformation, validateBenefitPersonalInformation, benefitLinkLabel } from '../src/utils/benefits.js'
 
 const today = new Date(2026, 8, 5, 12)
 const applicant = { kind: 'senior', full_name: 'Maria Dela Cruz', date_of_birth: '1966-09-05', id_number: '00123456' }
+test('personal details can advance before the ID step, but submission still requires a valid ID', () => {
+  const details = { ...applicant, id_number: '' }
+  assert.equal(validateBenefitPersonalInformation(details, today), '')
+  assert.match(validateBenefitInformation(details, today), /ID number/)
+  assert.match(validateBenefitPersonalInformation({ ...details, full_name: '' }, today), /full name/)
+  assert.match(validateBenefitPersonalInformation({ ...details, date_of_birth: '2000-01-01' }, today), /60/)
+  assert.match(validateBenefitPersonalInformation(details, today, '1960-01-01'), /match/)
+})
 test('senior age boundary uses the full birthday, while PWD applicants need not be seniors', () => {
   assert.equal(validateBenefitInformation(applicant, today), '')
   assert.match(validateBenefitInformation({ ...applicant, date_of_birth: '1966-09-06' }, today), /60/)

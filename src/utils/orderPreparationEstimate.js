@@ -14,33 +14,14 @@ export function orderPreparationRange(order) {
   const items = order?.order_items
   if (!Array.isArray(items) || items.length === 0) return null
 
-  let madeToOrderUnits = 0
-  let readyMadeUnits = 0
-  let longestMadeToOrder = 0
-  let longestReadyMade = 0
-
-  for (const item of items) {
-    const menuItem = Array.isArray(item?.menu_items) ? item.menu_items[0] : item?.menu_items
-    const quantity = Math.max(1, Math.floor(Number(item?.quantity) || 1))
-    const minutes = itemPrepMinutes(item, menuItem)
-    if (menuItem?.inventory_source === 'products') {
-      readyMadeUnits += quantity
-      longestReadyMade = Math.max(longestReadyMade, minutes)
-    } else {
-      madeToOrderUnits += quantity
-      longestMadeToOrder = Math.max(longestMadeToOrder, minutes)
-    }
-  }
-
-  if (!madeToOrderUnits) {
-    const min = Math.max(5, roundUpToFive(longestReadyMade), Math.ceil(readyMadeUnits / 3) * 5)
-    return { min, max: min + 5 }
-  }
-
-  const [baseMin, spread] = madeToOrderUnits >= 5 ? [45, 15]
-    : madeToOrderUnits >= 3 ? [30, 15]
-      : madeToOrderUnits === 2 ? [20, 10] : [10, 5]
-  const readyMadeHandling = readyMadeUnits >= 4 ? 5 : 0
-  const min = Math.max(baseMin, roundUpToFive(longestMadeToOrder), roundUpToFive(longestReadyMade)) + readyMadeHandling
-  return { min, max: min + spread }
+  // Conservative sequential estimate until actual batch capacities are configured.
+  const minutes=items.reduce((total,item)=>{
+    const menuItem=Array.isArray(item?.menu_items)?item.menu_items[0]:item?.menu_items
+    return total+itemPrepMinutes(item,menuItem)*Math.max(1,Math.floor(Number(item?.quantity)||1))
+  },0)
+  const min=Math.max(5,roundUpToFive(minutes))
+  return {min,max:min+5}
+}
+export function cartPreparationRange(items,products){
+  return orderPreparationRange({order_items:items.map(item=>({quantity:item.quantity,menu_items:products.find(p=>p.id===item.productId)}))})
 }

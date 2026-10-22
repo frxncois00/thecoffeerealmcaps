@@ -131,6 +131,7 @@ export async function uploadPaymentProof({orderId,userId,file,referenceNumber}){
     }
     throw attachError
   }
+  window.dispatchEvent(new CustomEvent('tcr:customer-toast', { detail: { userId, title: 'Payment proof uploaded', message: 'Waiting for verification.' } }))
   return {path,filename}
 }
 export async function checkCustomerPaymentReference(referenceNumber){

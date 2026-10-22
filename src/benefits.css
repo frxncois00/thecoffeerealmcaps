@@ -44,3 +44,70 @@
 @media(max-width:800px){.benefit-wizard{grid-template-columns:1fr}.benefit-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:22px;border-right:0;border-bottom:1px solid #dfe6df}.benefit-steps li{display:block;padding:0}.benefit-steps li:before{display:none}.benefit-steps p{display:none}.benefit-steps b{font-size:.8rem;margin-top:8px}.benefit-form{padding:24px}.benefit-review-grid{grid-template-columns:1fr}.internal-title-row .ua-tabs{flex-wrap:wrap}.benefit-heading h1{font-size:2rem}}
 @media(max-width:520px){.benefits-page{padding:24px 16px 40px}.benefit-info{padding:20px;gap:12px}.benefit-info>svg{width:20px}.benefit-form-grid,.benefit-details,.benefit-submitted-info .benefit-details{grid-template-columns:1fr}.benefit-form-grid{gap:0}.benefit-form{padding:20px}.benefit-status-card{padding:20px}.benefit-status-card>header{flex-wrap:wrap;gap:0}.benefit-empty{padding:20px;align-items:flex-start}.benefit-profile-link{max-width:100%;margin:0;text-align:left;justify-content:flex-start}.profile-benefit-actions{gap:12px;align-items:flex-start;flex-direction:column}.benefit-review-panel{margin:12px;padding:16px}.benefit-form-actions{flex-wrap:wrap}.benefit-form-actions button{flex:1}.benefit-submitted-info{padding:18px}.benefit-submitted-document{padding:12px}.benefit-submitted-document .benefit-document img{height:220px;max-height:220px}}
 .benefit-drawer-footer-actions{display:flex;justify-content:flex-end;gap:10px}.benefit-reset-action{display:inline-flex;align-items:center;gap:8px}.benefit-reset-modal{position:absolute;inset:0;z-index:5;display:grid;place-items:center;padding:24px;background:rgba(3,9,7,.56)}.benefit-reset-modal-card{position:relative;width:min(440px,100%);padding:28px;border:1px solid var(--mgmt-border,#dfe6df);border-radius:16px;background:var(--mgmt-elevated,#fff);box-shadow:0 24px 70px #0005}.benefit-reset-modal-card h3{margin:8px 0 10px}.benefit-reset-modal-card>p{color:var(--mgmt-muted,#5c6a61);line-height:1.6}.benefit-reset-close{position:absolute;top:16px;right:16px;display:grid;place-items:center;width:34px;height:34px;border:0;background:transparent;color:var(--mgmt-muted,#5c6a61);cursor:pointer}.benefit-reset-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}.benefit-reset-actions button{min-height:42px}@media(max-width:520px){.benefit-drawer-footer-actions{flex-wrap:wrap}.benefit-reset-modal{padding:16px}.benefit-reset-modal-card{padding:22px}}
+
+/* Customer verification: three steps beside help and application status. */
+.benefit-page-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.benefit-application-column, .benefit-sidebar { min-width: 0; }
+.benefit-sidebar { display: grid; gap: 22px; }
+.benefits-page .benefit-wizard { display: block; margin: 0; }
+.customer-app .benefits-page .benefit-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 26px 20px 22px;
+  border-right: 0;
+  border-bottom: 1px solid var(--cr-line, #dfe6df);
+}
+.customer-app .benefits-page .benefit-steps li { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; padding: 0; text-align: center; }
+.benefits-page .benefit-steps li:not(:last-child)::before {
+  display: block;
+  left: calc(50% + 30px);
+  right: calc(-50% + 30px);
+  top: 21px;
+  bottom: auto;
+  width: auto;
+  height: 2px;
+}
+.benefits-page .benefit-steps li.is-complete::before { background: var(--cr-green, #214d36); }
+.benefits-page .benefit-steps b { margin: 0; padding: 0; font-size: .82rem; }
+.benefits-page .benefit-form { padding: 28px; }
+.benefits-page .benefit-kind { flex-direction: column; gap: 6px; }
+.benefits-page .benefit-kind label { line-height: 1.5; }
+.customer-app .benefits-page .benefit-form-actions { display: flex; justify-content: space-between; }
+.customer-app .benefits-page .benefit-form-actions > button { min-width: 0; width: auto; padding-inline: 20px; order: 0; }
+.customer-app .benefits-page .benefit-form-actions > button:last-child { margin-left: auto; }
+.benefit-step-panel { min-width: 0; animation: benefit-step-forward .26s ease-out; }
+.benefit-step-panel[data-direction="backward"] { animation-name: benefit-step-backward; }
+.benefit-step-panel > h2:focus { outline: none; }
+.benefit-field-hint { color: var(--cr-muted, #5c6a61); font-size: .82rem; line-height: 1.6; }
+.benefit-sidebar .benefit-info { margin: 0; padding: 24px; gap: 12px; }
+.benefit-sidebar .benefit-info ul { font-size: .86rem; }
+.benefit-sidebar .benefit-status-card { padding: 24px; }
+.benefit-sidebar .benefit-status-card > header { flex-wrap: wrap; gap: 0; }
+.benefit-sidebar .benefit-status-card header p { margin-bottom: 8px; }
+.benefit-sidebar .benefit-text-button { padding-left: 0; margin-bottom: 12px; }
+.benefit-sidebar .benefit-empty { padding: 20px 16px; gap: 12px; align-items: flex-start; }
+.benefit-sidebar :is(.benefit-empty, .benefit-status-summary) > svg { flex: none; }
+.benefit-sidebar .benefit-status-summary { gap: 12px; align-items: flex-start; }
+.benefit-sidebar .benefit-status-summary > svg { margin-top: 5px; }
+.benefit-sidebar .benefit-status-summary h3 { font-size: 1rem; }
+.benefit-sidebar .benefit-status-card p { font-size: .86rem; }
+.benefit-sidebar .benefit-review-note { margin-bottom: 0; }
+.benefit-submitted-card { padding: 28px; border: 1px solid var(--cr-line, #dfe6df); border-radius: 18px; background: #fff; }
+.benefit-submitted-card h2 { margin: 0 0 12px; font-size: 1.2rem; }
+.benefit-submitted-card > p { color: var(--cr-muted, #5c6a61); line-height: 1.65; }
+@keyframes benefit-step-forward { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes benefit-step-backward { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: translateX(0); } }
+@media (max-width: 900px) { .benefit-page-columns { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+@media (max-width: 520px) {
+  .customer-app .benefits-page .benefit-steps { padding: 22px 12px; }
+  .benefits-page .benefit-steps b { font-size: .72rem; }
+  .benefits-page .benefit-form, .benefit-submitted-card { padding: 20px; }
+  .benefit-sidebar .benefit-info, .benefit-sidebar .benefit-status-card { padding: 20px; }
+}
+@media (prefers-reduced-motion: reduce) { .benefit-step-panel { animation: none; } }

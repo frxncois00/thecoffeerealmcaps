@@ -91,9 +91,11 @@
 }
 .coffee-carousel-polished .coffee-card-image img,
 .coffee-carousel-polished .coffee-card:hover .coffee-card-image img {
+  object-fit: contain;
   transform: none;
   transition: none;
 }
+.coffee-carousel-polished .coffee-card-image { background: #fff; }
 .coffee-carousel-polished .coffee-card:focus-within {
   outline: 3px solid var(--forest);
   outline-offset: 5px;
@@ -186,6 +188,10 @@
 }
 @media (max-width: 760px) {
   .coffee-carousel.coffee-carousel-polished { height: 468px; }
+  .coffee-carousel-polished .coffee-carousel-window {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+    mask-image: linear-gradient(to right, transparent, #000 10%, #000 90%, transparent);
+  }
   .coffee-carousel-polished .coffee-card {
     width: min(270px, 76vw);
     height: 330px;

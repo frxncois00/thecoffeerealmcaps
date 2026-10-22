@@ -36,13 +36,16 @@
 .customer-app .profile-identity-fields { display: grid; gap: 20px; min-width: 0; }
 .customer-app .profile-identity-fields .field, .customer-app .profile-identity-fields input { min-width: 0; width: 100%; }
 @media(max-width:600px) {
-  .customer-app .profile-identity-row { gap: 12px; grid-template-columns: minmax(0,1fr) minmax(0,1.15fr); }
-  .customer-app .profile-identity-row .profile-picture-editor { padding: 12px 0; gap: 8px; }
-  .customer-app .profile-identity-row .profile-picture-preview { width: 64px; height: 64px; border-width: 2px; }
-  .customer-app .profile-identity-row .profile-picture-copy h3 { font-size: .86rem; }
-  .customer-app .profile-identity-row .profile-picture-copy>p { font-size: .68rem; }
-  .customer-app .profile-identity-row .profile-picture-actions .secondary-button { padding-inline: 8px; font-size: .72rem; gap: 5px; white-space: normal; }
-  .customer-app .profile-identity-fields { gap: 16px; }
-  .customer-app .profile-identity-fields .field>span { font-size: .8rem; }
-  .customer-app .profile-identity-fields input { padding-inline: 8px; font-size: .85rem; }
+  .customer-app .profile-identity-row { gap: 24px; grid-template-columns: minmax(0,1fr); }
+  .customer-app .profile-identity-row .profile-picture-editor { grid-template-columns: minmax(0,1fr); justify-items: center; text-align: center; padding: 20px 16px; gap: 14px; border: 1px solid var(--cr-line); border-radius: 16px; background: #f6f8f4; }
+  .customer-app .profile-identity-row .profile-picture-preview { width: 88px; height: 88px; border-width: 3px; grid-column: auto; grid-row: auto; }
+  .customer-app .profile-identity-row .profile-picture-copy { display: block; width: 100%; }
+  .customer-app .profile-identity-row .profile-picture-copy h3 { font-size: 1rem; }
+  .customer-app .profile-identity-row .profile-picture-copy>p { font-size: .8rem; margin: 8px auto 14px; max-width: 260px; }
+  .customer-app .profile-identity-row .profile-picture-actions { justify-content: center; flex-wrap: wrap; gap: 10px; }
+  .customer-app .profile-identity-row .profile-picture-actions .secondary-button { width: auto; padding-inline: 20px; font-size: .85rem; white-space: nowrap; }
+  .customer-app .profile-identity-row .profile-picture-cancel { padding-inline: 12px; font-size: .85rem; }
+  .customer-app .profile-identity-fields { grid-template-columns: minmax(0,1fr); gap: 20px; }
+  .customer-app .profile-identity-fields .field>span { font-size: .9rem; }
+  .customer-app .profile-identity-fields input { padding-inline: 14px; font-size: 1rem; }
 }

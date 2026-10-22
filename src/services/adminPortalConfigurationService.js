@@ -204,6 +204,16 @@ export async function fetchDeliveryZoneSettings() {
   return [...groups.values()]
 }
 
+export async function fetchBackupRuns(limit = 12) {
+  requireSupabase()
+  const { data, error } = await supabase.from('backup_runs').select('*').order('completed_at', { ascending: false }).limit(limit)
+  if (error) {
+    if (error.code === '42P01' || /backup_runs/i.test(error.message || '')) return { runs: [], setupRequired: true }
+    throw error
+  }
+  return { runs: data || [], setupRequired: false }
+}
+
 export async function fetchPublicDeliveryAreas() {
   if (!isSupabaseConfigured || !supabase) return []
   const { data, error } = await supabase.from('delivery_areas').select('barangay,zone,fee,estimated_time').eq('is_active', true).order('barangay')

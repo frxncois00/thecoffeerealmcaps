@@ -113,7 +113,7 @@ export function CartProvider({ children }) {
         if (!onlyReducing && !fits) {
           setCartError(STOCK_MESSAGE)
           setDrawerOpen(true)
-          return
+          return {ok:false,error:STOCK_MESSAGE}
         }
         if (stateRef.current.ownerKey !== ownerKey) return
         ++availabilityRequestRef.current
@@ -122,9 +122,11 @@ export function CartProvider({ children }) {
         stateRef.current = nextState
         setCartState(nextState)
         setCartError(fits ? '' : STOCK_MESSAGE)
+        return {ok:true}
       } catch (error) {
         setCartError(error.message)
         setDrawerOpen(true)
+        return {ok:false,error:error.message}
       } finally {
         setCheckingAvailability(false)
       }
@@ -140,7 +142,7 @@ export function CartProvider({ children }) {
     setCheckingAvailability(true)
     setAvailabilityError('')
     try {
-      const { products } = await fetchMenuCatalog()
+      const { products } = await fetchMenuCatalog({ strict: true })
       const current = stateRef.current
       const currentItems = current.ownerKey === ownerKey ? current.items : []
       const nextItems = applyCatalogAvailability(currentItems, products)
@@ -188,7 +190,7 @@ export function CartProvider({ children }) {
   }, [drawerOpen, items.length, refreshAvailability])
 
   const addItem = (next, { openDrawer = true } = {}) => {
-    setItems((current) => {
+    const result = setItems((current) => {
       const candidate = { ...next, available: true, availabilityReason: '' }
       const itemSignature = signature(candidate)
       const found = current.find((item) => signature(item) === itemSignature)
@@ -197,6 +199,7 @@ export function CartProvider({ children }) {
         : [...current, { ...candidate, lineId: crypto.randomUUID() }]
     })
     if (openDrawer) setDrawerOpen(true)
+    return result
   }
   const updateQuantity = (lineId, quantity) => setItems((current) => current.map((item) => item.lineId === lineId ? { ...item, quantity } : item).filter((item) => item.quantity > 0))
   const removeItem = (lineId) => setItems((current) => current.filter((item) => item.lineId !== lineId))

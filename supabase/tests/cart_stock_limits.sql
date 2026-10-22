@@ -50,11 +50,11 @@ begin
       (select variant_options from public.menu_items where id=cake);
   end if;
   assert not public.cart_stock_available(jsonb_build_array(jsonb_build_object('menu_item_id',cake,'quantity',11,'variant_key','cup'))), 'Eleventh cup must be rejected';
-  insert into public.orders(order_source,order_type,status,payment_confirmed,customer_name,customer_email,customer_phone)
+  insert into public.orders(order_source,order_type,status,payment_confirmed,customer_name,customer_email,customer_phone,schedule_date,schedule_time)
     values('customer_pos','pickup','Awaiting Payment Verification',false,
-      'Stock Test Customer','stock-test@example.com','09123456789') returning id into online_order;
-  insert into public.order_items(order_id,menu_item_id,product_name,name,quantity,customizations)
-    values(online_order,cake,'Stock test','Stock test',6,'{"variation_id":"cup"}');
+      'Stock Test Customer','stock-test@example.com','09123456789',(clock_timestamp() at time zone 'Asia/Manila')::date+2,'12:00') returning id into online_order;
+  insert into public.order_items(order_id,menu_item_id,item_name,display_name,unit_price,line_total,quantity,customizations)
+    values(online_order,cake,'Stock test','Stock test',100,600,6,'{"variation_id":"cup"}');
   set constraints commit_placed_order_stock_trigger immediate;
   select quantity into stock from public.inventory_stock where ingredient_id=ingredient;
   assert stock = 4, 'Pending online order must immediately leave only four cups';
@@ -63,11 +63,11 @@ begin
   select quantity into stock from public.inventory_stock where ingredient_id=ingredient;
   assert stock = 4, 'Preparation must not deduct again';
   set constraints commit_placed_order_stock_trigger deferred;
-  insert into public.orders(order_source,order_type,status,payment_confirmed,customer_name,customer_email,customer_phone)
+  insert into public.orders(order_source,order_type,status,payment_confirmed,customer_name,customer_email,customer_phone,schedule_date,schedule_time)
     values('customer_pos','pickup','Awaiting Payment Verification',false,
-      'Stock Test Customer','stock-test@example.com','09123456789') returning id into cancelled_order;
-  insert into public.order_items(order_id,menu_item_id,product_name,name,quantity,customizations)
-    values(cancelled_order,cake,'Stock test','Stock test',4,'{"variation_id":"cup"}');
+      'Stock Test Customer','stock-test@example.com','09123456789',(clock_timestamp() at time zone 'Asia/Manila')::date+2,'12:00') returning id into cancelled_order;
+  insert into public.order_items(order_id,menu_item_id,item_name,display_name,unit_price,line_total,quantity,customizations)
+    values(cancelled_order,cake,'Stock test','Stock test',100,400,4,'{"variation_id":"cup"}');
   set constraints commit_placed_order_stock_trigger immediate;
   select quantity into stock from public.inventory_stock where ingredient_id=ingredient;
   assert stock = 0, 'Second pending order consumes the remaining capacity';

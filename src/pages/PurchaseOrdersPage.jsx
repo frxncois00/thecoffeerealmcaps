@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useState } from 'react'
 import { AlertTriangle, Check, FileImage, FileText, ImagePlus, Package, PackageCheck, Plus, Send, ShieldAlert, Store, Trash2, Upload, X } from 'lucide-react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import PurchaseStockBoard from '../components/PurchaseStockBoard'
 import { changePurchaseUnit, pricePerPurchaseUnit, updatePurchaseLine } from '../utils/purchaseLinePricing'
 import { needsRestock, suggestedPurchaseAmount } from '../utils/purchaseStock'
@@ -73,6 +74,8 @@ function emptyDraftFromOrder(order) {
 }
 
 export default function PurchaseOrdersPage({ role = 'staff' }) {
+  const location = useLocation()
+  const navigate = useNavigate()
   const isAdmin = role === 'admin'
   const [orders, setOrders] = useState([])
   const [stockSelection, setStockSelection] = useState([])
@@ -128,6 +131,14 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
     } finally { setLoading(false) }
   }
   useEffect(() => { load() }, [])
+
+  useEffect(() => {
+    const id = location.state?.notificationPurchaseOrderId
+    if (!id || loading) return
+    if (orders.some(order => order.id === id)) { setSelectedId(id); setShortcutOrderId('') }
+    else setError('This purchase order is no longer available.')
+    navigate(location.pathname, { replace: true, state: null })
+  }, [location.state, location.pathname, loading, orders, navigate])
 
   const selected = orders.find((order) => order.id === (shortcutOrderId || selectedId)) || null
   function openShortcut(order, type) {

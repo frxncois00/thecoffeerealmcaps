@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Clock3, CreditCard, Database, Image, Info, MapPin, Percent, RotateCcw, Save, ShieldCheck, ShoppingBag, Store, Upload } from 'lucide-react'
+import { AlertTriangle, Archive, CalendarDays, Check, CheckCircle2, Clock3, Cloud, CreditCard, Database, Image, Info, MapPin, Percent, RotateCcw, Save, ShieldCheck, ShoppingBag, Store, Upload, XCircle } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import AppShell from '../components/AppShell'
 import { raimu } from '../components/raimu/raimuMachine'
@@ -6,7 +6,7 @@ import { describeError } from '../utils/describeError'
 import { EMAIL_MAX_LENGTH, isValidEmail, isValidPhone, sanitizeCatalogText, sanitizeDigits, sanitizePersonName, sanitizePhone } from '../utils/inputValidation'
 import { IMAGE_UPLOAD_ACCEPT, validateImageFile } from '../utils/imageUpload'
 import {
-  SYSTEM_DEFAULTS, fetchDeliveryZoneSettings, fetchPortalConfiguration,
+  SYSTEM_DEFAULTS, fetchBackupRuns, fetchDeliveryZoneSettings, fetchPortalConfiguration,
   saveDeliveryZoneSettings, savePaymentConfiguration, savePortalConfiguration,
 } from '../services/adminPortalConfigurationService'
 
@@ -17,6 +17,7 @@ const SECTIONS = [
   ['payments', 'Payments', CreditCard, 'Methods and instructions'],
   ['pricing', 'Pricing & VAT', Percent, 'Global price treatment'],
   ['security', 'Platform security', ShieldCheck, 'Access and safeguards'],
+  ['backups', 'Backups', Cloud, 'Google Drive protection'],
 ]
 
 function Field({ label, hint, wide = false, children }) { return <label className={`ac-field${wide ? ' ac-field--wide' : ''}`}><span>{label}</span>{children}{hint && <small>{hint}</small>}</label> }
@@ -34,13 +35,15 @@ export default function SystemSettingsPage() {
   const [notice, setNotice] = useState('')
   const [qrFiles, setQrFiles] = useState({ gcash: null, bank_transfer: null })
   const [refreshSignal, setRefreshSignal] = useState(0)
+  const [backupRuns, setBackupRuns] = useState([])
+  const [backupSetupRequired, setBackupSetupRequired] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const [configuration, deliveryZones] = await Promise.all([fetchPortalConfiguration('system'), fetchDeliveryZoneSettings()])
+      const [configuration, deliveryZones, backupHistory] = await Promise.all([fetchPortalConfiguration('system'), fetchDeliveryZoneSettings(), fetchBackupRuns()])
       raimu.updateContext({ storeOpen: configuration.values.ordering?.storeStatus === 'open' })
-       setSettings((current) => ({ ...current, ...configuration.values, store: { ...current.store, ...configuration.values.store, phone: sanitizePhone(configuration.values.store?.phone || '') } })); setZones(deliveryZones); setUpdatedAt(configuration.updatedAt); setSetupRequired(configuration.setupRequired); setError('')
+       setSettings((current) => ({ ...current, ...configuration.values, store: { ...current.store, ...configuration.values.store, phone: sanitizePhone(configuration.values.store?.phone || '') } })); setZones(deliveryZones); setBackupRuns(backupHistory.runs); setBackupSetupRequired(backupHistory.setupRequired); setUpdatedAt(configuration.updatedAt); setSetupRequired(configuration.setupRequired); setError('')
     } catch (cause) { setError(describeError(cause, 'System settings could not be loaded.')) }
     finally { setLoading(false) }
   }, [])
@@ -137,12 +140,47 @@ export default function SystemSettingsPage() {
               <article><span><Database size={20}/></span><div><b>Authentication policy</b><p>Password rules, OTP, session lifetime, and rate limits belong in Supabase Auth. They are not duplicated here because a local toggle would not enforce them.</p><small>Review these controls in the connected Supabase project.</small></div></article>
               <article><span><ShoppingBag size={20}/></span><div><b>Change history</b><p>Administrative changes remain attributable through the portal activity log.</p><a href="/admin/users-access/activity">Open Activity Logs</a></div></article>
             </div></section>}
+            {section === 'backups' && <BackupSection runs={backupRuns} setupRequired={backupSetupRequired}/>}
           </>}
         </main>
       </div>
     </section>
     {notice && <div className="ac-toast" role="status"><Check size={17}/>{notice}</div>}
   </AppShell>
+}
+
+function formatBackupTime(value) {
+  if (!value) return 'Not available'
+  return new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
+}
+
+function formatBackupSize(value) {
+  const bytes = Number(value || 0)
+  if (!bytes) return '—'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1)
+  return `${(bytes / (1024 ** index)).toFixed(index ? 1 : 0)} ${units[index]}`
+}
+
+function BackupSection({ runs, setupRequired }) {
+  const latest = runs[0]
+  const healthy = latest?.status === 'success'
+  return <section className="ac-editor-section ac-backup-section">
+    <header><div><h2>Google Drive backups</h2><p>Encrypted recovery copies run independently of the store computer.</p></div>{latest && <span className={`ac-backup-health ${healthy ? 'is-success' : 'is-failed'}`}>{healthy ? <CheckCircle2 size={16}/> : <XCircle size={16}/>} {healthy ? 'Protected' : 'Needs attention'}</span>}</header>
+    <div className="ac-editor-body">
+      {setupRequired && <div className="ac-alert" role="status"><Info size={18}/><div><b>Backup history setup is pending</b><span>Apply the backup history migration and add the required GitHub secrets before the first scheduled run.</span></div></div>}
+      {!setupRequired && !latest && <div className="ac-alert" role="status"><Info size={18}/><div><b>Waiting for the first backup</b><span>The schedule is ready to report here after Google Drive is connected and the workflow completes.</span></div></div>}
+      <div className="ac-backup-summary">
+        <article><span><Clock3 size={18}/></span><div><small>Schedule</small><b>Daily at 2:00 AM</b><p>Philippine time</p></div></article>
+        <article><span><CalendarDays size={18}/></span><div><small>Retention</small><b>3 months</b><p>Daily and monthly copies</p></div></article>
+        <article><span><Cloud size={18}/></span><div><small>Destination</small><b>Google Drive</b><p>Private, encrypted folder</p></div></article>
+        <article><span><Archive size={18}/></span><div><small>Latest result</small><b>{latest ? formatBackupTime(latest.completed_at) : 'No run yet'}</b><p>{latest?.backup_type === 'monthly' ? 'Monthly full snapshot' : 'Daily backup'}</p></div></article>
+      </div>
+      <div className="ac-subsection ac-backup-coverage"><h3>Protected data</h3><div><span>Orders, payments and refunds</span><span>Inventory and purchase orders</span><span>Menu, pricing and settings</span><span>Accounts, benefits and audit history</span><span>Payment proofs and documents</span><span>Product and profile images</span></div></div>
+      <div className="ac-subsection"><h3>Recent backup history</h3>{runs.length ? <div className="ac-backup-history"><div className="ac-backup-history-head"><span>Completed</span><span>Type</span><span>Database</span><span>Files</span><span>Status</span></div>{runs.map(run => <div key={run.id}><span>{formatBackupTime(run.completed_at)}</span><span>{run.backup_type === 'monthly' ? 'Monthly full' : 'Daily'}</span><span>{formatBackupSize(run.database_bytes)}</span><span>{run.storage_files || 0}</span><span className={run.status === 'success' ? 'is-success' : 'is-failed'}>{run.status === 'success' ? 'Successful' : 'Failed'}</span>{run.error_summary && <small>{run.error_summary}</small>}</div>)}</div> : <p className="ac-backup-empty">Backup results will appear here after the first run.</p>}</div>
+      <div className="ac-inline-note"><ShieldCheck size={16}/><span>Backup archives are encrypted before upload. Passwords and Google or Supabase credentials are stored only as private GitHub secrets.</span></div>
+    </div>
+  </section>
 }
 
 function SettingsSection({ title, description, onSave, saving, children }) {

@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { LogIn, LogOut, Menu, Minus, Plus, ShoppingBag, ShoppingCart, Trash2, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Brand from '../Brand'
+import NotificationBell from '../notifications/NotificationBell'
 import { useAuth } from '../../context/AuthContext'
 import { useCart } from '../../context/CartContext'
 import { usePricing } from '../../context/usePricing'
@@ -223,6 +224,7 @@ export default function CustomerLayout() {
           <ShoppingCart size={19} />
           {cart.itemCount > 0 && <b key={cart.itemCount} className="cart-count-pulse" aria-hidden="true">{cart.itemCount}</b>}
         </button>
+        {customerUser && <div className="customer-header-notifications"><NotificationBell key={customerUser.id} userId={customerUser.id} role="customer" /></div>}
         <button
           ref={menuButtonRef}
           className="mobile-menu"

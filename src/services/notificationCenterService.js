@@ -1,5 +1,4 @@
 const CENTER_EVENT = 'tcr:notification-center-changed'
-const MAX_NOTIFICATIONS = 50
 const MAX_SEEN_EVENTS = 500
 
 function storageKey(userId) {
@@ -49,7 +48,7 @@ export function addStaffNotification(userId, notification) {
     createdAt: notification.createdAt || new Date().toISOString(),
     read: false,
   }
-  return writeStored(userId, [item, ...existing].slice(0, MAX_NOTIFICATIONS))
+  return writeStored(userId, [item, ...existing])
 }
 
 export function markStaffNotificationRead(userId, notificationId) {
