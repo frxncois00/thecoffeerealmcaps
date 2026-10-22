@@ -1,6 +1,6 @@
 # Google Drive backups
 
-The `Google Drive backup` GitHub Actions workflow runs every day at 2:00 AM Philippine time and can also be started manually. It keeps daily and monthly backup files for 90 days.
+The `Google Drive backup` workflow runs from the private `frxncois00/thecoffeerealm-backups` GitHub repository every day at 2:00 AM Philippine time and can also be started manually. It keeps daily and monthly backup files for 90 days.
 
 ## What it protects
 
@@ -27,15 +27,16 @@ Coffee Realm Backups/
 
 ## Required GitHub secrets
 
-Add these in the repository under **Settings → Secrets and variables → Actions**:
+These are stored only in the private backup repository under **Settings → Secrets and variables → Actions**:
 
 - `SUPABASE_URL`: the project URL
 - `SUPABASE_SERVICE_ROLE_KEY`: a server-only service-role key
-- `SUPABASE_DB_URL`: the Supabase session-pooler connection string with its database password
+- `SUPABASE_PROJECT_REF`: the protected Supabase project identifier
+- `SUPABASE_ACCESS_TOKEN`: a project-scoped token with Database read-write access for the temporary export login
 - `GDRIVE_TOKEN`: the token JSON produced by `rclone authorize drive`
 - `BACKUP_ENCRYPTION_PASSWORD`: a long recovery password stored in a password manager outside GitHub and Google Drive
 
-Never put these values in a source file, issue, commit, or workflow log.
+Never put these values in a source file, issue, commit, or workflow log. The recovery password copy is saved locally as `BACKUP_RECOVERY_KEY.txt`, which is excluded from Git.
 
 ## First-run check
 

@@ -13,3 +13,4 @@ supabase/.temp/
 
 .vercel
 .env*
+BACKUP_RECOVERY_KEY.txt
