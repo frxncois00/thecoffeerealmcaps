@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Check, Coffee, Minus, PawPrint, RotateCcw, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { normalizeRole } from '../lib/auth'
@@ -50,8 +50,17 @@ export default function RaimuWidget() {
   const { user, profile, loading } = useAuth()
   const normalizedRole = normalizeRole(profile?.role)
   const role = normalizedRole === 'operational_staff' ? 'staff' : normalizedRole
-  const [closed, setClosed] = useState(() => readRaimuPreference('raimu-visible', 'false') === 'false')
+  const { pathname } = useLocation()
   const allowed = Boolean(user) && ['admin', 'staff', 'cashier'].includes(role)
+    && /^\/(admin|staff|cashier)(\/|$)/.test(pathname) && pathname !== '/admin/mfa'
+
+  if (loading || !allowed) return null
+  const sessionKey = `${user.id}:${user.last_sign_in_at || 'session'}`
+  return <RaimuSession key={sessionKey} role={role} sessionKey={sessionKey} />
+}
+
+function RaimuSession({ role, sessionKey }) {
+  const [closed, setClosed] = useState(true)
 
   useEffect(() => {
     const syncVisibility = (event) => setClosed(event.detail?.visible === false)
@@ -65,8 +74,6 @@ export default function RaimuWidget() {
     window.dispatchEvent(new CustomEvent('raimu-visibility-change', { detail: { visible: false } }))
     document.querySelector('.raimu-toggle')?.focus()
   }
-  if (loading || !allowed) return null
-  const sessionKey = `${user.id}:${user.last_sign_in_at || 'session'}`
   return <RaimuConversation key={sessionKey} role={role} sessionKey={sessionKey} enabled={!closed} onHide={hideRaimu} />
 }
 

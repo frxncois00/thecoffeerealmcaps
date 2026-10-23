@@ -1,0 +1,52 @@
+.auth-loading.portal-access-loading {
+  --portal-loading-bg: #fff;
+  --portal-loading-text: #68736e;
+  --portal-loading-accent: #147d57;
+  --portal-loading-track: #e1e7e4;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--portal-loading-bg);
+  color: var(--portal-loading-text);
+  font-weight: 500;
+}
+
+:root[data-theme='dark'] .portal-access-loading {
+  --portal-loading-bg: #080e0e;
+  --portal-loading-text: #a6b0aa;
+  --portal-loading-accent: #65a875;
+  --portal-loading-track: #293730;
+}
+
+.portal-access-loading__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  text-align: center;
+}
+
+.portal-access-loading__content p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.portal-access-loading__spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--portal-loading-track);
+  border-top-color: var(--portal-loading-accent);
+  border-radius: 50%;
+  animation: portal-access-spin .9s linear infinite;
+}
+
+@keyframes portal-access-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-access-loading__spinner { animation: none; }
+}

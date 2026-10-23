@@ -1,5 +1,5 @@
 import { Bell, Check, CheckCheck, ChevronRight, X } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useNotificationHistory } from '../../hooks/useNotificationHistory'
@@ -21,6 +21,7 @@ export default function NotificationBell({ userId, role, onOpen, animated = fals
   const [confirmClear, setConfirmClear] = useState(false)
   const [customerFilter, setCustomerFilter] = useState('all')
   const [toasts, setToasts] = useState([])
+  const panel = useRef(null)
   const anchor = useRef(null)
   const button = useRef(null)
   const closeButton = useRef(null)
@@ -65,6 +66,30 @@ export default function NotificationBell({ userId, role, onOpen, animated = fals
     return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape) }
   }, [open])
 
+  // The top layer escapes page stacking contexts while retaining theme inheritance.
+  useLayoutEffect(() => {
+    if (!open || role === 'customer') return undefined
+    const element = panel.current
+    if (!element?.showPopover) return undefined
+    const position = () => {
+      const rect = button.current?.getBoundingClientRect()
+      if (!rect) return
+      const width = Math.min(380, window.innerWidth - 24)
+      element.style.left = Math.max(12, Math.min(rect.right - width, window.innerWidth - width - 12)) + 'px'
+      element.style.top = (rect.bottom + 12) + 'px'
+      element.style.maxHeight = Math.max(0, window.innerHeight - rect.bottom - 24) + 'px'
+    }
+    element.showPopover()
+    position()
+    window.addEventListener('resize', position)
+    window.addEventListener('scroll', position, true)
+    return () => {
+      window.removeEventListener('resize', position)
+      window.removeEventListener('scroll', position, true)
+      if (element.matches(':popover-open')) element.hidePopover()
+    }
+  }, [open, role])
+
   const visit = item => {
     void feed.markRead(item.id)
     setToasts(current => current.filter(value => value.id !== item.id))
@@ -89,7 +114,7 @@ export default function NotificationBell({ userId, role, onOpen, animated = fals
       <button ref={button} type="button" className={role === 'customer' ? 'notification-bell-button' : 'internal-utility-button notification-bell-button'} aria-label={`Notifications${feed.unread ? `, ${feed.unread} unread` : ''}`} aria-expanded={open} aria-controls={panelId} onClick={() => { setConfirmClear(false); setOpen(value => !value) }}>
         <Bell size={19} />{feed.unread > 0 && <span className="notification-badge">{feed.unread > 99 ? '99+' : feed.unread}</span>}
       </button>
-      {open && <section id={panelId} className={`notification-panel${role === 'customer' ? ' is-customer' : ''}`} role="dialog" aria-label="Notifications">
+      {open && <section ref={panel} popover={role === 'customer' ? undefined : 'manual'} id={panelId} className={`notification-panel${role === 'customer' ? ' is-customer' : ''}`} role="dialog" aria-label="Notifications">
         <header><strong>Notifications{role === 'customer' && <span className="notification-header-count" aria-label={`${feed.unread} unread`}>{feed.unread}</span>}</strong><button ref={closeButton} type="button" aria-label="Close notifications" onClick={() => { setOpen(false); setConfirmClear(false); button.current?.focus() }}><X size={role === 'customer' ? 20 : 18} /></button></header>
         <div className="notification-tools">
           {role === 'customer' && <div className="notification-filters" role="group" aria-label="Filter notifications"><button type="button" className={customerFilter === 'all' ? 'is-active' : ''} aria-pressed={customerFilter === 'all'} onClick={() => setCustomerFilter('all')}>All</button><button type="button" className={customerFilter === 'unread' ? 'is-active' : ''} aria-pressed={customerFilter === 'unread'} onClick={() => setCustomerFilter('unread')}>Unread</button></div>}

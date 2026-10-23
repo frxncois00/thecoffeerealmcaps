@@ -79,3 +79,7 @@
 @media(max-width:420px){.notification-panel.is-customer .notification-clear-confirm{align-items:flex-start;flex-direction:column;padding:12px 16px}.notification-panel.is-customer .notification-clear-confirm>div{align-self:flex-end}}
 @media(max-width:420px){.notification-panel.is-customer header{padding:18px 18px 13px}.notification-panel.is-customer .notification-tools{padding:0 18px 13px;gap:8px}.notification-panel.is-customer .notification-tool-actions{gap:9px}.notification-panel.is-customer .notification-tool-actions button{font-size:11px}.notification-panel.is-customer .notification-filters button{padding:4px 9px;font-size:11px}.notification-panel.is-customer .notification-scroll{padding:15px 16px 20px}.notification-panel.is-customer .notification-content{padding:12px 14px}.notification-panel.is-customer .notification-title-line{gap:7px}.notification-panel.is-customer .notification-title-line b{font-size:13px}.notification-panel.is-customer .notification-order-number{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.notification-panel.is-customer .notification-content{transition:none}}
+
+/* Top-layer panels preserve the existing notification design. */
+.notification-panel[popover]:popover-open{position:fixed;inset:auto;margin:0;display:flex;flex-direction:column}
+.notification-panel[popover] .notification-scroll{min-height:0}

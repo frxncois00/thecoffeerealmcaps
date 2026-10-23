@@ -32,12 +32,16 @@
   }
 }
 
-.is-landing-page .customer-nav-center a {
+.customer-app .customer-header .customer-nav-center a.active {
+  background: transparent;
+}
+
+.customer-app .customer-nav-center a {
   position: relative;
   isolation: isolate;
 }
 
-.is-landing-page .customer-nav-center a::after {
+.customer-app .customer-nav-center a::after {
   content: '';
   position: absolute;
   right: 14px;
@@ -51,7 +55,7 @@
   transition: transform var(--realm-duration-fast, .18s) var(--realm-ease, cubic-bezier(.22, 1, .36, 1));
 }
 
-.is-landing-page .customer-nav-center a:is([aria-current='location'], :focus-visible)::after {
+.customer-app .customer-nav-center a:is([aria-current='location'], [aria-current='page'], :focus-visible)::after {
   transform: scaleX(1);
 }
 
@@ -147,7 +151,7 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .is-landing-page[data-landing-motion='true'] .customer-nav-center a:hover::after { transform: scaleX(1); }
+  .customer-app .customer-nav-center a:hover::after { transform: scaleX(1); }
   .ordering-works[data-ordering-ambient='true'] .ordering-step:hover .ordering-cluster { transform: translateY(-5px) scale(1.025); }
   .ordering-works[data-ordering-ambient='true'] .ordering-step:hover .ordering-step-mark svg { opacity: 0; transform: translateY(-7px); }
   .ordering-works[data-ordering-ambient='true'] .ordering-step:hover .ordering-step-mark span { opacity: 1; transform: translateY(0); }
@@ -155,7 +159,7 @@
 
 @media (max-width: 980px) {
   .is-landing-page .mobile-menu { display: grid; }
-  .is-landing-page .customer-nav-center a::after { right: auto; width: 28px; left: 16px; }
+  .customer-app .customer-nav-center a::after { right: auto; width: 28px; left: 16px; }
   .is-landing-page[data-landing-motion='true'] .customer-header > nav.open { animation: landing-navigation-enter .28s cubic-bezier(.22, 1, .36, 1) both; }
 }
 
@@ -175,7 +179,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .is-landing-page .customer-nav-center a::after,
+  .customer-app .customer-nav-center a::after,
   .ordering-works .ordering-cluster,
   .ordering-step-mark svg,
   .ordering-step-mark span { transition: none; }

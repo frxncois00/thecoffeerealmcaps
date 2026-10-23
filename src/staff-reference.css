@@ -1,4 +1,5 @@
-/* Staff workspace follows the admin reference in both display modes. */
+/* Staff workspace follows the admin reference in both display modes.
+   All alignment rules stay scoped to staff; admin remains the visual baseline. */
 .app-layout.legacy-staff,
 .raimu-companion:is([data-role="admin"],[data-role="staff"]) {
   --admin-canvas:#f3f3f1;--admin-surface:#fff;--admin-subtle:#e8efe9;
@@ -14,7 +15,7 @@
   font-family:'Space Grotesk',system-ui,sans-serif;
 }
 .app-layout.legacy-staff {
-  display:grid;grid-template-columns:244px minmax(0,1fr);min-width:0;
+  display:grid;grid-template-columns:280px minmax(0,1fr);min-width:0;
   background:var(--admin-canvas);color:var(--admin-ink);
 }
 .app-layout.legacy-staff[data-theme="dark"],
@@ -37,12 +38,12 @@
   color-scheme:dark;
 }
 .app-layout.legacy-staff .internal-sidebar {
-  position:sticky;top:0;align-self:start;width:244px;height:100dvh;
+  position:sticky;top:0;align-self:start;width:280px;height:100dvh;
   display:flex;flex-direction:column;gap:4px;overflow:hidden;padding:20px 14px;
-  border-right:1px solid var(--admin-line);background:var(--admin-surface);
+  border-right:1px solid var(--admin-line);background:rgba(255,255,255,.86);backdrop-filter:blur(10px);
   box-shadow:none;font-family:'Space Grotesk',system-ui,sans-serif;
 }
-.app-layout.legacy-staff:has(.internal-sidebar:hover){grid-template-columns:244px minmax(0,1fr)}
+.app-layout.legacy-staff:has(.internal-sidebar:hover){grid-template-columns:280px minmax(0,1fr)}
 .app-layout.legacy-staff .internal-sidebar::after{display:none}
 .app-layout.legacy-staff .internal-brand{justify-content:flex-start}
 .app-layout.legacy-staff .internal-brand>div,.app-layout.legacy-staff .internal-nav-group a span,.app-layout.legacy-staff .sidebar-exit span{width:auto;opacity:1;overflow:visible}
@@ -59,7 +60,7 @@
 .app-layout.legacy-staff .internal-sidebar nav{flex:1;min-height:0;width:100%;gap:4px;padding:0;scrollbar-width:none}
 .app-layout.legacy-staff .internal-nav-group{width:100%;gap:2px}
 .app-layout.legacy-staff .internal-group-label{padding:16px 10px 4px;color:var(--admin-muted);font:600 10px 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.14em;text-transform:uppercase}
-.app-layout.legacy-staff .internal-sidebar nav a,.app-layout.legacy-staff .internal-sidebar:hover nav a{width:100%;min-height:44px;align-self:stretch;justify-content:flex-start;padding:10px 12px;border-radius:10px;background:transparent;color:var(--admin-muted);box-shadow:none;transform:none;font-size:12.5px;font-weight:500;gap:10px;text-align:left}
+.app-layout.legacy-staff .internal-sidebar nav a,.app-layout.legacy-staff .internal-sidebar:hover nav a{width:100%;min-height:44px;align-self:stretch;justify-content:flex-start;padding:10px 16px;border-radius:10px;background:transparent;color:var(--admin-muted);box-shadow:none;transform:none;font-size:13px;font-weight:500;gap:12px;text-align:left}
 .app-layout.legacy-staff .internal-sidebar nav a:hover{background:var(--mgmt-hover);color:var(--admin-ink);box-shadow:none;transform:none}
 .app-layout.legacy-staff .internal-sidebar nav a.active{background:var(--admin-emerald);color:#fff;box-shadow:0 4px 14px #1e393233;transform:none;font-weight:700}
 .app-layout.legacy-staff .internal-sidebar nav a.active svg{color:#fff}
@@ -69,7 +70,7 @@
 .app-layout.legacy-staff .sidebar-staff-avatar{width:32px;height:32px;flex-basis:32px;border-radius:9px;background:var(--admin-green-surface);color:#fff;box-shadow:none;font-family:'JetBrains Mono',ui-monospace,monospace}
 .app-layout.legacy-staff .internal-main{min-width:0;width:100%;max-width:none;padding:24px 28px 48px;background:var(--admin-canvas) radial-gradient(circle,var(--admin-line) 1px,transparent 1.2px) 0 0/22px 22px;color:var(--admin-ink);font-family:'Space Grotesk',system-ui,sans-serif}
 .app-layout.legacy-staff[data-theme="dark"] .internal-main{background:var(--admin-canvas)}
-.app-layout.legacy-staff .internal-page-header,.app-layout.legacy-staff .internal-page-header.is-compact{min-height:70px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-direction:row;flex-wrap:wrap;margin:0 0 18px;padding:8px 0;border:0;border-radius:0;background:none;box-shadow:none}
+.app-layout.legacy-staff .internal-page-header,.app-layout.legacy-staff .internal-page-header.is-compact{min-height:54px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-direction:row;flex-wrap:wrap;margin:0 0 18px;padding:0;border:0;border-radius:0;background:none;box-shadow:none}
 .app-layout.legacy-staff .internal-page-header:not(.is-compact){background:none;box-shadow:none}
 .app-layout.legacy-staff .internal-page-header::before,.app-layout.legacy-staff .internal-page-header::after{display:none}
 .app-layout.legacy-staff .internal-page-header h1{margin:0;color:var(--admin-ink);font:700 28px/1.2 'Space Grotesk',system-ui,sans-serif;letter-spacing:-.03em}
@@ -80,8 +81,8 @@
 .app-layout.legacy-staff .internal-main :is(.panel,.legacy-ops-card,.module-table-card,.inv-table-card,.txn-ledger-shell,.po-table-panel,.staff-settings-card){border:1px solid var(--admin-line);border-radius:16px;background:var(--admin-surface);box-shadow:var(--mgmt-shadow)}
 .app-layout.legacy-staff .internal-main :is(.ops-toolbar,.module-toolbar,.txn-toolbar,.po-toolbar,.legacy-filter-card){border:1px solid var(--admin-line);border-radius:14px;background:var(--admin-surface);box-shadow:var(--mgmt-shadow)}
 .app-layout.legacy-staff .internal-main :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea){border-color:var(--admin-line);border-radius:10px;background:var(--mgmt-input);color:var(--admin-ink);font-family:'Space Grotesk',system-ui,sans-serif}
-.app-layout.legacy-staff .internal-main table th{border-bottom:1px solid var(--admin-line);background:var(--admin-surface);color:var(--admin-muted);font:600 10px/1.5 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase}
-.app-layout.legacy-staff .internal-main table td{border-bottom:1px solid var(--admin-line);color:var(--admin-ink)}
+.app-layout.legacy-staff .internal-main table th{padding:10px;border-bottom:1px solid var(--admin-line);background:var(--admin-surface);color:var(--admin-muted);font:600 10px/1.5 'JetBrains Mono',ui-monospace,monospace;letter-spacing:.1em;text-transform:uppercase}
+.app-layout.legacy-staff .internal-main table td{padding:10px;border-bottom:1px solid var(--admin-line);color:var(--admin-ink)}
 .app-layout.legacy-staff .internal-main :is(.ops-main-action,.legacy-primary,.po-primary,.button-dark){border-color:var(--admin-emerald);border-radius:11px;background:var(--admin-emerald);color:#fff;box-shadow:none}
 .app-layout.legacy-staff .internal-main :is(.ops-secondary-action,.legacy-ghost,.button-outline){border:1px solid var(--admin-line);border-radius:11px;background:var(--admin-surface);color:var(--admin-ink);box-shadow:none}
 
@@ -162,3 +163,79 @@
   .app-layout.legacy-staff .internal-live-datetime{display:none}
 }
 @media(max-width:560px){.app-layout.legacy-staff .internal-main :is(.ops-summary-row,.inventory-summary-grid,.menu-summary-grid,.po-summary,.txn-report-overview){grid-template-columns:1fr}}
+
+/* Admin reference parity for shared controls and staff-specific workspaces. */
+.app-layout.legacy-staff {
+  --admin-font:'Space Grotesk',system-ui,sans-serif;
+  --admin-mono:'JetBrains Mono',ui-monospace,monospace;
+}
+.app-layout.legacy-staff:not([data-theme="dark"]) {
+  --mgmt-border-strong:#cfd7d0;--mgmt-faint:#6b6f68;
+  --mgmt-danger:#c2362b;--mgmt-danger-soft:#fde8e6;
+  --mgmt-success:#2e6b47;--mgmt-success-soft:#e8efe9;
+  --mgmt-warning:#b45309;--mgmt-warning-soft:#fff4e0;
+  --mgmt-input:#fff;--mgmt-shadow-high:0 18px 42px -16px rgba(11,18,32,.28);
+}
+.app-layout.legacy-staff[data-theme="dark"] {
+  --admin-emerald-hover:#087448;--admin-emerald-line:#23835b;
+  --mgmt-on-primary:#17251c;
+}
+.app-layout.legacy-staff :is(button,a,input,select,textarea,[tabindex]):focus-visible {outline:2px solid var(--admin-line);outline-offset:2px}
+.app-layout.legacy-staff .internal-main :is(button,input,select,textarea) {font-family:var(--admin-font)}
+.app-layout.legacy-staff .internal-sidebar nav a {position:relative}
+.app-layout.legacy-staff .internal-sidebar nav a.active::before {content:'';position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;background:#72d3a5}
+.app-layout.legacy-staff .sidebar-staff-profile {border:1px solid var(--admin-line)}
+.app-layout.legacy-staff .sidebar-exit {min-height:40px;border-radius:10px;color:var(--admin-muted)}
+.app-layout.legacy-staff .header-actions {width:auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0}
+.app-layout.legacy-staff .internal-utility-bar {display:flex;align-items:center;gap:8px;padding:0}
+.app-layout.legacy-staff .internal-live-datetime span {color:var(--admin-muted);font:600 10px/1.4 var(--admin-mono);letter-spacing:.08em;text-transform:uppercase}
+.app-layout.legacy-staff .internal-live-datetime b {color:var(--admin-ink);font:600 13px/1.4 var(--admin-mono)}
+.app-layout.legacy-staff .internal-utility-button:hover {background:#dce7df;color:#1f4a31;box-shadow:none;transform:none}
+.app-layout.legacy-staff .internal-main :is(.panel,.module-table-card,.inv-table-card) {padding:20px}
+.app-layout.legacy-staff .internal-main :is(.panel,.module-table-card,.inv-table-card,.po-table-panel,.staff-settings-card,.ops-card) :is(h2,h3) {font-family:var(--admin-font);color:var(--admin-ink)}
+.app-layout.legacy-staff .internal-main :is(.ops-toolbar,.module-toolbar,.txn-toolbar,.po-toolbar,.legacy-filter-card) {box-shadow:0 1px 2px rgba(11,18,32,.04)}
+.app-layout.legacy-staff .internal-main table tr:hover td {background:var(--admin-surface)}
+.app-layout.legacy-staff .internal-main :is(.ops-main-action,.legacy-primary,.po-primary,.button-dark) {background:linear-gradient(135deg,#1c2d22,#2a4a35);border-color:#1c2d22;color:#fff}
+.app-layout.legacy-staff .internal-main :is(.ops-card,.menu-item-card) {border:1px solid var(--admin-line);border-radius:16px;background:var(--admin-surface);box-shadow:var(--mgmt-shadow);color:var(--admin-ink)}
+.app-layout.legacy-staff .internal-main .txn-report-overview {gap:18px}
+.app-layout.legacy-staff .internal-main .po-summary-card .inv-summary-copy {display:contents}
+.app-layout.legacy-staff .internal-main .po-summary-card .inv-summary-copy>span {font:500 10px/1.5 var(--admin-mono)}
+.app-layout.legacy-staff .internal-main .po-summary-card .inv-summary-copy small {order:1;margin-top:auto}
+.app-layout.legacy-staff[data-theme="dark"] .internal-sidebar {background:var(--admin-canvas)}
+.app-layout.legacy-staff[data-theme="dark"] .internal-sidebar nav a:hover {background:var(--admin-surface)}
+.app-layout.legacy-staff[data-theme="dark"] .sidebar-staff-profile strong {color:var(--admin-ink)}
+.app-layout.legacy-staff[data-theme="dark"] .sidebar-staff-profile small {color:var(--admin-muted)}
+.app-layout.legacy-staff[data-theme="dark"] .sidebar-exit:hover {background:var(--admin-surface);color:var(--admin-ink)}
+.app-layout.legacy-staff[data-theme="dark"] ::placeholder {color:#a5b0a7;opacity:1}
+.app-layout.legacy-staff[data-theme="dark"] .internal-main :is(.ops-main-action,.legacy-primary,.po-primary,.button-dark) {background:var(--admin-emerald);color:#f0f1eb;border-color:var(--admin-emerald-line)}
+.app-layout.legacy-staff[data-theme="dark"] .internal-main :is(.ops-main-action,.legacy-primary,.po-primary,.button-dark):hover:not(:disabled) {background:var(--admin-emerald-hover);color:#fff}
+.app-layout.legacy-staff[data-theme="dark"] .internal-main :is(.ops-secondary-action,.legacy-ghost,.button-outline) {background:var(--admin-subtle);color:#f0f1eb;border-color:var(--admin-line)}
+.app-layout.legacy-staff[data-theme="dark"] .internal-main :is(.inv-summary-card,.po-summary-card,.txn-report-total,.txn-report-stat,.ops-summary-card,.menu-summary-card) {box-shadow:var(--mgmt-shadow)}
+@media(max-width:760px) {
+  .app-layout.legacy-staff .internal-sidebar {backdrop-filter:none}
+  .app-layout.legacy-staff .internal-brand {padding:0 8px 6px}
+  .app-layout.legacy-staff .internal-sidebar nav {scrollbar-width:thin}
+  .app-layout.legacy-staff .internal-sidebar nav a.active::before {display:none}
+  .app-layout.legacy-staff .sidebar-footer-stack {gap:8px;margin-top:4px}
+  .app-layout.legacy-staff .internal-main {padding:16px max(16px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+  .app-layout.legacy-staff .internal-page-header {align-items:flex-start;gap:12px}
+  .app-layout.legacy-staff .internal-page-header h1 {font-size:26px}
+}
+@media(prefers-reduced-motion:reduce) {
+  .app-layout.legacy-staff *, .app-layout.legacy-staff *::before, .app-layout.legacy-staff *::after {animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+
+/* Neutral cancellation section; status badges retain their semantic colors. */
+.app-layout.legacy-staff .ops-cancellations {
+  background:var(--admin-surface);
+  border-color:var(--admin-line);
+  box-shadow:var(--mgmt-shadow);
+}
+.app-layout.legacy-staff .ops-cancellations::before {display:none}
+.app-layout.legacy-staff .ops-cancellations-heading {border-color:var(--admin-line)}
+.app-layout.legacy-staff .ops-cancellations-heading>span {
+  background:var(--admin-surface);
+  border-color:var(--admin-line);
+  color:var(--admin-ink);
+  box-shadow:none;
+}

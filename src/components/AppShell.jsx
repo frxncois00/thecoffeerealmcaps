@@ -22,7 +22,7 @@ import StaffOrderToastContainer from './notifications/StaffOrderToastContainer'
 import NotificationBell from './notifications/NotificationBell'
 import { playOrderChime } from '../utils/notificationSound'
 import { raimu } from './raimu/raimuMachine'
-import { readRaimuPreference, saveRaimuPreference } from './raimu/useRaimu'
+import { saveRaimuPreference } from './raimu/useRaimu'
 
 
 const adminGroups = [
@@ -55,7 +55,7 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
   const [logoutError, setLogoutError] = useState('')
   const [now, setNow] = useState(() => new Date())
   const [refreshing, setRefreshing] = useState(false)
-  const [raimuVisible, setRaimuVisible] = useState(() => readRaimuPreference('raimu-visible', 'false') !== 'false')
+  const [raimuVisible, setRaimuVisible] = useState(() => raimu.getSnapshot().active)
   const [notifications, setNotifications] = useState([])
   const [staffPreferences, setStaffPreferences] = useState(getCachedStaffPreferences)
   const navRef = useRef(null)
