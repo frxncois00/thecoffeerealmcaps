@@ -506,3 +506,7 @@
 .app-layout.legacy-staff[data-theme="dark"] .po-modal .ops-secondary-action,
 .app-layout.legacy-admin[data-theme="dark"] .po-modal .ops-secondary-action{background:var(--mgmt-input);color:var(--mgmt-text);box-shadow:none}
 @media(max-width:620px){.po-drawer-actions{padding:12px 16px}.po-drawer .po-document-list{grid-template-columns:1fr}.po-drawer .po-document-preview,.po-drawer .po-document-entry>svg{height:180px}}
+
+.po-live-toast{position:fixed;z-index:25;top:82px;right:20px;display:flex;align-items:center;gap:16px;max-width:min(360px,calc(100vw - 32px));padding:13px 15px;border:1px solid #b8dfc2;border-radius:12px;background:#fff;color:#22543a;box-shadow:0 12px 28px rgba(24,53,35,.15);font-size:.8rem;font-weight:700}
+.po-live-toast button{display:grid;place-items:center;flex:none;margin-left:auto;padding:2px;border:0;background:transparent;color:inherit;cursor:pointer}
+@media(max-width:620px){.po-live-toast{top:70px;right:16px}}

@@ -81,6 +81,9 @@ export default function NotificationBell({ userId, role, onOpen, animated = fals
     try { if (await feed.clear()) setConfirmClear(false) } finally { setWorking(false) }
   }
   const visibleItems = role === 'customer' && customerFilter === 'unread' ? feed.items.filter(item => !item.read) : feed.items
+  const toastList = <div className={`notification-silent-toasts${role === 'customer' ? ' is-customer' : ' is-internal'}`} aria-live="polite" aria-relevant="additions">
+    {toasts.map(item => <div className="notification-silent-toast" key={item.id} role="status"><div><strong>{item.title}</strong>{item.message && <p>{item.message}</p>}{item.target && <button type="button" onClick={() => visit(item)}>View<ChevronRight size={14} /></button>}</div><button type="button" aria-label={`Dismiss ${item.title}`} onClick={() => setToasts(current => current.filter(value => value.id !== item.id))}><X size={17} /></button></div>)}
+  </div>
   return <>
     <div ref={anchor} className={`notification-anchor ${animated ? 'is-ringing' : ''}`}>
       <button ref={button} type="button" className={role === 'customer' ? 'notification-bell-button' : 'internal-utility-button notification-bell-button'} aria-label={`Notifications${feed.unread ? `, ${feed.unread} unread` : ''}`} aria-expanded={open} aria-controls={panelId} onClick={() => { setConfirmClear(false); setOpen(value => !value) }}>
@@ -111,9 +114,8 @@ export default function NotificationBell({ userId, role, onOpen, animated = fals
           {feed.hasMore && <button className="notification-load" type="button" disabled={feed.loading} onClick={() => void feed.load(true)}>{feed.loading ? 'Loading…' : 'Load more'}</button>}
         </div>
       </section>}
+      {role !== 'customer' && !open && toasts.length > 0 && toastList}
     </div>
-    {createPortal(<div className={`notification-silent-toasts${role === 'customer' ? ' is-customer' : ''}`} aria-live="polite" aria-relevant="additions">
-      {toasts.map(item => <div className="notification-silent-toast" key={item.id} role="status"><div><strong>{item.title}</strong>{item.message && <p>{item.message}</p>}{item.target && <button type="button" onClick={() => visit(item)}>View<ChevronRight size={14} /></button>}</div><button type="button" aria-label={`Dismiss ${item.title}`} onClick={() => setToasts(current => current.filter(value => value.id !== item.id))}><X size={17} /></button></div>)}
-    </div>, document.body)}
+    {role === 'customer' && createPortal(toastList, document.body)}
   </>
 }

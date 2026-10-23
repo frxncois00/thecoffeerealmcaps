@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Check, FileImage, FileText, ImagePlus, Package, PackageCheck, Plus, Send, ShieldAlert, Store, Trash2, Upload, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PurchaseStockBoard from '../components/PurchaseStockBoard'
@@ -8,6 +8,8 @@ import AppShell from '../components/AppShell'
 import { useAuth } from '../context/AuthContext'
 import { describeError } from '../utils/describeError'
 import { money } from '../utils/money'
+import { supabase } from '../lib/supabase'
+import { hasBellPurchaseOrderToast, pickPurchaseOrderUpdate } from '../utils/purchaseOrderRealtime'
 import {
   approvePurchaseOrder, cancelPurchaseOrder, fetchPurchaseOrderOptions,
   fetchPurchaseOrders, fetchSuppliers, getPurchaseOrderDocumentUrl, markPurchaseOrderSent, receivePurchaseOrder, reportPurchaseOrderIssue, savePurchaseOrder, saveSupplier, uploadPurchaseOrderDocument,
@@ -76,6 +78,7 @@ function emptyDraftFromOrder(order) {
 export default function PurchaseOrdersPage({ role = 'staff' }) {
   const location = useLocation()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const isAdmin = role === 'admin'
   const [orders, setOrders] = useState([])
   const [stockSelection, setStockSelection] = useState([])
@@ -84,6 +87,11 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+  const [liveToast, setLiveToast] = useState('')
+  const ordersRef = useRef([])
+  const hasLoadedRef = useRef(false)
+  const requestRef = useRef(0)
+  const toastTimerRef = useRef(null)
   const [query, setQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [supplierFilter, setSupplierFilter] = useState('all')
@@ -118,19 +126,119 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
     return () => { dialog.removeEventListener('keydown', trap); if (previous?.isConnected) previous.focus() }
   }, [selectedId, formOpen, receivingOpen, supplierOpen, action?.type])
 
-  const load = async () => {
+  const applyOrders = useCallback((nextOrders, notify = false) => {
+    if (notify && hasLoadedRef.current) {
+      const update = pickPurchaseOrderUpdate(ordersRef.current, nextOrders, isAdmin)
+      if (update && !hasBellPurchaseOrderToast(update, isAdmin)) {
+        const message = update.type === 'new'
+          ? `New purchase order ${update.order.po_number} arrived.`
+          : `${update.order.po_number} is now ${labelFor(update.order.status)}.`
+        setLiveToast(message)
+        window.clearTimeout(toastTimerRef.current)
+        toastTimerRef.current = window.setTimeout(() => setLiveToast(''), 5000)
+      }
+    }
+    ordersRef.current = nextOrders
+    hasLoadedRef.current = true
+    setOrders(nextOrders)
+  }, [isAdmin])
+
+  const load = useCallback(async () => {
+    if (!isAdmin && !user?.id) return
+    const request = ++requestRef.current
     setLoading(true)
     try {
-      const [nextOrders, nextOptions, nextSuppliers] = await Promise.all([fetchPurchaseOrders(), fetchPurchaseOrderOptions(), fetchSuppliers()])
-      setOrders(nextOrders)
+      const [nextOrders, nextOptions, nextSuppliers] = await Promise.all([fetchPurchaseOrders(isAdmin ? null : user.id), fetchPurchaseOrderOptions(), fetchSuppliers()])
+      if (request === requestRef.current) applyOrders(nextOrders)
       setOptions(nextOptions)
       setSuppliers(nextSuppliers)
       setError('')
     } catch (cause) {
       setError(describeError(cause, 'Purchase orders could not be loaded.'))
     } finally { setLoading(false) }
-  }
-  useEffect(() => { load() }, [])
+  }, [applyOrders, isAdmin, user?.id])
+
+  const refreshOrders = useCallback(async (notify = true) => {
+    if (!isAdmin && !user?.id) return
+    const request = ++requestRef.current
+    try {
+      const nextOrders = await fetchPurchaseOrders(isAdmin ? null : user.id)
+      if (request === requestRef.current) {
+        applyOrders(nextOrders, notify)
+        setError('')
+      }
+    } catch (cause) {
+      if (!hasLoadedRef.current) setError(describeError(cause, 'Purchase orders could not be refreshed.'))
+    }
+  }, [applyOrders, isAdmin, user?.id])
+
+  useEffect(() => {
+    requestRef.current += 1
+    ordersRef.current = []
+    hasLoadedRef.current = false
+    setOrders([])
+    setLiveToast('')
+  }, [isAdmin, user?.id])
+
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (!supabase || (!isAdmin && !user?.id)) return undefined
+    let active = true
+    let channel = null
+    let pollTimer = null
+    let retryTimer = null
+    let refreshTimer = null
+
+    const queueRefresh = () => {
+      window.clearTimeout(refreshTimer)
+      refreshTimer = window.setTimeout(() => { if (active) refreshOrders() }, 150)
+    }
+    const startPolling = () => {
+      if (!pollTimer) pollTimer = window.setInterval(queueRefresh, 10000)
+    }
+    const stopPolling = () => { window.clearInterval(pollTimer); pollTimer = null }
+    const connect = () => {
+      if (!active) return
+      const filter = isAdmin ? {} : { filter: `created_by=eq.${user.id}` }
+      const nextChannel = supabase.channel(`purchase-orders-${role}-${user?.id || 'admin'}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'purchase_orders', ...filter }, queueRefresh)
+      channel = nextChannel
+      nextChannel.subscribe((status) => {
+        if (!active || channel !== nextChannel) return
+        if (status === 'SUBSCRIBED') {
+          window.clearTimeout(retryTimer)
+          retryTimer = null
+          stopPolling()
+          queueRefresh()
+        } else if (['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) {
+          startPolling()
+          if (!retryTimer) retryTimer = window.setTimeout(() => {
+            channel = null
+            supabase.removeChannel(nextChannel)
+            retryTimer = null
+            connect()
+          }, 5000)
+        }
+      })
+    }
+    const syncWhenVisible = () => { if (!document.hidden) queueRefresh() }
+    startPolling()
+    connect()
+    document.addEventListener('visibilitychange', syncWhenVisible)
+    window.addEventListener('online', queueRefresh)
+    return () => {
+      active = false
+      stopPolling()
+      window.clearTimeout(retryTimer)
+      window.clearTimeout(refreshTimer)
+      if (channel) supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', syncWhenVisible)
+      window.removeEventListener('online', queueRefresh)
+    }
+  }, [isAdmin, refreshOrders, role, user?.id])
+
+  useEffect(() => () => window.clearTimeout(toastTimerRef.current), [])
 
   useEffect(() => {
     const id = location.state?.notificationPurchaseOrderId
@@ -251,6 +359,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
     <AppShell role={role} title="Purchase Orders" eyebrow={isAdmin ? 'Approval queue' : undefined} onRefresh={load}>
       {error ? <div className="po-alert is-error" role="alert">{error}<button type="button" onClick={() => setError('')} aria-label="Dismiss error"><X size={15} /></button></div> : null}
       {notice ? <div className="po-alert is-success" role="status"><Check size={15} />{notice}</div> : null}
+      {liveToast ? <div className="po-live-toast" role="status">{liveToast}<button type="button" onClick={() => setLiveToast('')} aria-label="Dismiss purchase order update"><X size={15} /></button></div> : null}
 
       <PurchaseStockBoard selected={stockSelection} setSelected={setStockSelection} items={lowStockItems} loading={loading} isAdmin={isAdmin} getSupplier={getSupplierForItem} onCreate={openCreateForSupplier} />
 

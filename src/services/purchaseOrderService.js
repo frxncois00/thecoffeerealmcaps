@@ -12,11 +12,13 @@ function purchaseUnitFactor(baseUnit, purchaseUnit) {
   return 1
 }
 
-export async function fetchPurchaseOrders() {
-  const { data, error } = await supabase
+export async function fetchPurchaseOrders(createdBy = null) {
+  let query = supabase
     .from('purchase_orders')
     .select('*,created_by_profile:profiles!purchase_orders_created_by_fkey(full_name),purchase_order_items(*),purchase_order_events(id,from_status,to_status,action,note,created_by,created_at,profiles(full_name)),purchase_order_documents(*)')
     .order('updated_at', { ascending: false })
+  if (createdBy) query = query.eq('created_by', createdBy)
+  const { data, error } = await query
   if (error) throw error
   return (data || []).map(normalizePurchaseOrder)
 }

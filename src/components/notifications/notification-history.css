@@ -12,6 +12,7 @@
   .customer-app .customer-header.is-authenticated .mobile-cart{grid-row:1}
 }
 .notification-badge{position:absolute;right:-5px;top:-5px;min-width:18px;height:18px;padding:0 4px;display:grid;place-items:center;border-radius:12px;background:#305d43;color:#fff;font-size:10px;font-weight:700;border:2px solid #fff}
+.app-layout:is(.legacy-staff,.legacy-admin) .notification-badge{top:-7px;right:-6px;min-width:23px;height:23px;padding:0 5px;border-radius:999px;background:#e6b66e;color:#173326;font-size:12px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;box-shadow:0 2px 6px rgba(27,48,35,.24)}
 .notification-panel{position:absolute;top:calc(100% + 12px);right:0;width:min(380px,calc(100vw - 24px));background:#fff!important;color:#24382f;border:1px solid #e1e7e2;border-radius:16px;box-shadow:0 14px 45px #17382624;overflow:hidden;z-index:1500;text-align:left;font-size:13px;letter-spacing:normal}
 .notification-panel button{font:inherit;cursor:pointer;text-transform:none;letter-spacing:normal;color:#30543d;background:transparent;border:0;box-shadow:none;min-height:32px}
 .notification-panel button:disabled{opacity:.45;cursor:default}
@@ -36,11 +37,12 @@
 .notification-empty{padding:22px 16px;text-align:center;color:#788379;margin:0;font-size:13px}
 .notification-empty button{display:block;margin:8px auto 0}
 .notification-silent-toasts{position:fixed;left:24px;bottom:24px;z-index:1800;display:grid;gap:10px;max-width:min(350px,calc(100vw - 32px));pointer-events:none}
+.notification-silent-toasts.is-internal{position:absolute;top:calc(100% + 12px);right:0;bottom:auto;left:auto;width:min(350px,calc(100vw - 32px));max-height:calc(100dvh - 100px);overflow-y:auto}
 .notification-silent-toasts.is-customer{top:94px;right:24px;bottom:auto;left:auto;width:min(350px,calc(100vw - 32px))}
 .notification-silent-toast{background:#fff;color:#263b2f;border:1px solid #dfe7e0;border-radius:12px;box-shadow:0 6px 24px #17382620;padding:14px;display:flex;gap:14px;align-items:flex-start;pointer-events:auto;font-size:13px}
 .notification-silent-toast>div{flex:1;min-width:0;overflow-wrap:anywhere}.notification-silent-toast p{margin:5px 0;color:#5d6c61;font-size:12px}
 .notification-silent-toast button{display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;color:#305d43;cursor:pointer;padding:4px;font:inherit}
-@media(max-width:700px){.notification-panel{position:fixed;top:76px;right:12px;left:auto}.notification-silent-toasts{left:16px;bottom:16px}.notification-silent-toasts.is-customer{top:80px;right:16px;bottom:auto;left:auto}}
+@media(max-width:700px){.notification-panel{position:fixed;top:76px;right:12px;left:auto}.notification-silent-toasts.is-customer{top:80px;right:16px;bottom:auto;left:auto}}
 
 /* Customer notifications use compact, individually readable order-update cards. */
 .notification-panel.is-customer{width:min(400px,calc(100vw - 32px));border:0;border-radius:20px;box-shadow:0 20px 56px #132c1f24;font-size:13px}

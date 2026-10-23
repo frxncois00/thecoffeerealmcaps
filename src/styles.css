@@ -6602,7 +6602,9 @@
 .internal-utility-button{position:relative;width:38px;height:38px;border:1px solid rgba(36,74,54,.12);border-radius:12px;background:#fff;color:#315c45;display:grid;place-items:center;transition:background .18s ease,color .18s ease}.internal-utility-button:hover{background:#eef3ee}.internal-utility-button:focus-visible{outline:2px solid #244a36;outline-offset:2px}
 .internal-utility-badge{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#b88a3b;color:#fff;font-size:.6rem;font-weight:800;display:grid;place-items:center;box-shadow:0 0 0 2px #fff}
 .internal-notification-anchor{position:relative;display:flex}
-.app-layout .internal-page-header:has(.staff-notification-center){position:relative;z-index:1250;overflow:visible}
+.app-layout .internal-page-header:has(.staff-notification-center),
+.app-layout .internal-page-header:has(.notification-panel),
+.app-layout .internal-page-header:has(.notification-silent-toasts.is-internal){position:relative;z-index:1250;overflow:visible}
 .staff-notification-center{position:absolute;z-index:70;top:calc(100% + 12px);right:0;width:min(390px,calc(100vw - 32px));overflow:hidden;border:1px solid rgba(36,74,54,.14);border-radius:18px;background:#fff;box-shadow:0 24px 60px rgba(21,39,28,.2);animation:staff-notification-enter .18s ease-out both}
 .staff-notification-center>header{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:17px 18px 14px;border-bottom:1px solid rgba(36,74,54,.1);background:linear-gradient(145deg,#fbfdfb,#f2f7f3)}
 .staff-notification-center>header>div{display:flex;flex-direction:column;gap:3px}.staff-notification-center>header span{color:#718075;font-size:.65rem;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.staff-notification-center h2{margin:0;color:#244a36;font-size:1.05rem;letter-spacing:-.02em}.staff-notification-center>header button{width:36px;height:36px;flex:none;border:1px solid rgba(36,74,54,.1);border-radius:10px;background:#fff;color:#52675a;display:grid;place-items:center}
