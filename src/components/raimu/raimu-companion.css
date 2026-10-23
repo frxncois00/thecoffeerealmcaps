@@ -31,7 +31,7 @@
   font-family: inherit;
   font-size: 14px;
 }
-.raimu-companion.raimu-companion { background: transparent; }
+.raimu-companion.raimu-companion { display: block; background: transparent; }
 .raimu-companion *, .raimu-companion *::before, .raimu-companion *::after { box-sizing: border-box; }
 .raimu-companion button, .raimu-companion a, .raimu-companion input { -webkit-tap-highlight-color: transparent; transition: transform 200ms ease, opacity 200ms ease; }
 .raimu-companion button { font: inherit; cursor: pointer; }
@@ -150,10 +150,10 @@
 .rc-inline-bubble { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 0 16px 8px; padding-left: 12px; border: 1px solid var(--rc-border); border-radius: 12px; background: var(--rc-mint); color: var(--rc-text); font-size: 12px; }
 .rc-inline-bubble button { display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; border: 0; border-radius: 10px; background: transparent; color: var(--rc-muted); }
 .rc-composer { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin: 0 16px 0; padding: 6px; background: var(--mgmt-input); border: 1px solid var(--rc-border); border-radius: 16px; }
-.rc-composer:focus-within { border-color: var(--rc-primary); }
+.raimu-companion .rc-composer:focus-within { border-color: var(--rc-border); outline: none; box-shadow: none; }
 .rc-composer input { flex: 1; min-width: 0; height: 44px; border: 0; padding: 0 8px; background: transparent; color: var(--rc-text); font: inherit; font-size: 16px; }
 .rc-composer input::placeholder { color: var(--rc-muted); font-size: 13px; }
-.rc-composer input:focus-visible { outline-offset: -2px !important; border-radius: 9px; }
+.raimu-companion .rc-composer input:is(:focus, :focus-visible) { outline: none; border: 0; box-shadow: none; }
 .rc-send { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 12px; color: var(--mgmt-on-primary); background: linear-gradient(145deg, var(--rc-primary), var(--rc-strong)); flex-shrink: 0; }
 .rc-send:hover:not(:disabled) { transform: translateY(-1px); }
 .rc-settings { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; flex-shrink: 0; gap: 0 8px; padding: 4px 16px 7px; color: var(--rc-muted); }
@@ -220,11 +220,6 @@
 }
 .raimu-companion[data-paused="true"] *, .raimu-companion[data-paused="true"] *::before, .raimu-companion[data-paused="true"] *::after { animation-play-state: paused !important; transition: none !important; }
 .raimu-companion .rc-sources{display:block;margin:4px 0 8px;color:var(--rc-muted, #68736e);font-size:.7rem;line-height:1.4}
-.raimu-companion .rc-attach{align-self:center;padding:8px 5px;color:var(--rc-primary,#147d57);font-size:.7rem;font-weight:700;cursor:pointer}
-.raimu-companion .rc-attach input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
-.raimu-companion .rc-attach:focus-within{outline:2px solid var(--rc-primary,#147d57);outline-offset:2px}
-.raimu-companion .rc-attachment{padding:0 16px 8px;color:var(--rc-muted,#68736e);font-size:.7rem}
-.raimu-companion .rc-attachment button{margin-left:6px;border:0;background:transparent;color:inherit;cursor:pointer}
 .raimu-companion .rc-navigation{display:inline-block;margin:3px 0 9px;color:var(--rc-primary,#147d57);font-size:.72rem;font-weight:700;text-decoration:underline}
 .raimu-companion .rc-sources summary{cursor:pointer}.raimu-companion .rc-sources div{margin-top:6px;padding:7px;border-left:2px solid var(--rc-primary,#147d57)}.raimu-companion .rc-sources b,.raimu-companion .rc-sources span{display:block;white-space:pre-wrap}
-.raimu-companion .rc-tone-setting{display:flex;align-items:center;gap:5px;font-size:.7rem}.raimu-companion .rc-tone-setting select{max-width:85px;padding:3px;border:1px solid var(--rc-primary,#147d57);border-radius:6px;background:transparent;color:inherit;font:inherit}
+.raimu-companion .rc-tone-setting{display:flex;align-items:center;gap:5px;font-size:.7rem}.raimu-companion .rc-tone-setting select{max-width:85px;padding:3px;border:1px solid var(--rc-border);border-radius:6px;background:var(--mgmt-input);color:var(--rc-text);font:inherit}

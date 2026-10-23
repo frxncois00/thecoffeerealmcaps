@@ -1,11 +1,10 @@
-import { ArrowDown, ArrowUp, Check, Coffee, Minus, RotateCcw, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Coffee, Minus, PawPrint, RotateCcw, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { normalizeRole } from '../lib/auth'
 import { supabase } from '../lib/supabase'
-import { readRaimuFile } from '../lib/raimuFileReader'
 import RaimuMascot from './raimu/RaimuMascot'
 import { raimu } from './raimu/raimuMachine'
 import { readRaimuPreference, saveRaimuPreference, setRaimuAnimated, useRaimu } from './raimu/useRaimu'
@@ -71,14 +70,21 @@ export default function RaimuWidget() {
   return <RaimuConversation key={sessionKey} role={role} sessionKey={sessionKey} enabled={!closed} onHide={hideRaimu} />
 }
 
-async function requestSupportReply(text, role, history, attachment, tone) {
-  return supabase.functions.invoke('support-chat', { body: { message: text, role, history, attachment, tone } })
+async function requestSupportReply(text, role, history, tone) {
+  return supabase.functions.invoke('support-chat', { body: { message: text, role, history, tone } })
 }
 
 const stateLabels = {
   idle: 'Here when you need me', attention: 'You have my attention', greeting: 'A little help, on hand',
   listening: 'All ears', thinking: 'Thinking it through', talking: 'Here’s what I found',
   success: 'All taken care of', error: 'Let’s try that again', empty: 'No results just yet', sleepy: 'Resting, but still here',
+}
+
+function readConversation(key) {
+  try {
+    const saved = JSON.parse(window.sessionStorage.getItem(key) || '[]')
+    return Array.isArray(saved) ? saved.filter((item) => ['user', 'raimu'].includes(item?.from) && typeof item.text === 'string').slice(-40) : []
+  } catch { return [] }
 }
 
 // The injected request function is also used by the isolated local preview.
@@ -89,12 +95,11 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
   const [open, setOpen] = useState(false)
   const [present, setPresent] = useState(false)
   const [draft, setDraft] = useState('')
-  const [messages, setMessages] = useState([])
+  const storageKey = `raimu-conversation:${sessionKey}:${role}`
+  const [messages, setMessages] = useState(() => readConversation(storageKey))
   const [typing, setTyping] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [actionBusy, setActionBusy] = useState(false)
-  const [attachment, setAttachment] = useState(null)
-  const [attachmentBusy, setAttachmentBusy] = useState(false)
   const [tone, setTone] = useState(() => readRaimuPreference('raimu-tone', 'friendly'))
   const [unseen, setUnseen] = useState(false)
   const avatarRef = useRef(null)
@@ -103,7 +108,7 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
   const nearBottom = useRef(true)
   const requestId = useRef(0)
   const inFlight = useRef(false)
-  const conversation = useRef([])
+  const conversation = useRef(messages.map(({ from, text }) => ({ from, text })))
   const exportInFlight = useRef(false)
   const actionInFlight = useRef(false)
   const gaze = useRef({ rect: null, frame: 0 })
@@ -118,7 +123,6 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
       setMessages([])
       conversation.current = []
       setDraft('')
-      setAttachment(null)
       raimu.setState('idle')
       raimu.clearBubbles()
     } else if (companion.state === 'listening') raimu.setState('idle')
@@ -138,6 +142,13 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
   }
 
   useEffect(() => () => { requestId.current += 1 }, [])
+
+  useEffect(() => {
+    try {
+      // Keep text only: report links and pending actions must be fetched again.
+      window.sessionStorage.setItem(storageKey, JSON.stringify(messages.slice(-40).map(({ from, text }) => ({ from, text }))))
+    } catch { /* Chat still works when browser storage is unavailable. */ }
+  }, [messages, storageKey])
 
   useEffect(() => {
     if (!enabled) { setOpen(false); setPresent(false) }
@@ -202,28 +213,26 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
     }
   }, [enabled, companion.motion, companion.visible, companion.state])
 
-  const send = async (event) => {
+  const send = async (event, message = draft) => {
     event.preventDefault()
-    const text = draft.trim()
-    if (!text || inFlight.current || exportInFlight.current || attachmentBusy) return
+    const text = message.trim()
+    if (!text || inFlight.current || exportInFlight.current) return
     inFlight.current = true
     const currentRequest = ++requestId.current
-    const history = conversation.current.slice(-8).map(({ from, text: previousText }) => ({
+    const history = conversation.current.slice(-40).map(({ from, text: previousText }) => ({
       role: from === 'user' ? 'user' : 'assistant',
-      content: String(previousText).replace(/https?:\/\/\S+/g, '[report link]').slice(0, 500),
+      content: String(previousText).replace(/https?:\/\/\S+/g, '[report link]').slice(0, 4000),
     }))
     conversation.current = [...conversation.current, { from: 'user', text }]
     nearBottom.current = true
-    const sentAttachment = attachment
-    setMessages((current) => [...current, { from: 'user', text: sentAttachment ? `${text}\n[Attached: ${sentAttachment.name}]` : text }])
+    setMessages((current) => [...current, { from: 'user', text }])
     setDraft('')
-    setAttachment(null)
     setTyping(true)
     inputRef.current?.focus({ preventScroll: true })
     raimu.clearBubbles()
     raimu.setState('thinking')
     try {
-      const { data, error } = await requestReply(text, role, history, sentAttachment, tone)
+      const { data, error } = await requestReply(text, role, history, tone)
       if (currentRequest !== requestId.current) return
       let reply = data?.text || data?.error
       if (error) {
@@ -302,21 +311,9 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
     } finally { actionInFlight.current = false; setActionBusy(false) }
   }
 
-  const attachFile = async (event) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    setAttachmentBusy(true)
-    try {
-      const result = await readRaimuFile(file)
-      setAttachment(result)
-      setDraft((current) => current || 'Please help me understand this file.')
-      inputRef.current?.focus()
-    } catch (error) { setMessages((current) => [...current, { from: 'raimu', text: error.message }]) }
-    finally { setAttachmentBusy(false); event.target.value = '' }
-  }
 
   if (!enabled) return null
-  return <div className="raimu-companion" data-theme={resolvedTheme} data-state={companion.state} data-motion={companion.motion ? 'full' : 'minimal'} data-paused={!companion.visible}>
+  return <div className="raimu-companion" data-role={role} data-theme={resolvedTheme} data-state={companion.state} data-motion={companion.motion ? 'full' : 'minimal'} data-paused={!companion.visible}>
     <div className="rc-dock" ref={dockRef}>
       {!open && (companion.bubble || companion.state === 'thinking') && <div className="rc-speech" key={companion.state === 'thinking' ? 'thinking' : companion.bubble.id} style={bubbleStyle}>
         {companion.state === 'thinking' ? <><span className="rc-sr-only">Raimu is thinking</span><ThinkingDots /></> : <><span>{companion.bubble.text}</span><button type="button" aria-label="Dismiss Raimu’s message" onClick={raimu.dismissBubble}><X size={14} /></button></>}
@@ -338,7 +335,7 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
 
     {present && <section id="raimu-conversation" ref={panelRef} className={`rc-panel ${open ? 'is-open' : 'is-closing'}`} style={panelStyle} role="dialog" aria-modal="false" aria-labelledby="raimu-title" inert={!open} aria-hidden={!open} onAnimationEnd={(event) => { if (!open && event.target === event.currentTarget) setPresent(false) }}>
       <header className="rc-header">
-        <div className="rc-header-mark" aria-hidden="true"><Coffee size={20} /></div>
+        <div className="rc-header-mark" aria-hidden="true"><PawPrint size={20} /></div>
         <div className="rc-heading"><h2 id="raimu-title">Raimu Support</h2><p>Internal workspace assistant</p></div>
         <div className="rc-controls"><button type="button" onClick={() => closePanel()} aria-label="Minimize Raimu conversation" title="Minimize"><Minus size={18} /></button><button type="button" onClick={() => closePanel(true)} aria-label="Close and clear Raimu conversation" title="Close and clear"><X size={18} /></button></div>
       </header>
@@ -358,19 +355,17 @@ export function RaimuConversation({ role, sessionKey, enabled = true, onHide, re
         </article>) : <div className="rc-empty">
           <span className="rc-empty-icon"><Coffee size={24} strokeWidth={1.5} /></span>
           <h3>A little clarity for your day.</h3><p>Sales, orders, inventory, or a fresh report.<br />Let’s work through it together.</p>
-          <div className="rc-prompts">{(role === 'admin' ? ['How are sales today?', 'Which orders need attention?', 'Which ingredients are low stock?', 'Shift handover summary'] : role === 'staff' ? ['Which orders need attention?', 'Which ingredients are low stock?', 'Shift handover summary', 'How do I handle an order issue?'] : ['What is the latest transaction?', 'How do I handle a payment issue?']).map((prompt) => <button type="button" key={prompt} onClick={() => { setDraft(prompt); raimu.setState('listening'); inputRef.current?.focus() }}>{prompt}<ArrowUp size={14} /></button>)}</div>
+          <div className="rc-prompts">{(role === 'admin' ? ['How are sales today?', 'Which orders need attention?', 'Which ingredients are low stock?', 'Shift handover summary'] : role === 'staff' ? ['Which orders need attention?', 'Which ingredients are low stock?', 'Shift handover summary', 'How do I handle an order issue?'] : ['What is the latest transaction?', 'How do I handle a payment issue?']).map((prompt) => <button type="button" key={prompt} disabled={typing || exporting} onClick={(event) => send(event, prompt)}>{prompt}<ArrowUp size={14} /></button>)}</div>
         </div>}
         {typing && <div className="rc-typing"><ThinkingDots /><span>Raimu is thinking…</span></div>}
       </div>
       {unseen && <button className="rc-latest" type="button" onClick={() => scrollToLatest()}><ArrowDown size={14} />Latest message</button>}
       {companion.bubble && ['success', 'error', 'empty'].includes(companion.state) && <div className="rc-inline-bubble"><span>{companion.bubble.text}</span><button type="button" aria-label="Dismiss Raimu’s message" onClick={raimu.dismissBubble}><X size={13} /></button></div>}
       <form className="rc-composer" onSubmit={send}>
-        <label className="rc-attach" title="Attach a document or image">Attach<input type="file" accept=".txt,.md,.csv,.xlsx,.pdf,.jpg,.jpeg,.png,.webp" onChange={attachFile} disabled={attachmentBusy || typing} /></label>
         <label className="rc-sr-only" htmlFor="raimu-widget-input">Message Raimu</label>
         <input id="raimu-widget-input" ref={inputRef} value={draft} onChange={(event) => { setDraft(event.target.value); if (!inFlight.current && !exportInFlight.current) raimu.setState(event.target.value.trim() ? 'listening' : 'idle') }} onFocus={() => { if (draft.trim() && !inFlight.current && !exportInFlight.current) raimu.setState('listening') }} onBlur={() => { if (raimu.getSnapshot().state === 'listening') raimu.setState('idle') }} placeholder="Ask Raimu anything…" maxLength={500} autoComplete="off" />
-        <button className="rc-send" type="submit" aria-label="Send message" disabled={!draft.trim() || typing || exporting || attachmentBusy}><ArrowUp size={19} /></button>
+        <button className="rc-send" type="submit" aria-label="Send message" disabled={!draft.trim() || typing || exporting}><ArrowUp size={19} /></button>
       </form>
-      {attachment && <div className="rc-attachment">Attached: {attachment.name} <button type="button" onClick={() => setAttachment(null)} aria-label="Remove attachment">×</button></div>}
       <footer className="rc-settings">
         <label className="rc-animation-setting"><input type="checkbox" role="switch" checked={companion.animated} onChange={(event) => setRaimuAnimated(event.target.checked)} aria-describedby={companion.reducedMotion ? 'raimu-motion-note' : undefined} /><span className="rc-switch" aria-hidden="true"><i>{companion.animated && <Check size={9} />}</i></span><span>Animated Raimu</span></label>
         <label className="rc-tone-setting">Reply style<select value={tone} onChange={(event) => { setTone(event.target.value); saveRaimuPreference('raimu-tone', event.target.value) }}><option value="friendly">Friendly</option><option value="direct">Direct</option></select></label>

@@ -1,5 +1,6 @@
 /* Staff workspace follows the admin reference in both display modes. */
-.app-layout.legacy-staff {
+.app-layout.legacy-staff,
+.raimu-companion:is([data-role="admin"],[data-role="staff"]) {
   --admin-canvas:#f3f3f1;--admin-surface:#fff;--admin-subtle:#e8efe9;
   --admin-line:#e5e5e1;--admin-ink:#17261d;--admin-muted:#6b6f68;
   --admin-green-surface:#1e3932;--admin-emerald:#1e3932;
@@ -10,11 +11,14 @@
   --mgmt-heading:var(--admin-ink);--mgmt-muted:var(--admin-muted);
   --mgmt-primary:#2e6b47;--mgmt-primary-strong:#1f4a31;--mgmt-on-primary:#fff;
   --mgmt-shadow:0 1px 2px #0b122008,0 8px 24px -14px #0b122024;
-  display:grid;grid-template-columns:244px minmax(0,1fr);min-width:0;
-  background:var(--admin-canvas);color:var(--admin-ink);
   font-family:'Space Grotesk',system-ui,sans-serif;
 }
-.app-layout.legacy-staff[data-theme="dark"] {
+.app-layout.legacy-staff {
+  display:grid;grid-template-columns:244px minmax(0,1fr);min-width:0;
+  background:var(--admin-canvas);color:var(--admin-ink);
+}
+.app-layout.legacy-staff[data-theme="dark"],
+.raimu-companion:is([data-role="admin"],[data-role="staff"])[data-theme="dark"] {
   --admin-canvas:#131413;--admin-surface:#181a19;--admin-subtle:#1e1f1e;
   --admin-line:#282a29;--admin-ink:#f0f1eb;--admin-muted:#b9c1b9;
   --admin-green-surface:#005d3b;--admin-emerald:#005d3b;

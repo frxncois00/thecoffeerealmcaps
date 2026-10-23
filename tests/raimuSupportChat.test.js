@@ -65,6 +65,15 @@ test('revoked portal session cannot use the support function', async () => {
   assert.match(result.body.error, /Verified portal session required/)
 })
 
+test('capabilities question gets a complete answer without an AI provider', async () => {
+  const app = createHandler()
+  const result = await app.ask('hi what can u do for me')
+  assert.equal(result.status, 200)
+  assert.equal(result.body.provider, 'instant')
+  assert.match(result.body.text, /I can check store orders/)
+  assert.match(result.body.text, /What would you like to check\?$/)
+})
+
 test('order status uses the live order and does not ask which database', async () => {
   const app = createHandler({ tables: { orders: [{ order_number: 'CR-1003-0207', status: 'Preparing', order_type: 'pickup', payment_status: 'paid' }] } })
   const result = await app.ask('whtas the status of CR-1003-0207')
@@ -74,6 +83,17 @@ test('order status uses the live order and does not ask which database', async (
 test('a status follow-up resolves the recent order without inheriting action permissions', async () => {
   const app = createHandler({ tables: { orders: [{ order_number: 'CR-1003-0207', status: 'Preparing', order_type: 'pickup', payment_status: 'paid' }] } })
   const result = await app.ask('What is its status?', { history: [{ role: 'user', content: 'Check CR-1003-0207' }, { role: 'assistant', content: 'Looking it up.' }] })
+  assert.match(result.body.text, /CR-1003-0207 is Preparing/)
+  assert.equal(result.body.action_proposal, undefined)
+})
+
+test('a follow-up remembers an order beyond eight turns and 500 characters', async () => {
+  const app = createHandler({ tables: { orders: [{ order_number: 'CR-1003-0207', status: 'Preparing' }] } })
+  const history = [
+    { role: 'user', content: `${'Earlier context. '.repeat(40)}Check CR-1003-0207` },
+    ...Array.from({ length: 10 }, (_, index) => ({ role: index % 2 ? 'assistant' : 'user', content: 'Continue our conversation.' })),
+  ]
+  const result = await app.ask('What is its status?', { history })
   assert.match(result.body.text, /CR-1003-0207 is Preparing/)
   assert.equal(result.body.action_proposal, undefined)
 })
