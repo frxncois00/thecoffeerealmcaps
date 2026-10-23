@@ -163,6 +163,7 @@ function formatBackupSize(value) {
 }
 
 function BackupSection({ runs, setupRequired }) {
+  const successfulRuns = runs.filter(run => run.status === 'success')
   const latest = runs[0]
   const healthy = latest?.status === 'success'
   return <section className="ac-editor-section ac-backup-section">
@@ -177,7 +178,7 @@ function BackupSection({ runs, setupRequired }) {
         <article><span><Archive size={18}/></span><div><small>Latest result</small><b>{latest ? formatBackupTime(latest.completed_at) : 'No run yet'}</b><p>{latest?.backup_type === 'monthly' ? 'Monthly full snapshot' : 'Daily backup'}</p></div></article>
       </div>
       <div className="ac-subsection ac-backup-coverage"><h3>Protected data</h3><div><span>Orders, payments and refunds</span><span>Inventory and purchase orders</span><span>Menu, pricing and settings</span><span>Accounts, benefits and audit history</span><span>Payment proofs and documents</span><span>Product and profile images</span></div></div>
-      <div className="ac-subsection"><h3>Recent backup history</h3>{runs.length ? <div className="ac-backup-history"><div className="ac-backup-history-head"><span>Completed</span><span>Type</span><span>Database</span><span>Files</span><span>Status</span></div>{runs.map(run => <div key={run.id}><span>{formatBackupTime(run.completed_at)}</span><span>{run.backup_type === 'monthly' ? 'Monthly full' : 'Daily'}</span><span>{formatBackupSize(run.database_bytes)}</span><span>{run.storage_files || 0}</span><span className={run.status === 'success' ? 'is-success' : 'is-failed'}>{run.status === 'success' ? 'Successful' : 'Failed'}</span>{run.error_summary && <small>{run.error_summary}</small>}</div>)}</div> : <p className="ac-backup-empty">Backup results will appear here after the first run.</p>}</div>
+      <div className="ac-subsection"><h3>Recent backup history</h3>{successfulRuns.length ? <div className="ac-backup-history"><div className="ac-backup-history-head"><span>Completed</span><span>Type</span><span>Database</span><span>Files</span><span>Status</span></div>{successfulRuns.map(run => <div key={run.id}><span>{formatBackupTime(run.completed_at)}</span><span>{run.backup_type === 'monthly' ? 'Monthly full' : 'Daily'}</span><span>{formatBackupSize(run.database_bytes)}</span><span>{run.storage_files || 0}</span><span className={run.status === 'success' ? 'is-success' : 'is-failed'}>{run.status === 'success' ? 'Successful' : 'Failed'}</span>{run.error_summary && <small>{run.error_summary}</small>}</div>)}</div> : <p className="ac-backup-empty">Successful backups will appear here after the first successful run.</p>}</div>
       <div className="ac-inline-note"><ShieldCheck size={16}/><span>Backup archives are encrypted before upload. Passwords and Google or Supabase credentials are stored only as private GitHub secrets.</span></div>
     </div>
   </section>
