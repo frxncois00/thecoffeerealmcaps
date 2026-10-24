@@ -1,0 +1,126 @@
+/* Final cashier geometry. Keep this scoped, including the customization portal. */
+html:has(.cashier-refined), body:has(.cashier-refined) { background: #f3f0e9; overscroll-behavior: none; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) {
+  color-scheme: light;
+  touch-action: pan-x pan-y;
+  --cashier-font: 'Space Grotesk', system-ui, sans-serif;
+  --cashier-mono: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: var(--cashier-font);
+  --pos-surface: #fcfaf6;
+  --pos-bg: #f3f0e9;
+  --pos-text: #263529;
+  --pos-muted: #62665c;
+  --pos-border: #e3ded2;
+}
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) * { box-sizing: border-box; }
+/* Apply to scroll containers too: gesture negotiation stops at a scrolling ancestor. */
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(div, section, aside, main, button, input, select, textarea) { touch-action: pan-x pan-y; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(input, select, textarea) { font-size: 16px; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) button { font-family: inherit; }
+/* Match admin typography without importing its layout or palette. */
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(h1, h2, h3, h4, p, span, b, strong, button, input, select, textarea, label, small, dt, dd):not(.receipt-print-area *) { font-family: var(--cashier-font) !important; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.cashier-kicker, .cashier-time span, .cashier-time b, .cashier-product-body footer strong, .legacy-ticket-total strong, .customize-total b) { font-family: var(--cashier-mono) !important; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(button, input, select):focus-visible { outline: 2px solid #b18b44; outline-offset: 2px; }
+html[data-theme] .cashier-v2.cashier-refined { width: 100%; min-width: 0; min-height: 100dvh; }
+html[data-theme] .cashier-v2.cashier-refined .legacy-pos-menu,
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order { box-shadow: 0 2px 4px rgb(27 47 34 / 8%), 0 6px 12px -4px rgb(27 47 34 / 20%); }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-transactions-panel, .cashier-transaction-detail-panel) { box-shadow: 0 2px 4px rgb(27 47 34 / 8%), 0 8px 18px -5px rgb(27 47 34 / 22%) !important; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-transactions-list, .cashier-transaction-detail-panel) { scrollbar-color: #dfcfaf transparent; scrollbar-width: thin; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-transactions-list, .cashier-transaction-detail-panel)::-webkit-scrollbar { display: block; width: 8px; height: 8px; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-transactions-list, .cashier-transaction-detail-panel)::-webkit-scrollbar-track { background: transparent; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-transactions-list, .cashier-transaction-detail-panel)::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: #dfcfaf; background-clip: padding-box; }
+html[data-theme] .cashier-v2.cashier-refined .legacy-cashier-top nav button:is(.cashier-transactions-button, .cashier-order-status-button, .cashier-signout-button) { height: 34px; min-height: 34px; padding: 0 10px; border-radius: 6px; flex-direction: row; gap: 6px; }
+html[data-theme] .cashier-v2.cashier-refined .legacy-cashier-top nav button:is(.cashier-transactions-button, .cashier-order-status-button, .cashier-signout-button) svg { width: 18px; height: 18px; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-connection-status { min-height: 28px; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-top-left > div { margin-inline-end: 8px; }
+html[data-theme] .cashier-v2.cashier-refined .legacy-pos-products { align-content: start; grid-auto-rows: max-content; }
+html[data-theme] .cashier-v2.cashier-refined :is(.legacy-pos-products, .legacy-ticket-items) { scrollbar-color: #a79f8d transparent; }
+html[data-theme] .cashier-v2.cashier-refined :is(.legacy-pos-products, .legacy-ticket-items)::-webkit-scrollbar-track { background: transparent; }
+html[data-theme] .cashier-v2.cashier-refined :is(.legacy-pos-products, .legacy-ticket-items)::-webkit-scrollbar-thumb { background: #a79f8d; border-color: transparent; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-menu-actions .cashier-new-order { white-space: nowrap; min-width: 128px; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-menu-actions .cashier-new-order,
+html[data-theme] .cashier-v2.cashier-refined .cashier-menu-actions .cashier-new-order :is(span, svg) { color: #fcfaf6 !important; }
+html[data-theme] .cashier-v2.cashier-refined .legacy-pos-products article { transform: none; filter: none; }
+html[data-theme] .cashier-v2.cashier-refined .legacy-pos-products article:hover { transform: none; box-shadow: none; border-color: #b7ad98; }
+html[data-theme] .cashier-v2.cashier-refined .legacy-pos-products h3 { font-size: .9rem; line-height: 1.4; }
+html[data-theme] .cashier-v2.cashier-refined .legacy-pos-products small { font-size: .75rem; line-height: 1.4; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-stock-indicator { font-size: .75rem; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-product-body footer strong { font-size: .9rem; }
+/* Keep every card at the compact Nuggets size, even with longer labels. */
+html[data-theme] .cashier-v2.cashier-refined .legacy-pos-products article > .cashier-product-body { height: 140px; flex: 0 0 140px; }
+html[data-theme] .cashier-v2.cashier-refined .legacy-pos-products .cashier-product-body :is(small, h3) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-product-body footer { display: grid; grid-template-columns: minmax(0, 1fr) 44px; grid-template-rows: 20px 44px; gap: 6px 8px; margin-top: auto; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-product-body footer .cashier-stock-indicator { grid-column: 1 / -1; min-width: 0; white-space: nowrap; overflow: hidden; }
+
+/* Slim menu search and filtering controls. */
+html[data-theme] .cashier-v2.cashier-refined .cashier-search-toolbar :is(.cashier-search-field, .cashier-sort-field, .cashier-filter-trigger) { height: 32px; min-height: 32px; border-radius: 6px; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-sort-field select { border-radius: 5px; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-filter-panel { padding: 3px 8px; gap: 8px; border-radius: 5px; flex-wrap: nowrap; align-items: center; overflow-x: auto; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-filter-panel label { flex-direction: row; align-items: center; gap: 5px; white-space: nowrap; flex: 1 0 160px; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-filter-panel label :is(input:not([type='checkbox']), select) { flex: 1 1 0; width: 0; min-width: 80px; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-filter-panel .cashier-filter-check { flex: 0 0 auto; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-filter-panel > button { flex: 0 0 auto; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-filter-panel :is(input:not([type='checkbox']), select) { height: 26px; min-height: 26px; padding-block: 0; border-radius: 3px; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-filter-panel :is(.cashier-filter-check, button) { min-height: 26px; }
+
+@media screen and (min-width: 821px) and (min-height: 601px) {
+  html[data-theme] .cashier-v2.cashier-refined { height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  html[data-theme] .cashier-v2.cashier-refined .legacy-cashier-top { flex: 0 0 auto; }
+  html[data-theme] .cashier-v2.cashier-refined .legacy-pos-layout { flex: 1 1 0; min-height: 0; overflow: hidden; align-items: stretch; }
+  /* Give the menu and cart a little more height within the viewport. */
+  html[data-theme] .cashier-v2.cashier-refined .legacy-pos-layout:not(.cashier-transactions-layout) { padding-block: 12px; }
+  html[data-theme] .cashier-v2.cashier-refined .legacy-pos-menu { height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+  html[data-theme] .cashier-v2.cashier-refined :is(.cashier-workspace-tabs, .legacy-pos-heading, .cashier-menu-controls) { flex: 0 0 auto; }
+  /* A shorter tab strip moves the menu surface up and adds room for products. */
+  html[data-theme] .cashier-v2.cashier-refined .cashier-workspace-tabs { min-height: 38px; padding-top: 4px; }
+  html[data-theme] .cashier-v2.cashier-refined .cashier-order-tab { height: 34px; min-height: 34px; border-radius: 7px 7px 0 0; }
+  html[data-theme] .cashier-v2.cashier-refined .cashier-order-tab .cashier-tab-select { height: 34px; min-height: 34px; }
+  html[data-theme] .cashier-v2.cashier-refined .cashier-order-tab .cashier-tab-close { flex-basis: 30px; width: 30px; height: 30px; min-height: 30px; }
+  html[data-theme] .cashier-v2.cashier-refined .legacy-pos-products { flex: 1 1 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 4px 16px; scrollbar-gutter: stable; }
+  html[data-theme] .cashier-v2.cashier-refined #cashier-current-order,
+  html[data-theme] .cashier-v2.cashier-refined.cashier-is-fullscreen #cashier-current-order { position: relative; top: auto; height: 100%; min-height: 0; max-height: none; }
+  html[data-theme] .cashier-v2.cashier-refined .cashier-transactions-panel { overflow-y: auto; }
+  html[data-theme] .cashier-v2.cashier-refined .cashier-transaction-detail-panel { position: relative; top: auto; max-height: 100%; overflow-y: auto; }
+}
+
+/* Compact cart rows while keeping quantity controls at their current size. */
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-ticket-items .cashier-cart-line { padding-block: 10px; }
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .cashier-line-body { gap: 6px; }
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-ticket-total { padding-top: 10px; }
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-ticket-total p { margin-block: 3px; }
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-ticket-total hr { margin-block: 6px; }
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-charge,
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-charge:not(:disabled):hover { height: 40px !important; min-height: 40px !important; padding-block: 0; margin: 6px 18px 12px; border-radius: 6px; }
+
+/* Dialog headers and actions stay visible while their contents scroll. */
+html[data-theme] .cashier-v2.cashier-refined .checkout-modal-body { padding: 16px 20px; }
+html[data-theme] .cashier-v2.cashier-refined :is(.checkout-totals, .checkout-section) { margin: 8px 0 0; padding: 10px 14px; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-totals p { margin: 0; padding: 5px 0; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-section h3 { margin: 0 0 8px; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-choice-grid { gap: 8px; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-choice-grid button { min-height: 44px; padding-block: 10px; }
+html[data-theme] .cashier-v2.cashier-refined .checkout-field-grid { margin-top: 10px; gap: 10px; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal, .cashier-custom-modal, .cashier-receipt-modal, .cashier-queue-modal) { display: flex !important; flex-direction: column; min-height: 0; overflow: hidden; max-height: calc(100dvh - 32px); }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal-head, .customize-modal-header, .cashier-receipt-modal-head, .cashier-queue-modal-header, .checkout-actions, .customize-modal-footer, .cashier-receipt-actions, .cashier-queue-modal-footer) { flex: 0 0 auto; }
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-modal-body, .customize-modal-body, .receipt-preview-shell, .cashier-queue-modal-body) { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+html[data-theme] .cashier-v2.cashier-refined .auth-logout-card { background: #fcfaf6; color: #263529; max-height: calc(100dvh - 32px); overflow-y: auto; }
+html[data-theme] .cashier-v2.cashier-refined .auth-logout-card__title { color: #263529; }
+html[data-theme] .cashier-v2.cashier-refined .auth-logout-card__copy { color: #62665c; }
+html[data-theme] .cashier-v2.cashier-refined-modal :is(.passport-card, .passport-confirm) { background: #fcfaf6; color: #263529; min-width: 0; max-height: calc(100dvh - 40px); overflow-y: auto; overscroll-behavior: contain; }
+html[data-theme] .cashier-v2.cashier-refined-modal :is(.passport-card, .passport-confirm) button { min-height: 44px; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-queue-modal, .cashier-queue-modal-body) { background: #fcfaf6; color: #263529; border-color: #e3ded2; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-queue-modal { width: min(960px, 100%); height: min(640px, calc(100dvh - 40px)); border: 0; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-queue-grid { min-height: 100%; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-queue-modal-header, .cashier-queue-modal-footer) { background: #1b2f22; color: #e8dcc4; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-queue-column { background: #f3f0e9; border-color: #e3ded2; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-queue-card { background: #fcfaf6; border-color: #b7ad98; box-shadow: none; transform: none; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-queue-col-title h3, .cashier-queue-card-number) { color: #263529; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-queue-empty, .cashier-queue-card-type, .cashier-queue-card-name) { color: #62665c; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-queue-count-pill { background: #e8dcc4; color: #1b2f22; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-queue-card-action { background: #1b2f22; color: #fcfaf6; min-height: 44px; height: auto; }
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-addon-button.active { background: #1b2f22 !important; color: #fcfaf6 !important; border-color: #1b2f22 !important; }
+html[data-theme] .cashier-v2.cashier-refined-modal .customize-addon-button.active :is(span, b) { color: inherit !important; }
+@media (max-width: 600px) {
+  html[data-theme] .cashier-v2.cashier-refined .cashier-queue-grid { grid-template-columns: minmax(0, 1fr); }
+  html[data-theme] .cashier-v2.cashier-refined .cashier-queue-column { min-height: 160px; }
+}

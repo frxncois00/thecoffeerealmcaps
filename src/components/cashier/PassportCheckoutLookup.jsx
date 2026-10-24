@@ -186,7 +186,7 @@ export default function PassportCheckoutLookup({ saving, onMatch, setDiscount })
         {status === 'searching' ? <i>Searching...</i> : status === 'found' ? member.profile.username : status === 'missing' ? 'No user found' : status === 'error' ? 'Lookup unavailable. Try again.' : '\u00a0'}
       </small>
     </div>
-    {open && member && createPortal(<div className="passport-card-backdrop">
+    {open && member && createPortal(<div className="cashier-v2 cashier-refined-modal passport-card-backdrop">
       <section ref={cardRef} className="passport-card" role="dialog" aria-modal="true" aria-labelledby="passport-card-title" inert={confirmReward ? true : undefined} tabIndex={-1}>
         <header><h2 id="passport-card-title">Realm Passport</h2><button ref={closeButton} type="button" disabled={claiming} aria-label="Close passport details" onClick={() => { setOpen(false); checkButton.current?.focus() }}>×</button></header>
         <dl>
@@ -212,7 +212,7 @@ export default function PassportCheckoutLookup({ saving, onMatch, setDiscount })
         <p>{presentation.summary.nextReward ? `${presentation.summary.nextReward.title} · ${presentation.summary.remaining} more completed purchases` : 'All rewards earned'}</p>
       </section>
     </div>, document.body)}
-    {open && confirmReward && createPortal(<div className="passport-confirm-backdrop">
+    {open && confirmReward && createPortal(<div className="cashier-v2 cashier-refined-modal passport-confirm-backdrop">
       <section ref={confirmRef} className="passport-confirm" role="alertdialog" aria-modal="true" aria-labelledby="passport-confirm-title" aria-describedby="passport-confirm-description" tabIndex={-1}>
         <h2 id="passport-confirm-title">Claim this reward?</h2>
         <p id="passport-confirm-description">Confirm that you’re giving <strong>{confirmReward.title}</strong> to {member?.profile.full_name || member?.profile.username}. This can only be claimed once.</p>

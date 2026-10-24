@@ -1,4 +1,5 @@
 .auth-loading.portal-access-loading {
+  color-scheme: light;
   --portal-loading-bg: #fff;
   --portal-loading-text: #68736e;
   --portal-loading-accent: #147d57;
@@ -11,13 +12,6 @@
   background: var(--portal-loading-bg);
   color: var(--portal-loading-text);
   font-weight: 500;
-}
-
-:root[data-theme='dark'] .portal-access-loading {
-  --portal-loading-bg: #080e0e;
-  --portal-loading-text: #a6b0aa;
-  --portal-loading-accent: #65a875;
-  --portal-loading-track: #293730;
 }
 
 .portal-access-loading__content {

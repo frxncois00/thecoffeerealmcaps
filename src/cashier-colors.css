@@ -1,0 +1,105 @@
+/* The cashier has one cream/forest palette, even with a saved dark preference.
+   Keep these corrections color-only; layout and interaction rules live elsewhere. */
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) {
+  color-scheme: light;
+  --ink: #263529;
+  --muted: #62665c;
+  --canvas: #f3f0e9;
+  --panel: #fcfaf6;
+  --line: #e3ded2;
+  --brand: #1b2f22;
+  --brand-soft: #e8dcc4;
+  --cashier-secondary: #fcfaf6;
+  --pos-muted: #62665c;
+  --cafe-muted: #62665c;
+  color: #263529;
+}
+html[data-theme] .cashier-v2.cashier-refined { background: #f3f0e9; }
+html[data-theme] .cashier-v2.cashier-refined .legacy-pos-heading { background: transparent; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-menu-title h1, .cashier-sort-field, .cashier-filter-panel label, .legacy-pos-products h3, .cashier-product-body footer strong) {
+  color: #263529 !important;
+}
+html[data-theme] .cashier-v2.cashier-refined :is(.legacy-pos-products small, .cashier-stock-indicator) { color: #52634e !important; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-stock-indicator.is-low { color: #78591a !important; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-stock-indicator.is-empty, .cashier-sold-out) { color: #92392d !important; }
+html[data-theme] .cashier-v2.cashier-refined .legacy-pos-products article.unpriced { opacity: 1; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-search-toolbar input, .cashier-sort-field select, .cashier-filter-panel input:not([type='checkbox']), .cashier-filter-panel select) {
+  background: #f3f0e9 !important;
+  color: #263529 !important;
+}
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(input, textarea)::placeholder {
+  color: #62665c !important;
+  opacity: 1;
+}
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-sort-field select, .cashier-filter-panel select) option { background: #fcfaf6; color: #263529; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-fullscreen, .cashier-filter-trigger, .legacy-pos-tabs button) {
+  background: #fcfaf6 !important;
+  color: #263529 !important;
+}
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-fullscreen, .cashier-filter-trigger, .legacy-pos-tabs button):hover,
+html[data-theme] .cashier-v2.cashier-refined .cashier-filter-trigger[aria-expanded='true'] {
+  background: #e8dcc4 !important;
+  color: #263529 !important;
+}
+html[data-theme] .cashier-v2.cashier-refined .cashier-filter-panel > button { color: #263529 !important; }
+html[data-theme] .cashier-v2.cashier-refined :is(.legacy-pos-tabs button.active, .legacy-pos-tabs button.active:hover, .cashier-menu-actions .cashier-new-order, .cashier-menu-actions .cashier-new-order:hover) {
+  background: #1b2f22 !important;
+  color: #e8dcc4 !important;
+}
+/* Child labels must follow their control's selected/unselected color. */
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-fullscreen, .cashier-dining-btn, .cashier-filter-trigger) :is(span, svg) { color: inherit !important; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-empty-state, .cashier-transaction-empty-state) {
+  background: #f3f0e9 !important;
+  color: #62665c !important;
+}
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-empty-state, .cashier-transaction-empty-state) :is(b, span, svg) { color: inherit !important; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-empty-state b { color: #263529 !important; }
+html[data-theme] .cashier-v2.cashier-refined .cashier-product-body footer button:hover {
+  background: #e8dcc4 !important;
+  color: #1b2f22 !important;
+}
+/* Checkout membership lookup is a light input inside a dark header. */
+html[data-theme] .cashier-v2.cashier-refined .passport-lookup-controls input { background: #fcfaf6 !important; color: #263529 !important; }
+html[data-theme] .cashier-v2.cashier-refined .passport-lookup label { color: #e8dcc4 !important; }
+html[data-theme] .cashier-v2.cashier-refined .passport-lookup-controls button { background: #2c4030 !important; color: #e8dcc4 !important; }
+html[data-theme] .cashier-v2.cashier-refined .detail-total :is(span, strong) { color: #e8dcc4 !important; }
+/* Keep choice colors paired on hover as well as when selected. */
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-choice-grid button, .customize-choice-button, .customize-addon-button):hover {
+  background: #e8dcc4 !important;
+  color: #263529 !important;
+}
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) :is(.checkout-choice-grid button.active, .customize-choice-button.active, .customize-addon-button.active):hover {
+  background: #1b2f22 !important;
+  color: #fcfaf6 !important;
+}
+html[data-theme] .cashier-v2.cashier-refined-modal :is(.customize-choice-button, .customize-addon-button):hover :is(span, small, b) { color: inherit !important; }
+/* Disabled actions stay legible; subdued solid colors communicate availability. */
+html[data-theme] .cashier-v2:is(.cashier-refined, .cashier-refined-modal) button:disabled {
+  opacity: 1 !important;
+  background: #e3e0d7 !important;
+  color: #5c6057 !important;
+}
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order :is(.cashier-clear-cart, .cashier-reorder, .legacy-charge):disabled {
+  opacity: 1 !important;
+  background: #d2d4c5 !important;
+  color: #454e40 !important;
+}
+html[data-theme] .cashier-v2.cashier-refined .cashier-queue-empty { color: #b8c7b8; }
+/* Light item surface within the forest order card. */
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-ticket-items {
+  background: #fcfaf6;
+  color: #263529;
+}
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-ticket-items .cashier-cart-line { border-color: #e3ded2; }
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-ticket-items :is(.cashier-line-top b, .cashier-cart-line-total, .cashier-edit-line) { color: #263529 !important; }
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-ticket-items :is(.cashier-custom-summary, .cashier-empty-cart svg, .cashier-empty-cart p) { color: #62665c !important; }
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-ticket-items .cashier-qty-stepper {
+  background: #f3f0e9;
+  border-color: #e3ded2;
+}
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-ticket-items .cashier-qty-stepper :is(button, .cashier-qty-value) {
+  color: #263529 !important;
+}
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-ticket-items .cashier-qty-stepper button { border-color: #e3ded2; }
+html[data-theme] .cashier-v2.cashier-refined #cashier-current-order .legacy-ticket-items .cashier-qty-stepper button:hover { background: #e8dcc4 !important; }
+html[data-theme] .cashier-v2.cashier-refined :is(.cashier-error, .checkout-error) { background: #f9e7e2 !important; color: #8a2924 !important; }

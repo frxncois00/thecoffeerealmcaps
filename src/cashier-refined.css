@@ -8,13 +8,6 @@ html[data-theme] .cashier-refined {
   background: #214b34;
   color: var(--pos-text);
 }
-html[data-theme='dark'] .cashier-refined {
-  --pos-surface: #20372a;
-  --pos-bg: #15261c;
-  --pos-text: #edf3ec;
-  --pos-muted: #bbcbbe;
-  --pos-border: #3d5544;
-}
 html[data-theme] .cashier-refined .legacy-cashier-top {
   position: relative;
   display: flex;
@@ -308,7 +301,6 @@ html[data-theme] .cashier-refined .cashier-search-toolbar .cashier-menu-filter {
 html[data-theme] .cashier-refined .cashier-search-toolbar :is(input, select) { width: 100%; min-width: 0; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--pos-text); box-shadow: none; font-size: .85rem; }
 html[data-theme] .cashier-refined .cashier-search-toolbar svg { flex-shrink: 0; }
 html[data-theme] .cashier-refined .cashier-menu-filter select { cursor: pointer; color-scheme: light; }
-html[data-theme='dark'] .cashier-refined .cashier-menu-filter select { color-scheme: dark; }
 html[data-theme] .cashier-refined .legacy-pos-products img { height: auto; aspect-ratio: 1 / 1; object-fit: contain; background: #f4f6f2; }
 html[data-theme] .cashier-refined .legacy-pos-products article > .cashier-product-body { min-height: 0; }
 html[data-theme] .cashier-refined .legacy-pos-products .cashier-product-body { gap: 0; }
@@ -316,8 +308,6 @@ html[data-theme] .cashier-refined .legacy-pos-products .cashier-product-body h3 
 html[data-theme] .cashier-refined .cashier-product-body footer { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 0; }
 html[data-theme] .cashier-refined .cashier-stock-indicator { flex: 1 0 100%; color: #436b4b; font-size: .72rem; font-weight: 750; }
 html[data-theme] .cashier-refined .cashier-stock-indicator.is-empty { color: #9b4a3e; }
-html[data-theme='dark'] .cashier-refined .cashier-stock-indicator { color: #a9d2af; }
-html[data-theme='dark'] .cashier-refined .cashier-stock-indicator.is-empty { color: #e1a79d; }
 @media (max-width: 560px) {
   html[data-theme] .cashier-refined .cashier-search-toolbar .cashier-search-field { flex-basis: 100%; max-width: none; }
   html[data-theme] .cashier-refined .cashier-search-toolbar .cashier-menu-filter { flex: 1 1 100%; }

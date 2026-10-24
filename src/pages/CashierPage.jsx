@@ -1,4 +1,5 @@
 import TablePagination from '../components/TablePagination'
+import { installCashierTouchGuard } from '../utils/cashierTouch'
 import { checkCartStock, STOCK_MESSAGE } from '../services/cartStock'
 import {
   Banknote,
@@ -12,7 +13,6 @@ import {
   LogOut,
   Minus,
   PackageCheck,
-  Pencil,
   Plus,
   ReceiptText,
   Search,
@@ -421,6 +421,7 @@ function validatePayment(payment, total) {
 }
 
 export default function CashierPage() {
+  useEffect(() => installCashierTouchGuard(), [])
   const navigate = useNavigate()
   const { pricing } = usePricing()
   const fallbackProducts = useMemo(() => menuItems.map((item) => ({
@@ -1313,7 +1314,7 @@ export default function CashierPage() {
             <div className="cashier-checkout-block">
               <OrderSummary vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat} breakdown={cartPreviewBreakdown} />
               {error || liveStockError ? <div className="cashier-error" role="alert">{error || liveStockError}</div> : null}
-              <button type="button" className="legacy-charge" onClick={() => setShowCheckout(true)} disabled={!cart.length || Boolean(liveStockError)}>Checkout</button>
+              <button type="button" className="legacy-charge" onClick={() => setShowCheckout(true)} disabled={!cart.length || Boolean(liveStockError)}>Confirm order</button>
             </div>
           </aside>
         </>}
@@ -1376,8 +1377,8 @@ function ProductGrid({ products, onAdd }) {
     return <article key={item.id} className={`cashier-product-card ${disabled ? 'unpriced' : ''} ${item.isFeatured ? 'is-featured' : ''}`} onClick={() => { if (!disabled) onAdd(item) }}>
       <img src={item.image} alt={item.name} />
       <div className="cashier-product-body">
-        <small>{item.category}{hasOptions ? ' / Customizable' : ''}</small>
-        <h3>{item.name}</h3>        <footer>
+        <small title={`${item.category}${hasOptions ? ' / Customizable' : ''}`}>{item.category}{hasOptions ? ' / Customizable' : ''}</small>
+        <h3 title={item.name}>{item.name}</h3>        <footer>
           <span className={`cashier-stock-indicator ${stockTone}`}><i aria-hidden="true" />{soldOut ? <span className="cashier-sold-out">Sold out</span> : item.stockInfo ? `${item.stockInfo.type === 'product' ? 'In stock' : 'Can make'}${item.variantOptions?.length > 1 && item.stockInfo.type === 'product' ? ` (${item.variantOptions[0].label})` : ''}: ${item.stockInfo.quantity}${stockTone === 'is-low' ? ' · Low stock' : ''}` : 'Stock unconfirmed'}</span>
           <strong>{item.price ? peso(item.price) : 'No price set'}</strong>
           <button type="button" disabled={disabled} onClick={(event) => { event.stopPropagation(); onAdd(item) }} aria-label={`Add ${item.name}`}><Plus size={18} /></button>
@@ -1398,7 +1399,7 @@ function POSCart({ cart, products, onQty, onEdit }) {
             <b>{item.name}</b>
             <CustomizationSummary item={item} />
           </div>
-          {editable ? <button type="button" className="cashier-edit-line" onClick={() => onEdit(item)} aria-label={`Edit ${item.name}`}><Pencil size={15} /></button> : null}
+          {editable ? <button type="button" className="cashier-edit-line" onClick={() => onEdit(item)} aria-label={`Edit ${item.name}`}>Edit</button> : null}
         </div>
         <div className="cashier-line-bottom">
           <strong className="cashier-cart-line-total">{peso(itemLineTotal(item))}</strong>
@@ -1414,7 +1415,9 @@ function POSCart({ cart, products, onQty, onEdit }) {
 }
 
 function customizationDetails(item) {
-  return [item.customizations?.variantLabel, item.customizations?.temperature, item.customizations?.sugarLevel, item.customizations?.iceLevel, ...(item.addons || []).map(addonLabel)].filter(Boolean)
+  const variantLabel = item.customizations?.variantLabel
+  const visibleVariant = String(variantLabel || '').trim().toLowerCase() === 'piece' ? '' : variantLabel
+  return [visibleVariant, item.customizations?.temperature, item.customizations?.sugarLevel, item.customizations?.iceLevel, ...(item.addons || []).map(addonLabel)].filter(Boolean)
 }
 function CustomizationSummary({ item }) {
   const details = customizationDetails(item)
