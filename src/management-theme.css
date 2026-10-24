@@ -634,7 +634,8 @@ html[data-staff-motion="reduce"] .app-layout:is(.legacy-staff,.legacy-admin) *,h
 .ua-search input{width:100%;height:40px!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important}.ua-clear{height:44px;min-height:44px}
 .ua-toolbar--audit .ua-search{flex-basis:280px}.ua-toolbar--audit>label:not(.ua-search){min-width:118px}.ua-toolbar--audit>label:has(input[type="date"]){min-width:142px}
 
-.ua-table-wrap{width:100%;overflow:auto;overscroll-behavior:contain}.ua-table{width:100%;min-width:860px;border-collapse:separate;border-spacing:0;font-size:.74rem}.ua-audit-table{min-width:1180px}
+/* Horizontal table scrolling must not trap vertical page scrolling. */
+.ua-table-wrap{width:100%;overflow:auto;overscroll-behavior-x:contain;overscroll-behavior-y:auto}.ua-table{width:100%;min-width:860px;border-collapse:separate;border-spacing:0;font-size:.74rem}.ua-audit-table{min-width:1180px}
 .ua-table th{position:sticky;z-index:2;top:0;padding:12px 15px;border-bottom:1px solid var(--mgmt-border);background:var(--mgmt-subtle);color:var(--mgmt-muted);font-size:.61rem;font-weight:850;letter-spacing:.06em;text-transform:uppercase;text-align:left;white-space:nowrap}
 .ua-table td{padding:13px 15px;border-bottom:1px solid var(--mgmt-border);background:transparent;color:var(--mgmt-text);vertical-align:middle}.ua-table tbody tr:last-child td{border-bottom:0}.ua-table tbody tr{transition:background-color .16s ease}.ua-table tbody tr:hover{background:var(--mgmt-hover)}
 .ua-table td>b{display:block;color:var(--mgmt-heading);font-size:.75rem}.ua-table td>small{display:block;margin-top:3px;color:var(--mgmt-muted);font-size:.64rem;line-height:1.35}.ua-table time{font-variant-numeric:tabular-nums;white-space:nowrap}.ua-row-action{min-height:44px;height:44px;padding:0 12px;border-radius:10px;font-size:.7rem}

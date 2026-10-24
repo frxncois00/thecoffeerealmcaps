@@ -25,7 +25,7 @@ const PENDING_STATUSES = ['Order Received', 'Awaiting Payment Verification', 'Pe
 const COLUMNS = [
   { key: 'pending', title: 'Pending Confirmation', subtitle: 'Verify payment proofs', icon: Clock, tone: 'amber' },
   { key: 'preparing', title: 'Preparing', subtitle: 'Orders being prepared', icon: Coffee, tone: 'blue' },
-  { key: 'ready', title: 'Ready for Handover', subtitle: 'Customer pickup or delivery handoff', icon: Package, tone: 'green' },
+  { key: 'ready', title: 'Ready to Claim', subtitle: 'Customer pickup or delivery handoff', icon: Package, tone: 'green' },
   { key: 'delivery', title: 'Out for Delivery', subtitle: 'Orders currently being delivered', icon: Bike, tone: 'teal' },
 ]
 
@@ -452,14 +452,13 @@ export default function OrderPreparationPage() {
       } else if (kind === 'advance') {
         if (next === 'Out for Delivery') {
           const cleanTrackingUrl = String(trackingUrl || '').trim()
-          if (!cleanTrackingUrl) throw new Error('Enter a tracking link before confirming.')
-          if (!/^https?:\/\/\S+$/i.test(cleanTrackingUrl)) throw new Error('Enter a valid HTTP or HTTPS tracking link.')
+          if (cleanTrackingUrl && !/^https?:\/\/\S+$/i.test(cleanTrackingUrl)) throw new Error('Enter a valid HTTP or HTTPS tracking link.')
           trackingUrl = cleanTrackingUrl
         }
         await advanceOrderStatus(order.id, next)
-        if (next === 'Out for Delivery') await saveOrderTrackingLink(order.id, trackingUrl)
+        if (next === 'Out for Delivery' && trackingUrl) await saveOrderTrackingLink(order.id, trackingUrl)
         dismissOrderNotification(order.id)
-        patchOrder(order.id, { status: next, ...(next === 'Out for Delivery' ? { tracking_url: trackingUrl || null } : {}) })
+        patchOrder(order.id, { status: next, ...(next === 'Out for Delivery' && trackingUrl ? { tracking_url: trackingUrl } : {}) })
         pushToast('success', `${order.order_number} is now ${orderDisplayStatus({ ...order, status: next })}.`)
       }
       setDrawerOrder((current) => (current && current.id === order.id ? { ...current, status: next || 'Preparing' } : current))
@@ -958,7 +957,7 @@ function ConfirmModal({ title, message, busy, onCancel, onConfirm }) {
   const isDeliveryAction = title === 'Mark Out for Delivery'
   const validateTrackingUrl = (value) => {
     const cleanValue = value.trim()
-    if (!cleanValue) return 'Enter a tracking link before confirming.'
+    if (!cleanValue) return ''
     if (!/^https?:\/\/\S+$/i.test(cleanValue)) return 'Enter a valid HTTP or HTTPS tracking link.'
     return ''
   }
@@ -978,7 +977,7 @@ function ConfirmModal({ title, message, busy, onCancel, onConfirm }) {
         <span className="payment-modal-kicker">Confirm action</span>
         <h2 id="ops-confirm-title">{title}</h2>
         <p>{message}</p>
-        {isDeliveryAction && <label className="field"><span>Delivery tracking link</span><input type="url" value={trackingUrl} aria-invalid={Boolean(trackingError)} aria-describedby={trackingError ? 'ops-tracking-url-error' : undefined} onChange={(event) => { const value = event.target.value.slice(0, 500); setTrackingUrl(value); if (!validateTrackingUrl(value)) setTrackingError('') }} maxLength={500} placeholder="https://…" />{trackingError && <small id="ops-tracking-url-error" className="field-hint error" role="alert">{trackingError}</small>}</label>}
+        {isDeliveryAction && <label className="field"><span>Delivery tracking link (optional)</span><input type="url" value={trackingUrl} aria-invalid={Boolean(trackingError)} aria-describedby={trackingError ? 'ops-tracking-url-error' : undefined} onChange={(event) => { const value = event.target.value.slice(0, 500); setTrackingUrl(value); if (!validateTrackingUrl(value)) setTrackingError('') }} maxLength={500} placeholder="https://…" />{trackingError && <small id="ops-tracking-url-error" className="field-hint error" role="alert">{trackingError}</small>}</label>}
         <div className="payment-modal-actions">
           <button className="secondary-button" type="button" onClick={onCancel} disabled={busy}>Go back</button>
           <button className="primary-button" type="button" onClick={submit} disabled={busy}>{busy ? 'Please wait…' : 'Confirm'}</button>
