@@ -1,3 +1,4 @@
+import TablePagination from '../components/TablePagination'
 import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react'
 import {
   ArrowDown, ArrowUp, Ban, CalendarDays, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
@@ -470,7 +471,7 @@ export default function CancellationReportPage() {
 
         {!pageRecords.length && <div className="cancel-empty-state"><span>{activeTab === 'refunds' ? <Undo2 size={18} /> : <FileSearch size={18} />}</span><p>{activeCurrent.length ? 'Try adjusting the search or filters.' : `There are no ${activeTab} in this date range.`}</p>{(activeFilterCount > 0 || search) && <button type="button" className="button button-soft" onClick={() => { resetFilters(); setSearch('') }}>Clear filters</button>}</div>}
 
-        {searchedRecords.length > 0 && <footer className="cancel-pagination"><div><span>Rows per page</span><select aria-label="Rows per page" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>{PAGE_SIZES.map((size) => <option value={size} key={size}>{size}</option>)}</select></div><span>Showing {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, searchedRecords.length)} of {searchedRecords.length}</span><div className="cancel-page-buttons"><button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} aria-label="Previous page"><ChevronLeft size={16} /></button><b>Page {page} of {pageCount}</b><button type="button" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)} aria-label="Next page"><ChevronRight size={16} /></button></div></footer>}
+        {searchedRecords.length > 0 && <TablePagination page={page} totalPages={pageCount} onPageChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} pageSizeOptions={PAGE_SIZES} total={searchedRecords.length} label="Cancellation and refund pages" />}
       </section>
     </div>}
     {detailRecord && <RecordDrawer record={detailRecord} view={activeTab} onClose={() => setDetailRecord(null)} />}

@@ -145,7 +145,21 @@
 .report-workspace .rp-body :is(.ir-exceptions,.ir-panel)>header {display:flex;justify-content:space-between;margin-bottom:16px}
 .report-workspace .rp-body :is(.ir-exceptions,.ir-panel)>header small {display:block;color:var(--rp-muted);font-size:12px;margin-top:4px}
 .report-workspace .rp-body .ir-exceptions ul {list-style:none;padding:0}
-.report-workspace .rp-body .ir-exceptions li {display:flex;align-items:center;gap:12px;padding:12px 0;flex-wrap:wrap;border-bottom:1px dashed var(--rp-line)}
+.report-workspace .rp-body .ir-exceptions li {display:grid;grid-template-columns:140px minmax(0,1fr) 180px 80px;align-items:center;gap:20px;min-height:76px;padding:16px 0;border-bottom:1px solid var(--rp-line)}
+.report-workspace .rp-body .ir-exceptions li:last-child {border-bottom:0}
+.report-workspace .rp-body .ir-exceptions li>.ir-movement-badge {justify-self:start;max-width:100%}
+.report-workspace .rp-body .ir-exceptions li>div {min-width:0;gap:5px}
+.report-workspace .rp-body .ir-exceptions li b {font-size:13px;line-height:1.4}
+.report-workspace .rp-body .ir-exceptions li small {font-size:12px;line-height:1.5;white-space:normal;overflow-wrap:anywhere}
+.report-workspace .rp-body .ir-exceptions li>time {display:block;font:400 12px/1.5 var(--rp-mono);white-space:normal}
+.report-workspace .rp-body .ir-exceptions li>button {justify-self:end;width:80px;min-height:40px;font-size:12px;border-radius:10px}
+@media(max-width:1100px) {
+  .report-workspace .rp-body .ir-exceptions li {grid-template-columns:minmax(0,1fr) 80px;gap:8px 16px}
+  .report-workspace .rp-body .ir-exceptions li>.ir-movement-badge {grid-column:1;grid-row:1}
+  .report-workspace .rp-body .ir-exceptions li>div {grid-column:1;grid-row:2}
+  .report-workspace .rp-body .ir-exceptions li>time {grid-column:1;grid-row:3}
+  .report-workspace .rp-body .ir-exceptions li>button {grid-column:2;grid-row:1 / span 3;align-self:center}
+}
 .report-workspace .rp-body .ir-exceptions li small {display:block;color:var(--rp-muted)}
 .app-layout.legacy-admin.report-workspace:is([data-theme="light"],[data-theme="dark"]) .rp-body :is(.ir-movement-badge,.inv-status) {font:500 11px var(--rp-mono);border-radius:99px}
 .app-layout.legacy-admin.report-workspace:is([data-theme="light"],[data-theme="dark"]) .rp-body :is(.ir-movement-badge.tone-blue,.tone-blue.inv-status) {color:var(--admin-ink, #06617A);background:var(--admin-surface, #E8F7FB)}

@@ -1,3 +1,4 @@
+import TablePagination from '../TablePagination'
 import { useEffect, useId, useState } from 'react'
 import { Inbox, ChevronLeft, ChevronRight } from 'lucide-react'
 import AppShell from '../AppShell'
@@ -59,6 +60,6 @@ export function DataTable({ title, subtitle, rows, columns, actions, showSearch 
   return <Card title={title} subtitle={subtitle} actions={(actions || showSearch) ? <div className="rp-table-tools">{actions}{showSearch && <input type="search" placeholder={searchPlaceholder} aria-label={`Search ${title.toLowerCase()}`} value={query} onChange={(event) => { setQuery(event.target.value); setPage(1) }} />}</div> : null}>
     <div className="rp-table-scroll"><table><thead><tr>{columns.map((column) => <th className={column.numeric ? 'rp-num' : ''} key={column.key} scope="col">{column.label}</th>)}</tr></thead><tbody>{filtered.slice(start, start + size).map((row, index) => <tr key={row.id || row.name || index}>{columns.map((column) => <td className={column.numeric ? 'rp-num' : ''} key={column.key}>{column.render(row)}</td>)}</tr>)}</tbody></table></div>
     {!filtered.length && <Empty />}
-    <footer className="rp-pagination"><label>Rows per page <select value={size} onChange={(event) => { setSize(Number(event.target.value)); setPage(1) }}>{[10, 20, 50].map((value) => <option key={value}>{value}</option>)}</select></label><span>Showing {filtered.length ? start + 1 : 0}–{Math.min(start + size, filtered.length)} of {filtered.length}</span><div><button type="button" aria-label={`Previous ${title.toLowerCase()} page`} disabled={current === 1} onClick={() => setPage(current - 1)}><ChevronLeft size={16} /></button><span>{current} / {pages}</span><button type="button" aria-label={`Next ${title.toLowerCase()} page`} disabled={current === pages} onClick={() => setPage(current + 1)}><ChevronRight size={16} /></button></div></footer>
+    <TablePagination page={current} totalPages={pages} onPageChange={setPage} pageSize={size} onPageSizeChange={setSize} pageSizeOptions={[10, 20, 50]} total={filtered.length} label={`${title} pages`} />
   </Card>
 }

@@ -1,0 +1,29 @@
+/* Activity Logs pagination, shared by every internal table. */
+.table-pagination.table-pagination {
+  --page-surface:var(--mgmt-elevated,var(--cafe-paper,#fff));
+  --page-border:var(--mgmt-border,var(--cafe-line,#e1e7e4));
+  --page-ink:var(--mgmt-heading,var(--cafe-ink,#17261d));
+  --page-muted:var(--mgmt-muted,var(--cafe-muted,#68736e));
+  --page-active:var(--mgmt-primary,#2c6847);
+  --page-on-active:var(--mgmt-on-primary,#fff);
+  --page-hover:var(--mgmt-hover,var(--cafe-cream,#eef2f0));
+  container:table-pagination / inline-size;
+  min-width:0;min-height:62px;width:100%;padding:10px 16px;
+  border:0;border-top:1px solid var(--page-border);border-radius:0;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:18px;
+  background:var(--page-surface);color:var(--page-muted);font-size:.7rem;box-shadow:none;
+}
+.table-pagination.table-pagination .table-pagination-summary {display:grid;gap:3px;margin:0 auto 0 0;color:var(--page-muted);font:inherit}
+.table-pagination.table-pagination .table-pagination-summary small {color:var(--page-muted);font-size:.65rem}
+.table-pagination.table-pagination>label {display:flex;align-items:center;gap:7px;margin:0;color:var(--page-muted);font:inherit}
+.table-pagination.table-pagination select {width:auto;min-width:60px;height:44px;padding:0 8px;border:1px solid var(--page-border);border-radius:9px;background:var(--mgmt-input,var(--page-surface));color:var(--page-ink);font:inherit}
+.table-pagination.table-pagination>nav {display:flex;flex-wrap:nowrap;gap:6px;max-width:100%;margin:0;padding:0;border:0;background:none}
+.table-pagination.table-pagination>nav>button {flex:none;min-width:44px;width:auto;height:44px;padding:0 8px;display:grid;place-items:center;border:1px solid var(--page-border);border-radius:10px;background:var(--page-surface);color:var(--page-ink);font:inherit;font-weight:700;line-height:1;box-shadow:none;cursor:pointer;transform:none}
+.table-pagination.table-pagination>nav>button:hover:not(:disabled) {background:var(--page-hover)}
+.table-pagination.table-pagination>nav>button[aria-current="page"] {border-color:var(--page-active);background:var(--page-active);color:var(--page-on-active)}
+.table-pagination.table-pagination>nav>button:disabled {opacity:.38;cursor:not-allowed}
+.table-pagination.table-pagination>nav>button svg {width:17px;height:17px}
+.table-pagination.table-pagination :is(button,select):focus-visible {outline:2px solid var(--page-active);outline-offset:2px}
+@container table-pagination (max-width:440px){.table-pagination.table-pagination>nav{width:100%;gap:4px}.table-pagination.table-pagination>nav>button{flex:1;min-width:0;padding:0 3px}}
+@media(max-width:600px){.table-pagination.table-pagination>.table-pagination-summary{width:100%;margin:0}.table-pagination.table-pagination>label{margin-right:auto}}
+@media(max-width:480px){.table-pagination.table-pagination>nav{width:100%;gap:4px}.table-pagination.table-pagination>nav>button{flex:1;min-width:0;padding:0 3px}}

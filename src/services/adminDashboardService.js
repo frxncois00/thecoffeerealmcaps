@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase'
+import { presentAuditEvent } from '../utils/auditPresentation'
+import { computeCustomerSummary, computeWalkInSummary, fetchAllCustomerRows, getCustomerActivityPeriods } from '../utils/dashboardCustomers'
 
 const ORDER_SELECT = `id,order_number,receipt_number,order_type,order_source,status,customer_name,customer_id,final_total,discount_amount,delivery_fee,
   payment_status,payment_confirmed,payment_proof_path,refund_status,is_voided,created_at,updated_at,
@@ -18,12 +20,14 @@ function isoDay(date) {
 
 export async function fetchDashboardData() {
   const windowStart = dayStart(-13) // last 14 days, inclusive of today
+  const { previousMonthStart } = getCustomerActivityPeriods()
 
   const [
     { data: orders, error: ordersError },
     { data: refunds, error: refundsError },
     { data: allCustomerOrders, error: custError },
-    { count: totalCustomers, error: customerCountError },
+    { data: customers, error: customerCountError },
+    { data: walkInOrders, error: walkInError },
     { data: ingredients, error: ingredientsError },
     { data: finishedProducts, error: finishedError },
     { data: menuItems, error: menuError },
@@ -32,18 +36,23 @@ export async function fetchDashboardData() {
   ] = await Promise.all([
     supabase.from('orders').select(ORDER_SELECT).gte('created_at', windowStart.toISOString()).order('created_at', { ascending: true }),
     supabase.from('refunds').select('id,order_id,refund_status,refund_amount,requested_at,processed_at'),
-    supabase.from('orders').select('customer_id,created_at').not('customer_id', 'is', null),
-    supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'customer'),
+    fetchAllCustomerRows(() => supabase.from('orders').select('id,customer_id,created_at,order_source').not('customer_id', 'is', null)),
+    fetchAllCustomerRows(() => supabase.from('profiles').select('id,created_at').eq('role', 'customer')),
+    fetchAllCustomerRows(() => supabase.from('orders')
+      .select('id,created_at,order_source,order_type,payment_status,status,is_voided')
+      .eq('order_source', 'cashier_pos').eq('order_type', 'walk-in')
+      .gte('created_at', new Date(previousMonthStart).toISOString())),
     supabase.from('ingredients').select('id,name,unit,supplier,expiration_date,is_archived,inventory_stock(quantity,min_stock_level,high_stock_level)').eq('is_archived', false),
     supabase.from('finished_products').select('id,name,unit,quantity,min_stock_level,high_stock_level,supplier,expiration_date,is_archived').eq('is_archived', false),
     supabase.from('menu_items').select('id,name,is_available,manual_available,unavailable_reason,is_archived').eq('is_archived', false),
-    supabase.from('portal_audit_events').select('id,occurred_at,actor_id,actor_name_snapshot,module,action,entity_id,summary,result,severity').order('occurred_at', { ascending: false }).limit(40),
+    supabase.from('portal_audit_events').select('id,occurred_at,actor_id,actor_name_snapshot,actor_role_snapshot,surface,module,action,entity_id,summary,result,severity').order('occurred_at', { ascending: false }).limit(40),
     supabase.from('portal_configuration').select('key,value,updated_at').eq('scope', 'system'),
   ])
   if (ordersError) throw ordersError
   if (refundsError && refundsError.code !== '42P01') throw refundsError
   if (custError) throw custError
   if (customerCountError) throw customerCountError
+  if (walkInError) throw walkInError
   if (ingredientsError) throw ingredientsError
   if (finishedError) throw finishedError
   if (menuError) throw menuError
@@ -52,11 +61,13 @@ export async function fetchDashboardData() {
     orders: orders || [],
     refunds: refunds || [],
     allCustomerOrders: allCustomerOrders || [],
-    totalCustomers: totalCustomers ?? 0,
+    customers: customers || [],
+    walkInOrders: walkInOrders || [],
+    totalCustomers: customers?.length ?? 0,
     ingredients: ingredients || [],
     finishedProducts: finishedProducts || [],
     menuItems: menuItems || [],
-    auditEvents: auditEvents || [],
+    auditEvents: (auditEvents || []).map(presentAuditEvent),
     portalConfiguration: portalConfiguration || [],
   }
 }
@@ -73,7 +84,7 @@ function salesOf(orders) {
 
 export function computeDashboardMetrics(raw) {
   const {
-    orders, refunds, allCustomerOrders, totalCustomers, ingredients, finishedProducts, menuItems,
+    orders, refunds, allCustomerOrders, totalCustomers, customers = [], walkInOrders = [], ingredients, finishedProducts, menuItems,
     auditEvents = [], portalConfiguration = [],
   } = raw
 
@@ -210,6 +221,8 @@ export function computeDashboardMetrics(raw) {
   return {
     totalSales, salesChangePct, totalOrders, avgOrderValue, completionRate, itemsSold: itemsByDay.get(today) || 0,
     totalCustomers,
+    customerSummary: computeCustomerSummary(customers, allCustomerOrders),
+    walkInSummary: computeWalkInSummary(walkInOrders),
     completedOrders, cancelledOrders, voidedOrders, refundedOrders, refundedAmount,
     lowStockItems, outOfStockItems, expiringItems, unavailableMenuItems, stockBlockedMenuItems,
     salesTrend, ordersTrend, averageOrderTrend, itemsTrend, fulfillmentCounts, paymentTotals, paymentUsage, bestSellers, recentOrders, newCustomers, returningCustomers,

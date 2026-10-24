@@ -1,3 +1,4 @@
+import TablePagination from '../components/TablePagination'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle, Bell, Box, Package, PackageX, RefreshCw, Search,
@@ -228,13 +229,7 @@ export default function AdminInventoryPage() {
             })}
           </div>
 
-          {totalPages > 1 && (
-            <div className="inv-pagination">
-              <button type="button" disabled={currentPage === 1} onClick={() => setPage((value) => value - 1)}>Previous</button>
-              <span>Page {currentPage} of {totalPages}</span>
-              <button type="button" disabled={currentPage === totalPages} onClick={() => setPage((value) => value + 1)}>Next</button>
-            </div>
-          )}
+          <TablePagination page={currentPage} totalPages={totalPages} onPageChange={setPage} total={sorted.length} label="Inventory pages" />
         </>
       )}
     </AppShell>

@@ -1,3 +1,4 @@
+import TablePagination from '../components/TablePagination'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BadgeCheck, ChevronLeft, ChevronRight, RotateCcw, X } from 'lucide-react'
 import { BENEFIT_STATUS, benefitKind, fetchBenefitApplications, resetApprovedBenefitApplication, reviewBenefitApplication } from '../services/benefitsService'
@@ -12,6 +13,7 @@ export default function BenefitsReviewModule({ refreshSignal, compact = false })
   const [result, setResult] = useState({ items: [], count: 0 })
   const [counts, setCounts] = useState({})
   const [loading, setLoading] = useState(true)
+  const [hasLoaded, setHasLoaded] = useState(false)
   const [error, setError] = useState('')
   const [selected, setSelected] = useState(null)
   const [notice, setNotice] = useState('')
@@ -24,7 +26,7 @@ export default function BenefitsReviewModule({ refreshSignal, compact = false })
       if (!active) return
       const pages = Math.max(1, Math.ceil(data.count / 10))
       if (page > pages) setPage(pages)
-      else setResult(data)
+      else { setResult(data); setHasLoaded(true) }
     }).catch(cause => { if (active) setError(cause.message || 'Could not load applications.') }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [page, status, revision, refreshSignal])
@@ -44,13 +46,14 @@ export default function BenefitsReviewModule({ refreshSignal, compact = false })
       <nav className="benefit-status-tabs" aria-label="Application status">
         {BENEFIT_TABS.map(value => <button key={value} type="button" aria-current={status === value ? 'page' : undefined} onClick={() => { setStatus(value); setPage(1); setSelected(null); setNotice('') }}>{value === 'all' ? 'All applications' : BENEFIT_STATUS[value]}<b>{counts[value] ?? '—'}</b></button>)}
       </nav>
-      <span className="benefit-status-count" aria-live="polite">{loading ? 'Loading…' : error ? 'Count unavailable' : `${result.count} ${result.count === 1 ? 'application' : 'applications'}`}</span>
+      <span className="benefit-status-count" aria-live="polite">{loading && !hasLoaded ? 'Loading…' : error ? 'Count unavailable' : `${result.count} ${result.count === 1 ? 'application' : 'applications'}`}</span>
     </div>
     {notice && <p className="benefit-admin-notice" role="status">{notice}</p>}
-    {error ? <div className="benefit-error" role="alert"><p>{error}</p><button className="ua-secondary-action" onClick={load}>Try again</button></div> : loading ? <p className="benefit-admin-notice" role="status">Loading applications…</p> : <>
+    {error && <div className="benefit-error" role="alert"><p>{error}</p><button className="ua-secondary-action" onClick={load}>Try again</button></div>}
+    {loading && !hasLoaded ? <p className="benefit-admin-notice" role="status">Loading applications…</p> : (hasLoaded || !error) && <>
       <div className="po-table-panel benefit-table-wrap"><div className="po-table-scroll"><table className="po-table benefit-po-table"><thead><tr><th>Applicant</th><th>Benefit</th><th>Submitted</th><th>Status</th><th>Action</th></tr></thead><tbody>{result.items.map(item => <tr key={item.id}><td><b>{item.full_name}</b><small>Submission {item.revision}</small></td><td>{benefitKind(item.kind)}</td><td>{new Date(item.submitted_at).toLocaleDateString('en-PH')}</td><td><span className={`benefit-badge is-${item.status}`}>{BENEFIT_STATUS[item.status]}</span></td><td><button className="ops-secondary-action compact" onClick={() => setSelected(item)}>{item.status === 'pending' ? 'Review' : 'View details'}</button></td></tr>)}</tbody></table></div></div>
       {!result.items.length && <div className="ua-empty"><BadgeCheck size={28}/><b>No applications found</b><span>Customer applications will appear here after submission.</span></div>}
-      <footer className="po-pagination benefit-po-pagination"><span>Showing {result.count ? (page - 1) * 10 + 1 : 0}–{Math.min(page * 10, result.count)} of {result.count}</span><b>Page {page} of {pages}</b><div><button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(value => value - 1)}><ChevronLeft/></button><button type="button" aria-label="Next page" disabled={page >= pages} onClick={() => setPage(value => value + 1)}><ChevronRight/></button></div></footer>
+      <TablePagination page={page} totalPages={pages} onPageChange={setPage} total={result.count} label="Benefit application pages" loading={loading} />
     </>}
     {selected && <ApplicationReview key={`${selected.id}-${selected.revision}`} application={selected} onClose={() => setSelected(null)} onDecision={value => { setSelected(null); setNotice(`Application for ${value.full_name}: ${BENEFIT_STATUS[value.status].toLowerCase()}.`); load() }} />}
   </section>

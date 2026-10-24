@@ -1,3 +1,4 @@
+import TablePagination from '../components/TablePagination'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
@@ -174,7 +175,8 @@ export default function InventoryStockPage() {
   }, [filtered, sortBy])
 
   const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize))
-  const pageItems = sorted.slice((page - 1) * pageSize, page * pageSize)
+  const currentPage = Math.min(page, totalPages)
+  const pageItems = sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const activeItems = items.filter((item) => !item.isArchived)
   const outCount = activeItems.filter((i) => stockStatus(i) === 'out').length
@@ -347,13 +349,7 @@ export default function InventoryStockPage() {
             })}
           </div>
 
-          {totalPages > 1 && (
-            <div className="inv-pagination">
-              <button type="button" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Previous</button>
-              <span>Page {page} of {totalPages}</span>
-              <button type="button" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>Next</button>
-            </div>
-          )}
+          <TablePagination page={currentPage} totalPages={totalPages} onPageChange={setPage} total={sorted.length} pageSize={pageSize} onPageSizeChange={setPageSize} label="Inventory pages" />
         </>
       )}
 

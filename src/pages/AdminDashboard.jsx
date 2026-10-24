@@ -3,6 +3,8 @@ import {
   Coffee, PackageX, ReceiptText, RefreshCw,
   ShoppingBag, Store, TrendingDown, TrendingUp, Users, WalletCards,
 } from 'lucide-react'
+import TablePagination from '../components/TablePagination'
+import { useTablePagination } from '../hooks/useTablePagination'
 import { animate, motion, MotionConfig, useMotionValue, useReducedMotion, useTransform } from 'framer-motion'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate, useLocation } from 'react-router-dom'
@@ -290,7 +292,7 @@ function AdminDashboardHome() {
     if (!isSupabaseConfigured) return undefined
     const refresh = () => load({ quiet: true })
     const channel = supabase.channel('admin-dashboard-live')
-    ;['orders', 'payments', 'refunds', 'inventory_stock', 'menu_items', 'portal_configuration'].forEach((table) => {
+    ;['orders', 'profiles', 'payments', 'refunds', 'inventory_stock', 'menu_items', 'portal_configuration'].forEach((table) => {
       channel.on('postgres_changes', { event: '*', schema: 'public', table }, refresh)
     })
     channel.subscribe()
@@ -352,8 +354,9 @@ function DashboardContent({ metrics }) {
       </Panel>
     </motion.section>
 
-    <motion.section className="ad-dashboard-operations-row" aria-label="Items needing attention" variants={itemVariants}>
+    <motion.section className="ad-dashboard-operations-row" aria-label="Operational queue and customer activity" variants={itemVariants}>
       <OperationalQueue items={actionCards} />
+      <CustomerSummary summary={metrics.customerSummary} walkInSummary={metrics.walkInSummary} />
     </motion.section>
 
     <RecentTransactions orders={metrics.recentOrders} />
@@ -367,6 +370,49 @@ function DashboardContent({ metrics }) {
     </motion.section>
   </motion.div>
   </MotionConfig>
+}
+
+function CustomerSummary({ summary, walkInSummary }) {
+  const [channel, setChannel] = useState('online')
+  const isWalkIn = channel === 'walk-in'
+  const growth = isWalkIn ? walkInSummary.orderGrowth : summary.signupGrowth
+  const previousCount = isWalkIn ? walkInSummary.ordersLastMonth : summary.signupsLastMonth
+  const activityLabel = isWalkIn ? 'walk-in orders' : 'signups'
+  const stats = isWalkIn ? [
+    { label: 'This month', value: walkInSummary.ordersThisMonth, detail: 'Paid walk-in orders', icon: Store },
+    { label: 'Daily average', value: walkInSummary.dailyAverage, detail: 'Per day this month so far', icon: Activity, format: (value) => value.toLocaleString('en-US', { maximumFractionDigits: 1 }) },
+    { label: 'Today', value: walkInSummary.ordersToday, detail: 'Paid walk-in orders today', icon: Clock3 },
+  ] : [
+    { label: 'Total customers', value: summary.totalCustomers, detail: 'Registered accounts', icon: Users },
+    { label: 'Have ordered', value: summary.customersWhoOrdered, detail: 'At least one online order', icon: ShoppingBag },
+    { label: 'New signups', value: summary.signupsThisMonth, detail: 'This month so far', icon: TrendingUp },
+  ]
+  const growthText = growth === null
+    ? `No ${activityLabel} last month to compare`
+    : growth === 0 ? 'No change from last month'
+      : `${growth > 0 ? 'growth' : 'decrease'} from last month`
+  const GrowthIcon = growth < 0 ? TrendingDown : TrendingUp
+  const channelToggle = <div className="ad-customer-toggle" role="group" aria-label="Customer activity view">
+    <button type="button" aria-pressed={!isWalkIn} onClick={() => setChannel('online')}>Online</button>
+    <button type="button" aria-pressed={isWalkIn} onClick={() => setChannel('walk-in')}>Walk-in</button>
+  </div>
+  return <Panel title={isWalkIn ? 'Walk-in customers' : 'Online customers'} detail={isWalkIn ? 'Paid walk-in orders at the counter' : 'Customer accounts on the ordering website'} action={channelToggle} className="ad-customer-panel" motionVariants={simpleDashboardPanelVariants}>
+    <dl className="ad-customer-stats" aria-live="polite" aria-atomic="true">
+      {stats.map(({ label, value, detail, icon: Icon, format = formatCount }) => <div key={label}>
+        <dt><Icon size={15} aria-hidden="true" />{label}</dt><dd>{format(value)}</dd><small>{detail}</small>
+      </div>)}
+    </dl>
+    <div className="ad-customer-growth">
+      <div className="ad-customer-growth-summary">
+        {growth !== null && <span className="ad-customer-growth-rate">
+          {growth !== 0 && <GrowthIcon size={15} aria-hidden="true" />}
+          <b>{Math.abs(growth).toLocaleString('en-US', { maximumFractionDigits: 1 })}%</b>
+        </span>}
+        <span>{growthText}</span>
+      </div>
+      <small>{formatCount(previousCount)} {activityLabel} last month · Month to date vs. previous full month (PHT)</small>
+    </div>
+  </Panel>
 }
 
 function OperationalQueue({ items }) {
@@ -408,11 +454,12 @@ function RecentActivity({ events }) {
 }
 
 function RecentTransactions({ orders }) {
+  const pagination = useTablePagination(orders)
   return <Panel title="Recent Transactions" detail="Latest orders across supported sales channels" action={<Link to="/admin/transactions">View all transactions <ArrowRight size={15} /></Link>} className="ad-transactions-panel" motionVariants={simpleDashboardPanelVariants}>
     <div className="ad-transactions-scroll">
       <table className="ad-transactions-table">
         <thead><tr><th>Transaction</th><th>Customer</th><th>Items</th><th>Payment</th><th>Total</th><th>Status</th><th>Time</th><th><span className="sr-only">Actions</span></th></tr></thead>
-        <motion.tbody variants={transactionRowsVariants}>{orders.map((order) => {
+        <motion.tbody variants={transactionRowsVariants}>{pagination.pageRows.map((order) => {
           const items = order.order_items || []
           const itemLabel = items.length ? items.slice(0, 2).map((item) => item.display_name || item.item_name).join(', ') : 'No item details'
           const statusSlug = order.is_voided ? 'voided' : order.status.toLowerCase().replaceAll(' ', '-')
@@ -430,6 +477,7 @@ function RecentTransactions({ orders }) {
       </table>
       {!orders.length && <EmptyState icon={ReceiptText} text="No recent transactions are available." />}
     </div>
+    <TablePagination {...pagination} label="Recent transaction pages" />
   </Panel>
 }
 

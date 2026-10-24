@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { presentAuditEvent } from '../utils/auditPresentation'
 
 export const PORTAL_ROLES = [
   { value: 'admin', label: 'Administrator' },
@@ -118,7 +119,7 @@ export async function fetchPortalAuditEvents(filters, { page = 1, pageSize = 25 
   const start = (page - 1) * pageSize
   const { data, error, count } = await query.order('occurred_at', { ascending: false }).range(start, start + pageSize - 1)
   if (error) throw setupAwareError(error)
-  return { events: data || [], count: count || 0 }
+  return { events: (data || []).map(presentAuditEvent), count: count || 0 }
 }
 
 export async function fetchPortalAuditExport(filters) {
@@ -126,7 +127,7 @@ export async function fetchPortalAuditExport(filters) {
   query = applyAuditFilters(query, filters)
   const { data, error } = await query.order('occurred_at', { ascending: false }).limit(5000)
   if (error) throw setupAwareError(error)
-  return data || []
+  return (data || []).map(presentAuditEvent)
 }
 
 export function downloadAuditCsv(events) {

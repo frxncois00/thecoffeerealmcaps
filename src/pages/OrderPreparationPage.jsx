@@ -1,3 +1,4 @@
+import TablePagination from '../components/TablePagination'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
@@ -702,7 +703,7 @@ export default function OrderPreparationPage() {
         <p className="customer-state">Loading orders…</p>
       ) : (
         <>
-          {layoutView === 'table' ? <><OrderTable orders={tableOrders} newOrderIds={newOrderIds} busyId={busyId} onView={setDrawerOrder} onMain={(order, action) => setConfirmAction({ order, ...action })} onCancel={setCancelTarget} /><footer className="ops-order-pagination"><span>Showing {sorted.length ? (tablePage - 1) * rowsPerPage + 1 : 0}–{Math.min(tablePage * rowsPerPage, sorted.length)} of {sorted.length} orders</span><b>Page {tablePage} of {tablePages}</b><div><button type="button" aria-label="Previous page" disabled={tablePage <= 1} onClick={() => setTablePage((page) => page - 1)}>‹</button><button type="button" aria-label="Next page" disabled={tablePage >= tablePages} onClick={() => setTablePage((page) => page + 1)}>›</button></div></footer></> : <div className="ops-kanban">
+          {layoutView === 'table' ? <><OrderTable orders={tableOrders} newOrderIds={newOrderIds} busyId={busyId} onView={setDrawerOrder} onMain={(order, action) => setConfirmAction({ order, ...action })} onCancel={setCancelTarget} /><TablePagination page={tablePage} totalPages={tablePages} onPageChange={setTablePage} total={sorted.length} label="Order pages" /></> : <div className="ops-kanban">
             {activeColumns.map((col) => (
               <div className={`ops-column tone-${col.tone}`} key={col.key} ref={(el) => { columnRefs.current[col.key] = el }}>
                 <header><span className="ops-column-dot" /><div><h3>{col.title}</h3>{col.subtitle&&<p>{col.subtitle}</p>}</div><span className="ops-column-count" aria-label={`${col.orders.length} orders`}>{col.orders.length}</span></header>
@@ -864,7 +865,7 @@ function OrderTable({ orders, newOrderIds = new Set(), busyId, onView, onMain, o
 }
 
 function OrderTablePagination({ total, page, pages, rowsPerPage, onPage }) {
-  return <footer className="ops-order-pagination"><span>Showing {total ? (page - 1) * rowsPerPage + 1 : 0}–{Math.min(page * rowsPerPage, total)} of {total} orders</span><b>Page {page} of {pages}</b><div><button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => onPage(page - 1)}>‹</button><button type="button" aria-label="Next page" disabled={page >= pages} onClick={() => onPage(page + 1)}>›</button></div></footer>
+  return <TablePagination page={page} totalPages={pages} onPageChange={onPage} total={total} label="Order pages" />
 }
 
 function CancelGroup({ title, tone, orders, onView, onReview, onResolve, onRefund, resolved, busyId }) {

@@ -1,3 +1,4 @@
+import TablePagination from '../components/TablePagination'
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -229,6 +230,9 @@ export default function TransactionsPage() {
   const [staffOptions, setStaffOptions] = useState([])
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [hasLoaded, setHasLoaded] = useState(false)
+  const loadRequestRef = useRef(0)
+  const summaryCacheRef = useRef(null)
   const [error, setError] = useState('')
   const [toasts, setToasts] = useState([])
   const [busyId, setBusyId] = useState('')
@@ -380,27 +384,35 @@ export default function TransactionsPage() {
     setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 4500)
   }
 
-  const load = async (filters = queryState) => {
+  const load = async (filters = queryState, { reuseSummary = false } = {}) => {
+    const request = ++loadRequestRef.current
+    const summaryFilters = { ...filters, page: undefined, pageSize: undefined }
+    const summaryKey = JSON.stringify(summaryFilters)
     setLoading(true)
     try {
       const [pageResult, summaryResult] = await Promise.all([
         fetchTransactions(filters),
-        fetchTransactionsSummary({ ...filters, page: undefined, pageSize: undefined }),
+        reuseSummary && summaryCacheRef.current?.key === summaryKey
+          ? Promise.resolve(summaryCacheRef.current.rows)
+          : fetchTransactionsSummary(summaryFilters),
       ])
+      if (request !== loadRequestRef.current) return
+      summaryCacheRef.current = { key: summaryKey, rows: summaryResult }
       setTransactions(pageResult.data)
       setTotalCount(pageResult.count)
       setSummaryRows(summaryResult)
+      setHasLoaded(true)
       setError('')
       const maxPage = Math.max(1, Math.ceil((pageResult.count || 0) / Math.max(1, filters.pageSize || 20)))
       if (filters.page > maxPage) setPage(maxPage)
     } catch (cause) {
-      setError(describeError(cause, 'Could not load transactions.'))
+      if (request === loadRequestRef.current) setError(describeError(cause, 'Could not load transactions.'))
     } finally {
-      setLoading(false)
+      if (request === loadRequestRef.current) setLoading(false)
     }
   }
 
-  useEffect(() => { load(queryState) }, [queryState])
+  useEffect(() => { load(queryState, { reuseSummary: true }); return () => { loadRequestRef.current += 1 } }, [queryState])
 
   useEffect(() => {
     const refresh = () => load(queryRef.current)
@@ -651,7 +663,7 @@ export default function TransactionsPage() {
     <AppShell role={shellRole} title="Transactions" onRefresh={() => load(queryRef.current)}>
       {error && !loading && <p className="form-error">{error}</p>}
 
-      {loading && summaryRows.length === 0 ? (
+      {loading && !hasLoaded ? (
         <div className="txn-report-overview txn-report-skeleton">
           {Array.from({ length: 4 }).map((_, index) => <div className="inv-skeleton-row txn-metric-skeleton" key={index} />)}
         </div>
@@ -668,7 +680,7 @@ export default function TransactionsPage() {
         </section>
       )}
 
-      {!loading && <div className="txn-reconciliation-strip" aria-label="Transaction totals"><span>Gross sales <b>{money(summary.grossSales)}</b></span><span>Refunds <b>{money(summary.refundedAmount)}</b></span><span>Cancelled <b>{summary.cancelledOrders}</b></span><span>Voided <b>{reconciliation.voids}</b></span></div>}
+      {hasLoaded && <div className="txn-reconciliation-strip" aria-label="Transaction totals"><span>Gross sales <b>{money(summary.grossSales)}</b></span><span>Refunds <b>{money(summary.refundedAmount)}</b></span><span>Cancelled <b>{summary.cancelledOrders}</b></span><span>Voided <b>{reconciliation.voids}</b></span></div>}
 
       <section className="txn-ledger-shell" aria-labelledby="txn-ledger-title">
         <div className="txn-ledger-heading"><div><span className="settings-kicker">Transaction ledger</span><h2 id="txn-ledger-title">Recorded sales and payment activity</h2></div><div className="inv-overflow txn-ledger-export"><button type="button" className="ops-main-action inv-record-btn" onClick={() => setExportMenuOpen((open) => !open)} disabled={loading || summaryRows.length === 0 || Boolean(exporting)}><Download size={16} /> {exporting ? 'Preparing…' : 'Export'} <ChevronDown size={14} /></button>{exportMenuOpen && <div className="inv-overflow-menu txn-export-menu" role="menu"><button type="button" role="menuitem" onClick={runExportPdf}><ReceiptText size={14} /> Export as PDF</button><button type="button" role="menuitem" onClick={runExportXlsx}><FileText size={14} /> Export as XLSX</button></div>}</div></div>
@@ -781,11 +793,11 @@ export default function TransactionsPage() {
         </div>
       )}
 
-      {loading ? (
+      {loading && !hasLoaded ? (
         <div className="txn-loading-shell">
           <div className="inv-skeleton">{Array.from({ length: 7 }).map((_, index) => <div className="inv-skeleton-row" key={index} />)}</div>
         </div>
-      ) : error ? (
+      ) : error && !hasLoaded ? (
         <div className="inv-empty"><AlertTriangle size={28} /><h3>Could not load transactions</h3><p>{error}</p><button type="button" className="ops-main-action" onClick={() => load(queryRef.current)}>Retry</button></div>
       ) : transactions.length === 0 ? (
         <div className="inv-empty"><ReceiptText size={28} /><h3>No transactions found</h3><p>Try adjusting your filters, date range, or amount limits.</p></div>
@@ -874,19 +886,7 @@ export default function TransactionsPage() {
             })}
           </div>
 
-          <footer className="txn-pagination" aria-label="Transaction pagination">
-            <div className="txn-pagination-summary"><b>Showing {firstResult}-{lastResult}</b><span>of {totalCount} transactions</span></div>
-            <label className="txn-page-size"><span>Rows</span><select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1) }} aria-label="Rows per page">
-              <option value={10}>10</option><option value={25}>25</option><option value={50}>50</option>
-            </select></label>
-            <div className="txn-page-nav">
-              <button type="button" aria-label="First page" title="First page" disabled={page === 1} onClick={() => setPage(1)}><ChevronsLeft size={16} /></button>
-              <button type="button" aria-label="Previous page" title="Previous page" disabled={page === 1} onClick={() => setPage((current) => current - 1)}><ChevronLeft size={16} /></button>
-              <span>Page <b>{page}</b> of {totalPages}</span>
-              <button type="button" aria-label="Next page" title="Next page" disabled={page === totalPages} onClick={() => setPage((current) => current + 1)}><ChevronRight size={16} /></button>
-              <button type="button" aria-label="Last page" title="Last page" disabled={page === totalPages} onClick={() => setPage(totalPages)}><ChevronsRight size={16} /></button>
-            </div>
-          </footer>
+          <TablePagination page={page} totalPages={totalPages} onPageChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} pageSizeOptions={[10, 25, 50]} total={totalCount} label="Transaction pages" loading={loading} />
         </>
       )}
       </section>

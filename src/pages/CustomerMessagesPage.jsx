@@ -1,3 +1,4 @@
+import TablePagination from '../components/TablePagination'
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import {
   CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, Inbox, Mail,
@@ -200,11 +201,7 @@ function MessageCard({ message, onReply }) {
 function Pagination({ page, totalPages, pageSize, total, onPage, onPageSize }) {
   const first = total ? (page - 1) * pageSize + 1 : 0
   const last = Math.min(page * pageSize, total)
-  return <footer className="cm-pagination">
-    <span>Showing <b>{first}–{last}</b> of <b>{total}</b> messages</span>
-    <label>Rows per page<select value={pageSize} onChange={(event) => onPageSize(Number(event.target.value))}>{PAGE_SIZES.map((size) => <option key={size}>{size}</option>)}</select></label>
-    <div><button type="button" onClick={() => onPage(page - 1)} disabled={page <= 1} aria-label="Previous page"><ChevronLeft size={18} /></button><span>Page <b>{page}</b> of {totalPages}</span><button type="button" onClick={() => onPage(page + 1)} disabled={page >= totalPages} aria-label="Next page"><ChevronRight size={18} /></button></div>
-  </footer>
+  return <TablePagination page={page} totalPages={totalPages} onPageChange={onPage} pageSize={pageSize} onPageSizeChange={onPageSize} pageSizeOptions={PAGE_SIZES} total={total} label="Customer message pages" />
 }
 
 function ReplyDialog({ message, onClose, onSent }) {

@@ -1,10 +1,12 @@
+import TablePagination from '../components/TablePagination'
+import { useTablePagination } from '../hooks/useTablePagination'
 import {
-  Activity, AlertTriangle, BadgeCheck, CalendarDays, ChevronLeft, ChevronRight,
+  Activity, AlertTriangle, BadgeCheck, CalendarDays, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   CircleUserRound, Download, FilterX, History,
   KeyRound, UserPlus, Search, ShieldCheck, Trash2,
   Users, X,
 } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import { useAuth } from '../context/AuthContext'
@@ -105,6 +107,7 @@ function UserManagementModule({ refreshSignal, employeeOpen, setEmployeeOpen }) 
       return String(a.full_name || a.email).localeCompare(String(b.full_name || b.email))
     })
   }, [users, query, role, sort])
+  const userPagination = useTablePagination(filtered, JSON.stringify([query, role, sort]))
 
   const counts = useMemo(() => ({
     total: users.length,
@@ -144,15 +147,16 @@ function UserManagementModule({ refreshSignal, employeeOpen, setEmployeeOpen }) 
       <div className="ua-table-wrap">
         <table className="ua-table">
           <thead><tr><th>User</th><th>Role</th><th>Last active</th><th>Created</th><th><span className="sr-only">Actions</span></th></tr></thead>
-          <tbody>{filtered.map((item) => <tr key={item.id}>
+          <tbody>{userPagination.pageRows.map((item) => <tr key={item.id}>
             <td><UserIdentity user={item}/></td><td>{item.roleLabel}</td>
             <td>{formatDateTime(item.last_active_at || item.updated_at)}</td><td>{formatDateTime(item.created_at)}</td>
             <td><button type="button" className="ua-row-action" onClick={() => setSelected(item)}>View</button></td>
           </tr>)}</tbody>
         </table>
       </div>
-      <div className="ua-mobile-list">{filtered.map((item) => <button type="button" className="ua-user-card" key={item.id} onClick={() => setSelected(item)}><UserIdentity user={item}/><span>{item.roleLabel}</span></button>)}</div>
+      <div className="ua-mobile-list">{userPagination.pageRows.map((item) => <button type="button" className="ua-user-card" key={item.id} onClick={() => setSelected(item)}><UserIdentity user={item}/><span>{item.roleLabel}</span></button>)}</div>
       {!filtered.length && <EmptyState icon={Users} title="No employees found" message="Adjust the search or filters to see more accounts."/>}
+      <TablePagination {...userPagination} label="Employee pages" />
     </>}
 
     <AddEmployeeModal open={employeeOpen} onClose={() => setEmployeeOpen(false)} onSuccess={(message) => refreshAfterChange(message)} />
@@ -289,6 +293,8 @@ function RemoveUserConfirm({ open, user, onClose, onRemoved }) {
 }
 
 function ActivityLogsModule({ refreshSignal }) {
+  const requestRef = useRef(0)
+  const [hasLoaded, setHasLoaded] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [filters, setFilters] = useState({ search: '', surface: 'all', module: 'all', result: 'all', severity: 'all', dateFrom: '', dateTo: '' })
   const [events, setEvents] = useState([])
@@ -306,12 +312,19 @@ function ActivityLogsModule({ refreshSignal }) {
   }, [searchInput])
 
   const load = useCallback(async () => {
+    const request = ++requestRef.current
     setLoading(true)
-    try { const result = await fetchPortalAuditEvents(filters, { page, pageSize }); setEvents(result.events); setCount(result.count); setError('') }
-    catch (cause) { setError(describeError(cause, 'Could not load portal activity.')) }
-    finally { setLoading(false) }
+    try {
+      const result = await fetchPortalAuditEvents(filters, { page, pageSize })
+      if (request !== requestRef.current) return
+      setEvents(result.events); setCount(result.count); setError(''); setHasLoaded(true)
+      const lastPage = Math.max(1, Math.ceil(result.count / pageSize))
+      if (page > lastPage) setPage(lastPage)
+    }
+    catch (cause) { if (request === requestRef.current) setError(describeError(cause, 'Could not load portal activity.')) }
+    finally { if (request === requestRef.current) setLoading(false) }
   }, [filters, page, pageSize])
-  useEffect(() => { load() }, [load, refreshSignal])
+  useEffect(() => { load(); return () => { requestRef.current += 1 } }, [load, refreshSignal])
 
   const exportCsv = useCallback(async () => {
     setExporting(true)
@@ -347,7 +360,7 @@ function ActivityLogsModule({ refreshSignal }) {
 
     {exporting && <div className="ua-exporting" role="status">Preparing the filtered activity export…</div>}
     {error && <div className="ua-state ua-state--error" role="alert"><AlertTriangle/><div><b>Activity could not be loaded</b><span>{error}</span></div><button onClick={load}>Try again</button></div>}
-    {loading ? <LoadingRows /> : !error && <>
+    {loading && !hasLoaded ? <LoadingRows /> : (hasLoaded || !error) && <>
       <div className="ua-table-wrap">
         <table className="ua-table ua-audit-table">
           <thead><tr><th>Date & time</th><th>Actor</th><th>Surface</th><th>Module</th><th>Activity</th><th>Target</th><th>Result</th><th><span className="sr-only">Details</span></th></tr></thead>
@@ -362,7 +375,7 @@ function ActivityLogsModule({ refreshSignal }) {
       </div>
       <div className="ua-mobile-list">{events.map((event) => <button type="button" className="ua-event-card" key={event.id} onClick={() => setSelected(event)}><span><i className={`ua-event-dot ua-event-dot--${event.severity}`}/><time>{formatDateTime(event.occurred_at)}</time><b>{event.actor_name_snapshot || 'System'}</b></span><strong>{event.summary}</strong><small>{event.module.replaceAll('_', ' ')} · {event.entity_label || event.entity_id || 'No target'}</small><span className={`ua-result ua-result--${event.result}`}><i/>{event.result}</span></button>)}</div>
       {!events.length && <EmptyState icon={History} title="No activity found" message="No audit events match the current filters."/>}
-      <footer className="ua-pagination"><span>Page {page} of {pages}</span><label>Rows<select value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1) }}>{PAGE_SIZE_OPTIONS.map((value) => <option value={value} key={value}>{value}</option>)}</select></label><div><button type="button" onClick={() => setPage((value) => value - 1)} disabled={page <= 1} aria-label="Previous page"><ChevronLeft/></button><button type="button" onClick={() => setPage((value) => value + 1)} disabled={page >= pages} aria-label="Next page"><ChevronRight/></button></div></footer>
+      <TablePagination page={page} totalPages={pages} onPageChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} pageSizeOptions={PAGE_SIZE_OPTIONS} total={count} label="Activity log pages" loading={loading} />
     </>}
     <ActivityDrawer event={selected} onClose={() => setSelected(null)}/>
   </section>

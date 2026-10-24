@@ -1,3 +1,4 @@
+import TablePagination from '../components/TablePagination'
 import { checkCartStock, STOCK_MESSAGE } from '../services/cartStock'
 import {
   Banknote,
@@ -1645,7 +1646,6 @@ function CashierTransactionsView({ transactions, selectedTransactionId, onViewDe
   const currentPage = Math.min(page, totalPages)
   const pageStart = (currentPage - 1) * pageSize
   const pageTransactions = visibleTransactions.slice(pageStart, pageStart + pageSize)
-  const pageNumbers = Array.from({ length: Math.min(3, totalPages) }, (_, index) => index + 1)
   useEffect(() => { if (page !== currentPage) setPage(currentPage) }, [page, currentPage])
   const label = (method) => ({ cash: 'Cash', gcash: 'GCash', bank_transfer: 'Bank transfer' }[String(method || '').toLowerCase()] || method || 'Cash')
   return <div className="cashier-transactions-view" aria-labelledby="transactions-title">
@@ -1659,7 +1659,7 @@ function CashierTransactionsView({ transactions, selectedTransactionId, onViewDe
       </div>
       <div className="transaction-list-heading"><span>Order ID</span><span>Payment</span><span>Amount</span><span>Actions</span></div>
       <div className="cashier-transactions-list">{visibleTransactions.length === 0 ? <div className="cashier-empty-state"><ReceiptText size={28} /><b>No transactions found</b><span>Try another search term or filter.</span></div> : pageTransactions.map((order) => <article className={order.id === selectedTransactionId ? 'is-selected' : ''} key={order.id}><div className="transaction-order"><b>{order.orderNumber}</b><span>{formatReceiptDate(order.createdAt)}</span></div><span className="transaction-payment">{label(order.paymentMethod)}</span><strong>{peso(order.total)}</strong><div className="transaction-actions"><button type="button" onClick={() => onViewDetails(order)}>View Details</button><button type="button" onClick={() => onOpenReceipt(order)}>Receipt</button></div></article>)}</div>
-      <footer className="transaction-pagination"><span>Showing {pageTransactions.length} out of {visibleTransactions.length}</span><nav aria-label="Transaction pages"><button type="button" onClick={() => setPage(1)} disabled={currentPage === 1} aria-label="First page">&laquo;</button><button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={currentPage === 1} aria-label="Previous page">&lsaquo;</button>{pageNumbers.map((pageNumber) => <button type="button" className={currentPage === pageNumber ? 'active' : ''} key={pageNumber} onClick={() => setPage(pageNumber)}>{pageNumber}</button>)}{totalPages > 4 ? <span className="transaction-page-gap">&hellip;</span> : null}{totalPages > 3 ? <button type="button" className={currentPage === totalPages ? 'active' : ''} onClick={() => setPage(totalPages)}>{totalPages}</button> : null}<button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={currentPage === totalPages} aria-label="Next page">&rsaquo;</button><button type="button" onClick={() => setPage(totalPages)} disabled={currentPage === totalPages} aria-label="Last page">&raquo;</button></nav></footer>
+      <TablePagination page={currentPage} totalPages={totalPages} onPageChange={setPage} total={visibleTransactions.length} label="Cashier transaction pages" />
   </div>
 }
 

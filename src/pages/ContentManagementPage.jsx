@@ -1,3 +1,4 @@
+import TablePagination from '../components/TablePagination'
 import { AlertTriangle, Check, CheckCircle2, ClipboardCheck, Eye, FileText, Home, Info, MessageSquareQuote, Plus, Save, Sparkles, Trash2, XCircle } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import AppShell from '../components/AppShell'
@@ -197,9 +198,10 @@ export function MenuApprovalsQueue({ onAction, compact = false, refreshSignal = 
   }, [refreshSignal])
   const rows = requests.filter((item) => (status === 'all' || item.state === status) && matchesApprovalChangeType(item, changeType))
   const sortedRows = [...rows].sort((a, b) => sort === 'oldest' ? new Date(a.createdAt) - new Date(b.createdAt) : new Date(b.createdAt) - new Date(a.createdAt))
-  const pageSize = 8
+  const [pageSize, setPageSize] = useState(8)
   const totalPages = Math.max(1, Math.ceil(sortedRows.length / pageSize))
-  const visibleRows = sortedRows.slice((page - 1) * pageSize, page * pageSize)
+  const currentPage = Math.min(page, totalPages)
+  const visibleRows = sortedRows.slice((currentPage - 1) * pageSize, currentPage * pageSize)
   const counts = {
     pending: requests.filter((item) => item.state === 'pending').length,
     approved: requests.filter((item) => item.state === 'approved').length,
@@ -224,7 +226,7 @@ export function MenuApprovalsQueue({ onAction, compact = false, refreshSignal = 
     </tr>)}</tbody></table></div></div>
     <div className="ac-approval-cards">{visibleRows.map((item) => <article className="ac-approval-card" key={item.id}><div className="ac-approval-card-top"><div className="ac-approval-item"><img src={item.image} alt=""/><span><b>{item.itemName}</b><small>Staff change</small></span></div><span className="ac-change-badge ac-change-badge--updated">{item.action}</span></div><div className="ac-approval-card-grid"><span><small>Submitted</small><b>{new Date(item.createdAt).toLocaleString()}</b></span><span><small>Change types</small><b>{item.changeTypes.join(', ')}</b></span><span><small>Details</small><b>{item.summary}</b></span></div>{status === 'pending' && <div className="ac-approval-actions"><button type="button" className="ac-approval-reject" onClick={() => onAction(item, 'rejected')}><XCircle size={14}/>Reject</button><button type="button" className="ac-approval-approve" onClick={() => onAction(item, 'approved')}><CheckCircle2 size={14}/>Approve</button></div>}</article>)}</div>
     {!sortedRows.length && <div className="ac-approval-empty"><ClipboardCheck size={24}/><b>No {status} changes</b><span>Staff submissions will appear here when an approval request is created.</span></div>}
-    <footer className="po-pagination"><span>Showing {sortedRows.length ? ((page - 1) * pageSize) + 1 : 0}–{Math.min(page * pageSize, sortedRows.length)} of {sortedRows.length}</span><b>Page {page} of {totalPages}</b><div aria-label="Approval request pages"><button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button><button type="button" aria-label="Next page" disabled={page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>›</button></div></footer>
+    <TablePagination page={currentPage} totalPages={totalPages} onPageChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} pageSizeOptions={[8, 25, 50]} total={sortedRows.length} label="Approval request pages" />
   </section>
 }
 function Toggle({ checked, onChange, label }) { return <label className="ac-toggle-row"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)}/><span aria-hidden="true"><i/></span><b>{label}</b></label> }
