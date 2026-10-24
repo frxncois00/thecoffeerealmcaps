@@ -5351,10 +5351,27 @@
   -ms-overflow-style: none;
 }
 .cashier-v2 .cashier-transactions-list::-webkit-scrollbar { display: none; }
+/* Keep transaction scrolling inside the panel instead of extending the page. */
+.cashier-v2 .cashier-transactions-backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.cashier-v2 .cashier-transactions-modal {
+  box-sizing: border-box;
+  height: min(760px, calc(100vh - 40px));
+  max-height: calc(100vh - 40px);
+}
 /* Extra room to keep all eight transaction rows fully visible. */
 .cashier-v2 .cashier-transactions-modal {
   height: min(875px, calc(100vh - 16px));
   max-height: min(875px, calc(100vh - 16px));
+}
+/* Final viewport constraint: the backdrop never gains an outer scrollbar. */
+.cashier-v2 .cashier-transactions-backdrop { overflow: hidden; overscroll-behavior: contain; }
+.cashier-v2 .cashier-transactions-modal {
+  box-sizing: border-box;
+  height: min(760px, calc(100vh - 40px));
+  max-height: calc(100vh - 40px);
 }
 /* Simple classic item-customization dialog */
 .cashier-v2 .modern-pos-modal {
