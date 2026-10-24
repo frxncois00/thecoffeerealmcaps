@@ -1425,6 +1425,11 @@ function CustomizationSummary({ item }) {
   return <em className="cashier-custom-summary">{details.join(' / ')}</em>
 }
 
+function RenderItemDetails({ item }) {
+  const details = customizationDetails(item)
+  return <div className="checkout-item-details"><b>{item.name || item.product_name || item.item_name || 'Menu item'}</b>{details.length ? <span>{details.join(' / ')}</span> : null}</div>
+}
+
 
 function ItemCustomizationModal({ product, onClose, onAdd }) {
   const variantOptions = product.variantOptions || []
@@ -1601,7 +1606,7 @@ function CheckoutModal({ cart, total, vatRate, pricesIncludeVat, discount, break
             const selected = selectedLineKeys.includes(item.lineKey)
             return <label className={'checkout-review-item' + (discount.enabled ? ' is-discount-mode' : '') + (selected ? ' is-discounted' : '')} key={item.lineKey}>
               {discount.enabled ? <input className="checkout-item-checkbox" type="checkbox" checked={selected} onChange={() => toggleDiscountItem(item.lineKey)} disabled={saving} aria-label={'Apply ' + discount.type + ' discount to ' + item.name} /> : null}
-              <div className="checkout-item-details"><b>{item.name}</b><span>{customizationDetails(item).join(' / ') || 'Standard preparation'}</span></div>
+              <RenderItemDetails item={item} />
               <div className="checkout-item-meta"><span className="checkout-quantity">&times;{item.qty}</span><strong>{peso(itemLineTotal(item))}</strong></div>
             </label>
           })}
@@ -1685,7 +1690,7 @@ function TransactionDetailsView({ order, onBack }) {
       </header>
       <div className="transaction-details-body">
         <div className="detail-meta"><div><span>Date</span><b>{formatReceiptDate(order.createdAt)}</b></div><div><span>Payment</span><b>{order.paymentMethod}</b></div></div>
-        <section><h3>Items</h3><div className="detail-items">{items.length ? items.map((item, index) => <article key={item.lineKey || item.id || index}><div><b>{item.name || item.product_name || item.item_name || 'Menu item'}</b><span>{customizationDetails(item).join(' / ') || 'Standard preparation'}</span></div><span>&times;{item.qty || item.quantity || 0}</span><strong>{peso(item.line_total || itemLineTotal(item))}</strong></article>) : <p>No item details are available for this transaction.</p>}</div></section>
+        <section><h3>Items</h3><div className="detail-items">{items.length ? items.map((item, index) => <article key={item.lineKey || item.id || index}><RenderItemDetails item={item} /><span>&times;{item.qty || item.quantity || 0}</span><strong>{peso(item.line_total || itemLineTotal(item))}</strong></article>) : <p>No item details are available for this transaction.</p>}</div></section>
         <section className="detail-summary"><h3>Payment details</h3>{paymentDetails.length ? <div>{paymentDetails.map(([label, value]) => <p key={label}><span>{label}</span><b>{value}</b></p>)}</div> : <p>Payment details are not available for this transaction.</p>}</section>
         <section className="detail-summary"><h3>Order summary</h3><div><CashierBreakdownRows breakdown={breakdown} vatRate={vatRate} pricesIncludeVat={pricesIncludeVat} />{hasDiscount ? <>{order.discountCustomerName ? <p><span>Discount name</span><b>{order.discountCustomerName}</b></p> : null}{order.discountIdNumber ? <p><span>Discount ID</span><b>{order.discountIdNumber}</b></p> : null}</> : <p><span>Discount</span><b>No discount</b></p>}</div></section>
         <div className="detail-total"><span>Total</span><strong>{peso(order.total)}</strong></div>

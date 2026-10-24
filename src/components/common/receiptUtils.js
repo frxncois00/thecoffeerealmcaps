@@ -22,7 +22,7 @@ export function resolveItemCustomizations(item, addonNames = {}) {
   const details = []
   const customizations = item.customizations || {}
 
-  if (customizations.variantLabel) details.push(customizations.variantLabel)
+  if (customizations.variantLabel && String(customizations.variantLabel).trim().toLowerCase() !== 'piece') details.push(customizations.variantLabel)
   else if (customizations.variantKey) details.push(customizations.variantKey)
 
   if (customizations.temperature) {
