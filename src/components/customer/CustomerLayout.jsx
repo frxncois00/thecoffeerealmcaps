@@ -343,7 +343,11 @@ function CartDrawer({ cart, user }) {
                 <h3>{item.name}</h3>
                 {item.available===false&&<span className="drawer-unavailable-badge">Unavailable</span>}
                 {item.available===false&&<p className="drawer-unavailable-reason">{item.availabilityReason||'Currently out of stock'}</p>}
-                <p>{[item.variation?.name, item.temperature, item.ice, item.sugar].filter(Boolean).join(' · ')}</p>
+                {(() => {
+                  const details = [item.variation?.name, item.temperature, item.ice, item.sugar]
+                    .filter((value) => value && String(value).trim().toLowerCase() !== 'piece')
+                  return details.length ? <p>{details.join(' · ')}</p> : null
+                })()}
                 {item.addons?.length > 0 && <small>{item.addons.map((addon) => addon.name).join(', ')}</small>}
                 <strong>{money((item.unitPrice + (item.addons || []).reduce((sum, addon) => sum + addon.price, 0)) * item.quantity)}</strong>
                 <div className="drawer-item-actions">
