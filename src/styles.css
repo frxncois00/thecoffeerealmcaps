@@ -4774,6 +4774,21 @@
 }
 .cashier-v2 .legacy-ticket-items .cashier-edit-line:hover { background: #dbeafe !important; }
 
+/* Keep Edit inline with the item title without increasing cart-row height. */
+.cashier-v2 .legacy-ticket-items .cashier-line-top > .cashier-edit-line {
+  width: auto !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  padding: 0 4px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--brand) !important;
+  font-size: .78rem !important;
+  top: -3px;
+  right: 0;
+}
+
 /* Responsive, independently scrolling cart rail */
 .cashier-v2 .legacy-pos-layout {
   grid-template-columns: minmax(0, 1fr) clamp(400px, 35vw, 560px);
