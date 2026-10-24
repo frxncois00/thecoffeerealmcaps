@@ -4664,7 +4664,7 @@
 .cashier-v2 .legacy-ticket-items article:hover { border-color: #edf0ec; }
 .cashier-v2 .legacy-ticket-items img { width: 92px; height: 92px; border-radius: 14px; object-fit: cover; }
 .cashier-v2 .cashier-line-body { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.cashier-v2 .cashier-line-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.cashier-v2 .cashier-line-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; position: relative; }
 .cashier-v2 .cashier-line-top > div:first-child { display: grid; gap: 4px; min-width: 0; }
 .cashier-v2 .legacy-ticket-items article b { font-size: 1rem; font-weight: 800; color: var(--ink); }
 .cashier-v2 .legacy-ticket-items article small { font-size: .78rem; color: var(--muted); }
@@ -4676,7 +4676,7 @@
 .cashier-v2 .cashier-qty-stepper button:last-child { border-left: 1px solid var(--line); }
 .cashier-v2 .cashier-qty-stepper > *:nth-child(2) { min-width: 34px; text-align: center; font-weight: 800; font-size: .84rem; }
 .cashier-v2 .cashier-line-bottom-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
-.cashier-v2 .cashier-edit-line { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--brand); font-weight: 800; font-size: .82rem; padding: 4px 2px; white-space: nowrap; }
+.cashier-v2 .cashier-edit-line { display: flex; align-items: center; gap: 6px; border: 0; background: transparent; color: var(--brand); font-weight: 800; font-size: .82rem; padding: 4px 2px; white-space: nowrap; position: absolute; top: 0; right: 0; }
 .cashier-v2 .cashier-panel { margin: 0; padding: 13px 18px; border: 0; border-top: 1px solid var(--line); border-radius: 0; }
 .cashier-v2 .cashier-payment-methods button { min-height: 48px; border-color: var(--line); border-radius: 8px; background: #fff; color: var(--muted); }
 .cashier-v2 .cashier-payment-methods button.active { border-color: var(--brand); background: var(--brand); box-shadow: none; color: #fff; }
