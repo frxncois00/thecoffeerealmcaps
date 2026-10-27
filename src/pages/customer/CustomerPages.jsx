@@ -17,8 +17,6 @@ import { describeError } from '../../utils/describeError'
 import { allowsSpecialInstructions, useProductCustomization } from '../../hooks/useProductCustomization'
 import Choice from '../../components/Choice'
 import BenefitProfileLink from '../../components/customer/BenefitProfileLink'
-import GuestAuthPrompt from '../../components/customer/GuestAuthPrompt'
-import { isCustomerRole } from '../../lib/auth'
 import { customerSupabase as supabase, isSupabaseConfigured } from '../../lib/supabase'
 import { SYSTEM_DEFAULTS, fetchPublicDeliveryAreas, fetchPublicPortalData } from '../../services/adminPortalConfigurationService'
 import { normalizeOrderTemperature } from '../../utils/temperature'
@@ -36,16 +34,11 @@ import DeliveryLocationPicker from '../../components/customer/DeliveryLocationPi
 import { ReceiptPaper } from '../../components/common/ReceiptDocument'
 import { printReceipt } from '../../components/common/receiptUtils'
 export function MenuPage() {
-  const [guestPromptOpen, setGuestPromptOpen] = useState(false)
-  const { user, profile } = useAuth()
-  const customerUser = Boolean(user && isCustomerRole(profile?.role))
   const { products, loading, error } = useMenuCatalog()
   const [feedbackSummary, setFeedbackSummary] = useState(null)
   const { openProduct, modal } = useProductCustomization({
     alwaysCustomize: true, modalVariant: 'menu-detail',
-    beforeAdd: () => { if (customerUser) return true; setGuestPromptOpen(true); return false },
   })
-  useEffect(() => { if (customerUser) setGuestPromptOpen(false) }, [customerUser])
   useEffect(() => {
     let active = true
     supabase.rpc('customer_feedback_summary').then(({ data, error: feedbackError }) => {
@@ -70,7 +63,6 @@ export function MenuPage() {
     </section>
     <MenuBrowser products={products} loading={loading} error={error} renderProduct={product => <ProductCard key={product.id} product={product} onOpen={openProduct} />} />
     {modal}
-    <GuestAuthPrompt open={guestPromptOpen} onClose={() => setGuestPromptOpen(false)} returnTo="/menu" />
   </main>
 }
 function ProductCard({product,onOpen}){const label=product.variations.length?`From ${money(Math.min(...product.variations.map(v=>v.price)))}`:money(product.basePrice);return <article className={`customer-product ${!product.available?'unavailable':''}`} data-product-id={product.id} role="button" tabIndex={0} aria-label={`View ${product.name} options`} onClick={event=>onOpen(product,event.currentTarget)} onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();onOpen(product,event.currentTarget)}}}><div className="customer-product-media"><img src={product.image} alt=""/></div><div><small>{product.category}</small><h2>{product.name}</h2><div className="product-badges">{product.temperatureType==='iced_only'&&<span>Cold only</span>}{product.temperatureType==='hot_only'&&<span>Hot only</span>}{product.temperatureType==='flexible'&&<span>Hot or cold</span>}{product.variations.length>0&&<span>Options available</span>}</div><footer><strong>{label}</strong>{product.available?<span className="round-action" aria-hidden="true"><Plus/></span>:<span>Unavailable</span>}</footer></div></article>}

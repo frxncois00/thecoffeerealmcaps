@@ -14,6 +14,8 @@ import { formatVatRate, vatBreakdownFromInclusiveAmount } from '../../utils/pric
 import { lockBodyScroll, restoreBodyScrollIfIdle, unlockBodyScroll } from '../../utils/bodyScrollLock'
 import { useRealmMotion } from '../../motion/useRealmMotion'
 import '../landing-chrome-motion.css'
+import GuestAuthPrompt from './GuestAuthPrompt'
+import { rememberCustomerReturnTo } from '../../utils/customerAuthReturn'
 
 const centerLinks = [['Menu', '/menu'], ['My Orders', '/orders'], ['Help', '/help'], ['Profile', '/profile']]
 const landingLinks = [['Menu', '#menu'], ['Rewards', '#rewards'], ['Our Story', '#about'], ['Visit Us', '#visit']]
@@ -288,6 +290,7 @@ export default function CustomerLayout() {
 
 function CartDrawer({ cart, user }) {
   const [confirmClear, setConfirmClear] = useState(false)
+  const [authPromptOpen, setAuthPromptOpen] = useState(false)
   const [proceeding, setProceeding] = useState(false)
   const { pricing } = usePricing()
   const navigate = useNavigate()
@@ -296,8 +299,7 @@ function CartDrawer({ cart, user }) {
   const proceedToCheckout = async () => {
     if (proceeding) return
     if (!user) {
-      cart.closeCart()
-      navigate('/login', { state: { from: '/checkout' } })
+      setAuthPromptOpen(true)
       return
     }
     setProceeding(true)
@@ -386,6 +388,15 @@ function CartDrawer({ cart, user }) {
           </section>
         </div>
       )}
+      <GuestAuthPrompt
+        open={authPromptOpen}
+        returnTo="/checkout"
+        onClose={() => setAuthPromptOpen(false)}
+        onAuthenticate={() => {
+          rememberCustomerReturnTo('/checkout')
+          cart.closeCart()
+        }}
+      />
     </>
   )
 }

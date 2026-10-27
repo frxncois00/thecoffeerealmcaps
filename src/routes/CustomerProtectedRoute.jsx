@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { isCustomerRole } from '../lib/auth'
+import { readCustomerReturnTo, safeCustomerReturnPath } from '../utils/customerAuthReturn'
 
 export default function CustomerProtectedRoute({ children }) {
   const { user, profile, loading } = useAuth()
@@ -11,10 +12,10 @@ export default function CustomerProtectedRoute({ children }) {
   if (isCustomerRole(profile?.role)) {
     const incomplete = !profile?.username || !profile?.phone || !profile?.birthdate || profile?.full_name === 'Coffee Realm Customer'
     if (incomplete && location.pathname !== '/complete-profile') {
-      return <Navigate to="/complete-profile" replace />
+      return <Navigate to="/complete-profile" replace state={{ from: safeCustomerReturnPath(location.state?.from, location.pathname) }} />
     }
     if (!incomplete && location.pathname === '/complete-profile') {
-      return <Navigate to="/menu" replace />
+      return <Navigate to={safeCustomerReturnPath(location.state?.from, readCustomerReturnTo('/menu'))} replace />
     }
     return children
   }

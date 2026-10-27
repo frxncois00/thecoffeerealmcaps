@@ -18,7 +18,6 @@ import HowOrderingWorks from '../components/HowOrderingWorks'
 import RatingStars from '../components/customer/RatingStars'
 import { customerSupabase as supabase } from '../lib/supabase'
 import '../components/landing/compact-sections.css'
-import GuestAuthPrompt from '../components/customer/GuestAuthPrompt'
 import { useAuth } from '../context/AuthContext'
 import { store } from '../data/mockData'
 import { useProductCustomization } from '../hooks/useProductCustomization'
@@ -58,7 +57,6 @@ function RealmTourLaunchLink() {
 export default function HomePage() {
   const { user, profile } = useAuth()
   const customerUser = Boolean(user && isCustomerRole(profile?.role))
-  const [guestPromptOpen, setGuestPromptOpen] = useState(false)
   const { addToCart, modal } = useProductCustomization({ modalVariant: 'menu-detail' })
   const heroRef = useRef(null)
   const { enabled, ambient } = useRealmMotion()
@@ -91,17 +89,7 @@ export default function HomePage() {
     return () => { active = false }
   }, [])
 
-  useEffect(() => {
-    if (customerUser) setGuestPromptOpen(false)
-  }, [customerUser])
-
-  const chooseFeaturedItem = (item) => {
-    if (!customerUser) {
-      setGuestPromptOpen(true)
-      return
-    }
-    addToCart(item)
-  }
+  const chooseFeaturedItem = (item) => addToCart(item)
 
   return (
     <div className="storefront customer-landing">
@@ -212,7 +200,6 @@ export default function HomePage() {
       </main>
 
       {modal}
-      <GuestAuthPrompt open={guestPromptOpen} onClose={() => setGuestPromptOpen(false)} returnTo="/" />
 
     </div>
   )

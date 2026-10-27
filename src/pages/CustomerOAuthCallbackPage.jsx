@@ -4,6 +4,7 @@ import AuthWelcomeScreen from '../components/auth/AuthWelcomeScreen'
 import { isCustomerRole, normalizeRole, roleRoutes } from '../lib/auth'
 import { customerSupabase as supabase } from '../lib/supabase'
 import { retryJwtTimingRequest } from '../lib/supabaseRetry'
+import { consumeCustomerReturnTo } from '../utils/customerAuthReturn'
 
 const pause = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds))
 
@@ -106,6 +107,7 @@ export default function CustomerOAuthCallbackPage() {
       if (!active) return
 
       clearOAuthState()
+      if (destination !== '/complete-profile') consumeCustomerReturnTo()
       navigate(destination, { replace: true })
     }
 

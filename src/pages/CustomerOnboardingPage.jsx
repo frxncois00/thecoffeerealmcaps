@@ -1,14 +1,16 @@
 import { Check, Eye, EyeOff, Lock, Phone, User, UserRound } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { customerSupabase as supabase } from '../lib/supabase'
 import { saveProfile } from '../services/customerService'
 import { EMAIL_MAX_LENGTH, isValidPassword, isValidPhone, sanitizePersonName, sanitizeUsername } from '../utils/inputValidation'
 import BirthDatePicker from '../components/customer/BirthDatePicker'
+import { consumeCustomerReturnTo, readCustomerReturnTo, safeCustomerReturnPath } from '../utils/customerAuthReturn'
 
 export default function CustomerOnboardingPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, profile, updateProfile } = useAuth()
   const [values, setValues] = useState({ full_name: '', username: '', phone: '', birthdate: '' })
   const [addPassword, setAddPassword] = useState(false)
@@ -57,7 +59,9 @@ export default function CustomerOnboardingPage() {
         if (passwordError) throw passwordError
       }
       updateProfile((current) => ({ ...current, ...saved }))
-      navigate('/menu', { replace: true })
+      const destination = safeCustomerReturnPath(location.state?.from, readCustomerReturnTo('/menu'))
+      consumeCustomerReturnTo()
+      navigate(destination, { replace: true })
     } catch (cause) {
       setError(cause?.message || 'Could not finish setting up your account.')
       setBusy(false)

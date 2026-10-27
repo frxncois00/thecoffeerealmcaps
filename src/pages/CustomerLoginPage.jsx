@@ -6,7 +6,9 @@ import { customerSupabase as supabase, isSupabaseConfigured } from '../lib/supab
 import { retryJwtTimingRequest } from '../lib/supabaseRetry'
 import { EMAIL_MAX_LENGTH, isValidEmail, isValidPassword, sanitizeEmail, sanitizeUsername } from '../utils/inputValidation'
 import AuthWelcomeScreen from '../components/auth/AuthWelcomeScreen'
+import SilkBackground from '../components/SilkBackground'
 import { rememberCustomer, setRememberCustomer } from '../lib/customerAuthStorage'
+import { consumeCustomerReturnTo, readCustomerReturnTo, rememberCustomerReturnTo, safeCustomerReturnPath } from '../utils/customerAuthReturn'
 
 const otpDigits = 6
 const pause = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds))
@@ -14,7 +16,7 @@ function googleCallbackUrl() {
   return `${window.location.origin}/auth/callback`
 }
 
-export default function CustomerLoginPage({ initialMode = 'register' }) {
+export default function CustomerLoginPage({ initialMode = 'login' }) {
   const navigate = useNavigate()
   const location = useLocation()
   const authContainerRef = useRef(null)
@@ -38,6 +40,11 @@ export default function CustomerLoginPage({ initialMode = 'register' }) {
   const [rememberMe, setRememberMe] = useState(rememberCustomer)
   const [forgotEmail, setForgotEmail] = useState('')
   const [welcomeTransition, setWelcomeTransition] = useState(null)
+  const requestedReturnTo = safeCustomerReturnPath(location.state?.from, readCustomerReturnTo('/menu'))
+
+  useEffect(() => {
+    if (location.state?.from) rememberCustomerReturnTo(location.state.from)
+  }, [location.state?.from])
 
   useEffect(() => {
     let resizeTimer
@@ -65,7 +72,8 @@ export default function CustomerLoginPage({ initialMode = 'register' }) {
     setAuthMessage('')
     if (!isSupabaseConfigured) return setAuthError('Supabase is not configured yet.')
 
-    window.sessionStorage.setItem('tcr.oauth.returnTo', '/menu')
+    rememberCustomerReturnTo(requestedReturnTo)
+    window.sessionStorage.setItem('tcr.oauth.returnTo', requestedReturnTo)
     window.sessionStorage.setItem('tcr.oauth.mode', mode)
     setGoogleLoading(true)
 
@@ -196,7 +204,8 @@ export default function CustomerLoginPage({ initialMode = 'register' }) {
     await pause(320)
 
     setLoading(false)
-    const destination = location.state?.from || '/menu'
+    const destination = requestedReturnTo
+    consumeCustomerReturnTo()
     navigate(destination, { replace: true })
   }
 
@@ -221,7 +230,8 @@ export default function CustomerLoginPage({ initialMode = 'register' }) {
     setLoading(false)
     if (error) return setAuthError(error.message || 'Unable to send OTP right now.')
     if (signupData.session) {
-      return navigate('/complete-profile', { replace: true })
+      rememberCustomerReturnTo(requestedReturnTo)
+      return navigate('/complete-profile', { replace: true, state: { from: requestedReturnTo } })
     }
     setRegisteredEmail(email)
     setOtpCode(Array(otpDigits).fill(''))
@@ -244,7 +254,8 @@ export default function CustomerLoginPage({ initialMode = 'register' }) {
     if (error) return setAuthError(error.message || 'Unable to verify OTP right now.')
     setOtpOpen(false)
     setAuthMessage('Account verified. Complete your account to continue.')
-    navigate('/complete-profile', { replace: true })
+    rememberCustomerReturnTo(requestedReturnTo)
+    navigate('/complete-profile', { replace: true, state: { from: requestedReturnTo } })
   }
 
   async function resendOtp() {
@@ -347,7 +358,8 @@ export default function CustomerLoginPage({ initialMode = 'register' }) {
   }
 
   return (
-    <main className="legacy-customer-auth-page">
+    <main className="legacy-customer-auth-page has-silk-bg">
+      <SilkBackground cardRef={authContainerRef} />
       <Link className="legacy-auth-home" to="/"><ArrowLeft size={17} /> Back to Home</Link>
 
       <section ref={authContainerRef} className={`legacy-auth-container ${mode === 'register' ? 'active' : ''}`}>

@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { lockBodyScroll, unlockBodyScroll } from '../../utils/bodyScrollLock'
 
-export default function GuestAuthPrompt({ open, onClose, returnTo = '/menu' }) {
+export default function GuestAuthPrompt({ open, onClose, onAuthenticate, returnTo = '/menu' }) {
   const closeButtonRef = useRef(null)
   const scrollLockRef = useRef(Symbol('guest-auth-prompt'))
 
@@ -39,12 +39,12 @@ export default function GuestAuthPrompt({ open, onClose, returnTo = '/menu' }) {
         <div className="guest-auth-icon" aria-hidden="true"><Coffee size={27} /></div>
         <span className="guest-auth-kicker">Your order, your account</span>
         <h2 id="guest-auth-title">Already have an account?</h2>
-        <p id="guest-auth-copy">Log in to customize this item and continue your order. New to The Coffee Realm? Creating an account only takes a moment.</p>
+        <p id="guest-auth-copy">Your cart is saved. Log in or create an account to continue to checkout.</p>
         <div className="guest-auth-actions">
-          <Link className="guest-auth-login" to="/login" state={authState} onClick={onClose}>
+          <Link className="guest-auth-login" to="/login" state={authState} onClick={() => { onAuthenticate?.(); onClose() }}>
             <LogIn size={18} /> Log in
           </Link>
-          <Link className="guest-auth-register" to="/register" state={authState} onClick={onClose}>
+          <Link className="guest-auth-register" to="/register" state={authState} onClick={() => { onAuthenticate?.(); onClose() }}>
             <UserPlus size={18} /> Create account
           </Link>
         </div>
