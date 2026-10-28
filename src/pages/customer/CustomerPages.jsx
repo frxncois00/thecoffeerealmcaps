@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMenuCatalog } from '../../hooks/useMenuCatalog'
+import { useAvailableQuantity } from '../../hooks/useAvailableQuantity'
 import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePricing } from '../../context/usePricing'
@@ -65,8 +66,114 @@ export function MenuPage() {
     {modal}
   </main>
 }
-function ProductCard({product,onOpen}){const label=product.variations.length?`From ${money(Math.min(...product.variations.map(v=>v.price)))}`:money(product.basePrice);return <article className={`customer-product ${!product.available?'unavailable':''}`} data-product-id={product.id} role="button" tabIndex={0} aria-label={`View ${product.name} options`} onClick={event=>onOpen(product,event.currentTarget)} onKeyDown={event=>{if(event.target===event.currentTarget&&(event.key==='Enter'||event.key===' ')){event.preventDefault();onOpen(product,event.currentTarget)}}}><div className="customer-product-media"><img src={product.image} alt=""/></div><div><small>{product.category}</small><h2>{product.name}</h2><div className="product-badges">{product.temperatureType==='iced_only'&&<span>Cold only</span>}{product.temperatureType==='hot_only'&&<span>Hot only</span>}{product.temperatureType==='flexible'&&<span>Hot or cold</span>}{product.variations.length>0&&<span>Options available</span>}</div><footer><strong>{label}</strong>{product.available?<span className="round-action" aria-hidden="true"><Plus/></span>:<span>Unavailable</span>}</footer></div></article>}
-export function ProductPage(){const {slug}=useParams();const {products,loading,error}=useMenuCatalog();const product=products.find(p=>p.slug===slug);const {addItem}=useCart();const navigate=useNavigate();const [variationId,setVariationId]=useState('');const [temperature,setTemperature]=useState('');const [ice,setIce]=useState('Default Ice');const [sugar,setSugar]=useState('75%');const [addons,setAddons]=useState([]);const [quantity,setQuantity]=useState(1);const [instructions,setInstructions]=useState('');if(loading)return <main className="customer-state">Loading productâ€¦</main>;if(error)return <main className="customer-state error-state">{error}</main>;if(!product)return <NotFoundPage/>;const variation=product.variations.find(v=>v.id===(variationId||product.variations[0]?.id))||null;const selectedTemperature=temperature||product.temperatures[0]||'';const isCold=/cold|iced/i.test(selectedTemperature);const applicableAddons=product.allowAddons?product.addons:[];const selectedAddons=addons.filter(a=>applicableAddons.some(valid=>valid.id===a.id));const unitPrice=variation?.price??product.basePrice;const total=(unitPrice+selectedAddons.reduce((s,a)=>s+a.price,0))*quantity;const toggle=a=>setAddons(v=>v.some(x=>x.id===a.id)?v.filter(x=>x.id!==a.id):[...v,a]);return <main className="customer-main"><Link className="back-link" to="/menu"><ChevronLeft/>Back to menu</Link><section className="product-detail"><img src={product.image} alt={product.name}/><div><small>{product.category}</small><h1>{product.name}</h1><p>{product.description}</p>{product.variations.length>0&&<Choice title={product.category==='Cakes'?'Portion':'Option'} options={product.variations} value={variation?.id} onChange={setVariationId}/>} {product.temperatures.length>0&&<Choice title="Temperature" options={product.temperatures.map(x=>({id:x,name:x}))} value={selectedTemperature} onChange={value=>setTemperature(value)}/>} {product.allowIce&&isCold&&<Choice title="Ice level" options={product.iceLevels.map(x=>({id:x,name:x}))} value={ice} onChange={setIce}/>} {product.allowSugar&&<Choice title="Sugar level" options={product.sugars.map(x=>({id:x,name:x}))} value={sugar} onChange={setSugar}/>} {applicableAddons.length>0&&<fieldset className="choice-group"><legend>Add-ons</legend>{applicableAddons.map(a=><label className="check-choice" key={a.id}><input type="checkbox" checked={selectedAddons.some(x=>x.id===a.id)} onChange={()=>toggle(a)}/><span>{a.name}</span><b>+{money(a.price)}</b></label>)}</fieldset>}<label className="field"><span>Special instructions</span><textarea value={instructions} maxLength={300} onChange={e=>setInstructions(sanitizeCustomerText(e.target.value,300))} placeholder="Allergies or preparation notes"/></label><div className="add-bar"><div className="quantity"><button onClick={()=>setQuantity(q=>Math.max(1,q-1))}><Minus/></button><b>{quantity}</b><button onClick={()=>setQuantity(q=>Math.min(99,q+1))}><Plus/></button></div><button className="primary-button" disabled={!product.available} onClick={()=>{addItem({productId:product.id,slug:product.slug,name:product.name,image:product.image,variation,temperature:selectedTemperature,ice:product.allowIce&&isCold?ice:'',sugar:product.allowSugar?sugar:'',addons:selectedAddons,instructions,quantity,unitPrice,onlineBenefitEligible:product.onlineBenefitEligible})}}>Add to cart Â· {money(total)}</button></div></div></section></main>}
+function ProductCard({ product, onOpen }) {
+  const cardRef = useRef(null)
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    if (!product.available || visible) return undefined
+    const card = cardRef.current
+    if (!card) return undefined
+    if (!('IntersectionObserver' in window)) {
+      setVisible(true)
+      return undefined
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) setVisible(true)
+    }, { rootMargin: '300px' })
+    observer.observe(card)
+    return () => observer.disconnect()
+  }, [product.available, visible])
+  const stock = useAvailableQuantity(product.available && visible ? product.id : null, product.variations[0]?.id || null, 99, false)
+  const showStock = product.available && !stock.loading && !stock.error && stock.limit !== null
+  const lowStock = showStock && stock.limit > 0 && stock.limit <= 5
+  const label = product.variations.length ? `From ${money(Math.min(...product.variations.map(v => v.price)))}` : money(product.basePrice)
+  const interactiveProps = product.available ? {
+    role: 'button',
+    tabIndex: 0,
+    'aria-label': `View ${product.name} options`,
+    onClick: event => onOpen(product, event.currentTarget),
+    onKeyDown: event => {
+      if (event.target === event.currentTarget && (event.key === 'Enter' || event.key === ' ')) {
+        event.preventDefault()
+        onOpen(product, event.currentTarget)
+      }
+    },
+  } : {}
+  return <article ref={cardRef} className={`customer-product ${!product.available ? 'unavailable' : ''}`} data-product-id={product.id} {...interactiveProps}>
+    <div className="customer-product-media"><img src={product.image} alt="" /></div>
+    <div><div className="customer-product-meta"><small>{product.category}</small>{showStock && <span className={`customer-product-stock${lowStock ? ' is-low' : ''}`}>{stock.limit === 0 ? 'Out of stock' : lowStock ? `Only ${stock.limit} left` : `${stock.limit === 99 ? '99+' : stock.limit} available`}</span>}</div><h2>{product.name}</h2>
+      <div className="product-badges">{product.temperatureType === 'iced_only' && <span>Cold only</span>}{product.temperatureType === 'hot_only' && <span>Hot only</span>}{product.temperatureType === 'flexible' && <span>Hot or cold</span>}{product.variations.length > 0 && <span>Options available</span>}</div>
+      <footer><strong>{label}</strong>{product.available ? <span className="round-action" aria-hidden="true"><Plus /></span> : <span>Unavailable</span>}</footer>
+    </div>
+  </article>
+}
+export function ProductPage() {
+  const { slug } = useParams()
+  const { products, loading, error } = useMenuCatalog()
+  const product = products.find(item => item.slug === slug)
+  const { addItem } = useCart()
+  const [variationId, setVariationId] = useState('')
+  const [temperature, setTemperature] = useState('')
+  const [ice, setIce] = useState('Default Ice')
+  const [sugar, setSugar] = useState('75%')
+  const [addons, setAddons] = useState([])
+  const [quantity, setQuantity] = useState(1)
+  const [instructions, setInstructions] = useState('')
+  const variation = product?.variations.find(item => item.id === (variationId || product.variations[0]?.id)) || null
+  const stock = useAvailableQuantity(product?.id, variation?.id || null)
+  const displayedStock = useAvailableQuantity(product?.available ? product.id : null, variation?.id || null, 99, false)
+
+  useEffect(() => {
+    if (stock.limit > 0) setQuantity(current => Math.min(current, stock.limit))
+  }, [stock.limit])
+
+  if (loading) return <main className="customer-state">Loading product...</main>
+  if (error) return <main className="customer-state error-state">{error}</main>
+  if (!product) return <NotFoundPage />
+
+  const selectedTemperature = temperature || product.temperatures[0] || ''
+  const isCold = /cold|iced/i.test(selectedTemperature)
+  const applicableAddons = product.allowAddons ? product.addons : []
+  const selectedAddons = addons.filter(addon => applicableAddons.some(valid => valid.id === addon.id))
+  const unitPrice = variation?.price ?? product.basePrice
+  const total = (unitPrice + selectedAddons.reduce((sum, addon) => sum + addon.price, 0)) * quantity
+  const toggle = addon => setAddons(current => current.some(item => item.id === addon.id) ? current.filter(item => item.id !== addon.id) : [...current, addon])
+  const canAdd = product.available && !stock.loading && !stock.error && stock.limit !== null && quantity <= stock.limit
+
+  return <main className="customer-main">
+    <Link className="back-link" to="/menu"><ChevronLeft />Back to menu</Link>
+    <section className="product-detail">
+      <img src={product.image} alt={product.name} />
+      <div>
+        <div className="product-detail-meta">
+          <small>{product.category}</small>
+          {product.available && <small className={`product-stock-count${displayedStock.limit > 0 && displayedStock.limit <= 5 ? ' is-low' : ''}`} role="status" aria-live="polite">
+            {displayedStock.loading ? '' : displayedStock.error ? 'Stock check unavailable' : displayedStock.limit === 0 ? 'Out of stock' : displayedStock.limit <= 5 ? `Only ${displayedStock.limit} left` : `${displayedStock.limit === 99 ? '99+' : displayedStock.limit} available`}
+          </small>}
+        </div><h1>{product.name}</h1><p>{product.description}</p>
+        {product.variations.length > 0 && <Choice title={product.category === 'Cakes' ? 'Portion' : 'Option'} options={product.variations} value={variation?.id} onChange={setVariationId} />}
+        {product.temperatures.length > 0 && <Choice title="Temperature" options={product.temperatures.map(value => ({ id: value, name: value }))} value={selectedTemperature} onChange={setTemperature} />}
+        {product.allowIce && isCold && <Choice title="Ice level" options={product.iceLevels.map(value => ({ id: value, name: value }))} value={ice} onChange={setIce} />}
+        {product.allowSugar && <Choice title="Sugar level" options={product.sugars.map(value => ({ id: value, name: value }))} value={sugar} onChange={setSugar} />}
+        {applicableAddons.length > 0 && <fieldset className="choice-group"><legend>Add-ons</legend>{applicableAddons.map(addon => <label className="check-choice" key={addon.id}><input type="checkbox" checked={selectedAddons.some(item => item.id === addon.id)} onChange={() => toggle(addon)} /><span>{addon.name}</span><b>+{money(addon.price)}</b></label>)}</fieldset>}
+        <label className="field"><span>Special instructions</span><textarea value={instructions} maxLength={300} onChange={event => setInstructions(sanitizeCustomerText(event.target.value, 300))} placeholder="Allergies or preparation notes" /></label>
+        <div className="add-bar">
+          <div className="quantity-control">
+            <span>Quantity</span>
+            <div className="quantity">
+              <button type="button" onClick={() => setQuantity(current => Math.max(1, current - 1))} disabled={quantity === 1} aria-label="Decrease quantity"><Minus /></button>
+              <b aria-live="polite">{quantity}</b>
+              <button type="button" onClick={() => setQuantity(current => Math.min(99, stock.limit ?? 99, current + 1))} disabled={stock.loading || stock.error || quantity >= Math.min(99, stock.limit ?? 0)} aria-label="Increase quantity"><Plus /></button>
+            </div>
+          </div>
+          <button className="primary-button" type="button" disabled={!canAdd} onClick={() => {
+            addItem({ productId: product.id, slug: product.slug, name: product.name, image: product.image, variation, temperature: selectedTemperature, ice: product.allowIce && isCold ? ice : '', sugar: product.allowSugar ? sugar : '', addons: selectedAddons, instructions, quantity, unitPrice, onlineBenefitEligible: product.onlineBenefitEligible })
+          }}>Add to cart {'\u00b7'} {money(total)}</button>
+        </div>
+      </div>
+    </section>
+  </main>
+}
 const manilaDate=(offset=0)=>{const date=new Date(Date.now()+offset*86400000);const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date);const map=Object.fromEntries(parts.map(part=>[part.type,part.value]));return `${map.year}-${map.month}-${map.day}`}
 const timeLabel=minutes=>{const hour=Math.floor(minutes/60);const minute=minutes%60;return `${hour%12||12}:${String(minute).padStart(2,'0')} ${hour>=12?'PM':'AM'}`}
 const normalizePhone=value=>sanitizePhone(value)
@@ -284,7 +391,9 @@ export function CheckoutPage(){
   return <main className="customer-main checkout-page"><section className="page-title"><span>Secure checkout</span><h1>How should we prepare your order?</h1></section><div className="checkout-layout"><form className="checkout-form" noValidate onSubmit={submit}>
     <CheckoutSection n="1" title="Customer information"><div className="form-grid"><Field label="Full name" value={form.fullName} error={customerErrors.fullName} onChange={value=>{set('fullName',sanitizePersonName(value,60));setCustomerErrors(current=>({...current,fullName:''}))}} onBlur={()=>setCustomerErrors(current=>({...current,fullName:isTwoWordPersonName(form.fullName)?'':'Enter your first and last name (at least 2 words).'}))} maxLength={60} pattern="\S+(\s+\S+)+" title="Enter your first and last name (at least 2 words)."/><Field label="Contact number" type="tel" value={form.contact} error={customerErrors.contact} onChange={value=>{set('contact',normalizePhone(value));setCustomerErrors(current=>({...current,contact:''}))}} onBlur={()=>setCustomerErrors(current=>({...current,contact:isValidPhone(form.contact)?'':'Enter a valid contact number starting with 09 (11 digits).'}))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Contact number must contain 11 digits and start with 09."/></div>{submitError&&<p className="field-hint error">{submitError}</p>}</CheckoutSection>
     <CheckoutSection n="2" title="Fulfillment"><div className="fulfillment-controls"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/>{form.fulfillment==='delivery'&&Boolean(systemSettings.ordering?.allowDeliveryTomorrow)&&<Choice title="Delivery date" options={[{id:manilaDate(),name:'Today'},{id:manilaDate(1),name:'Tomorrow'}]} value={form.scheduleDate||manilaDate()} onChange={value=>set('scheduleDate',value)}/>}{form.fulfillment==='delivery'&&Boolean(systemSettings.ordering?.allowDeliveryTomorrow)&&<SelectField label={`Delivery time (${form.scheduleDate===manilaDate(1)?'tomorrow':'today'})`} value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={deliverySlots} placeholder={deliverySlots.length?'Choose a time':`No delivery times available ${form.scheduleDate===manilaDate(1)?'tomorrow':'today'}`} disabled={!deliverySlots.length}/>}{form.fulfillment==='pickup'&&<SelectField label="Pickup time (today)" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={pickupSlots} placeholder={pickupSlots.length?'Choose a time':'No pickup times available today'} disabled={!pickupSlots.length}/>}</div>
-    <p className={"field-hint"}>Estimated preparation: {prepMinutes} minutes, based on your quantities. Delivery travel time is separate.</p>{form.fulfillment==='pickup'&&!pickupSlots.length&&<p className={"field-hint error"}>This order needs more preparation time than remains today. Reduce the quantities or order during the next opening hours.</p>}{form.fulfillment==='delivery'?<>{addresses.length>0&&<fieldset className={`address-source-picker${addresses.length?' has-saved-addresses':''}`}><legend>Delivery address</legend><div>{addresses.length>0&&<button type="button" className={addressMode==='saved'?'active':''} onClick={()=>chooseAddressMode('saved')} aria-pressed={addressMode==='saved'}><span><MapPin size={18}/></span><b>Use saved address</b><small>{defaultAddress?(defaultAddress.label||'Default address'):`${addresses.length} saved address${addresses.length===1?'':'es'}`}</small></button>}<button type="button" className={addressMode==='new'?'active':''} onClick={()=>chooseAddressMode('new')} aria-pressed={addressMode==='new'}><span><Pencil size={18}/></span><b>{addresses.length?'Enter a new address':'Enter your delivery address'}</b>{addresses.length>0&&<small>Search or pin on the map</small>}</button></div></fieldset>}<DeliveryLocationPicker key={`${addressMode}-${selectedAddress||'new'}`} initialAddress={addressMode==='saved'&&addresses.length>0?form.address:''} address={form.address} barangay={form.barangay} selectedArea={selectedArea} onAddressChange={value=>set('address',sanitizeAddressText(value,200))} onBarangayChange={value=>set('barangay',value)} onCoordinatesChange={coords=>set('coordinates',coords)} />{form.fulfillment==='delivery'&&form.address.trim()&&!selectedArea&&<p className="field-hint error">We do not deliver outside Quezon City for now. Please select an address within Quezon City.</p>}</>:<PickupStoreLocation/>}<Field label={form.fulfillment==='delivery'?'Delivery instructions':'Pickup note (optional)'} value={form.instructions} onChange={value=>set('instructions',sanitizeCustomerText(value,300))} maxLength={300} required={false}/></CheckoutSection>
+    <p className={"field-hint"}>Estimated preparation: {prepMinutes} minutes, based on your quantities. Delivery travel time is separate.</p>
+    {form.fulfillment==='delivery'&&<aside className="checkout-delivery-fee-notice" aria-label="Delivery fee notice"><strong>📦 Delivery Fee Notice</strong><p>Delivery fee is <b>not included</b> in the item price and is based on <b>Lalamove’s distance rate</b>. Thank you! (˵◝ ⩊  ◜˵マ</p></aside>}
+    {form.fulfillment==='pickup'&&!pickupSlots.length&&<p className={"field-hint error"}>This order needs more preparation time than remains today. Reduce the quantities or order during the next opening hours.</p>}{form.fulfillment==='delivery'?<>{addresses.length>0&&<fieldset className={`address-source-picker${addresses.length?' has-saved-addresses':''}`}><legend>Delivery address</legend><div>{addresses.length>0&&<button type="button" className={addressMode==='saved'?'active':''} onClick={()=>chooseAddressMode('saved')} aria-pressed={addressMode==='saved'}><span><MapPin size={18}/></span><b>Use saved address</b><small>{defaultAddress?(defaultAddress.label||'Default address'):`${addresses.length} saved address${addresses.length===1?'':'es'}`}</small></button>}<button type="button" className={addressMode==='new'?'active':''} onClick={()=>chooseAddressMode('new')} aria-pressed={addressMode==='new'}><span><Pencil size={18}/></span><b>{addresses.length?'Enter a new address':'Enter your delivery address'}</b>{addresses.length>0&&<small>Search or pin on the map</small>}</button></div></fieldset>}<DeliveryLocationPicker key={`${addressMode}-${selectedAddress||'new'}`} initialAddress={addressMode==='saved'&&addresses.length>0?form.address:''} address={form.address} barangay={form.barangay} selectedArea={selectedArea} onAddressChange={value=>set('address',sanitizeAddressText(value,200))} onBarangayChange={value=>set('barangay',value)} onCoordinatesChange={coords=>set('coordinates',coords)} />{form.fulfillment==='delivery'&&form.address.trim()&&!selectedArea&&<p className="field-hint error">We do not deliver outside Quezon City for now. Please select an address within Quezon City.</p>}</>:<PickupStoreLocation/>}<Field label={form.fulfillment==='delivery'?'Delivery instructions':'Pickup note (optional)'} value={form.instructions} onChange={value=>set('instructions',sanitizeCustomerText(value,300))} maxLength={300} required={false}/></CheckoutSection>
     <CheckoutSection n="3" title="Payment"><Choice title="Payment method" options={customerPaymentMethods(systemSettings.payments).filter(method=>form.fulfillment==='delivery'||method!=='cod').map(method=>({id:method,name:method==='cod'?'Cash on delivery':method==='bank_transfer'?'Bank transfer':method==='paymongo'?'PayMongo':method==='qrph'?'QRPh via PayMongo':'GCash'}))} value={form.payment} onChange={setPayment}/><CheckoutPaymentDetails payment={form.payment} paymentConfig={systemSettings.payments} total={total} referenceNumber={form.paymentReference} referenceError={paymentReferenceError} onReferenceChange={value=>{set('paymentReference',sanitizeDigits(value,form.payment==='gcash'?13:25));if(validPaymentReference(form.payment,value))setPaymentReferenceError('');if(paymentProofError&&paymentProofError.includes('already been used'))setPaymentProofError('')}} onReferenceBlur={handleReferenceBlur} proof={paymentProof} previewUrl={paymentProofPreview} proofError={paymentProofError} validatingProof={validatingPaymentProof} onProofChange={choosePaymentProof} onProofClear={clearPaymentProof}/></CheckoutSection>
     {systemSettings.ordering.storeStatus!=='open'&&<p className="field-hint error">{systemSettings.ordering.closureMessage}</p>}
     {cart.checkingAvailability?<p className="checkout-stock-refresh" role="status">Checking current item availability…</p>:null}
