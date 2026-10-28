@@ -1,4 +1,8 @@
 .menu-browser { min-width: 0; }
+.customer-product-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; }
+.customer-product-meta small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.customer-app .customer-product-stock { margin-left: auto; flex: none; color: var(--cr-muted); font-family: inherit; font-size: 12px; font-style: normal; font-weight: 500; line-height: inherit; white-space: nowrap; }
+.customer-app .customer-product-stock.is-low { color: #946018; }
 .menu-browser button, .menu-filter-panel button { font: inherit; cursor: pointer; }
 .menu-search-box { display: flex; align-items: center; gap: 12px; padding: 0 18px; min-height: 56px; border: 1px solid var(--cr-line); border-radius: 16px; background: white; color: var(--cr-green); }
 .menu-search-box input { min-width: 0; flex: 1; height: 54px; border: 0; outline: 0; background: transparent; color: var(--cr-ink); font: inherit; font-size: 16px; }
