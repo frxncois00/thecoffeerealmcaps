@@ -12,6 +12,8 @@ import { describeError } from '../utils/describeError'
 import { money } from '../utils/money'
 import { supabase } from '../lib/supabase'
 import { hasBellPurchaseOrderToast, pickPurchaseOrderUpdate } from '../utils/purchaseOrderRealtime'
+import { isPastPurchaseOrderDeliveryDate, purchaseOrderToday } from '../utils/purchaseOrderDates'
+import { blankPurchaseOrderLine, supplierOrderLines, suppliersForPurchaseItem } from '../utils/purchaseOrderSuppliers'
 import {
   approvePurchaseOrder, cancelPurchaseOrder, fetchPurchaseOrderOptions,
   fetchPurchaseOrders, fetchSuppliers, getPurchaseOrderDocumentUrl, markPurchaseOrderSent, receivePurchaseOrder, reportPurchaseOrderIssue, savePurchaseOrder, saveSupplier, uploadPurchaseOrderDocument,
@@ -34,7 +36,7 @@ const RECEIVING_UPLOAD_ACCEPT = '.jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xls
 
 function tableActionsFor(order, isAdmin) {
   if (isAdmin) {
-    if (order.status === 'pending_approval') return [{ label: 'Approve', type: 'approve' }, { label: 'Reject', type: 'reject' }]
+    if (order.status === 'pending_approval') return [{ label: 'Approve', type: 'approve' }, { label: 'Disapprove', type: 'reject' }]
     if (order.status === 'approved') return [{ label: 'Mark Sent', type: 'send' }]
     return []
   }
@@ -258,7 +260,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
     if (type === 'submit') setAction({ type: 'submit', title: 'Submit purchase order for approval', label: 'Submit for Approval', note: '' })
     if (type === 'receive' || type === 'report') { setReceivingIntent(type); setReceivingOpen(true) }
     if (type === 'approve') setAction({ type: 'approve', title: 'Approve purchase order', label: 'Approve', note: '' })
-    if (type === 'reject') setAction({ type: 'reject', title: 'Reject purchase order', label: 'Reject', note: '' })
+    if (type === 'reject') setAction({ type: 'reject', title: 'Disapprove purchase order', label: 'Disapprove', note: '' })
     if (type === 'send') setAction({ type: 'send', title: 'Mark as sent', label: 'Mark Sent', note: order.supplierReference || '' })
   }
   const lowStockItems = useMemo(() => options.filter(needsRestock), [options])
@@ -390,7 +392,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
       </section>
       <TablePagination page={currentPage} totalPages={pageCount} onPageChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} pageSizeOptions={[10, 25, 50]} total={filtered.length} label="Purchase order pages" />
 
-      {selectedId && selected ? <PurchaseOrderDrawer order={selected} isAdmin={isAdmin} onClose={() => setSelectedId('')} onEdit={() => openEdit(selected)} onSubmit={() => saveDraft({ ...emptyDraftFromOrder(selected), submit: true })} onApprove={() => setAction({ type: 'approve', title: 'Approve purchase order', label: 'Approve', note: '' })} onReject={() => setAction({ type: 'reject', title: 'Reject purchase order', label: 'Reject', note: '' })} onSend={() => setAction({ type: 'send', title: 'Mark as sent', label: 'Mark Sent', note: selected.supplierReference || '' })} onReceive={() => { setReceivingIntent('receive'); setReceivingOpen(true) }} onCancel={() => setAction({ type: 'cancel', title: 'Cancel purchase order', label: 'Cancel PO', note: '' })} /> : null}
+      {selectedId && selected ? <PurchaseOrderDrawer order={selected} isAdmin={isAdmin} onClose={() => setSelectedId('')} onEdit={() => openEdit(selected)} onSubmit={() => saveDraft({ ...emptyDraftFromOrder(selected), submit: true })} onApprove={() => setAction({ type: 'approve', title: 'Approve purchase order', label: 'Approve', note: '' })} onReject={() => setAction({ type: 'reject', title: 'Disapprove purchase order', label: 'Disapprove', note: '' })} onSend={() => setAction({ type: 'send', title: 'Mark as sent', label: 'Mark Sent', note: selected.supplierReference || '' })} onReceive={() => { setReceivingIntent('receive'); setReceivingOpen(true) }} onCancel={() => setAction({ type: 'cancel', title: 'Cancel purchase order', label: 'Cancel PO', note: '' })} /> : null}
 
       {formOpen ? <PurchaseOrderForm draft={draft} options={options.filter((option) => option.itemType === 'ingredient')} suppliers={suppliers} onClose={() => setFormOpen(false)} onSave={saveDraft} /> : null}
       {supplierOpen ? <SupplierModal options={options.filter((option) => option.itemType === 'ingredient')} suppliers={suppliers} onClose={() => setSupplierOpen(false)} onSave={async (payload) => { await saveSupplierRecord(payload); setSupplierOpen(false) }} /> : null}
@@ -408,7 +410,7 @@ function PurchaseOrderDrawer({ order, isAdmin, onClose, onEdit, onSubmit, onAppr
   const canEdit = !isAdmin && ['draft', 'rejected'].includes(order.status)
   const canSend = order.status === 'approved'
   const canReceive = !isAdmin && order.status === 'sent'
-  const canCancel = ['draft', 'pending_approval', 'approved', 'rejected'].includes(order.status)
+  const canCancel = !isAdmin && ['draft', 'pending_approval', 'approved', 'rejected'].includes(order.status)
   return <><button type="button" className="po-drawer-backdrop" onClick={onClose} aria-label="Close purchase order details" /><aside className="po-drawer" role="dialog" aria-modal="true" aria-label={`Purchase order ${order.po_number}`} onClick={(event) => event.stopPropagation()}>
     <header><button type="button" className="po-close" onClick={onClose} aria-label="Close purchase order"><X size={18} /></button><div className="po-drawer-title"><div><span>Purchase order</span><h2>{order.po_number}</h2></div><StatusBadge status={order.status} /></div></header>
     <div className="po-drawer-body">
@@ -424,7 +426,7 @@ function PurchaseOrderDrawer({ order, isAdmin, onClose, onEdit, onSubmit, onAppr
     <div className="po-actions po-drawer-actions">
       {canEdit ? <button type="button" className="ops-secondary-action" onClick={onEdit}>{order.status === 'rejected' ? 'Revise order' : 'Edit draft'}</button> : null}
       {canEdit ? <button type="button" className="ops-main-action" onClick={onSubmit}>Submit for approval</button> : null}
-      {isAdmin && order.status === 'pending_approval' ? <><button type="button" className="ops-destructive-action" onClick={onReject}>Reject</button><button type="button" className="ops-main-action" onClick={onApprove}>Approve</button></> : null}
+      {isAdmin && order.status === 'pending_approval' ? <><button type="button" className="ops-destructive-action" onClick={onReject}>Disapprove</button><button type="button" className="ops-main-action" onClick={onApprove}>Approve</button></> : null}
       {canSend ? <button type="button" className="ops-main-action" onClick={onSend}><Send size={15} /> Mark Sent</button> : null}
       {canReceive ? <button type="button" className="ops-main-action" onClick={onReceive}><PackageCheck size={15} /> Receive</button> : null}
       {canCancel ? <button type="button" className="ops-destructive-action" onClick={onCancel}>Cancel</button> : null}
@@ -520,10 +522,16 @@ function ActionModal({ action, onClose, onChange, onConfirm }) {
   async function perform(callback) { if (busy) return; setBusy(true); try { await callback() } finally { setBusy(false) } }
 
   const needsNote = ['reject', 'send', 'cancel'].includes(action.type)
-  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal" role="dialog" aria-modal="true" aria-label={action.title}><header><h2>{action.title}</h2><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header>{needsNote ? <Field label={action.type === 'send' ? 'Supplier reference' : action.type === 'reject' ? 'Rejection reason' : 'Note'} required={action.type === 'reject'}><textarea rows="3" value={action.note} onChange={(event) => onChange(event.target.value)} required={action.type === 'reject'} /></Field> : <p className="po-confirm-line">Confirm {action.title.toLowerCase()}.</p>}<footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="button" className={action.type === 'reject' || action.type === 'cancel' ? 'ops-destructive-action' : 'ops-main-action'} disabled={busy || (action.type === 'reject' && !action.note.trim())} onClick={() => perform(onConfirm)}>{busy ? 'Saving…' : action.label}</button></footer></section></div>
+  return <div className="po-modal-backdrop"><section className="po-modal po-action-modal" role="dialog" aria-modal="true" aria-label={action.title}><header><h2>{action.title}</h2><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header>{needsNote ? <Field label={action.type === 'send' ? 'Supplier reference' : action.type === 'reject' ? 'Disapproval reason' : 'Note'} required={action.type === 'reject'}><textarea rows="3" value={action.note} onChange={(event) => onChange(event.target.value)} required={action.type === 'reject'} /></Field> : <p className="po-confirm-line">Confirm {action.title.toLowerCase()}.</p>}<footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="button" className={action.type === 'reject' || action.type === 'cancel' ? 'ops-destructive-action' : 'ops-main-action'} disabled={busy || (action.type === 'reject' && !action.note.trim())} onClick={() => perform(onConfirm)}>{busy ? 'Saving…' : action.label}</button></footer></section></div>
 }
 function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
-  const [values, setValues] = useState(draft)
+  const [values, setValues] = useState(() => {
+    const supplier = suppliers.find((entry) => entry.name === draft.supplierName)
+    const hasSelectedItems = draft.items.some((item) => item.itemId)
+    return supplier && !draft.id && !hasSelectedItems
+      ? { ...draft, items: supplierOrderLines(supplier, options, (option) => unitChoices(option.unit)[0].value) }
+      : draft
+  })
   const [itemSearches, setItemSearches] = useState({})
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -531,24 +539,43 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
   const selectedSupplier = suppliers.find((supplier) => supplier.name === values.supplierName) || null
   const set = (key, value) => setValues((current) => ({ ...current, [key]: value }))
   const setLine = (index, key, value) => setValues((current) => ({ ...current, items: current.items.map((line, itemIndex) => itemIndex === index ? updatePurchaseLine(line, key, value) : line) }))
-  useEffect(() => {
-    const hasSelectedItems = values.items.some((item) => item.itemId)
-    const isBlankPlaceholder = values.items.length === 1 && !values.items[0].itemId
-    if (values.id || hasSelectedItems || !isBlankPlaceholder || !selectedSupplier?.items?.length) return
-    const savedItems = selectedSupplier.items.map((item) => {
-      const itemType = item.item_type === 'finished_product' ? 'finished_product' : 'ingredient'
-      const itemId = item.ingredient_id || item.finished_product_id
-      const option = options.find((entry) => entry.itemType === itemType && String(entry.id) === String(itemId))
-      return option ? { itemType: option.itemType, itemId: option.id, purchaseUnit: unitChoices(option.unit)[0].value, quantityOrdered: '', estimatedTotalCost: '' } : null
-    }).filter(Boolean)
-    if (savedItems.length) {
-      setValues((current) => ({ ...current, items: savedItems }))
-      setItemSearches({})
-    }
-  }, [options, selectedSupplier, values.id, values.items])
+  const chooseSupplier = (name) => {
+    const supplier = suppliers.find((entry) => entry.name === name)
+    setValues((current) => ({
+      ...current,
+      supplierName: name,
+      supplierContact: supplier?.contact || '',
+      items: supplierOrderLines(supplier, options, (option) => unitChoices(option.unit)[0].value),
+    }))
+    setItemSearches({})
+    setError('')
+  }
+  const chooseItem = (index, item) => {
+    const matches = suppliersForPurchaseItem(item, suppliers)
+    const supplier = matches.length === 1 ? matches[0] : null
+    const line = { ...blankPurchaseOrderLine(), itemType: item.itemType, itemId: item.id, purchaseUnit: unitChoices(item.unit)[0].value }
+    setValues((current) => ({
+      ...current,
+      supplierName: supplier?.name || (matches.length > 1 && !matches.some((entry) => entry.name === current.supplierName) ? '' : current.supplierName),
+      supplierContact: supplier ? supplier.contact || '' : (matches.length > 1 && !matches.some((entry) => entry.name === current.supplierName) ? '' : current.supplierContact),
+      items: supplier && current.supplierName !== supplier.name
+        ? [line]
+        : current.items.map((existing, lineIndex) => lineIndex === index ? line : existing),
+    }))
+    setItemSearches({})
+    if (matches.length > 1 && !matches.some((entry) => entry.name === values.supplierName)) {
+      setError('This item has multiple suppliers. Select the supplier you want to use.')
+    } else setError('')
+  }
   async function submit(event, shouldSubmit) {
     event.preventDefault(); setError('')
+    if (isPastPurchaseOrderDeliveryDate(values.requestedDeliveryDate)) { setError('Requested delivery date cannot be in the past.'); return }
     if (!values.supplierName.trim()) { setError('Select a supplier.'); return }
+    if (values.items.some((line) => {
+      const item = options.find((option) => option.id === line.itemId && option.itemType === line.itemType)
+      const matches = item ? suppliersForPurchaseItem(item, suppliers) : []
+      return matches.length > 1 && !matches.some((supplier) => supplier.name === values.supplierName)
+    })) { setError('Select a supplier linked to the chosen item.'); return }
     if (values.items.some((item) => !item.itemId)) { setError('Select an ingredient from the list for every line.'); return }
     if (values.items.some((item) => !item.purchaseUnit || (!Number.isFinite(Number(item.quantityOrdered)) || Number(item.quantityOrdered) <= 0) || item.estimatedTotalCost === '' || (!Number.isFinite(Number(item.estimatedTotalCost)) || Number(item.estimatedTotalCost) < 0))) { setError('Complete the unit, quantity, and total price for every item line.'); return }
     if (shouldSubmit) { setPreviewOpen(true); return }
@@ -563,21 +590,21 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
         <div className="po-create-grid">
           <section className="po-create-supplier">
             <div className="po-create-section-heading"><span>Supplier</span><h3>Select supplier</h3></div>
-            <Field label="Supplier" required><select value={values.supplierName} onChange={(event) => { const supplier = suppliers.find((entry) => entry.name === event.target.value); set('supplierName', event.target.value); set('supplierContact', supplier?.contact || '') }} required><option value="">Select supplier</option>{suppliers.map((supplier) => <option value={supplier.name} key={supplier.id}>{supplier.name}</option>)}<option value="Other">Other supplier</option></select></Field>
+            <Field label="Supplier" required><select value={values.supplierName} onChange={(event) => chooseSupplier(event.target.value)} required><option value="">Select supplier</option>{suppliers.map((supplier) => <option value={supplier.name} key={supplier.id}>{supplier.name}</option>)}<option value="Other">Other supplier</option></select></Field>
             <Field label="Contact number or email"><input value={values.supplierContact} onChange={(event) => set('supplierContact', event.target.value)} maxLength={120} /></Field>
             <div className="po-supplier-info">{selectedSupplier ? <><b>{selectedSupplier.name}</b><span>{selectedSupplier.contact || 'No contact saved'}</span><small>{selectedSupplier.items?.length || 0} saved supplied items</small></> : <span>Select a saved supplier to view contact and supply history.</span>}</div>
           </section>
           <section className="po-create-order">
             <div className="po-create-section-heading"><span>Purchase order</span><h3>Order information</h3></div>
-            <div className="po-form-grid"><Field label="Requested delivery"><input type="date" value={values.requestedDeliveryDate} onChange={(event) => set('requestedDeliveryDate', event.target.value)} /></Field></div>
-             <div className="po-section-heading"><div><h3>Items to order</h3><small>Suggested amounts round up to a practical purchase quantity. Price per unit uses the selected unit.</small></div><button type="button" className="ops-secondary-action compact" onClick={() => setValues((current) => ({ ...current, items: [...current.items, { itemType: 'ingredient', itemId: '', purchaseUnit: '', quantityOrdered: '', estimatedTotalCost: '' }] }))}><Plus size={14} /> Add line</button></div>
+            <div className="po-form-grid"><Field label="Requested delivery"><input type="date" min={purchaseOrderToday()} value={values.requestedDeliveryDate} onChange={(event) => set('requestedDeliveryDate', event.target.value)} /></Field></div>
+             <div className="po-section-heading"><div><h3>Items to order</h3><small>Suggested amounts round up to a practical purchase quantity. Price per unit uses the selected unit.</small></div><button type="button" className="ops-secondary-action compact" onClick={() => setValues((current) => ({ ...current, items: [...current.items, blankPurchaseOrderLine()] }))}><Plus size={14} /> Add line</button></div>
             <div className="po-order-columns" aria-hidden="true"><span>Item name</span><span>Unit</span><span>Quantity</span><span>Total price</span><span>Price / unit</span><span /></div>
             <div className="po-form-lines">{values.items.map((line, index) => {
               const selectedOption = options.find((option) => option.id === line.itemId && option.itemType === line.itemType)
               const choices = unitChoices(selectedOption?.unit)
               const purchaseUnit = line.purchaseUnit || selectedOption?.unit || ''
               return <div className="po-form-line po-order-line" key={`${index}-${line.itemId}`}>
-                <div className="po-line-item"><IngredientCombobox options={options.filter((option) => option.itemType === 'ingredient')} value={itemSearches[index] || selectedOption?.name || ''} placeholder="Select item" ariaLabel={`Select item for line ${index + 1}`} onChange={(value) => setItemSearches((current) => ({ ...current, [index]: value }))} onSelect={(item) => { setLine(index, 'itemType', item.itemType); setLine(index, 'itemId', item.id); setLine(index, 'purchaseUnit', unitChoices(item.unit)[0].value); setItemSearches((current) => ({ ...current, [index]: item.name })) }} /></div>
+                <div className="po-line-item"><IngredientCombobox options={options.filter((option) => option.itemType === 'ingredient')} value={itemSearches[index] ?? selectedOption?.name ?? ''} placeholder="Select item" ariaLabel={`Select item for line ${index + 1}`} onChange={(value) => setItemSearches((current) => ({ ...current, [index]: value }))} onSelect={(item) => chooseItem(index, item)} /></div>
                 <select value={purchaseUnit} onChange={(event) => {
                   const newUnit = event.target.value
                   setValues((current) => ({ ...current, items: current.items.map((item, itemIndex) => itemIndex === index

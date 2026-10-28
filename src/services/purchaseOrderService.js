@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { fetchIngredients } from './opsInventoryService'
+import { isPastPurchaseOrderDeliveryDate } from '../utils/purchaseOrderDates'
 
 function purchaseUnitFactor(baseUnit, purchaseUnit) {
   const base = String(baseUnit || '').toLowerCase()
@@ -47,6 +48,9 @@ export async function saveSupplier(payload) {
 }
 
 export async function savePurchaseOrder(payload) {
+  if (isPastPurchaseOrderDeliveryDate(payload.requestedDeliveryDate)) {
+    throw new Error('Requested delivery date cannot be in the past.')
+  }
   const { data, error } = await supabase.rpc('save_purchase_order', {
     p_id: payload.id || null,
     p_supplier_name: payload.supplierName,
