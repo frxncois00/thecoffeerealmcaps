@@ -23,11 +23,17 @@ import { useManagementSessionState } from '../hooks/useManagementSessionState'
 
 const PENDING_STATUSES = ['Order Received', 'Awaiting Payment Verification', 'Pending Confirmation']
 
-const COLUMNS = [
+const DELIVERY_COLUMNS = [
+  { key: 'pending', title: 'Pending', subtitle: 'Verify payment proofs', icon: Clock, tone: 'amber' },
+  { key: 'preparing', title: 'Preparing', subtitle: 'Orders being prepared', icon: Coffee, tone: 'blue' },
+  { key: 'ready', title: 'Ready for Delivery', subtitle: 'Prepared for delivery handoff', icon: Package, tone: 'green' },
+  { key: 'delivery', title: 'Out for Delivery', subtitle: 'Orders currently being delivered', icon: Bike, tone: 'teal' },
+]
+
+const PICKUP_COLUMNS = [
   { key: 'pending', title: 'Pending Confirmation', subtitle: 'Verify payment proofs', icon: Clock, tone: 'amber' },
   { key: 'preparing', title: 'Preparing', subtitle: 'Orders being prepared', icon: Coffee, tone: 'blue' },
-  { key: 'ready', title: 'Ready to Claim', subtitle: 'Customer pickup or delivery handoff', icon: Package, tone: 'green' },
-  { key: 'delivery', title: 'Out for Delivery', subtitle: 'Orders currently being delivered', icon: Bike, tone: 'teal' },
+  { key: 'ready', title: 'Ready to Claim', subtitle: 'Customer pickup or walk-in claim', icon: Package, tone: 'green' },
 ]
 
 const ORDER_TABS = ['active', 'completed', 'cancelled']
@@ -236,7 +242,7 @@ export default function OrderPreparationPage() {
 
   const [search, setSearch] = useState('')
   const [layoutView, setLayoutView] = useState('grid')
-  const [fulfillmentFilter, setFulfillmentFilter] = useState('all')
+  const [fulfillmentMode, setFulfillmentMode] = useState('pickup-walk-in')
   const [paymentFilter, setPaymentFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState(() => new Date().toLocaleDateString('en-CA'))
   const [sortBy, setSortBy] = useState('priority')
@@ -261,7 +267,7 @@ export default function OrderPreparationPage() {
         const remembered = getRememberedStaffFilters('orders')
         setActiveTab(initialNotificationCancellationRef.current ? 'cancelled' : normalizeOrderTab(remembered?.activeTab || preferences.order_queue))
         setSortBy(remembered?.sortBy || preferences.order_sort)
-        setFulfillmentFilter(remembered?.fulfillmentFilter || preferences.fulfillment_filter)
+        setFulfillmentMode(remembered?.fulfillmentMode === 'delivery' ? 'delivery' : 'pickup-walk-in')
         setRowsPerPage(Number(preferences.rows_per_page) || 25)
         if (remembered) {
           setSearch(initialNotificationCancellationRef.current?.orderNumber || remembered.search || '')
@@ -282,8 +288,8 @@ export default function OrderPreparationPage() {
 
   useEffect(() => {
     if (!filtersReady) return
-    rememberStaffFilters('orders', { activeTab, search, fulfillmentFilter, paymentFilter, dateFilter, sortBy })
-  }, [activeTab, dateFilter, filtersReady, fulfillmentFilter, paymentFilter, search, sortBy])
+    rememberStaffFilters('orders', { activeTab, search, fulfillmentMode, paymentFilter, dateFilter, sortBy })
+  }, [activeTab, dateFilter, filtersReady, fulfillmentMode, paymentFilter, search, sortBy])
 
   useEffect(() => {
     if (!notificationCancellation?.openedAt) return
@@ -599,7 +605,6 @@ export default function OrderPreparationPage() {
     const todayStr = now.toLocaleDateString('en-CA')
     const matchesFilters = (order, view) => {
       if (q && !`${order.order_number} ${getOrderCustomerName(order)} ${order.customer_name || ''} ${order.discount_customer_name || ''}`.toLowerCase().includes(q)) return false
-      if (fulfillmentFilter !== 'all' && order.order_type !== fulfillmentFilter) return false
       if (paymentFilter !== 'all' && paymentMethod(order) !== paymentFilter) return false
       if (view === 'active') {
         if (dateFilter && dateFilter !== todayStr && filterDateFor(order, view) !== dateFilter) return false
@@ -608,12 +613,17 @@ export default function OrderPreparationPage() {
       }
       return true
     }
+    const activeOrders = orders.filter((order) => matchesFilters(order, 'active') && !['completed', 'cancelled'].includes(stageOf(order)) && !cancellationRequested(order))
+    const activePickupOrders = activeOrders.filter((order) => ['pickup', 'walk-in'].includes(order.order_type))
+    const activeDeliveryOrders = activeOrders.filter((order) => order.order_type === 'delivery')
     return {
-      active: orders.filter((order) => matchesFilters(order, 'active') && !['completed', 'cancelled'].includes(stageOf(order)) && !cancellationRequested(order)),
+      active: fulfillmentMode === 'delivery' ? activeDeliveryOrders : activePickupOrders,
+      activePickupCount: activePickupOrders.length,
+      activeDeliveryCount: activeDeliveryOrders.length,
       completed: orders.filter((order) => matchesFilters(order, 'completed') && stageOf(order) === 'completed'),
       cancelled: orders.filter((order) => matchesFilters(order, 'cancelled') && (stageOf(order) === 'cancelled' || cancellationRequested(order))),
     }
-  }, [orders, search, fulfillmentFilter, paymentFilter, dateFilter, now])
+  }, [orders, search, fulfillmentMode, paymentFilter, dateFilter, now])
   const filtered = useMemo(() => filteredByTab[activeTab] || [], [filteredByTab, activeTab])
 
   const sorted = useMemo(() => {
@@ -633,17 +643,17 @@ export default function OrderPreparationPage() {
   }, [filtered, sortBy, activeTab])
   const tablePages = Math.max(1, Math.ceil(sorted.length / rowsPerPage))
   const tableOrders = sorted.slice((tablePage - 1) * rowsPerPage, tablePage * rowsPerPage)
-  useEffect(() => { setTablePage(1) }, [activeTab, search, fulfillmentFilter, paymentFilter, dateFilter, sortBy, rowsPerPage])
+  useEffect(() => { setTablePage(1) }, [activeTab, search, fulfillmentMode, paymentFilter, dateFilter, sortBy, rowsPerPage])
   useEffect(() => { if (tablePage > tablePages) setTablePage(tablePages) }, [tablePage, tablePages])
 
-  const activeColumns = useMemo(() => COLUMNS.map((col) => ({ ...col, orders: sorted.filter((o) => stageOf(o) === col.key) })), [sorted])
-  const selectedMobileStage = COLUMNS.some((column) => column.key === mobileStage) ? mobileStage : 'pending'
+  const activeColumns = useMemo(() => (fulfillmentMode === 'delivery' ? DELIVERY_COLUMNS : PICKUP_COLUMNS).map((col) => ({ ...col, orders: sorted.filter((o) => stageOf(o) === col.key) })), [sorted, fulfillmentMode])
+  const selectedMobileStage = activeColumns.some((column) => column.key === mobileStage) ? mobileStage : 'pending'
   const cancelledByCustomer = useMemo(() => sorted.filter((o) => stageOf(o) === 'cancelled' && !o.cancellation_resolved && !cancellationStartedByStaff(o)), [sorted])
   const cancelledByStaff = useMemo(() => sorted.filter((o) => !o.cancellation_resolved && cancellationStartedByStaff(o) && (stageOf(o) === 'cancelled' || cancellationRequested(o))), [sorted])
   const resolvedCancellations = useMemo(() => sorted.filter((o) => stageOf(o) === 'cancelled' && o.cancellation_resolved), [sorted])
   const cancellationRequests = useMemo(() => sorted.filter((o) => cancellationRequested(o) && !cancellationStartedByStaff(o)), [sorted])
 
-  const activeOrderCount = filteredByTab.active.length
+  const activeOrderCount = filteredByTab.activePickupCount + filteredByTab.activeDeliveryCount
   const completedOrderCount = filteredByTab.completed.length
   const cancelledOrderCount = filteredByTab.cancelled.length
   const today = now.toLocaleDateString('en-CA')
@@ -692,12 +702,17 @@ export default function OrderPreparationPage() {
           <span className="sr-only">Search orders</span>
           <input value={search} onChange={(e) => setSearch(e.target.value.slice(0, 100))} maxLength={100} placeholder="Search order number or customer name" />
         </label>
-        <label className="ops-toolbar-field"><span>Fulfillment</span><select value={fulfillmentFilter} onChange={(e) => setFulfillmentFilter(e.target.value)}><option value="all">All</option><option value="walk-in">Walk-in</option><option value="pickup">Pickup</option><option value="delivery">Delivery</option></select></label>
         <label className="ops-toolbar-field"><span>Payment method</span><select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}><option value="all">All methods</option><option value="cash">Cash</option><option value="gcash">GCash</option><option value="bank_transfer">Bank transfer</option><option value="cod">Cash on Delivery</option><option value="qrph">QRPh via PayMongo</option><option value="paymongo">PayMongo</option></select></label>
         <label className="ops-toolbar-field"><span>Date</span><select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}><option value="">All dates</option><option value={today}>Today</option><option value={yesterday}>Yesterday</option></select></label>
         <label className="ops-toolbar-field"><span>Sort by</span><select value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="scheduled">{activeTab === 'cancelled' ? 'Cancelled time' : 'Scheduled time'}</option><option value="priority">{activeTab === 'completed' ? 'Recently completed' : 'Lowest preparation time'}</option></select></label>
         <div className="ops-layout-toggle" role="group" aria-label="Order layout view"><button type="button" className={layoutView === 'grid' ? 'active' : ''} aria-label="Grid view" aria-pressed={layoutView === 'grid'} onClick={() => setLayoutView('grid')}><Grid2X2 size={17}/></button><button type="button" className={layoutView === 'table' ? 'active' : ''} aria-label="Table view" aria-pressed={layoutView === 'table'} onClick={() => setLayoutView('table')}><List size={19}/></button></div>
       </div>
+      {activeTab === 'active' && (
+        <div className="ops-fulfillment-toggle" role="group" aria-label="Fulfillment queue">
+          <button type="button" className={fulfillmentMode === 'pickup-walk-in' ? 'active' : ''} aria-pressed={fulfillmentMode === 'pickup-walk-in'} onClick={() => setFulfillmentMode('pickup-walk-in')}>Pick up &amp; Walk in <small className="ops-fulfillment-count">{filteredByTab.activePickupCount}</small></button>
+          <button type="button" className={fulfillmentMode === 'delivery' ? 'active' : ''} aria-pressed={fulfillmentMode === 'delivery'} onClick={() => setFulfillmentMode('delivery')}>Delivery <small className="ops-fulfillment-count">{filteredByTab.activeDeliveryCount}</small></button>
+        </div>
+      )}
       {activeTab === 'active' && <>
       {loading ? (
         <p className="customer-state">Loading orders…</p>
@@ -758,7 +773,7 @@ export default function OrderPreparationPage() {
       <section className="ops-cancellations">
         <div className="ops-cancellations-heading">
           <div><h2>Cancellations and Refunds</h2><p>Review payment-sensitive requests, then keep completed cancellation records.</p></div>
-          <span>{cancelledOrderCount} total</span>
+          <span><b>{cancelledOrderCount}</b> total</span>
         </div>
         {loading ? <p className="customer-state">Loading cancelled orders…</p> : layoutView === 'table' ? <><OrderTable orders={tableOrders} busyId={busyId} onView={setDrawerOrder} onMain={(order, action) => setConfirmAction({ order, ...action })} onCancel={setCancelTarget} /><OrderTablePagination total={sorted.length} page={tablePage} pages={tablePages} rowsPerPage={rowsPerPage} onPage={setTablePage} /></> : <div className="ops-cancel-groups">
           <CancellationRequestGroup orders={cancellationRequests} onView={setDrawerOrder} onReview={setReviewTarget} busyId={busyId} />
@@ -861,7 +876,7 @@ function OrderCard({ order, isNew = false, busy, onView, onMain, onCancel }) {
 
 function OrderTable({ orders, newOrderIds = new Set(), busyId, onView, onMain, onCancel }) {
   if (!orders.length) return <div className="ops-empty"><ShoppingBag size={20} /><span>No orders match these filters.</span></div>
-  return <div className="ops-order-table-wrap"><table className="ops-order-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th>Main action</th><th>Others</th></tr></thead><tbody>{orders.map((order) => { const main = mainActionFor(order); const isCancelBlocked = isOrderCancellationBlocked(order.status); const canCancel = stageOf(order) !== 'completed' && stageOf(order) !== 'cancelled' && !cancellationRequested(order); return <tr key={order.id} className={newOrderIds.has(order.id) ? 'is-new-order' : undefined}><td><b>{order.order_number}</b><small>{timeAgo(order.created_at)}</small></td><td>{getOrderCustomerName(order)}</td><td>{order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</td><td>{itemCount(order)}</td><td>{paymentMethodLabel(paymentMethod(order))}</td><td><span className={`ops-table-status ops-table-status--${orderStatusTone(orderDisplayStatus(order))}`}>{orderDisplayStatus(order)}</span></td><td><b>{money(order.final_total)}</b></td><td>{main && <button type="button" className="ops-main-action compact" disabled={busyId === order.id || main.disabled} onClick={() => onMain(order, main)}>{busyId === order.id ? 'Please wait…' : main.label}</button>}</td><td><div className="ops-table-actions"><button type="button" className="ops-secondary-action compact" onClick={() => onView(order)}>View details</button>{canCancel && <button type="button" className="ops-destructive-action compact" disabled={busyId === order.id || isCancelBlocked} title={isCancelBlocked ? CANNOT_CANCEL_IN_PROGRESS_REASON : undefined} onClick={isCancelBlocked ? undefined : () => onCancel(order)}>Cancel</button>}</div></td></tr>})}</tbody></table></div>
+  return <div className="ops-order-table-wrap"><table className="ops-order-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th>Main action</th><th>Others</th></tr></thead><tbody>{orders.map((order) => { const main = mainActionFor(order); const isCancelBlocked = isOrderCancellationBlocked(order.status); const canCancel = stageOf(order) !== 'completed' && stageOf(order) !== 'cancelled' && !cancellationRequested(order); return <tr key={order.id} className={newOrderIds.has(order.id) ? 'is-new-order' : undefined}><td><b>{order.order_number}</b><small>{timeAgo(order.created_at)}</small></td><td>{getOrderCustomerName(order)}</td><td>{order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</td><td>{itemCount(order)}</td><td>{paymentMethodLabel(paymentMethod(order))}</td><td><span className={`ops-table-status ops-table-status--${orderStatusTone(orderDisplayStatus(order))}`}>{order.status === 'Awaiting Payment Verification' ? 'For Payment Verification' : orderDisplayStatus(order)}</span></td><td><b>{money(order.final_total)}</b></td><td>{main && <button type="button" className="ops-main-action compact" disabled={busyId === order.id || main.disabled} onClick={() => onMain(order, main)}>{busyId === order.id ? 'Please wait…' : main.label}</button>}</td><td><div className="ops-table-actions"><button type="button" className="ops-secondary-action compact" onClick={() => onView(order)}>View details</button>{canCancel && <button type="button" className="ops-destructive-action compact" disabled={busyId === order.id || isCancelBlocked} title={isCancelBlocked ? CANNOT_CANCEL_IN_PROGRESS_REASON : undefined} onClick={isCancelBlocked ? undefined : () => onCancel(order)}>Cancel</button>}</div></td></tr>})}</tbody></table></div>
 }
 
 function OrderTablePagination({ total, page, pages, rowsPerPage, onPage }) {
@@ -1146,7 +1161,7 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
             <div className="ops-order-hero">
               <div className="ops-order-hero-top">
                 <div><span>Order total</span><strong>{money(order.final_total)}</strong></div>
-                <span className={`ops-order-hero-status ops-order-hero-status--${orderStatusTone(orderDisplayStatus(order))}`}>{orderDisplayStatus(order)}</span>
+                <span className={`ops-order-hero-status ops-order-hero-status--${orderStatusTone(orderDisplayStatus(order))}`}>{order.status === 'Awaiting Payment Verification' ? 'For Payment Verification' : orderDisplayStatus(order)}</span>
               </div>
               <dl className="ops-order-hero-facts">
                 <div><dt>{fulfillmentName}</dt><dd>{scheduleLabel(order)}</dd></div>

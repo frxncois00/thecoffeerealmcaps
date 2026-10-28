@@ -7,7 +7,6 @@ import { allowsSpecialInstructions } from '../hooks/useProductCustomization'
 import { uniqueAddons } from '../utils/menuAddons'
 import { lockBodyScroll, unlockBodyScroll } from '../utils/bodyScrollLock'
 import { sanitizeCustomerText } from '../utils/inputValidation'
-import { useAvailableQuantity } from '../hooks/useAvailableQuantity'
 
 export default function ProductCustomizationModal({ product, onClose, onAdd, variant = '' }) {
   const closeButtonRef = useRef(null)
@@ -62,13 +61,6 @@ export default function ProductCustomizationModal({ product, onClose, onAdd, var
   const variations = product.variations || []
   const temperatures = product.temperatures || []
   const variation = variations.find((v) => v.id === (variationId || variations[0]?.id)) || null
-  const selectedVariationId = variation?.id || null
-  const stock = useAvailableQuantity(product.id, selectedVariationId)
-  const displayedStock = useAvailableQuantity(product.available ? product.id : null, selectedVariationId, 99, false)
-
-  useEffect(() => {
-    if (stock.limit > 0) setQuantity((current) => Math.min(current, stock.limit))
-  }, [stock.limit])
   const selectedTemperature = temperature || temperatures[0] || ''
   const isCold = /cold|iced/i.test(selectedTemperature)
   const applicableAddons = product.allowAddons
@@ -83,7 +75,7 @@ export default function ProductCustomizationModal({ product, onClose, onAdd, var
     setAddons((current) => (current.some((x) => x.id === addon.id) ? current.filter((x) => x.id !== addon.id) : [...current, addon]))
 
   const confirm = () => {
-    if (submittedRef.current || stock.loading || stock.error || stock.limit === null || quantity > stock.limit) return
+    if (submittedRef.current) return
     submittedRef.current = true
     onAdd({
       productId: product.id,
@@ -119,12 +111,7 @@ export default function ProductCustomizationModal({ product, onClose, onAdd, var
         <div className="customize-modal-head customize-modal-visual">
           <img src={product.image} alt={product.name} />
           <div>
-            <div className="customize-modal-meta">
-              <span className="payment-modal-kicker">{product.category}</span>
-              {product.available && <small className={`customize-stock-count${displayedStock.limit > 0 && displayedStock.limit <= 5 ? ' is-low' : ''}`} role="status" aria-live="polite">
-                {displayedStock.loading ? '' : displayedStock.error ? 'Stock check unavailable' : displayedStock.limit === 0 ? 'Out of stock' : displayedStock.limit <= 5 ? `Only ${displayedStock.limit} left` : `${displayedStock.limit === 99 ? '99+' : displayedStock.limit} available`}
-              </small>}
-            </div>
+            <span className="payment-modal-kicker">{product.category}</span>
             <div className="customize-product-title-row">
               <h2 id="customize-modal-title">{product.name}</h2>
               <strong className="customize-product-price">{money(unitPrice)}</strong>
@@ -178,12 +165,12 @@ export default function ProductCustomizationModal({ product, onClose, onAdd, var
                 <Minus />
               </button>
               <b key={quantity} className="customize-quantity-value" aria-live="polite">{quantity}</b>
-              <button type="button" onClick={() => setQuantity((q) => Math.min(99, stock.limit ?? 99, q + 1))} disabled={stock.loading || stock.error || quantity >= Math.min(99, stock.limit ?? 0)} aria-label="Increase quantity">
+              <button type="button" onClick={() => setQuantity((q) => Math.min(99, q + 1))} disabled={quantity === 99} aria-label="Increase quantity">
                 <Plus />
               </button>
             </div>
           </div>
-          <button className="primary-button" type="button" onClick={confirm} disabled={stock.loading || stock.error || stock.limit === null || stock.limit === 0 || quantity > stock.limit}>
+          <button className="primary-button" type="button" onClick={confirm}>
             <ShoppingBag size={18} /> Add to Cart · <span aria-live="polite">{money(total)}</span>
           </button>
         </div>

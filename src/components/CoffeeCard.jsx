@@ -1,8 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { motion, useMotionValue, useSpring } from 'framer-motion'
 import { motionTokens } from '../motion/config'
-import { menuStartingPrice } from '../utils/menuFilters'
-import { money } from '../utils/money'
 
 export default function CoffeeCard({ id, item, index, count, offset, isActive, revealed, enabled, ambient, compact, onSelect, onChoose }) {
   const safeOffset = Number.isFinite(offset) ? offset : 0
@@ -17,7 +15,6 @@ export default function CoffeeCard({ id, item, index, count, offset, isActive, r
   const rotateY = useSpring(tiltY, { stiffness: 180, damping: 26 })
   const isWrapping = Math.abs(previousOffset.current - safeOffset) > 1
   const movementDuration = enabled && !isWrapping ? motionTokens.duration.base : 0
-  const startingPrice = menuStartingPrice(item)
 
   useEffect(() => { previousOffset.current = safeOffset }, [safeOffset])
 
@@ -88,16 +85,12 @@ export default function CoffeeCard({ id, item, index, count, offset, isActive, r
       <div className="coffee-card-body">
         <h3>{item.name}</h3>
         {item.description && <p>{item.description}</p>}
-        {Number.isFinite(startingPrice) && <strong className="coffee-card-price">
-          {item.variations?.length ? 'From ' : ''}{money(startingPrice)}
-        </strong>}
       </div>
       <motion.div className="coffee-card-shade" aria-hidden="true"
         initial={false} animate={{ opacity: 1 - cardOpacity }}
         transition={{ duration: enabled ? motionTokens.duration.base : 0.15 }} />
-      <button className="coffee-card-action" type="button" tabIndex={isActive && item.available ? 0 : -1}
-        disabled={isActive && !item.available}
-        aria-label={isActive && !item.available ? `${item.name} unavailable` : `${isActive ? 'View' : 'Show'} ${item.name}`}
+      <button className="coffee-card-action" type="button" tabIndex={isActive ? 0 : -1}
+        aria-label={`${isActive ? 'View' : 'Show'} ${item.name}`}
         onClick={() => {
           if (isActive) onChoose?.(item)
           else onSelect(safeOffset)

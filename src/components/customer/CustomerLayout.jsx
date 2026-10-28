@@ -288,71 +288,13 @@ export default function CustomerLayout() {
   )
 }
 
-function CartQuantityControl({ item, cart }) {
-  const [draft, setDraft] = useState(String(item.quantity))
-  const controlsRef = useRef(null)
-  const skipCommitRef = useRef(false)
-
-  useEffect(() => { setDraft(String(item.quantity)) }, [item.quantity])
-
-  const commit = (value) => {
-    const quantity = Number(value)
-    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
-      setDraft(String(item.quantity))
-      return
-    }
-    setDraft(String(quantity))
-    if (quantity !== item.quantity) {
-      void cart.updateQuantity(item.lineId, quantity).then((result) => {
-        if (!result?.ok) setDraft(String(item.quantity))
-      })
-    }
-  }
-
-  const adjust = (amount) => {
-    const base = /^\d+$/.test(draft) && Number(draft) >= 1 ? Number(draft) : item.quantity
-    if (base + amount === 0) {
-      void cart.updateQuantity(item.lineId, 0)
-      return
-    }
-    commit(Math.min(99, base + amount))
-  }
-
-  return <div className="drawer-quantity-controls" ref={controlsRef}>
-    <button type="button" onClick={() => adjust(-1)} aria-label={`Decrease ${item.name}`} disabled={item.available === false || cart.checkingAvailability}><Minus /></button>
-    <input
-      type="text"
-      inputMode="numeric"
-      pattern="[0-9]*"
-      maxLength={2}
-      value={draft}
-      onChange={(event) => { if (/^\d{0,2}$/.test(event.target.value)) setDraft(event.target.value) }}
-      onBlur={(event) => {
-        if (skipCommitRef.current) { skipCommitRef.current = false; return }
-        if (!controlsRef.current?.contains(event.relatedTarget)) commit(draft)
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') event.currentTarget.blur()
-        if (event.key === 'Escape') {
-          skipCommitRef.current = true
-          setDraft(String(item.quantity))
-          event.currentTarget.blur()
-        }
-      }}
-      aria-label={`Quantity for ${item.name}`}
-      disabled={item.available === false || cart.checkingAvailability}
-    />
-    <button type="button" onClick={() => adjust(1)} aria-label={`Increase ${item.name}`} disabled={item.available === false || cart.checkingAvailability}><Plus /></button>
-  </div>
-}
-
 function CartDrawer({ cart, user }) {
   const [confirmClear, setConfirmClear] = useState(false)
   const [authPromptOpen, setAuthPromptOpen] = useState(false)
   const [proceeding, setProceeding] = useState(false)
   const { pricing } = usePricing()
   const navigate = useNavigate()
-  const { baseAmount, vatAmount, totalAmount } = vatBreakdownFromInclusiveAmount(cart.subtotal, pricing.vatRate, pricing.pricesIncludeVat)
+  const { baseAmount, vatAmount } = vatBreakdownFromInclusiveAmount(cart.subtotal, pricing.vatRate, pricing.pricesIncludeVat)
   const clear = () => { cart.clearCart(); setConfirmClear(false) }
   const proceedToCheckout = async () => {
     if (proceeding) return
@@ -411,7 +353,9 @@ function CartDrawer({ cart, user }) {
                 {item.addons?.length > 0 && <small>{item.addons.map((addon) => addon.name).join(', ')}</small>}
                 <strong>{money((item.unitPrice + (item.addons || []).reduce((sum, addon) => sum + addon.price, 0)) * item.quantity)}</strong>
                 <div className="drawer-item-actions">
-                  <CartQuantityControl item={item} cart={cart} />
+                  <button onClick={() => cart.updateQuantity(item.lineId, item.quantity - 1)} aria-label={`Decrease ${item.name}`} disabled={item.available===false}><Minus /></button>
+                  <b>{item.quantity}</b>
+                  <button onClick={() => cart.updateQuantity(item.lineId, item.quantity + 1)} aria-label={`Increase ${item.name}`} disabled={item.available===false||cart.checkingAvailability}><Plus /></button>
                   <button className="remove-line" onClick={() => cart.removeItem(item.lineId)} aria-label={`Remove ${item.name}`}><Trash2 /></button>
                 </div>
               </div>
@@ -421,8 +365,7 @@ function CartDrawer({ cart, user }) {
         {cart.availabilityError&&<p className="drawer-availability-warning" role="alert">{cart.availabilityError}</p>}
         {cart.items.length > 0 && (
           <footer>
-            <div className="drawer-total-row"><span>Total</span><strong>{money(totalAmount)}</strong></div>
-            <div className="drawer-base-row"><span>VATable Sale</span><b>{money(baseAmount)}</b></div>
+            <div><span>VATable Sale</span><b>{money(baseAmount)}</b></div>
             <div className="customer-vat-row"><span>{formatVatRate(pricing.vatRate)} VAT</span><b>{money(vatAmount)}</b></div>
             <p>Delivery fees and discounts are calculated during checkout.</p>
             {cart.unavailableItems.length>0&&<p className="drawer-availability-warning" role="alert">Remove {cart.unavailableItems.length} unavailable item{cart.unavailableItems.length===1?'':'s'} before checkout.</p>}
