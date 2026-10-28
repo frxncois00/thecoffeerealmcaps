@@ -369,12 +369,12 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
             {authError && mode === 'login' ? <AuthNotice variant="error" message={authError} /> : null}
             {authMessage && mode === 'login' ? <AuthNotice variant="success" message={authMessage} /> : null}
             <label className="legacy-auth-input">
-              <span>Username or email</span>
-              <div><User size={19} /><input name="identifier" type="text" maxLength={EMAIL_MAX_LENGTH} autoComplete="username" placeholder="Enter your username or email" onInput={(event) => { event.currentTarget.value = sanitizeEmail(event.currentTarget.value) }} /></div>
+              <span>Username or email <b className="required-mark" aria-hidden="true">*</b></span>
+              <div><User size={19} /><input name="identifier" type="text" maxLength={EMAIL_MAX_LENGTH} autoComplete="username" aria-required="true" placeholder="Enter your username or email" onInput={(event) => { event.currentTarget.value = sanitizeEmail(event.currentTarget.value) }} /></div>
             </label>
             <label className="legacy-auth-input">
-              <span>Password</span>
-              <div><Lock size={19} /><input name="password" type={showLoginPassword ? 'text' : 'password'} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" placeholder="Enter your password" /><button type="button" aria-label="Toggle password visibility" onClick={() => setShowLoginPassword((value) => !value)}>{showLoginPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
+              <span>Password <b className="required-mark" aria-hidden="true">*</b></span>
+              <div><Lock size={19} /><input name="password" type={showLoginPassword ? 'text' : 'password'} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" aria-required="true" placeholder="Enter your password" /><button type="button" aria-label="Toggle password visibility" onClick={() => setShowLoginPassword((value) => !value)}>{showLoginPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
             </label>
             <div className="auth-login-options">
               <label><input type="checkbox" checked={rememberMe} onChange={event => setRememberMe(event.target.checked)} disabled={loading || googleLoading} />Remember me</label>
@@ -395,11 +395,11 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
             {authError && mode === 'register' ? <AuthNotice variant="error" message={authError} /> : null}
             {authMessage && mode === 'register' ? <AuthNotice variant="success" message={authMessage} /> : null}
             <label className="legacy-auth-input">
-              <span>Email address</span>
-              <div><Mail size={19} /><input name="email" type="email" maxLength={EMAIL_MAX_LENGTH} autoComplete="email" placeholder="Enter your email" onInput={(event) => { event.currentTarget.value = sanitizeEmail(event.currentTarget.value) }} /></div>
+              <span>Email address <b className="required-mark" aria-hidden="true">*</b></span>
+              <div><Mail size={19} /><input name="email" type="email" maxLength={EMAIL_MAX_LENGTH} autoComplete="email" aria-required="true" placeholder="Enter your email" onInput={(event) => { event.currentTarget.value = sanitizeEmail(event.currentTarget.value) }} /></div>
             </label>
             <label className="legacy-auth-input">
-              <span>Password</span>
+              <span>Password <b className="required-mark" aria-hidden="true">*</b></span>
               <div><Lock size={19} /><input name="password" type={showRegisterPassword ? 'text' : 'password'} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" placeholder="Create a password" autoComplete="new-password" aria-describedby="registration-password-hint" required /><button type="button" aria-label="Toggle password visibility" onClick={() => setShowRegisterPassword((value) => !value)}>{showRegisterPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
               <small id="registration-password-hint" className="registration-password-hint">Use 8–32 characters with at least 1 number.</small>
             </label>
@@ -432,7 +432,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
         {forgotStep === 'email' ? <form onSubmit={submitForgotPassword}>
           <p>Enter your account email and we will send a 6-digit password reset code.</p>
           {authError ? <AuthNotice variant="error" message={authError} /> : null}
-          <label className="legacy-auth-input"><span>Email address</span><div><Mail size={19} /><input type="email" value={forgotEmail} maxLength={EMAIL_MAX_LENGTH} onChange={(event) => setForgotEmail(sanitizeEmail(event.target.value))} placeholder="Enter your email" /></div></label>
+          <label className="legacy-auth-input"><span>Email address <b className="required-mark" aria-hidden="true">*</b></span><div><Mail size={19} /><input type="email" value={forgotEmail} maxLength={EMAIL_MAX_LENGTH} aria-required="true" onChange={(event) => setForgotEmail(sanitizeEmail(event.target.value))} placeholder="Enter your email" /></div></label>
           <button type="submit" className="legacy-auth-submit" disabled={loading || googleLoading}>{loading ? 'SENDING...' : 'SEND OTP CODE'}</button>
         </form> : null}
         {forgotStep === 'otp' ? <div>
@@ -447,8 +447,8 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
         {forgotStep === 'password' ? <form onSubmit={submitNewPassword}>
           <p>Your code is verified. Create a new password for your account.</p>
           {authError ? <AuthNotice variant="error" message={authError} /> : null}
-          <label className="legacy-auth-input"><span>New password</span><div><Lock size={19} /><input type="password" value={newPassword} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" onChange={(event) => setNewPassword(event.target.value.slice(0, 32))} placeholder="Enter new password" /></div></label>
-          <label className="legacy-auth-input"><span>Confirm new password</span><div><Lock size={19} /><input type="password" value={confirmPassword} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" onChange={(event) => setConfirmPassword(event.target.value.slice(0, 32))} placeholder="Repeat new password" /></div></label>
+          <label className="legacy-auth-input"><span>New password <b className="required-mark" aria-hidden="true">*</b></span><div><Lock size={19} /><input type="password" value={newPassword} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" aria-required="true" onChange={(event) => setNewPassword(event.target.value.slice(0, 32))} placeholder="Enter new password" /></div></label>
+          <label className="legacy-auth-input"><span>Confirm new password <b className="required-mark" aria-hidden="true">*</b></span><div><Lock size={19} /><input type="password" value={confirmPassword} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" aria-required="true" onChange={(event) => setConfirmPassword(event.target.value.slice(0, 32))} placeholder="Repeat new password" /></div></label>
           <p className="legacy-auth-hint">Use 8–32 characters with at least 1 number.</p>
           <button type="submit" className="legacy-auth-submit" disabled={loading || googleLoading}>{loading ? 'UPDATING...' : 'UPDATE PASSWORD'}</button>
         </form> : null}
