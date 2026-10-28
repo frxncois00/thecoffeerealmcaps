@@ -51,7 +51,7 @@ export default function BirthDatePicker({ value, onChange, min = '1900-01-01', m
   const canGoForward = new Date(view.getFullYear(), view.getMonth() + 1, 1) <= new Date(maxDate.getFullYear(), maxDate.getMonth(), 1)
 
   return <div className="onboarding-field birthdate-field" ref={root}>
-    <label htmlFor={id}>Birthdate <b className="required-mark" aria-hidden="true">*</b><span className="sr-only"> required</span></label>
+    <label htmlFor={id}>Birthdate</label>
     <button id={id} className="birthdate-trigger" type="button" aria-haspopup="dialog" aria-expanded={open} onClick={() => setOpen(current => !current)}>
       <CalendarDays size={19}/><span className={value ? '' : 'is-placeholder'}>{displayDate(value) || 'Choose your birthdate'}</span><span className="birthdate-trigger-caret">▾</span>
     </button>

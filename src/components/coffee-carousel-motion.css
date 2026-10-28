@@ -53,7 +53,6 @@
   color: #173b2a;
   height: 400px;
 }
-.coffee-carousel-polished .coffee-card-image { height: 225px; }
 .coffee-carousel-polished .coffee-card-body p {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -66,14 +65,6 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
-}
-.coffee-carousel-polished .coffee-card-price {
-  display: block;
-  margin-top: 12px;
-  color: #173b2a;
-  font-size: 1rem;
-  font-weight: 750;
-  line-height: 1.2;
 }
 /* Fade toward the section color without exposing the cards behind this one. */
 .coffee-carousel-polished .coffee-card-shade {
@@ -98,7 +89,6 @@
   cursor: pointer;
   touch-action: pan-y pinch-zoom;
 }
-.coffee-carousel-polished .coffee-card-action:disabled { cursor: default; }
 .coffee-carousel-polished .coffee-card-image img,
 .coffee-carousel-polished .coffee-card:hover .coffee-card-image img {
   object-fit: contain;
@@ -212,11 +202,10 @@
     box-shadow: 0 14px 24px rgba(23, 59, 42, 0.12);
   }
   .coffee-carousel-polished .coffee-card-active { box-shadow: 0 18px 28px rgba(23, 59, 42, 0.2); }
-  .coffee-carousel-polished .coffee-card-image { height: 180px; }
+  .coffee-carousel-polished .coffee-card-image { height: auto; aspect-ratio: 340 / 260; }
   .coffee-carousel-polished .coffee-card-body { padding: 18px 18px 20px; }
   .coffee-carousel-polished .coffee-card-body h3 { font-size: 1.08rem; }
   .coffee-carousel-polished .coffee-card-body p { font-size: 0.8rem; }
-  .coffee-carousel-polished .coffee-card-price { margin-top: 9px; font-size: 0.92rem; }
   .coffee-carousel-polished .coffee-carousel-window { bottom: 84px; }
   .coffee-carousel-polished .coffee-carousel-track { height: calc(100% + 84px); }
   .coffee-carousel.coffee-carousel-polished[data-motion] .coffee-carousel-nav { top: 43%; }

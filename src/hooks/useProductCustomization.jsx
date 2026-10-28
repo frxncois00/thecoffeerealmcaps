@@ -28,7 +28,6 @@ export function useProductCustomization({ alwaysCustomize = false, modalVariant 
   const triggerRef = useRef(null)
 
   const openProduct = (item, trigger = document.activeElement) => {
-    if (item.available === false) return
     triggerRef.current = trigger
     setProduct(item)
   }
@@ -46,7 +45,6 @@ export function useProductCustomization({ alwaysCustomize = false, modalVariant 
   }
 
   const addToCart = (item) => {
-    if (item.available === false) return
     if (alwaysCustomize || needsCustomization(item) || allowsSpecialInstructions(item)) {
       openProduct(item)
       return
