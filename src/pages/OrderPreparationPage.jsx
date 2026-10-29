@@ -1,3 +1,6 @@
+import { DeliveryCompletionDialog } from '../components/delivery/DeliveryDialogs'
+import { dispatchDelivery } from '../services/deliveryChatService'
+import { dispatchNeedsTracking } from '../utils/deliveryChat'
 import TablePagination from '../components/TablePagination'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -462,8 +465,10 @@ export default function OrderPreparationPage() {
           if (cleanTrackingUrl && !/^https?:\/\/\S+$/i.test(cleanTrackingUrl)) throw new Error('Enter a valid HTTP or HTTPS tracking link.')
           trackingUrl = cleanTrackingUrl
         }
-        await advanceOrderStatus(order.id, next)
-        if (next === 'Out for Delivery' && trackingUrl) await saveOrderTrackingLink(order.id, trackingUrl)
+        if (next === 'Out for Delivery') {
+          const dispatched = await dispatchDelivery(order.id, dispatchNeedsTracking(order) ? trackingUrl : null)
+          trackingUrl = dispatched.tracking_url
+        } else await advanceOrderStatus(order.id, next)
         dismissOrderNotification(order.id)
         patchOrder(order.id, { status: next, ...(next === 'Out for Delivery' && trackingUrl ? { tracking_url: trackingUrl } : {}) })
         pushToast('success', `${order.order_number} is now ${orderDisplayStatus({ ...order, status: next })}.`)
@@ -796,8 +801,9 @@ export default function OrderPreparationPage() {
           busy={busyId === drawerOrder.id} />
       )}
 
-      {confirmAction && (
+      {confirmAction && (confirmAction.kind === 'delivery-proof' ? <DeliveryCompletionDialog order={confirmAction.order} onClose={()=>setConfirmAction(null)} onDone={result=>{patchOrder(confirmAction.order.id,{delivery_confirmation_deadline:result.deadline,delivery_confirmation_started_at:new Date().toISOString()});setConfirmAction(null);pushToast('success','Delivery confirmation sent. The customer has 1 hour to respond.')}}/> :
         <ConfirmModal
+          order={confirmAction.order}
           title={confirmAction.label}
           message={`Are you sure you want to ${confirmAction.label.toLowerCase()} for ${confirmAction.order.order_number}?`}
           busy={busyId === confirmAction.order.id}
@@ -858,7 +864,7 @@ function OrderCard({ order, isNew = false, busy, onView, onMain, onCancel }) {
         )}
         <div className="ops-card-actions-row">
           <button type="button" className="ops-secondary-action" onClick={onView}>View Details</button>
-          {canCancel && (
+          {stage === 'delivery' && order.order_type === 'delivery' ? <button type="button" className="ops-main-action" disabled={busy||Boolean(order.delivery_confirmation_deadline)} onClick={()=>onMain({kind:'delivery-proof',label:'Complete delivery'})}>{order.delivery_confirmation_deadline?'Awaiting confirmation':'Complete'}</button> : canCancel && (
             <button
               type="button"
               className="ops-destructive-action"
@@ -877,7 +883,7 @@ function OrderCard({ order, isNew = false, busy, onView, onMain, onCancel }) {
 
 function OrderTable({ orders, newOrderIds = new Set(), busyId, onView, onMain, onCancel }) {
   if (!orders.length) return <div className="ops-empty"><ShoppingBag size={20} /><span>No orders match these filters.</span></div>
-  return <div className="ops-order-table-wrap"><table className="ops-order-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th>Main action</th><th>Others</th></tr></thead><tbody>{orders.map((order) => { const main = mainActionFor(order); const isCancelBlocked = isOrderCancellationBlocked(order.status); const canCancel = stageOf(order) !== 'completed' && stageOf(order) !== 'cancelled' && !cancellationRequested(order); return <tr key={order.id} className={newOrderIds.has(order.id) ? 'is-new-order' : undefined}><td><b>{order.order_number}</b><small>{timeAgo(order.created_at)}</small></td><td>{getOrderCustomerName(order)}</td><td>{order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</td><td>{itemCount(order)}</td><td>{paymentMethodLabel(paymentMethod(order))}</td><td><span className={`ops-table-status ops-table-status--${orderStatusTone(orderDisplayStatus(order))}`}>{order.status === 'Awaiting Payment Verification' ? 'For Payment Verification' : orderDisplayStatus(order)}</span></td><td><b>{money(order.final_total)}</b></td><td>{main && <button type="button" className="ops-main-action compact" disabled={busyId === order.id || main.disabled} onClick={() => onMain(order, main)}>{busyId === order.id ? 'Please wait…' : main.label}</button>}</td><td><div className="ops-table-actions"><button type="button" className="ops-secondary-action compact" onClick={() => onView(order)}>View details</button>{canCancel && <button type="button" className="ops-destructive-action compact" disabled={busyId === order.id || isCancelBlocked} title={isCancelBlocked ? CANNOT_CANCEL_IN_PROGRESS_REASON : undefined} onClick={isCancelBlocked ? undefined : () => onCancel(order)}>Cancel</button>}</div></td></tr>})}</tbody></table></div>
+  return <div className="ops-order-table-wrap"><table className="ops-order-table"><thead><tr><th>Order</th><th>Customer</th><th>Fulfillment</th><th>Items</th><th>Payment</th><th>Status</th><th>Total</th><th>Main action</th><th>Others</th></tr></thead><tbody>{orders.map((order) => { const main = mainActionFor(order); const isCancelBlocked = isOrderCancellationBlocked(order.status); const canCancel = stageOf(order) !== 'completed' && stageOf(order) !== 'cancelled' && !cancellationRequested(order); return <tr key={order.id} className={newOrderIds.has(order.id) ? 'is-new-order' : undefined}><td><b>{order.order_number}</b><small>{timeAgo(order.created_at)}</small></td><td>{getOrderCustomerName(order)}</td><td>{order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</td><td>{itemCount(order)}</td><td>{paymentMethodLabel(paymentMethod(order))}</td><td><span className={`ops-table-status ops-table-status--${orderStatusTone(orderDisplayStatus(order))}`}>{order.status === 'Awaiting Payment Verification' ? 'For Payment Verification' : orderDisplayStatus(order)}</span></td><td><b>{money(order.final_total)}</b></td><td>{main && <button type="button" className="ops-main-action compact" disabled={busyId === order.id || main.disabled} onClick={() => onMain(order, main)}>{busyId === order.id ? 'Please wait…' : main.label}</button>}</td><td><div className="ops-table-actions"><button type="button" className="ops-secondary-action compact" onClick={() => onView(order)}>View details</button>{stageOf(order)==='delivery'&&order.order_type==='delivery'?<button type="button" className="ops-main-action compact" disabled={busyId===order.id||Boolean(order.delivery_confirmation_deadline)} onClick={()=>onMain(order,{kind:'delivery-proof',label:'Complete delivery'})}>{order.delivery_confirmation_deadline?'Awaiting confirmation':'Complete'}</button>:canCancel && <button type="button" className="ops-destructive-action compact" disabled={busyId === order.id || isCancelBlocked} title={isCancelBlocked ? CANNOT_CANCEL_IN_PROGRESS_REASON : undefined} onClick={isCancelBlocked ? undefined : () => onCancel(order)}>Cancel</button>}</div></td></tr>})}</tbody></table></div>
 }
 
 function OrderTablePagination({ total, page, pages, rowsPerPage, onPage }) {
@@ -968,13 +974,13 @@ function CancellationRequestGroup({ orders, onView, onReview, busyId }) {
   )
 }
 
-function ConfirmModal({ title, message, busy, onCancel, onConfirm }) {
+function ConfirmModal({ order, title, message, busy, onCancel, onConfirm }) {
   const [trackingUrl, setTrackingUrl] = useState('')
   const [trackingError, setTrackingError] = useState('')
-  const isDeliveryAction = title === 'Mark Out for Delivery'
+  const isDeliveryAction = title === 'Mark Out for Delivery' && dispatchNeedsTracking(order)
   const validateTrackingUrl = (value) => {
     const cleanValue = value.trim()
-    if (!cleanValue) return ''
+    if (!cleanValue) return 'Enter the rider tracking link.'
     if (!/^https?:\/\/\S+$/i.test(cleanValue)) return 'Enter a valid HTTP or HTTPS tracking link.'
     return ''
   }
@@ -994,7 +1000,7 @@ function ConfirmModal({ title, message, busy, onCancel, onConfirm }) {
         <span className="payment-modal-kicker">Confirm action</span>
         <h2 id="ops-confirm-title">{title}</h2>
         <p>{message}</p>
-        {isDeliveryAction && <label className="field"><span>Delivery tracking link (optional)</span><input type="url" value={trackingUrl} aria-invalid={Boolean(trackingError)} aria-describedby={trackingError ? 'ops-tracking-url-error' : undefined} onChange={(event) => { const value = event.target.value.slice(0, 500); setTrackingUrl(value); if (!validateTrackingUrl(value)) setTrackingError('') }} maxLength={500} placeholder="https://…" />{trackingError && <small id="ops-tracking-url-error" className="field-hint error" role="alert">{trackingError}</small>}</label>}
+        {isDeliveryAction && <label className="field"><span>Delivery tracking link</span><input type="url" value={trackingUrl} aria-invalid={Boolean(trackingError)} aria-describedby={trackingError ? 'ops-tracking-url-error' : undefined} onChange={(event) => { const value = event.target.value.slice(0, 500); setTrackingUrl(value); if (!validateTrackingUrl(value)) setTrackingError('') }} maxLength={500} placeholder="https://…" />{trackingError && <small id="ops-tracking-url-error" className="field-hint error" role="alert">{trackingError}</small>}</label>}
         <div className="payment-modal-actions">
           <button className="secondary-button" type="button" onClick={onCancel} disabled={busy}>Go back</button>
           <button className="primary-button" type="button" onClick={submit} disabled={busy}>{busy ? 'Please wait…' : 'Confirm'}</button>
@@ -1282,14 +1288,14 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
         </div>
 
         <footer className="ops-drawer-footer txn-drawer-footer">
-          {order.status === 'Out for Delivery' && order.order_type === 'delivery' && (
+          {order.status === 'Out for Delivery' && dispatchNeedsTracking(order) && (
             <div className="ops-drawer-tracking-row">
               <label className="field"><span>Delivery tracking link (optional)</span><input type="url" value={trackingUrl} maxLength={500} placeholder="https://…" onChange={(event) => setTrackingUrl(event.target.value.slice(0, 500))} /></label>
               <button type="button" className="ops-secondary-action" disabled={busy} onClick={() => onTracking(trackingUrl.trim())}>{busy ? 'Saving…' : 'Save link'}</button>
             </div>
           )}
           {main && <button type="button" className="ops-main-action" disabled={busy || main.disabled} onClick={() => onMain(main)}>{busy ? 'Please wait…' : main.label}</button>}
-          {canCancel && (
+          {stage==='delivery'&&order.order_type==='delivery'?<button type="button" className="ops-main-action" disabled={busy||Boolean(order.delivery_confirmation_deadline)} onClick={()=>onMain({kind:'delivery-proof',label:'Complete delivery'})}>{order.delivery_confirmation_deadline?'Awaiting confirmation':'Complete'}</button>:canCancel && (
             <button
               type="button"
               className="ops-destructive-action"

@@ -1,3 +1,6 @@
+import DeliveryChatLauncher from '../../components/delivery/DeliveryChatLauncher'
+import { CustomerReceiptDialog } from '../../components/delivery/DeliveryDialogs'
+import { hasDeliveryChat, openDeliveryChat } from '../../utils/deliveryChat'
 import RiderPickupCard from '../../components/customer/RiderPickupCard'
 import '../../components/customer/rider-delivery.css'
 import { fetchDeliveryQuote } from '../../services/deliveryQuoteService'
@@ -5,7 +8,7 @@ import MenuBrowser from '../../components/customer/MenuBrowser'
 import RatingStars from '../../components/customer/RatingStars'
 import '../../components/customer/menu-hero.css'
 import '../../components/customer/placed-order.css'
-import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Clock3, Coffee, Copy, CreditCard, Download, ExternalLink, Info, Link2, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Store, Trash2, Truck, Unlink, X, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Clock3, Coffee, Copy, CreditCard, Download, ExternalLink, Info, Link2, Lock, MapPin, MessageCircle, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Store, Trash2, Truck, Unlink, X, XCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -14,7 +17,7 @@ import { useAvailableQuantity } from '../../hooks/useAvailableQuantity'
 import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePricing } from '../../context/usePricing'
-import { createCustomerOrderWithBenefitDiscount, createPaymongoCheckout, verifyPaymongoPayment, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, checkCustomerPaymentReference, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, confirmCustomerOrderReceived, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
+import { createCustomerOrderWithBenefitDiscount, createPaymongoCheckout, verifyPaymongoPayment, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, checkCustomerPaymentReference, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
 import RealmPassportProfileLink, { RealmIdProfileField } from '../../components/customer/RealmPassportProfileLink'
 import { deliveryAreas } from '../../data/deliveryAreas'
 import { money } from '../../utils/money'
@@ -868,7 +871,7 @@ export function MyOrdersPage(){
   const [reorderState,setReorderState]=useState(null)
   const [toast,setToast]=useState('')
   const [receiveError,setReceiveError]=useState('')
-  const [receivingId,setReceivingId]=useState('')
+  const [receiveTarget,setReceiveTarget]=useState(null)
   const {addItem}=useCart()
   const load=()=>{
     if(!user?.id)return
@@ -905,23 +908,7 @@ export function MyOrdersPage(){
 
   const patchOrder=(id,patch)=>setOrders(current=>current.map(o=>o.id===id?{...o,...patch}:o))
 
-  const runReceive=async order=>{
-    if(receivingId)return
-    setReceivingId(order.id);setReceiveError('')
-    try{
-      await confirmCustomerOrderReceived(order.id)
-      const receivedOrder={...order,status:'Received',received_at:new Date().toISOString(),receipt_confirmation:'customer'}
-      patchOrder(order.id,receivedOrder)
-      setTrackOrder(null)
-      setTab('past')
-      setFeedbackThankYou(true)
-      setFeedbackOrder(receivedOrder)
-    }catch(cause){
-      setReceiveError(describeError(cause,'Could not confirm that this order was received.'))
-    }finally{
-      setReceivingId('')
-    }
-  }
+  const runReceive=order=>{setReceiveError('');setReceiveTarget(order)}
 
   const runCancel=async(reason,notes)=>{
     const order=cancelOrder
@@ -947,7 +934,7 @@ export function MyOrdersPage(){
   }
 
   return <main className="customer-main">
-    <section className="page-title"><h1>My orders</h1></section>
+    <section className="page-title"><h1>My orders</h1><DeliveryChatLauncher role="customer"/></section>
     <div className="order-tabs">
       <button className={tab==='current'?'active':''} onClick={()=>setTab('current')}>Current Orders{currentOrders.length>0&&<b className="order-tab-count">{currentOrders.length}</b>}</button>
       <button className={tab==='past'?'active':''} onClick={()=>setTab('past')}>Past Orders</button>
@@ -957,7 +944,7 @@ export function MyOrdersPage(){
     {loading?<OrdersSkeleton/>:error?<section className="customer-state error-state"><h2>We couldn't load your orders.</h2><p>{error}</p></section>:<>
       {tab==='current'&&(currentOrders.length===0?<EmptyOrders hasAny={orders.length>0} label="current orders"/>:
         <section className="current-orders-list">{currentOrders.map((order,index)=><CurrentOrderCard key={order.id} order={order} addonNames={addonNames} index={index}
-          onView={()=>setDetailOrder(order)} onCancel={()=>setCancelOrderTarget(order)} onTrack={()=>setTrackOrder(order)} onReceive={()=>runReceive(order)} receiving={receivingId===order.id}/>)}</section>)}
+          onView={()=>setDetailOrder(order)} onCancel={()=>setCancelOrderTarget(order)} onTrack={()=>setTrackOrder(order)} onReceive={()=>runReceive(order)} receiving={false}/>)}</section>)}
       {tab==='past'&&(pastOrders.length===0?<EmptyOrders hasAny={orders.length>0} label="past orders"/>:<>
         <section className="orders-grid">{visiblePast.map((order,index)=>order.status==='Cancelled'
           ?<CancelledOrderCard key={order.id} order={order} index={index} onView={()=>setDetailOrder(order)}/>
@@ -968,8 +955,9 @@ export function MyOrdersPage(){
         {visiblePast.length<pastOrders.length&&<button className="secondary-button full" type="button" onClick={()=>setPastPage(p=>p+1)}>Load more</button>}
       </>)}
     </>}
+    {receiveTarget&&<CustomerReceiptDialog order={receiveTarget} onClose={()=>setReceiveTarget(null)} onDone={result=>{const received={...receiveTarget,...result,status:result.status||'Completed',delivery_chat_closed_at:new Date().toISOString()};patchOrder(receiveTarget.id,received);setReceiveTarget(null);setTrackOrder(null);setTab('past');setFeedbackThankYou(true);setFeedbackOrder(received)}}/>}
     <AnimatePresence>{detailOrder&&<OrderDetailsDrawer order={orders.find(o=>o.id===detailOrder.id)||detailOrder} addonNames={addonNames} onClose={()=>setDetailOrder(null)}/>}</AnimatePresence>
-    <AnimatePresence>{trackOrder&&<TrackOrderModal order={orders.find(o=>o.id===trackOrder.id)||trackOrder} onClose={()=>setTrackOrder(null)} onReceive={()=>runReceive(orders.find(o=>o.id===trackOrder.id)||trackOrder)} receiving={receivingId===trackOrder.id}/>}</AnimatePresence>
+    <AnimatePresence>{trackOrder&&<TrackOrderModal order={orders.find(o=>o.id===trackOrder.id)||trackOrder} onClose={()=>setTrackOrder(null)} onReceive={()=>runReceive(orders.find(o=>o.id===trackOrder.id)||trackOrder)} receiving={false}/>}</AnimatePresence>
     <AnimatePresence>{cancelOrder&&<CancelOrderModal order={cancelOrder} onClose={()=>setCancelOrderTarget(null)} onConfirm={runCancel}/>}</AnimatePresence>
     <AnimatePresence>{receiptOrder&&<ReceiptModal order={receiptOrder} addonNames={addonNames} onClose={()=>setReceiptOrder(null)}/>}</AnimatePresence>
     <AnimatePresence>{feedbackOrder&&<FeedbackModal order={feedbackOrder} userId={user?.id} thankYou={feedbackThankYou} onClose={()=>{setFeedbackOrder(null);setFeedbackThankYou(false)}} onDone={()=>setToast('Thanks for your feedback!')}/>}</AnimatePresence>
@@ -1025,7 +1013,8 @@ function CurrentOrderCard({order,addonNames,onView,onCancel,onTrack,onReceive,re
     <div className="order-card-actions">
       <button className="secondary-button" type="button" onClick={onView}>View Details</button>
       <button className="primary-button" type="button" onClick={onTrack}>Track Order</button>
-      {status==='Out for Delivery'&&order.order_type==='delivery'&&<button className="primary-button order-received-button" type="button" onClick={onReceive} disabled={receiving}><Check size={15}/> {receiving?'Confirming…':'Order Received'}</button>}
+      {hasDeliveryChat(order)&&<button className="secondary-button dc-order-message-button" type="button" onClick={()=>openDeliveryChat(order.id)}><MessageCircle size={15}/>Message staff</button>}
+      {status==='Out for Delivery'&&order.order_type==='delivery'&&<button className="primary-button order-received-button" type="button" onClick={onReceive} disabled={receiving}><Check size={15}/> {receiving?'Confirming…':'Mark as completed'}</button>}
       {canCustomerCancel(order)&&<button className="text-button danger" type="button" onClick={onCancel}>Cancel Order</button>}
     </div>
     {isCancellationReview(order)?<p className="order-cancellation-review-hint"><AlertTriangle size={14}/> We will email you after the store reviews your request.</p>:!canCustomerCancel(order)&&<p className="order-cancel-hint">This order can no longer be cancelled because preparation may have already started.</p>}
@@ -1040,6 +1029,7 @@ function PastOrderCard({order,onView,onReceipt,onReorder,onFeedback,reordering,i
     <div className="past-order-actions">
       <button className="secondary-button" type="button" onClick={onReorder} disabled={reordering}><RotateCcw size={14}/> {reordering?'Adding…':'Reorder'}</button>
       <button className="secondary-button" type="button" onClick={onView}>View</button>
+      {hasDeliveryChat(order)&&<button className="secondary-button dc-order-message-button" type="button" onClick={()=>openDeliveryChat(order.id)}><MessageCircle size={14}/>Messages</button>}
       <button className="secondary-button" type="button" onClick={onReceipt}><Printer size={14}/> Receipt</button>
       {['Completed','Received'].includes(status)&&<button className="primary-button" type="button" onClick={onFeedback}><Star size={14}/> Feedback</button>}
     </div>
@@ -1246,11 +1236,12 @@ function TrackOrderModal({order,onClose,onReceive,receiving}){
           <motion.div className="track-modal-line-fill" initial={{height:0}} animate={{height:`${(currentIndex/(steps.length-1))*100}%`}} transition={{duration:0.6,ease:[0.22,1,0.36,1]}}/>
         </div>
       </div>
+      {hasDeliveryChat(order)&&<button type="button" className="secondary-button full dc-order-message-button" onClick={()=>{onClose();openDeliveryChat(order.id)}}><MessageCircle size={15}/>Message staff</button>}
       <div className="track-modal-footer">
         <span>{orderCount(order)} item{orderCount(order)===1?'':'s'} · {paymentMethodLabel(orderPaymentMethod(order))}</span>
         <b>{money(Number(order.final_total||0))}</b>
       </div>
-      {status==='Out for Delivery'&&order.order_type==='delivery'&&<button className="primary-button full order-received-button" type="button" onClick={onReceive} disabled={receiving}><Check size={16}/> {receiving?'Confirming…':'Confirm Order Received'}</button>}
+      {status==='Out for Delivery'&&order.order_type==='delivery'&&<button className="primary-button full order-received-button" type="button" onClick={onReceive} disabled={receiving}><Check size={16}/> {receiving?'Confirming…':'Mark as completed'}</button>}
     </motion.section>
   </motion.div>
 }
