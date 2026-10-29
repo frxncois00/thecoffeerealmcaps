@@ -3919,15 +3919,19 @@
 }
 
 .legacy-auth-form.register .legacy-auth-submit {
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
+.legacy-auth-form.register .legacy-auth-divider { margin: 9px 0 10px; }
 
 .registration-legal-notice a {
   color: #3a5c45;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.registration-password-hint { display: block; margin-top: 8px; color: #5d6f63; font-size: .78rem; line-height: 1.5; }
+.registration-password-hint { display: block; margin-top: 3px; color: #5d6f63; font-size: .78rem; line-height: 1.4; }
+.legacy-auth-form.register .legacy-auth-input { margin-block: 10px; }
+.legacy-auth-form.register .legacy-auth-input:has(input[name='password']) { margin-bottom: 7px; }
+.legacy-auth-form.register .legacy-auth-input:has(input[name='confirmPassword']) { margin-top: 7px; }
 .legacy-auth-form .legacy-auth-submit { border-radius: 14px; text-transform: none; }
 
 .registration-legal-notice a:hover {
@@ -3942,7 +3946,7 @@
     margin-bottom: 22px;
   }
   .legacy-auth-form.register .legacy-auth-input {
-    margin-block: 15px;
+    margin-block: 10px;
   }
 }
 
@@ -6865,7 +6869,29 @@
 .checkout-benefit-option b{font-size:.9rem;line-height:1.35}
 .checkout-benefit-option small{color:#607067;font-size:.78rem;line-height:1.4}
 .checkout-benefit-reminder{margin:0;padding:11px 16px 12px 45px;border-top:1px solid #d8e3dc;color:#6d4d28;font-size:.78rem;line-height:1.4}
+.checkout-preview-column{position:sticky;top:106px;display:grid;gap:14px;align-self:start}.checkout-preview-column>.checkout-preview{position:static;top:auto}.checkout-preview-column>.checkout-benefit-panel{margin:0;padding:20px;border-radius:20px;background:#fff;box-shadow:0 14px 36px rgba(29,55,39,.08)}.checkout-benefit-heading>span{text-transform:uppercase;letter-spacing:.12em;font-size:.68rem;color:var(--cr-green);font-weight:800}.checkout-benefit-heading h2{margin:5px 0 4px;font:1.35rem Georgia,serif}.checkout-benefit-heading p{margin:0;color:var(--cr-muted);font-size:.8rem}.checkout-benefit-types{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:15px 0 10px}.checkout-benefit-type{display:flex;align-items:center;justify-content:center;min-height:42px;padding:7px;border:1px solid var(--cr-line);border-radius:11px;background:#fff;text-align:center;cursor:pointer;font-size:.76rem;font-weight:750}.checkout-benefit-type.is-selected{border-color:var(--cr-green);background:#eef6f1;color:var(--cr-green)}.checkout-benefit-type:has(input:disabled){opacity:.5;cursor:not-allowed}.checkout-benefit-type input{position:absolute;opacity:0;pointer-events:none}.checkout-benefit-panel>small{display:block;color:var(--cr-muted);font-size:.74rem;line-height:1.4}.checkout-benefit-confirmation{display:flex;align-items:flex-start;gap:10px;margin-top:14px;padding:13px;border-radius:12px;background:#f4f8f5;color:#334a3c;font-size:.78rem;line-height:1.45;cursor:pointer}.checkout-benefit-confirmation input{flex:none;width:18px;height:18px;margin:1px 0 0;accent-color:var(--cr-green)}.checkout-preview-column .checkout-benefit-reminder{margin-top:10px;padding:10px 0 0;border-top:1px solid #d8e3dc}
+@media(max-width:900px){.checkout-preview-column{position:static;order:1;width:100%}.customer-app .checkout-preview-column>.checkout-preview{order:initial}.customer-app .checkout-form{order:2}}
+@media(max-width:460px){.checkout-benefit-types{grid-template-columns:1fr}.checkout-benefit-type{justify-content:flex-start;padding-inline:12px}}
 .checkout-discount-row{color:#1d6947}
+/* Compact checkout summary and discount controls. */
+.checkout-preview .checkout-totals p{gap:12px;padding:3px 0;font-size:.82rem}
+.checkout-preview .checkout-totals .grand{margin-top:7px;padding-top:10px;font-weight:800}
+.checkout-preview .checkout-totals .grand span,.checkout-preview .checkout-totals .grand b{font-weight:800}
+.checkout-preview-column>.checkout-benefit-panel{padding:15px 17px;border-radius:17px}
+.checkout-benefit-heading h2{margin:3px 0 2px;font-size:1.2rem}
+.checkout-benefit-heading p{font-size:.76rem}
+.checkout-benefit-types{gap:6px;margin:10px 0 7px}
+.checkout-benefit-type{min-height:36px;padding:5px 7px;border-radius:10px;font-size:.73rem}
+.checkout-benefit-confirmation{gap:8px;margin-top:9px;padding:10px;border-radius:10px;font-size:.74rem;line-height:1.35}
+.checkout-preview-footer{padding-bottom:0}
+.checkout-preview .checkout-totals{padding-bottom:10px;border-radius:15px 15px 0 0}
+.checkout-preview-footer>.checkout-benefit-panel{margin:0 0 18px;padding:0 0 18px;border:0;border-bottom:1px solid var(--cr-line);border-radius:0;background:transparent}
+.checkout-preview-footer>.checkout-benefit-panel{margin-bottom:5px;padding-bottom:5px;border-bottom:0}
+.checkout-preview-footer .checkout-benefit-confirmation{margin-bottom:0}
+.checkout-benefit-prompt{margin:0;color:var(--cr-muted);font-size:.8rem;line-height:1.5}
+.checkout-required{color:#b33932;font-weight:800}
+.checkout-benefit-type:has(input:focus-visible){outline:2px solid var(--cr-green);outline-offset:3px}
+.txn-order-alert--id-check{border-color:#e2c27a;background:#fff8e7;color:#684d12}
 @media(max-width:460px){.checkout-preview-items{padding-inline:18px}.checkout-preview-items article{grid-template-columns:54px minmax(0,1fr);gap:11px}.checkout-preview-items img{width:54px;height:54px}.checkout-preview-item-price{grid-column:2;margin-top:-4px}.checkout-preview-footer{padding-inline:10px}}
 .checkout-page .schedule-fields{padding-right:0;padding-left:0;background:#fff}
 .fulfillment-controls{display:grid;grid-template-columns:minmax(220px,.85fr) minmax(170px,.65fr) minmax(220px,1fr);align-items:start;gap:22px;margin:0 0 20px}
@@ -8730,6 +8756,31 @@
   height: 290px;
   margin-inline: auto;
 }
+.customer-app .checkout-payment-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.customer-app .checkout-payment-quick-actions button {
+  min-width: 0;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid #cbd9cf;
+  border-radius: 11px;
+  background: #fff;
+  color: var(--cr-green);
+  font: inherit;
+  font-size: .75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.customer-app .checkout-payment-quick-actions button:hover:not(:disabled) { background: #edf5ef; border-color: #a9c0af; }
+.customer-app .checkout-payment-quick-actions button:disabled { cursor: not-allowed; opacity: .55; }
+.customer-app .checkout-payment-quick-actions svg { flex: 0 0 auto; }
 
 @media (max-width: 520px) {
   .customer-app .checkout-payment-column-instructions .checkout-payment-details-body > img {

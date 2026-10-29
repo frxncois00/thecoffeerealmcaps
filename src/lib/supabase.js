@@ -26,6 +26,12 @@ const makeClient = (storageKey, detectSessionInUrl = false) => url && anonKey ? 
 
 export const portalSupabase = makeClient('coffee-realm-portal-auth')
 export const customerSupabase = makeClient('coffee-realm-customer-auth', true)
+// Public storefront reads must not inherit a signed-in customer's JWT. The
+// catalog is intentionally identical for guests and customers, including
+// unavailable (but not archived) menu items.
+export const publicSupabase = url && anonKey ? createClient(url, anonKey, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+}) : null
 
 // Existing internal services keep using this export. Customer-facing modules
 // import customerSupabase explicitly so the two sessions cannot overwrite one another.

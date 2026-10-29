@@ -8,6 +8,7 @@ import { describeError } from '../utils/describeError'
 import { fetchFinishedProducts, fetchIngredients } from '../services/opsInventoryService'
 import { supabase } from '../lib/supabase'
 import { useManagementSessionState } from '../hooks/useManagementSessionState'
+import { INVENTORY_STATUS_META as STATUS_META, inventoryStatus as stockStatus } from '../utils/inventoryStatus'
 
 const ENTITY_CONFIGS = {
   ingredient: { label: 'Ingredients', singular: 'Ingredient', fetch: fetchIngredients, hasType: true },
@@ -15,19 +16,6 @@ const ENTITY_CONFIGS = {
 }
 const PAGE_SIZE = 25
 
-const STATUS_META = {
-  out: { label: 'Out of Stock', tone: 'red' },
-  low: { label: 'Low Stock', tone: 'amber' },
-  healthy: { label: 'Healthy', tone: 'green' },
-  over: { label: 'Over Stock', tone: 'blue' },
-}
-
-function stockStatus(item) {
-  if (item.quantity <= 0) return 'out'
-  if (item.quantity <= item.minStockLevel) return 'low'
-  if (item.highStockLevel > 0 && item.quantity > item.highStockLevel) return 'over'
-  return 'healthy'
-}
 
 function formatQty(value) {
   const number = Number(value)
@@ -128,8 +116,9 @@ export default function AdminInventoryPage() {
   const currentPage = Math.min(page, totalPages)
   const pageItems = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
   const outCount = items.filter((item) => stockStatus(item) === 'out').length
+  const criticalCount = items.filter((item) => stockStatus(item) === 'critical').length
   const lowCount = items.filter((item) => stockStatus(item) === 'low').length
-  const attentionCount = outCount + lowCount
+  const attentionCount = outCount + criticalCount + lowCount
 
   return (
     <AppShell
@@ -161,9 +150,10 @@ export default function AdminInventoryPage() {
       {error && <p className="form-error">{error}</p>}
 
       <div className="inv-summary-row inventory-summary-grid">
-        <article className="inv-summary-card tone-red"><span className="inv-summary-icon"><PackageX size={18} /></span><span className="inv-summary-copy"><span>Out of Stock</span><small>Needs replenishment</small></span><b>{outCount}</b></article>
-        <article className="inv-summary-card tone-amber"><span className="inv-summary-icon"><AlertTriangle size={18} /></span><span className="inv-summary-copy"><span>Low Stock</span><small>Below alert level</small></span><b>{lowCount}</b></article>
-        <article className="inv-summary-card tone-neutral"><span className="inv-summary-icon"><Package size={18} /></span><span className="inv-summary-copy"><span>Total Records</span><small>Tracked inventory</small></span><b>{items.length}</b></article>
+        <article className="inv-summary-card tone-red"><span className="inv-summary-icon"><PackageX size={18} /></span><span className="inv-summary-copy"><span>Out of Stock</span></span><b>{outCount}</b></article>
+        <article className="inv-summary-card tone-red"><span className="inv-summary-icon"><AlertTriangle size={18} /></span><span className="inv-summary-copy"><span>Critical</span></span><b>{criticalCount}</b></article>
+        <article className="inv-summary-card tone-amber"><span className="inv-summary-icon"><AlertTriangle size={18} /></span><span className="inv-summary-copy"><span>Low Stock</span></span><b>{lowCount}</b></article>
+        <article className="inv-summary-card tone-neutral"><span className="inv-summary-icon"><Package size={18} /></span><span className="inv-summary-copy"><span>Total Items</span></span><b>{items.length}</b></article>
       </div>
 
       <div className={`inv-toolbar inv-monitoring-toolbar${config.hasType ? ' has-type-filter' : ''}`}>
@@ -177,7 +167,7 @@ export default function AdminInventoryPage() {
         </select>
         <select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setPage(1) }} aria-label="Filter by stock status">
           <option value="all">All statuses</option>
-          {Object.entries(STATUS_META).map(([key, meta]) => <option key={key} value={key}>{meta.label}</option>)}
+          {Object.entries(STATUS_META).filter(([key]) => key !== 'archived').map(([key, meta]) => <option key={key} value={key}>{meta.label}</option>)}
         </select>
         {config.hasType && (
           <select value={typeFilter} onChange={(event) => { setTypeFilter(event.target.value); setPage(1) }} aria-label="Filter by type">
@@ -198,7 +188,7 @@ export default function AdminInventoryPage() {
           <div className="inv-table-wrap inv-readonly-table">
             <table className="inv-table">
               <thead>
-                <tr><th>{config.singular} Name</th><th>Category</th>{config.hasType && <th>Type</th>}<th>Quantity</th><th>Unit</th><th>Status</th><th>Low Stock Alert</th><th>Healthy Point</th><th>Last Updated</th></tr>
+                <tr><th>{config.singular}</th><th>Category</th>{config.hasType && <th>Type</th>}<th>Quantity</th><th>Unit</th><th>Status</th><th>Critical</th><th>Low</th><th>Target</th><th>Updated</th></tr>
               </thead>
               <tbody>
                 {pageItems.map((item) => {
@@ -207,7 +197,7 @@ export default function AdminInventoryPage() {
                     <tr key={item.id}>
                       <td><b>{item.name}</b></td><td>{item.category || '—'}</td>{config.hasType && <td className="inv-capitalize">{item.type || '—'}</td>}
                       <td>{formatQty(item.quantity)}</td><td>{item.unit}</td><td><span className={`inv-status tone-${STATUS_META[status].tone}`}>{STATUS_META[status].label}</span></td>
-                      <td>{formatQty(item.minStockLevel)}</td><td>{formatQty(item.highStockLevel)}</td><td>{timeAgo(item.updatedAt)}</td>
+                      <td>{formatQty(item.criticalStockLevel)}</td><td>{formatQty(item.minStockLevel)}</td><td>{formatQty(item.highStockLevel)}</td><td>{timeAgo(item.updatedAt)}</td>
                     </tr>
                   )
                 })}
@@ -223,7 +213,7 @@ export default function AdminInventoryPage() {
                   <div className="inv-card-top"><b>{item.name}</b><span className={`inv-status tone-${STATUS_META[status].tone}`}>{STATUS_META[status].label}</span></div>
                   <p className="inv-card-meta">{item.category || 'Uncategorized'}{config.hasType ? ` · ${item.type || 'Other'}` : ''}</p>
                   <p className="inv-card-qty">{formatQty(item.quantity)} {item.unit}</p>
-                  <p className="inv-card-thresholds">Low: {formatQty(item.minStockLevel)} · Healthy: {formatQty(item.highStockLevel)} · Updated {timeAgo(item.updatedAt)}</p>
+                  <p className="inv-card-thresholds">Critical: {formatQty(item.criticalStockLevel)} · Low: {formatQty(item.minStockLevel)} · Target: {formatQty(item.highStockLevel)} · Updated {timeAgo(item.updatedAt)}</p>
                 </article>
               )
             })}

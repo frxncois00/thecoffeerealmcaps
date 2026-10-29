@@ -25,6 +25,7 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
   const [mode, setMode] = useState(initialMode)
   const [showLoginPassword, setShowLoginPassword] = useState(false)
   const [showRegisterPassword, setShowRegisterPassword] = useState(false)
+  const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] = useState(false)
   const [forgotOpen, setForgotOpen] = useState(false)
   const [forgotStep, setForgotStep] = useState('email')
   const [forgotOtp, setForgotOtp] = useState(Array(otpDigits).fill(''))
@@ -219,8 +220,10 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
     const data = new FormData(event.currentTarget)
     const email = String(data.get('email') || '').trim()
     const password = String(data.get('password') || '')
+    const passwordConfirmation = String(data.get('confirmPassword') || '')
     if (!isValidEmail(email)) return setAuthError('Enter a valid email address.')
     if (!isValidPassword(password)) return setAuthError('Password must be 8–32 characters and include at least 1 number.')
+    if (password !== passwordConfirmation) return setAuthError('Passwords do not match.')
     setLoading(true)
     const { data: signupData, error } = await supabase.auth.signUp({
       email,
@@ -401,7 +404,11 @@ export default function CustomerLoginPage({ initialMode = 'login' }) {
             <label className="legacy-auth-input">
               <span>Password <b className="required-mark" aria-hidden="true">*</b></span>
               <div><Lock size={19} /><input name="password" type={showRegisterPassword ? 'text' : 'password'} minLength="8" maxLength="32" pattern="(?=.*[0-9]).{8,32}" placeholder="Create a password" autoComplete="new-password" aria-describedby="registration-password-hint" required /><button type="button" aria-label="Toggle password visibility" onClick={() => setShowRegisterPassword((value) => !value)}>{showRegisterPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
-              <small id="registration-password-hint" className="registration-password-hint">Use 8–32 characters with at least 1 number.</small>
+            </label>
+            <label className="legacy-auth-input">
+              <span>Confirm password <b className="required-mark" aria-hidden="true">*</b></span>
+              <div><Lock size={19} /><input name="confirmPassword" type={showRegisterConfirmPassword ? 'text' : 'password'} minLength="8" maxLength="32" placeholder="Re-enter your password" autoComplete="new-password" aria-describedby="registration-password-hint" required /><button type="button" aria-label="Toggle confirm password visibility" onClick={() => setShowRegisterConfirmPassword((value) => !value)}>{showRegisterConfirmPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
+              <small id="registration-password-hint" className="registration-password-hint">Use 8-32 characters with at least 1 number.</small>
             </label>
             <button type="submit" className="legacy-auth-submit" disabled={loading || googleLoading}>{loading ? 'Sending…' : 'Create account'}</button>
             <AuthDivider />

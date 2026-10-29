@@ -56,7 +56,7 @@ export function vatBreakdownFromInclusiveAmount(inclusiveAmount, vatRate = DEFAU
 
 export function isVatExemptDiscountType(discountType) {
   const normalized = String(discountType || '').trim().toLowerCase()
-  return normalized === 'pwd' || normalized === 'senior'
+  return normalized === 'pwd' || normalized === 'senior' || normalized === 'senior citizen'
 }
 
 export function vatExemptDiscountLabel() {

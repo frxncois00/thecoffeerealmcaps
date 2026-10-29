@@ -4,7 +4,7 @@ const fieldText = (value, fallback) => typeof value === 'string' && value.trim()
 
 // This adapter prepares display values only. Order eligibility, ordering, reward
 // artwork, and progress always come from the existing passport utility.
-export function buildPassportPresentation({ profile, id, orders = [], benefit, claims = [], loading = false } = {}) {
+export function buildPassportPresentation({ profile, id, orders = [], claims = [], loading = false } = {}) {
   const purchases = completedPassportOrders(orders)
   const claimsByNumber = new Map(claims.map(claim => [Number(claim.reward_number), claim.claimed_at]))
   const username = fieldText(profile?.username, 'Member').replace(/^@/, '') || 'Member'
@@ -16,10 +16,6 @@ export function buildPassportPresentation({ profile, id, orders = [], benefit, c
     memberSince: passportDate(profile?.created_at, { month: 'short', year: 'numeric' }),
     favoriteDrink: fieldText(profile?.favorite_drink, 'Not set'),
     favoriteFood: fieldText(profile?.favorite_food, 'Not set'),
-    verification: benefit?.status === 'approved' ? {
-      kind: benefit.kind === 'senior' ? 'senior' : 'pwd',
-      label: benefit.kind === 'senior' ? 'Senior verified' : 'PWD verified',
-    } : null,
     loading,
   }
 

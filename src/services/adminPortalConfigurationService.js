@@ -40,6 +40,7 @@ export const SYSTEM_DEFAULTS = {
   payments: {
     enabledMethods: ['cod', 'gcash', 'bank_transfer'], codMaximum: 1000,
     gcashQrUrl: '/assets/img/qr.jpg', bankQrUrl: '/assets/img/qr1.jpg',
+    gcashAccountName: '', gcashAccountNumber: '',
     gcashInstructions: 'Open GCash, scan the QR code, and send the exact order total.',
     bankName: '', bankAccountName: '', bankAccountNumber: '', bankInstructions: 'Transfer the exact order total and save a clear receipt.',
   },

@@ -17,6 +17,7 @@ import { getCurrentPortalSession } from '../lib/auth'
 import { fetchStaffPreferences, getRememberedStaffFilters, rememberStaffFilters, shouldShowSystemNotification } from '../services/staffSettingsService'
 import { useManagementSessionState } from '../hooks/useManagementSessionState'
 import { sanitizeCatalogText } from '../utils/inputValidation'
+import { INVENTORY_STATUS_META as STATUS_META, inventoryStatus as stockStatus } from '../utils/inventoryStatus'
 
 const ENTITY_CONFIGS = {
   ingredient: { key: 'ingredient', label: 'Ingredients', singular: 'Ingredient', fetch: fetchIngredients, upsert: upsertIngredient, archive: archiveIngredient, hasType: true, hasMenuLink: true },
@@ -24,20 +25,6 @@ const ENTITY_CONFIGS = {
 }
 const PAGE_SIZE = 25
 
-function stockStatus(item) {
-  if (item.isArchived) return 'archived'
-  if (item.quantity <= 0) return 'out'
-  if (item.quantity <= item.minStockLevel) return 'low'
-  if (item.highStockLevel > 0 && item.quantity > item.highStockLevel) return 'over'
-  return 'healthy'
-}
-const STATUS_META = {
-  out: { label: 'Out of Stock', tone: 'red' },
-  low: { label: 'Low Stock', tone: 'amber' },
-  healthy: { label: 'Healthy', tone: 'green' },
-  over: { label: 'Over Stock', tone: 'blue' },
-  archived: { label: 'Archived', tone: 'neutral' },
-}
 function formatQty(value) {
   const n = Number(value)
   return Number.isInteger(n) ? String(n) : n.toFixed(2)
@@ -180,6 +167,7 @@ export default function InventoryStockPage() {
 
   const activeItems = items.filter((item) => !item.isArchived)
   const outCount = activeItems.filter((i) => stockStatus(i) === 'out').length
+  const criticalCount = activeItems.filter((i) => stockStatus(i) === 'critical').length
   const lowCount = activeItems.filter((i) => stockStatus(i) === 'low').length
 
   const runArchive = async (item) => {
@@ -229,7 +217,7 @@ export default function InventoryStockPage() {
     setOpeningStockOpen(false)
   }
 
-  const attentionCount = outCount + lowCount
+  const attentionCount = outCount + criticalCount + lowCount
 
   return (
     <AppShell role="staff" title="Inventory Stock Overview" onRefresh={() => load(activeEntity)} titleActions={
@@ -255,9 +243,10 @@ export default function InventoryStockPage() {
       {error && <p className="form-error">{error}</p>}
 
       <div className="inv-summary-row inventory-summary-grid">
-        <article className="inv-summary-card tone-red"><span className="inv-summary-icon"><PackageX size={18} /></span><span className="inv-summary-copy"><span>Out of Stock</span><small>Needs replenishment</small></span><b>{outCount}</b></article>
-        <article className="inv-summary-card tone-amber"><span className="inv-summary-icon"><AlertTriangle size={18} /></span><span className="inv-summary-copy"><span>Low Stock</span><small>Below alert level</small></span><b>{lowCount}</b></article>
-        <article className="inv-summary-card tone-neutral"><span className="inv-summary-icon"><Package size={18} /></span><span className="inv-summary-copy"><span>Total Records</span><small>Tracked inventory</small></span><b>{items.length}</b></article>
+        <article className="inv-summary-card tone-red"><span className="inv-summary-icon"><PackageX size={18} /></span><span className="inv-summary-copy"><span>Out of Stock</span></span><b>{outCount}</b></article>
+        <article className="inv-summary-card tone-red"><span className="inv-summary-icon"><AlertTriangle size={18} /></span><span className="inv-summary-copy"><span>Critical</span></span><b>{criticalCount}</b></article>
+        <article className="inv-summary-card tone-amber"><span className="inv-summary-icon"><AlertTriangle size={18} /></span><span className="inv-summary-copy"><span>Low Stock</span></span><b>{lowCount}</b></article>
+        <article className="inv-summary-card tone-neutral"><span className="inv-summary-icon"><Package size={18} /></span><span className="inv-summary-copy"><span>Total Items</span></span><b>{items.length}</b></article>
       </div>
 
       <div className="inv-toolbar">
@@ -286,7 +275,7 @@ export default function InventoryStockPage() {
             <Clock3 size={16} /> Daily Opening Stock
           </button>}
           <button type="button" className="ops-main-action inv-record-btn" onClick={() => setFormTarget({ item: null })}>
-            <Plus size={16} /> Record New {config.singular}
+            <Plus size={16} /> Add {config.singular}
           </button>
         </div>
       </div>
@@ -301,8 +290,8 @@ export default function InventoryStockPage() {
             <table className="inv-table">
               <thead>
                 <tr>
-                  <th>{config.singular} Name</th><th>Category</th>{config.hasType && <th>Type</th>}
-                  <th>Quantity</th><th>Unit</th><th>Status</th><th>Low Stock Alert</th><th>Healthy Point</th><th>Last Updated</th><th>Actions</th>
+                  <th>{config.singular}</th><th>Category</th>{config.hasType && <th>Type</th>}
+                  <th>Quantity</th><th>Unit</th><th>Status</th><th>Critical</th><th>Low</th><th>Target</th><th>Updated</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -316,7 +305,7 @@ export default function InventoryStockPage() {
                       <td>{formatQty(item.quantity)}</td>
                       <td>{item.unit}</td>
                       <td><span className={`inv-status tone-${STATUS_META[status].tone}`}>{STATUS_META[status].label}</span></td>
-                      <td>{formatQty(item.minStockLevel)}</td>
+                      <td>{formatQty(item.criticalStockLevel)}</td><td>{formatQty(item.minStockLevel)}</td>
                       <td>{formatQty(item.highStockLevel)}</td>
                       <td>{timeAgo(item.updatedAt)}</td>
                       <td>
@@ -339,7 +328,7 @@ export default function InventoryStockPage() {
                   <div className="inv-card-top"><b>{item.name}</b><span className={`inv-status tone-${STATUS_META[status].tone}`}>{STATUS_META[status].label}</span></div>
                   <p className="inv-card-meta">{item.category || 'Uncategorized'}{config.hasType ? ` · ${item.type}` : ''}</p>
                   <p className="inv-card-qty">{formatQty(item.quantity)} {item.unit}</p>
-                  <p className="inv-card-thresholds">Low: {formatQty(item.minStockLevel)} · Healthy: {formatQty(item.highStockLevel)} · Updated {timeAgo(item.updatedAt)}</p>
+                  <p className="inv-card-thresholds">Critical: {formatQty(item.criticalStockLevel)} · Low: {formatQty(item.minStockLevel)} · Target: {formatQty(item.highStockLevel)} · Updated {timeAgo(item.updatedAt)}</p>
                   <div className="inv-card-actions">
                     <button type="button" className="ops-secondary-action" onClick={() => setDrawerItem(item)}>View</button>
                     {!item.isArchived && <button type="button" className="ops-secondary-action" onClick={() => setFormTarget({ item })}><Pencil size={14} /> Edit</button>}
@@ -453,7 +442,7 @@ function ItemFormModal({ config, item, menuItems, onClose, onSave, onDelete }) {
   const draftScope = `staff:inventory:${config.key}:${item?.id || 'new'}:draft`
   const [values, setValues, clearValues] = useManagementSessionState(draftScope, {
     name: item?.name || '', category: item?.category || '', type: item?.type || 'other', unit: item?.unit || '',
-    minStockLevel: item?.minStockLevel ?? 10, highStockLevel: item?.highStockLevel ?? (config.key === 'ingredient' ? 500 : 100),
+    criticalStockLevel: item?.criticalStockLevel ?? 20, minStockLevel: item?.minStockLevel ?? 45, highStockLevel: item?.highStockLevel ?? 100,
     supplier: item?.supplier || '', notes: item?.notes || '', initialQuantity: item ? item.quantity : 0,
     menuItemId: item?.menuItemId || '', saleMappings: item?.saleMappings || (item?.menuItemId ? [{ menuItemId: item.menuItemId, variantKey: '', unitsPerSale: 1 }] : []),
   })
@@ -467,11 +456,14 @@ function ItemFormModal({ config, item, menuItems, onClose, onSave, onDelete }) {
     event.preventDefault()
     if (!values.name.trim()) return setError('Item name is required.')
     if (!values.unit.trim()) return setError('Unit is required.')
+    const critical = Number(values.criticalStockLevel)
     const min = Number(values.minStockLevel)
     const high = Number(values.highStockLevel)
-    if (Number.isNaN(min) || min < 0) return setError('Low-stock threshold must be zero or greater.')
-    if (Number.isNaN(high) || high < 0) return setError('Healthy-stock target must be zero or greater.')
-    if (high > 0 && min > high) return setError('The low-stock threshold cannot exceed the healthy-stock target.')
+    if (Number.isNaN(critical) || critical < 0) return setError('Critical level must be zero or greater.')
+    if (Number.isNaN(min) || min < 0) return setError('Low-stock level must be zero or greater.')
+    if (critical > min) return setError('The critical level cannot exceed the low-stock level.')
+    if (Number.isNaN(high) || high < 0) return setError('Restock target must be zero or greater.')
+    if (high > 0 && min > high) return setError('The low-stock level cannot exceed the restock target.')
     if (config.hasMenuLink && values.saleMappings.some((mapping) => !mapping.menuItemId || Number(config.key === 'ingredient' ? mapping.quantityPerServing : mapping.unitsPerSale) <= 0)) return setError(config.key === 'ingredient' ? 'Choose a menu item and a positive ingredient quantity for every link.' : 'Choose a menu item and a positive inventory quantity for every sale format.')
     if (!item) {
       const initial = Number(values.initialQuantity)
@@ -479,7 +471,7 @@ function ItemFormModal({ config, item, menuItems, onClose, onSave, onDelete }) {
     }
     setSaving(true); setError('')
     try {
-      await onSave({ id: item?.id, ...values, menuItemId: values.saleMappings[0]?.menuItemId || null, minStockLevel: min, highStockLevel: high, initialQuantity: Number(values.initialQuantity) })
+      await onSave({ id: item?.id, ...values, menuItemId: values.saleMappings[0]?.menuItemId || null, criticalStockLevel: critical, minStockLevel: min, highStockLevel: high, initialQuantity: Number(values.initialQuantity) })
       clearValues()
     } catch (cause) {
       setError(describeError(cause, 'Could not save this item.'))
@@ -508,13 +500,14 @@ function ItemFormModal({ config, item, menuItems, onClose, onSave, onDelete }) {
             <section className="inv-form-section"><header><h3>Stock levels</h3></header><div className="form-grid">
               <label className="field"><span>Unit</span><input value={values.unit} onChange={(e) => set('unit', sanitizeCatalogText(e.target.value, 24))} maxLength={24} placeholder={config.key === 'finished_product' ? 'piece, slice, box' : 'kg, L, pcs'} required /></label>
               {!item && <label className="field"><span>Starting quantity</span><input type="number" min="0" step="any" value={values.initialQuantity} onChange={(e) => set('initialQuantity', e.target.value)} /></label>}
-              <label className="field"><span>Low-stock threshold</span><input type="number" min="0" step="any" value={values.minStockLevel} onChange={(e) => set('minStockLevel', e.target.value)} required /></label>
-              <label className="field"><span>Healthy-stock target</span><input type="number" min="0" step="any" value={values.highStockLevel} onChange={(e) => set('highStockLevel', e.target.value)} required /></label>
+              <label className="field"><span>Critical level</span><input type="number" min="0" step="any" value={values.criticalStockLevel} onChange={(e) => set('criticalStockLevel', e.target.value)} required /></label>
+              <label className="field"><span>Low-stock level</span><input type="number" min="0" step="any" value={values.minStockLevel} onChange={(e) => set('minStockLevel', e.target.value)} required /></label>
+              <label className="field"><span>Restock target</span><input type="number" min="0" step="any" value={values.highStockLevel} onChange={(e) => set('highStockLevel', e.target.value)} required /></label>
             </div></section>
           </div>
           {config.hasMenuLink && (
             <fieldset className={`inv-sale-mappings${values.saleMappings.length >= 5 ? ' has-scroll' : ''}`}>
-              <legend>{config.key === 'ingredient' ? 'Where this ingredient is used' : 'How this product is sold'}</legend>
+              <legend>{config.key === 'ingredient' ? 'Recipe links' : 'Sales links'}</legend>
               {values.saleMappings.map((mapping, index) => {
                 const selectedMenuItem = menuItems.find((menuItem) => menuItem.id === mapping.menuItemId)
                 const variants = Object.keys(selectedMenuItem?.variant_options?.prices || {})
@@ -688,22 +681,23 @@ function ItemDrawer({ config, item, onClose, onAdjust, onEdit }) {
           <div className="inv-view-column inv-view-column--primary">
             <section className="inv-view-card inv-view-stock-card">
               <div className="inv-view-card-heading">
-                <div><span className="inv-view-card-kicker">Live snapshot</span><h3>Current stock</h3></div>
+                <div><h3>Current stock</h3></div>
                 <span className={`inv-status tone-${STATUS_META[status].tone}`}>{STATUS_META[status].label}</span>
               </div>
               <div className="inv-view-stock-value"><b>{formatQty(item.quantity)}</b><span>{item.unit || 'unit'} available</span></div>
             </section>
 
             <section className="inv-view-card">
-              <div className="inv-view-card-heading"><div><span className="inv-view-card-kicker">Planning</span><h3>Stock thresholds</h3></div></div>
+              <div className="inv-view-card-heading"><div><h3>Stock thresholds</h3></div></div>
               <dl className="inv-view-detail-grid">
-                <div><dt>Low-stock alert</dt><dd>{formatQty(item.minStockLevel)} {item.unit}</dd></div>
-                <div><dt>Healthy-stock target</dt><dd>{formatQty(item.highStockLevel)} {item.unit}</dd></div>
+                <div><dt>Critical level</dt><dd>{formatQty(item.criticalStockLevel)} {item.unit}</dd></div>
+                <div><dt>Low-stock level</dt><dd>{formatQty(item.minStockLevel)} {item.unit}</dd></div>
+                <div><dt>Restock target</dt><dd>{formatQty(item.highStockLevel)} {item.unit}</dd></div>
               </dl>
             </section>
 
             <section className="inv-view-card">
-              <div className="inv-view-card-heading"><div><span className="inv-view-card-kicker">Reference</span><h3>Item information</h3></div></div>
+              <div className="inv-view-card-heading"><div><h3>Item information</h3></div></div>
               <dl className="inv-view-detail-grid">
                 <div><dt>Category</dt><dd>{item.category || '—'}</dd></div>
                 {config.hasType && <div><dt>Type</dt><dd className="inv-capitalize">{item.type || '—'}</dd></div>}
@@ -712,7 +706,7 @@ function ItemDrawer({ config, item, onClose, onAdjust, onEdit }) {
 
             {config.key === 'ingredient' && (
               <section className="inv-view-card">
-                <div className="inv-view-card-heading"><div><span className="inv-view-card-kicker">Recipe connections</span><h3>Used in</h3></div></div>
+                <div className="inv-view-card-heading"><div><h3>Used in</h3></div></div>
                 {recipeUsage.length === 0 ? <p className="inv-view-empty">Not used in any recipe yet.</p> : (
                   <ul className="inv-view-usage-list">
                     {recipeUsage.map((recipe) => <li key={recipe.menuItemId}><b>{recipe.name}</b><span>{formatQty(recipe.quantityPerServing)} {item.unit} per serving</span></li>)}
@@ -724,7 +718,7 @@ function ItemDrawer({ config, item, onClose, onAdjust, onEdit }) {
 
           <div className="inv-view-column inv-view-column--ledger">
             <section className="inv-view-card inv-view-card--ledger">
-              <div className="inv-view-card-heading"><div><span className="inv-view-card-kicker">Inventory ledger</span><h3>Recent stock movements</h3></div><span className="inv-view-count">{movements.length} {movements.length === 1 ? 'entry' : 'entries'}</span></div>
+              <div className="inv-view-card-heading"><div><h3>Stock movements</h3></div><span className="inv-view-count">{movements.length} {movements.length === 1 ? 'entry' : 'entries'}</span></div>
               {loadError && <p className="form-error">{loadError}</p>}
               {loading ? <p className="inv-view-empty">Loading movement history…</p> : movements.length === 0 ? <p className="inv-view-empty">No stock movements recorded yet.</p> : (
                 <ul className="inv-movement-list inv-view-movement-list">

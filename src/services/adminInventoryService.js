@@ -5,7 +5,7 @@ const MOVEMENT_TABLES = [
   { table: 'finished_product_movements', idColumn: 'finished_product_id', itemType: 'finished_product' },
 ]
 
-function normalizeItem(row, itemType, quantity, minStockLevel, highStockLevel) {
+function normalizeItem(row, itemType, quantity, criticalStockLevel, minStockLevel, highStockLevel) {
   return {
     id: row.id,
     itemType,
@@ -15,6 +15,7 @@ function normalizeItem(row, itemType, quantity, minStockLevel, highStockLevel) {
     type: row.type || null,
     unit: row.unit,
     quantity,
+    criticalStockLevel,
     minStockLevel,
     highStockLevel,
     costPerUnit: row.cost_per_unit === null || row.cost_per_unit === undefined ? null : Number(row.cost_per_unit),
@@ -28,8 +29,8 @@ function normalizeItem(row, itemType, quantity, minStockLevel, highStockLevel) {
 
 export async function fetchInventoryItems() {
   const [{ data: ingredients, error: ingredientsError }, { data: finishedProducts, error: finishedError }] = await Promise.all([
-    supabase.from('ingredients').select('id,name,category,type,unit,supplier,notes,cost_per_unit,expiration_date,sku,created_at,inventory_stock(quantity,min_stock_level,high_stock_level,updated_at)').eq('is_archived', false),
-    supabase.from('finished_products').select('id,name,category,menu_item_id,unit,quantity,min_stock_level,high_stock_level,supplier,notes,cost_per_unit,expiration_date,sku,updated_at').eq('is_archived', false),
+    supabase.from('ingredients').select('id,name,category,type,unit,supplier,notes,cost_per_unit,expiration_date,sku,created_at,inventory_stock(quantity,critical_stock_level,min_stock_level,high_stock_level,updated_at)').eq('is_archived', false),
+    supabase.from('finished_products').select('id,name,category,menu_item_id,unit,quantity,critical_stock_level,min_stock_level,high_stock_level,supplier,notes,cost_per_unit,expiration_date,sku,updated_at').eq('is_archived', false),
   ])
   if (ingredientsError) throw ingredientsError
   if (finishedError) throw finishedError
@@ -46,12 +47,12 @@ export async function fetchInventoryItems() {
       // so reports and monitoring never calculate different stock statuses.
       const stock = Array.isArray(i.inventory_stock) ? i.inventory_stock[0] : i.inventory_stock
       return {
-        ...normalizeItem(i, 'ingredient', Number(stock?.quantity ?? 0), Number(stock?.min_stock_level ?? 0), Number(stock?.high_stock_level ?? 0)),
+        ...normalizeItem(i, 'ingredient', Number(stock?.quantity ?? 0), Number(stock?.critical_stock_level ?? 0), Number(stock?.min_stock_level ?? 0), Number(stock?.high_stock_level ?? 0)),
         updatedAt: stock?.updated_at ?? i.created_at,
         usedByCount: usedByCount.get(i.id) || 0,
       }
     }),
-    ...(finishedProducts || []).map((p) => ({ ...normalizeItem(p, 'finished_product', Number(p.quantity), Number(p.min_stock_level), Number(p.high_stock_level)), usedByCount: p.menu_item_id ? 1 : 0 })),
+    ...(finishedProducts || []).map((p) => ({ ...normalizeItem(p, 'finished_product', Number(p.quantity), Number(p.critical_stock_level), Number(p.min_stock_level), Number(p.high_stock_level)), usedByCount: p.menu_item_id ? 1 : 0 })),
   ]
   return items
 }
@@ -80,9 +81,9 @@ export async function fetchAffectedMenuItems() {
 
 export function stockStatus(item) {
   if (item.quantity <= 0) return 'out'
+  if (item.quantity <= item.criticalStockLevel) return 'critical'
   if (item.quantity <= item.minStockLevel) return 'low'
-  if (item.highStockLevel > 0 && item.quantity > item.highStockLevel) return 'over'
-  return 'healthy'
+  return 'stocked'
 }
 export function isExpiringSoon(item, warningDays = 7) {
   if (!item.expirationDate) return false
@@ -91,7 +92,7 @@ export function isExpiringSoon(item, warningDays = 7) {
 }
 
 export function computeOverview(items, movements) {
-  const statusCounts = { healthy: 0, low: 0, out: 0, over: 0 }
+  const statusCounts = { stocked: 0, low: 0, critical: 0, out: 0 }
   let totalValue = 0
   let trackedCostCount = 0
   const valueByCategory = new Map()
@@ -138,7 +139,7 @@ export function computeOverview(items, movements) {
   return {
     totalActiveIngredients: items.length,
     totalValue, hasCostData: trackedCostCount > 0,
-    lowStockCount: statusCounts.low, outOfStockCount: statusCounts.out, healthyCount: statusCounts.healthy, overStockCount: statusCounts.over,
+    lowStockCount: statusCounts.low, criticalStockCount: statusCounts.critical, outOfStockCount: statusCounts.out, stockedCount: statusCounts.stocked,
     expiringSoon, recentDeductions, wasteRecorded,
     valueByCategory: [...valueByCategory.entries()].sort(([, a], [, b]) => b - a),
     consumptionTrend, mostConsumed,

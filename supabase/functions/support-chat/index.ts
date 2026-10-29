@@ -237,14 +237,15 @@ Deno.serve(async (request) => {
       context.menu_approvals = data || []
     }
     if (['admin', 'staff'].includes(role) && /stock|inventory|ingredient|handover|attention/i.test(lower)) {
-      const { data, error: stockError } = await dataClient.from('ingredients').select('name,unit,inventory_stock(quantity,min_stock_level)').eq('is_archived', false).limit(300)
+      const { data, error: stockError } = await dataClient.from('ingredients').select('name,unit,inventory_stock(quantity,critical_stock_level,min_stock_level)').eq('is_archived', false).limit(300)
       if (stockError) return json({ error: `I could not check ingredient stock: ${stockError.message}` }, 502)
       context.low_stock = (data || []).flatMap((item) => {
         const stock = Array.isArray(item.inventory_stock) ? item.inventory_stock[0] : item.inventory_stock
-        const quantity = Number(stock?.quantity ?? 0), minimum = Number(stock?.min_stock_level ?? 0)
-        return minimum > 0 && quantity <= minimum ? [{ name: item.name, unit: item.unit, quantity, minimum }] : []
+        const quantity = Number(stock?.quantity ?? 0), critical = Number(stock?.critical_stock_level ?? 0), minimum = Number(stock?.min_stock_level ?? 0)
+        const status = quantity <= 0 ? 'Out of Stock' : quantity <= critical ? 'Critical' : 'Low Stock'
+        return minimum > 0 && quantity <= minimum ? [{ name: item.name, unit: item.unit, quantity, minimum, status }] : []
       })
-      const { data: products, error: productError } = await dataClient.from('finished_products').select('name,unit,quantity,min_stock_level').eq('is_archived', false).limit(300)
+      const { data: products, error: productError } = await dataClient.from('finished_products').select('name,unit,quantity,critical_stock_level,min_stock_level').eq('is_archived', false).limit(300)
       if (productError) return json({ error: `I could not check product stock: ${productError.message}` }, 502)
       context.low_stock_products = (products || []).filter((item) => Number(item.min_stock_level) > 0 && Number(item.quantity) <= Number(item.min_stock_level))
     }

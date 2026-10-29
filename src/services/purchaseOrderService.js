@@ -27,7 +27,7 @@ export async function fetchPurchaseOrders(createdBy = null) {
 export async function fetchPurchaseOrderOptions() {
   const ingredients = await fetchIngredients()
   return [
-    ...ingredients.map((item) => ({ id: item.id, itemType: 'ingredient', name: item.name, unit: item.unit, quantity: item.quantity, minStockLevel: item.minStockLevel, highStockLevel: item.highStockLevel, supplier: item.supplier || '' })),
+    ...ingredients.map((item) => ({ id: item.id, itemType: 'ingredient', name: item.name, unit: item.unit, quantity: item.quantity, criticalStockLevel: item.criticalStockLevel, minStockLevel: item.minStockLevel, highStockLevel: item.highStockLevel, supplier: item.supplier || '' })),
   ].sort((a, b) => a.name.localeCompare(b.name))
 }
 

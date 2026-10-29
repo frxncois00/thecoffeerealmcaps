@@ -42,8 +42,8 @@ export async function fetchDashboardData() {
       .select('id,created_at,order_source,order_type,payment_status,status,is_voided')
       .eq('order_source', 'cashier_pos').eq('order_type', 'walk-in')
       .gte('created_at', new Date(previousMonthStart).toISOString())),
-    supabase.from('ingredients').select('id,name,unit,supplier,expiration_date,is_archived,inventory_stock(quantity,min_stock_level,high_stock_level)').eq('is_archived', false),
-    supabase.from('finished_products').select('id,name,unit,quantity,min_stock_level,high_stock_level,supplier,expiration_date,is_archived').eq('is_archived', false),
+    supabase.from('ingredients').select('id,name,unit,supplier,expiration_date,is_archived,inventory_stock(quantity,critical_stock_level,min_stock_level,high_stock_level)').eq('is_archived', false),
+    supabase.from('finished_products').select('id,name,unit,quantity,critical_stock_level,min_stock_level,high_stock_level,supplier,expiration_date,is_archived').eq('is_archived', false),
     supabase.from('menu_items').select('id,name,is_available,manual_available,unavailable_reason,is_archived').eq('is_archived', false),
     supabase.from('portal_audit_events').select('id,occurred_at,actor_id,actor_name_snapshot,actor_role_snapshot,surface,module,action,entity_id,summary,result,severity').order('occurred_at', { ascending: false }).limit(40),
     supabase.from('portal_configuration').select('key,value,updated_at').eq('scope', 'system'),
@@ -111,8 +111,8 @@ export function computeDashboardMetrics(raw) {
   const refundedAmount = refundedToday.reduce((s, r) => s + Number(r.refund_amount || 0), 0)
 
   const inventoryItems = [
-    ...ingredients.map((i) => ({ id: i.id, name: i.name, unit: i.unit || 'unit', supplier: i.supplier || '', expirationDate: i.expiration_date, quantity: Number(i.inventory_stock?.[0]?.quantity ?? 0), min: Number(i.inventory_stock?.[0]?.min_stock_level ?? 0), healthy: Number(i.inventory_stock?.[0]?.high_stock_level ?? 0) })),
-    ...finishedProducts.map((p) => ({ id: p.id, name: p.name, unit: p.unit || 'unit', supplier: p.supplier || '', expirationDate: p.expiration_date, quantity: Number(p.quantity), min: Number(p.min_stock_level), healthy: Number(p.high_stock_level) })),
+    ...ingredients.map((i) => ({ id: i.id, name: i.name, unit: i.unit || 'unit', supplier: i.supplier || '', expirationDate: i.expiration_date, quantity: Number(i.inventory_stock?.[0]?.quantity ?? 0), critical: Number(i.inventory_stock?.[0]?.critical_stock_level ?? 0), min: Number(i.inventory_stock?.[0]?.min_stock_level ?? 0), target: Number(i.inventory_stock?.[0]?.high_stock_level ?? 0) })),
+    ...finishedProducts.map((p) => ({ id: p.id, name: p.name, unit: p.unit || 'unit', supplier: p.supplier || '', expirationDate: p.expiration_date, quantity: Number(p.quantity), critical: Number(p.critical_stock_level), min: Number(p.min_stock_level), target: Number(p.high_stock_level) })),
   ]
   const lowStockItems = inventoryItems.filter((i) => i.min > 0 && i.quantity <= i.min).sort((a, b) => (a.quantity / a.min) - (b.quantity / b.min))
   const outOfStockItems = lowStockItems.filter((item) => item.quantity <= 0)

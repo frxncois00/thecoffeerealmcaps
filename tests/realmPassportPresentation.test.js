@@ -137,22 +137,20 @@ test('loading hides earned data until purchases are known', () => {
   assert.equal(model.chapters[0].slots[0].label, 'Stamp 1 of 5, loading')
 })
 
-test('identity handles missing fields and shows only approved verification', () => {
+test('identity handles missing fields without permanent benefit verification', () => {
   const empty = buildPassportPresentation().identity
   assert.equal(empty.username, 'Member')
   assert.equal(empty.photoUrl, null)
   assert.equal(empty.birthDate, '—')
   assert.equal(empty.favoriteDrink, 'Not set')
   assert.equal(empty.favoriteFood, 'Not set')
-  assert.equal(empty.verification, null)
   const username = `@${'long-name-'.repeat(30)}`
-  const identity = buildPassportPresentation({ profile: { username, birthdate: '1995-01-02', created_at: '2026-09-01', favorite_food: '  Crookie  ' }, benefit: { status: 'approved', kind: 'senior' } }).identity
+  const identity = buildPassportPresentation({ profile: { username, birthdate: '1995-01-02', created_at: '2026-09-01', favorite_food: '  Crookie  ' } }).identity
   assert.equal(identity.username, username.slice(1))
   assert.equal(identity.birthDate, 'Jan 2, 1995')
   assert.equal(identity.memberSince, 'Sep 2026')
   assert.equal(identity.favoriteFood, 'Crookie')
-  assert.deepEqual(identity.verification, { kind: 'senior', label: 'Senior verified' })
-  assert.equal(buildPassportPresentation({ benefit: { status: 'pending', kind: 'pwd' } }).identity.verification, null)
+  assert.equal('verification' in identity, false)
 })
 
 test('seen stamps persist across trackers and are isolated per member', () => {

@@ -15,7 +15,6 @@ import HomePage from './pages/HomePage'
 import LegalPage from './pages/LegalPage'
 import HelpPage from './pages/customer/HelpPage'
 import ContactPage from './pages/customer/ContactPage'
-import BenefitsPage from './pages/customer/BenefitsPage'
 import RealmPassportPage from './pages/customer/RealmPassportPage'
 import InventoryStockPage from './pages/InventoryStockPage'
 import ManageMenuPage from './pages/ManageMenuPage'
@@ -67,7 +66,7 @@ export default function App() {
           <Route path="/profile" element={protect(<ProfilePage />)} />
           <Route path="/realm-passport" element={protect(<RealmPassportPage />)} />
           <Route path="/complete-profile" element={protect(<CustomerOnboardingPage />)} />
-          <Route path="/profile/benefits" element={protect(<BenefitsPage />)} />
+          <Route path="/profile/benefits" element={<Navigate to="/profile" replace />} />
           <Route path="/addresses" element={<Navigate to="/profile" replace />} />
           <Route path="/settings" element={<Navigate to="/profile" replace />} />
         </Route>

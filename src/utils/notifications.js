@@ -26,12 +26,12 @@ export function notificationDestination(target, role) {
   if (!target) return null
   if (role === 'customer') {
     if (target.kind === 'order') return { path: '/orders', state: { notificationOrderId: target.id } }
-    if (target.kind === 'benefits') return { path: '/profile/benefits' }
+    if (target.kind === 'benefits') return { path: '/profile' }
     return null
   }
   if (target.kind === 'purchase-order') return { path: `/${role}/purchase-orders`, state: { notificationPurchaseOrderId: target.id } }
   if (target.kind === 'menu-approval') return { path: role === 'admin' ? '/admin/menu-approvals' : '/staff/menu' }
-  if (target.kind === 'benefits' && role === 'admin') return { path: '/admin/benefits-verification' }
+  if (target.kind === 'benefits' && role === 'admin') return { path: '/admin' }
   if (target.kind === 'message' && role === 'admin') return { path: '/admin/messages', state: { notificationMessageId: target.id } }
   if (['order', 'refund', 'cancellation'].includes(target.kind) && role === 'admin') return { path: '/admin/transactions', state: { notificationOrderId: target.id, notificationOrderNumber: target.orderNumber } }
   return null // Staff order/inventory targets use the existing detailed navigation.

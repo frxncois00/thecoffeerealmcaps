@@ -2,7 +2,7 @@ import MenuBrowser from '../../components/customer/MenuBrowser'
 import RatingStars from '../../components/customer/RatingStars'
 import '../../components/customer/menu-hero.css'
 import '../../components/customer/placed-order.css'
-import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Clock3, Coffee, Copy, CreditCard, ExternalLink, Info, Link2, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Store, Trash2, Truck, Unlink, X, XCircle } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Clock3, Coffee, Copy, CreditCard, Download, ExternalLink, Info, Link2, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Store, Trash2, Truck, Unlink, X, XCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -11,14 +11,13 @@ import { useAvailableQuantity } from '../../hooks/useAvailableQuantity'
 import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePricing } from '../../context/usePricing'
-import { createCustomerOrderWithBenefitDiscount, createPaymongoCheckout, verifyPaymongoPayment, fetchCustomerBenefitApplication, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, checkCustomerPaymentReference, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, confirmCustomerOrderReceived, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
+import { createCustomerOrderWithBenefitDiscount, createPaymongoCheckout, verifyPaymongoPayment, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, checkCustomerPaymentReference, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, confirmCustomerOrderReceived, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
 import RealmPassportProfileLink, { RealmIdProfileField } from '../../components/customer/RealmPassportProfileLink'
 import { deliveryAreas } from '../../data/deliveryAreas'
 import { money } from '../../utils/money'
 import { describeError } from '../../utils/describeError'
 import { allowsSpecialInstructions, useProductCustomization } from '../../hooks/useProductCustomization'
 import Choice from '../../components/Choice'
-import BenefitProfileLink from '../../components/customer/BenefitProfileLink'
 import { customerSupabase as supabase, isSupabaseConfigured } from '../../lib/supabase'
 import { SYSTEM_DEFAULTS, fetchPublicDeliveryAreas, fetchPublicPortalData } from '../../services/adminPortalConfigurationService'
 import { normalizeOrderTemperature } from '../../utils/temperature'
@@ -252,7 +251,7 @@ const mergePlacedOrderData=({order,form,items,total,pricingSnapshot={}})=>{
 const trackingSteps=order=>orderTrackingSteps(order,initialOrderStatusLabel(orderPaymentMethod(order)))
 const trackingStatusCopy=(order,status)=>status==='Awaiting Payment Verification'?'Your payment proof is waiting for review.':status==='Order Received'?'Your order is waiting for store confirmation.':status==='Confirmed'?`Scheduled for ${orderScheduleLabel(order)}`:status==='Preparing'?(isDeliveryReady(order)?'Your order is prepared and waiting to go out for delivery.':'The kitchen and bar are preparing your order.'):status==='Out for Delivery'?'Your order is on the way. Confirm once it arrives.':status==='Ready for Pickup'||status==='Ready to Claim'?'Your order is ready to claim at the store.':status==='Received'?'You confirmed that this delivery was received.':status==='Completed'?'This order has been completed.':'Waiting for update'
 const manilaCurrentTime=()=>{const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());const map=Object.fromEntries(parts.map(part=>[part.type,part.value]));return `${String(map.hour).padStart(2,'0')}:${String(map.minute).padStart(2,'0')}`}
-const emptyCheckoutForm=()=>({fullName:'',email:'',contact:'',fulfillment:'delivery',address:'',barangay:'',city:'Quezon City',province:'Metro Manila',postal:'',instructions:'',payment:'cod',paymentReference:'',scheduleDate:manilaDate(),scheduleTime:'10:00',deliveryFee:0,deliveryZone:'',estimatedDeliveryTime:'',applyBenefitDiscount:false,coordinates:null})
+const emptyCheckoutForm=()=>({fullName:'',email:'',contact:'',fulfillment:'delivery',address:'',barangay:'',city:'Quezon City',province:'Metro Manila',postal:'',instructions:'',payment:'cod',paymentReference:'',scheduleDate:manilaDate(),scheduleTime:'10:00',deliveryFee:0,deliveryZone:'',estimatedDeliveryTime:'',benefitType:'',benefitConfirmed:false,coordinates:null})
 const customerPaymentMethods=payments=>Array.from(new Set(payments?.enabledMethods||[]))
 export function CheckoutPage(){
   const cart=useCart();const {items,subtotal}=cart;const {user,profile}=useAuth();const {pricing}=usePricing();const navigate=useNavigate();
@@ -267,7 +266,7 @@ export function CheckoutPage(){
   const [systemSettings,setSystemSettings]=useState(SYSTEM_DEFAULTS);
   const [availableAreas,setAvailableAreas]=useState(deliveryAreas);
   const [addresses,setAddresses]=useState([]);const [selectedAddress,setSelectedAddress]=useState('');const [addressMode,setAddressMode]=useState('loading');const [draftReady,setDraftReady]=useState(false);const [requestKey,setRequestKey]=useState(()=>crypto.randomUUID());
-  const [form,setForm]=useState(emptyCheckoutForm);const [benefitApplication,setBenefitApplication]=useState(null);
+  const [form,setForm]=useState(emptyCheckoutForm);
   useEffect(()=>{if(!user?.id)return;const draft=readCheckoutDraft(user.id);if(draft){setForm({...emptyCheckoutForm(),...draft.form,scheduleDate:draft.form?.scheduleDate||manilaDate(),scheduleTime:draft.form?.scheduleTime||manilaCurrentTime()});setAddressMode(['saved','new'].includes(draft.addressMode)?draft.addressMode:'new');setSelectedAddress(String(draft.selectedAddress||''));setRequestKey(draft.requestKey||crypto.randomUUID())}else{setAddressMode('loading')}setDraftReady(true)},[user?.id]);
   useEffect(()=>{if(!draftReady)return;setForm(current=>{const targetDate=current.fulfillment==='delivery'&&Boolean(systemSettings.ordering?.allowDeliveryTomorrow)&&current.scheduleDate===manilaDate(1)?manilaDate(1):manilaDate();return {...current,scheduleDate:targetDate,postal:''}})},[draftReady,systemSettings.ordering]);
   useEffect(()=>{if(!draftReady||!user?.id||addressMode==='loading')return undefined;const timeout=window.setTimeout(()=>writeCheckoutDraft(user.id,{form,addressMode,selectedAddress,requestKey}),120);return()=>window.clearTimeout(timeout)},[addressMode,draftReady,form,requestKey,selectedAddress,user?.id]);
@@ -291,7 +290,6 @@ export function CheckoutPage(){
       return currentMode==='loading'||currentMode==='saved'?'new':currentMode
     })
   }).catch(()=>{if(active){setAddresses([]);setAddressMode(current=>current==='loading'||current==='saved'?'new':current)}});return()=>{active=false}},[draftReady,user?.id]);
-  useEffect(()=>{let active=true;if(!user?.id)return undefined;fetchCustomerBenefitApplication(user.id).then(data=>{if(active)setBenefitApplication(data)}).catch(()=>{if(active)setBenefitApplication(null)});return()=>{active=false}},[user?.id]);
   useEffect(()=>()=>{if(paymentProofPreview)URL.revokeObjectURL(paymentProofPreview)},[paymentProofPreview]);
   const applyAddress=address=>{
     setSelectedAddress(String(address.id))
@@ -305,7 +303,7 @@ export function CheckoutPage(){
     setSelectedAddress('')
     setForm(current=>({...current,address:'',barangay:'',city:'Quezon City',province:'Metro Manila',postal:''}))
   }
-  const selectedArea=availableAreas.find(area=>area.barangay.toLowerCase()===form.barangay.trim().toLowerCase());const fee=form.fulfillment==='delivery'?(selectedArea?.fee||0):0;const pickupSlots=useMemo(()=>scheduleSlots(manilaDate(),'pickup',systemSettings.ordering,prepMinutes,scheduleNow),[systemSettings.ordering,prepMinutes,scheduleNow]);const deliverySlots=useMemo(()=>scheduleSlots(form.scheduleDate||manilaDate(),'delivery',systemSettings.ordering,prepMinutes,scheduleNow),[form.scheduleDate,systemSettings.ordering,prepMinutes,scheduleNow]);const benefitEligible=benefitApplication?.status==='approved';const eligibleBenefit=mostExpensiveEligibleItemBenefit(items,pricing.vatRate,pricing.pricesIncludeVat);const benefitDiscount=benefitEligible&&form.applyBenefitDiscount?eligibleBenefit.benefitAmount:0;const total=subtotal+fee-benefitDiscount;
+  const selectedArea=availableAreas.find(area=>area.barangay.toLowerCase()===form.barangay.trim().toLowerCase());const fee=form.fulfillment==='delivery'?(selectedArea?.fee||0):0;const pickupSlots=useMemo(()=>scheduleSlots(manilaDate(),'pickup',systemSettings.ordering,prepMinutes,scheduleNow),[systemSettings.ordering,prepMinutes,scheduleNow]);const deliverySlots=useMemo(()=>scheduleSlots(form.scheduleDate||manilaDate(),'delivery',systemSettings.ordering,prepMinutes,scheduleNow),[form.scheduleDate,systemSettings.ordering,prepMinutes,scheduleNow]);const eligibleBenefit=mostExpensiveEligibleItemBenefit(items,pricing.vatRate,pricing.pricesIncludeVat);const applyBenefitDiscount=Boolean(form.benefitType);const benefitDiscount=applyBenefitDiscount?eligibleBenefit.benefitAmount:0;const total=subtotal+fee-benefitDiscount;
   useEffect(()=>{if(form.fulfillment==='pickup'){setForm(current=>current.scheduleTime&&pickupSlots.some(slot=>slot.id===current.scheduleTime)?current:{...current,scheduleDate:manilaDate(),scheduleTime:pickupSlots[0]?.id||''})}else if(form.fulfillment==='delivery'){setForm(current=>current.scheduleTime&&deliverySlots.some(slot=>slot.id===current.scheduleTime)?current:{...current,scheduleTime:deliverySlots[0]?.id||''})}},[form.fulfillment,form.scheduleDate,pickupSlots,deliverySlots,systemSettings.ordering?.allowDeliveryTomorrow]);
   if(!items.length)return <Empty title="Nothing to checkout" body="Your cart needs at least one item." action="Browse menu" to="/menu"/>;
   if(cart.hasUnavailableItems)return <main className="customer-main"><section className="empty-state"><AlertTriangle/><h1>Update your cart</h1><p>Remove unavailable items before continuing to checkout.</p><button className="primary-button" type="button" onClick={cart.openCart}>Review cart</button></section></main>;
@@ -388,6 +386,8 @@ export function CheckoutPage(){
       if(!selectedArea){setSubmitError('We do not deliver outside Quezon City for now. Please select an address within Quezon City.');return}
       if(Boolean(systemSettings.ordering?.allowDeliveryTomorrow)&&!form.scheduleTime){setSubmitError(`Choose an available delivery time for ${form.scheduleDate===manilaDate(1)?'tomorrow':'today'}.`);return}
     }
+    if(form.benefitType&&!eligibleBenefit.benefitAmount){setSubmitError('Your cart does not contain an item eligible for the selected discount.');return}
+    if(form.benefitType&&!form.benefitConfirmed){setSubmitError('Confirm that you will present the original valid ID before reviewing your order.');return}
     if(['gcash','bank_transfer'].includes(form.payment)&&!validPaymentReference(form.payment,form.paymentReference)){setPaymentReferenceError(paymentReferenceMessage(form.payment));return}
     setPaymentReferenceError('')
     if(['gcash','bank_transfer'].includes(form.payment)&&!paymentProof){setPaymentProofError('Upload your payment proof before reviewing the order.');return}
@@ -424,7 +424,7 @@ export function CheckoutPage(){
     {systemSettings.ordering.storeStatus!=='open'&&<p className="field-hint error">{systemSettings.ordering.closureMessage}</p>}
     {cart.checkingAvailability?<p className="checkout-stock-refresh" role="status">Checking current item availability…</p>:null}
     <button type="submit" className="primary-button checkout-submit" disabled={cart.checkingAvailability||validatingPaymentProof||systemSettings.ordering.storeStatus!=='open'||!form.payment||(form.fulfillment==='delivery'&&!selectedArea)}>Review order · {money(total)} <ArrowRight/></button>
-  </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} benefit={eligibleBenefit} benefitEligible={benefitEligible} applyBenefitDiscount={Boolean(form.applyBenefitDiscount)} onBenefitChange={value=>set('applyBenefitDiscount',value)} fulfillment={form.fulfillment} selectedArea={selectedArea} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div>
+  </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} benefit={eligibleBenefit} benefitType={form.benefitType} benefitConfirmed={form.benefitConfirmed} onBenefitTypeChange={value=>setForm(current=>({...current,benefitType:value,benefitConfirmed:value?current.benefitConfirmed:false}))} onBenefitConfirmationChange={value=>set('benefitConfirmed',value)} fulfillment={form.fulfillment} selectedArea={selectedArea} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div>
   </main>
 }
 function CheckoutSection({n,title,children}){return <section className="checkout-section"><header><b>{n}</b><h2>{title}</h2></header>{children}</section>}
@@ -442,25 +442,76 @@ function PickupStoreLocation(){
 }
 function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,referenceError,onReferenceChange,onReferenceBlur,proof,previewUrl,proofError,validatingProof,onProofChange,onProofClear}){
   const proofInputRef=useRef(null)
+  const [qrAction,setQrAction]=useState('')
   if(payment==='cod')return <div className="checkout-payment-cod"><Info size={18}/><p><b>Pay when your order arrives.</b><span>Please prepare the exact amount whenever possible. Cash on delivery is available up to {money(Number(paymentConfig.codMaximum||1000))}.</span></p></div>
   if(payment==='paymongo'||payment==='qrph')return <section className="checkout-payment-details" aria-live="polite" aria-labelledby="checkout-paymongo-title"><div className="checkout-payment-details-head"><span><Lock size={19}/></span><div><h3 id="checkout-paymongo-title">Pay with PayMongo</h3></div><b>{money(total)}</b></div><div className="checkout-payment-instructions"><p>Continue to PayMongo after reviewing your order to complete payment securely.</p></div></section>
   if(!['gcash','bank_transfer'].includes(payment))return null
   const isGcash=payment==='gcash'
   const label=isGcash?'GCash':'Bank transfer'
   const qr=isGcash?(paymentConfig.gcashQrUrl||'/assets/img/qr.jpg'):(paymentConfig.bankQrUrl||'/assets/img/qr1.jpg')
+  const accountNumber=isGcash?paymentConfig.gcashAccountNumber:paymentConfig.bankAccountNumber
   const instructions=isGcash?paymentConfig.gcashInstructions:paymentConfig.bankInstructions
   const changeReference=value=>onReferenceChange(value.replace(/\D/g,'').slice(0,isGcash?13:25))
+  const saveQrImage=async()=>{
+    setQrAction('saving')
+    try{
+      const response=await fetch(qr)
+      if(!response.ok)throw new Error('Unable to download QR image.')
+      const blob=await response.blob()
+      const extension=blob.type.includes('webp')?'webp':blob.type.includes('jpeg')?'jpg':'png'
+      const objectUrl=URL.createObjectURL(blob)
+      const link=document.createElement('a')
+      link.href=objectUrl
+      link.download=`${isGcash?'gcash':'bank-transfer'}-qr.${extension}`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(objectUrl)
+      setQrAction('saved')
+    }catch{
+      const link=document.createElement('a')
+      link.href=qr
+      link.download=`${isGcash?'gcash':'bank-transfer'}-qr`
+      link.target='_blank'
+      link.rel='noopener noreferrer'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      setQrAction('saved')
+    }
+    window.setTimeout(()=>setQrAction(''),1800)
+  }
+  const copyAccountNumber=async()=>{
+    if(!accountNumber)return
+    try{await navigator.clipboard.writeText(String(accountNumber))}
+    catch{
+      const input=document.createElement('textarea')
+      input.value=String(accountNumber)
+      input.style.position='fixed'
+      input.style.opacity='0'
+      document.body.appendChild(input)
+      input.select()
+      document.execCommand('copy')
+      input.remove()
+    }
+    setQrAction('copied')
+    window.setTimeout(()=>setQrAction(''),1800)
+  }
   return <section className="checkout-payment-details" aria-live="polite" aria-labelledby="checkout-payment-details-title">
     <div className="checkout-payment-details-head"><span><img src={isGcash?'/images/gcashpic1.png':'/images/maribank1.png'} alt=""/></span><div><h3 id="checkout-payment-details-title">Pay with {label}</h3></div><b>{money(total)}</b></div>
     <div className="checkout-payment-columns">
       <div className="checkout-payment-column checkout-payment-column-instructions">
         <div className="checkout-payment-details-body">
           <img src={qr} alt={`${label} payment QR code`}/>
+          <div className="checkout-payment-quick-actions" aria-live="polite">
+            <button type="button" onClick={saveQrImage} disabled={qrAction==='saving'}><Download size={16}/>{qrAction==='saving'?'Saving...':qrAction==='saved'?'Saved':'Save QR image'}</button>
+            <button type="button" onClick={copyAccountNumber} disabled={!accountNumber}><Copy size={16}/>{qrAction==='copied'?'Copied':'Copy number'}</button>
+          </div>
           <div className="checkout-payment-instructions">
-            {!isGcash&&(paymentConfig.bankName||paymentConfig.bankAccountName||paymentConfig.bankAccountNumber)&&<dl>
-              {paymentConfig.bankName&&<div><dt>Bank</dt><dd>{paymentConfig.bankName}</dd></div>}
-              {paymentConfig.bankAccountName&&<div><dt>Account name</dt><dd>{paymentConfig.bankAccountName}</dd></div>}
-              {paymentConfig.bankAccountNumber&&<div><dt>Account number</dt><dd>{paymentConfig.bankAccountNumber}</dd></div>}
+            {(isGcash?(paymentConfig.gcashAccountName||paymentConfig.gcashAccountNumber):(paymentConfig.bankName||paymentConfig.bankAccountName||paymentConfig.bankAccountNumber))&&<dl>
+              {!isGcash&&paymentConfig.bankName&&<div><dt>Bank</dt><dd>{paymentConfig.bankName}</dd></div>}
+              {(isGcash?paymentConfig.gcashAccountName:paymentConfig.bankAccountName)&&<div><dt>Account name</dt><dd>{isGcash?paymentConfig.gcashAccountName:paymentConfig.bankAccountName}</dd></div>}
+              {(isGcash?paymentConfig.gcashAccountNumber:paymentConfig.bankAccountNumber)&&<div><dt>Account number</dt><dd>{isGcash?paymentConfig.gcashAccountNumber:paymentConfig.bankAccountNumber}</dd></div>}
             </dl>}
             <p>{instructions||`Scan the QR code and send ${money(total)}.`}</p>
           </div>
@@ -502,10 +553,12 @@ function BarangayField({areas=deliveryAreas,value,onChange,selectedArea}){
   </div>
 }
 function mostExpensiveEligibleItemBenefit(items=[],vatRate=0.12,pricesIncludeVat=true){const target=items.filter(item=>item.onlineBenefitEligible).sort((a,b)=>(b.unitPrice+(b.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0))-(a.unitPrice+(a.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0)))[0];if(!target)return{eligibleGrossAmount:0,vatAmount:0,discountAmount:0,benefitAmount:0};const eligibleGrossAmount=Number(target.unitPrice)+(target.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0);return{eligibleGrossAmount,...vatExemptDiscountBreakdown(eligibleGrossAmount,vatRate,0.2,pricesIncludeVat)}}
-function CheckoutPreview({items,subtotal,fee,total,benefit,benefitEligible=false,applyBenefitDiscount=false,onBenefitChange=()=>{},fulfillment,selectedArea,vatRate,pricesIncludeVat}){
-  const breakdown=buildVatExemptOrderBreakdown({subtotal,discountSubtotal:applyBenefitDiscount?benefit.eligibleGrossAmount:0,discountType:applyBenefitDiscount?'PWD':'',discountAmount:applyBenefitDiscount?benefit.discountAmount:0,vatExemptAmount:applyBenefitDiscount?benefit.vatAmount:0,vatRate,pricesIncludeVat})
-  return <aside className="checkout-preview">
-    <header><span>Order preview</span><h2>Your order</h2></header>
+function CheckoutPreview({items,subtotal,fee,total,benefit,benefitType='',benefitConfirmed=false,onBenefitTypeChange=()=>{},onBenefitConfirmationChange=()=>{},fulfillment,selectedArea,vatRate,pricesIncludeVat}){
+  const applyBenefitDiscount=Boolean(benefitType)
+  const discountLabel=benefitType==='senior'?'Senior Citizen':benefitType==='pwd'?'PWD':''
+  const breakdown=buildVatExemptOrderBreakdown({subtotal,discountSubtotal:applyBenefitDiscount?benefit.eligibleGrossAmount:0,discountType:discountLabel,discountAmount:applyBenefitDiscount?benefit.discountAmount:0,vatExemptAmount:applyBenefitDiscount?benefit.vatAmount:0,vatRate,pricesIncludeVat})
+  return <div className="checkout-preview-column"><aside className="checkout-preview">
+    <header><span>Order preview</span><h2>Your cart</h2></header>
     <div className="checkout-preview-items">
       {items.map(item=><article key={item.lineId}>
         <img src={item.image} alt=""/>
@@ -518,6 +571,15 @@ function CheckoutPreview({items,subtotal,fee,total,benefit,benefitEligible=false
       </article>)}
     </div>
     <div className="checkout-preview-footer">
+      <section className={`checkout-benefit-panel${applyBenefitDiscount?' is-active':''}`} aria-labelledby="checkout-discount-title">
+    <p className="checkout-benefit-prompt" id="checkout-discount-title">Choose the discount that applies to this order.</p>
+    <div className="checkout-benefit-types" role="radiogroup" aria-label="Discount type">
+      {[{id:'',name:'No discount'},{id:'pwd',name:'PWD'},{id:'senior',name:'Senior Citizen'}].map(option=><label key={option.id||'none'} className={`checkout-benefit-type${benefitType===option.id?' is-selected':''}`}><input type="radio" name="benefit-type" value={option.id} checked={benefitType===option.id} disabled={Boolean(option.id)&&!benefit.benefitAmount} onChange={()=>onBenefitTypeChange(option.id)}/><span>{option.name}</span></label>)}
+    </div>
+    {!benefit.benefitAmount&&<small>No eligible item in your cart.</small>}
+    {applyBenefitDiscount&&benefit.benefitAmount>0&&<label className="checkout-benefit-confirmation"><input type="checkbox" required checked={benefitConfirmed} onChange={event=>onBenefitConfirmationChange(event.target.checked)}/><span>I confirm that I will present the original valid {discountLabel} ID upon {fulfillment==='delivery'?'delivery':'pickup'}. <span className="checkout-required" aria-hidden="true">*</span></span></label>}
+
+  </section>
       <div className="checkout-totals" aria-label="Order totals">
         {breakdown.isVatExemptDiscount?<>
           {breakdown.regularBaseAmount>0&&<p><span>VATable Sale</span><b>{money(breakdown.regularBaseAmount)}</b></p>}
@@ -531,15 +593,8 @@ function CheckoutPreview({items,subtotal,fee,total,benefit,benefitEligible=false
         {fulfillment==='delivery'&&<p><span>Delivery fee</span><b>{selectedArea?money(fee):'Select Barangay'}</b></p>}
         <p className="grand"><span>Total</span><b>{money(total)}</b></p>
       </div>
-      {benefitEligible&&<div className={`checkout-benefit-panel${applyBenefitDiscount?' is-active':''}`}>
-        <label className="checkout-benefit-option">
-          <input type="checkbox" disabled={!benefit.benefitAmount} checked={applyBenefitDiscount} onChange={event=>onBenefitChange(event.target.checked)}/>
-          <span><b>Senior Citizen / PWD discount</b><small>{benefit.benefitAmount?'20% off the most expensive eligible item.':'No eligible item in your cart.'}</small></span>
-        </label>
-        {applyBenefitDiscount&&benefit.benefitAmount>0&&<p className="checkout-benefit-reminder">Original SC/PWD ID required upon {fulfillment==='delivery'?'delivery':'pickup'}.</p>}
-      </div>}
     </div>
-  </aside>
+  </aside></div>
 }
 function CodConfirmationModal({total,paymentConfig=SYSTEM_DEFAULTS.payments,busy,onClose,onConfirm}){
   const codMaximum=Number(paymentConfig.codMaximum||1000)
@@ -610,13 +665,14 @@ export function OrderReviewPage(){
   const {state}=useLocation();const navigate=useNavigate();const {user,signOut}=useAuth();const cart=useCart();const {items,subtotal,clearCart}=cart;const {pricing}=usePricing();const savedDraft=readCheckoutDraft(user?.id);const form=state?.checkout||savedDraft?.form;const paymentProof=state?.paymentProof||null;const [requestKey]=useState(()=>savedDraft?.requestKey||crypto.randomUUID());const submittingRef=useRef(false);const completedRef=useRef(false);const [submitPhase,setSubmitPhase]=useState('idle');const busy=submitPhase!=='idle';const [error,setError]=useState('');const [modal,setModal]=useState(null);const [createdOrder,setCreatedOrder]=useState(null);const [freshOrder,setFreshOrder]=useState(false);const [paymentConfig,setPaymentConfig]=useState(SYSTEM_DEFAULTS.payments);
   useEffect(()=>{let active=true;fetchPublicPortalData().then(data=>{if(active)setPaymentConfig(data.system.payments)}).catch(()=>{});return()=>{active=false}},[])
   if(!form||!items.length)return <NotFoundPage/>;
-  const fee=form.fulfillment==='delivery'?Number(form.deliveryFee||0):0;const eligibleBenefit=mostExpensiveEligibleItemBenefit(items,pricing.vatRate,pricing.pricesIncludeVat);const discount=form.applyBenefitDiscount?eligibleBenefit.benefitAmount:0;const total=subtotal+fee-discount;const breakdown=buildVatExemptOrderBreakdown({subtotal,discountSubtotal:form.applyBenefitDiscount?eligibleBenefit.eligibleGrossAmount:0,discountType:form.applyBenefitDiscount?'PWD':'',discountAmount:form.applyBenefitDiscount?eligibleBenefit.discountAmount:0,vatExemptAmount:form.applyBenefitDiscount?eligibleBenefit.vatAmount:0,vatRate:pricing.vatRate,pricesIncludeVat:pricing.pricesIncludeVat});
-  const pricingSnapshot={subtotal,discount_subtotal:form.applyBenefitDiscount?eligibleBenefit.eligibleGrossAmount:0,discount_type:form.applyBenefitDiscount?'PWD':'',discount_amount:form.applyBenefitDiscount?eligibleBenefit.discountAmount:0,vat_exempt_amount:form.applyBenefitDiscount?eligibleBenefit.vatAmount:0,delivery_fee:fee,vat_rate:pricing.vatRate,prices_include_vat:pricing.pricesIncludeVat}
+  const fee=form.fulfillment==='delivery'?Number(form.deliveryFee||0):0;const eligibleBenefit=mostExpensiveEligibleItemBenefit(items,pricing.vatRate,pricing.pricesIncludeVat);const applyBenefitDiscount=Boolean(form.benefitType);const benefitDiscountType=form.benefitType==='senior'?'Senior Citizen':form.benefitType==='pwd'?'PWD':'';const discount=applyBenefitDiscount?eligibleBenefit.benefitAmount:0;const total=subtotal+fee-discount;const breakdown=buildVatExemptOrderBreakdown({subtotal,discountSubtotal:applyBenefitDiscount?eligibleBenefit.eligibleGrossAmount:0,discountType:benefitDiscountType,discountAmount:applyBenefitDiscount?eligibleBenefit.discountAmount:0,vatExemptAmount:applyBenefitDiscount?eligibleBenefit.vatAmount:0,vatRate:pricing.vatRate,pricesIncludeVat:pricing.pricesIncludeVat});
+  const pricingSnapshot={subtotal,discount_subtotal:applyBenefitDiscount?eligibleBenefit.eligibleGrossAmount:0,discount_type:benefitDiscountType,discount_amount:applyBenefitDiscount?eligibleBenefit.discountAmount:0,vat_exempt_amount:applyBenefitDiscount?eligibleBenefit.vatAmount:0,delivery_fee:fee,vat_rate:pricing.vatRate,prices_include_vat:pricing.pricesIncludeVat}
   const place=async(proof,referenceNumber='')=>{
     if(submittingRef.current||completedRef.current)return
     submittingRef.current=true
     setSubmitPhase('checking');setError('')
     try{
+      if(applyBenefitDiscount&&!form.benefitConfirmed)throw new Error('Return to checkout and confirm that you will present the original valid ID.')
       if(form.fulfillment==='delivery'&&(!form.deliveryZone||!form.barangay||!form.address?.trim()||!form.deliveryFee)){
         setModal(null)
         setError('We do not deliver outside Quezon City for now. Please select an address within Quezon City.')
@@ -646,7 +702,7 @@ export function OrderReviewPage(){
       }
       let order=createdOrder
       if(!order){
-        const response=await createCustomerOrderWithBenefitDiscount({request_key:requestKey,apply_benefit_discount:Boolean(form.applyBenefitDiscount),customer:{...form},items:items.map(item=>({product_id:item.productId,variation_id:item.variation?.id,temperature:normalizeOrderTemperature(item.temperature),addon_ids:(item.addons||[]).map(addon=>addon.id),quantity:item.quantity,special_instructions:item.instructions})),fulfillment_method:form.fulfillment,payment_method:form.payment})
+        const response=await createCustomerOrderWithBenefitDiscount({request_key:requestKey,apply_benefit_discount:applyBenefitDiscount,benefit_type:form.benefitType||null,benefit_confirmation:Boolean(form.benefitConfirmed),customer:{...form},items:items.map(item=>({product_id:item.productId,variation_id:item.variation?.id,temperature:normalizeOrderTemperature(item.temperature),addon_ids:(item.addons||[]).map(addon=>addon.id),quantity:item.quantity,special_instructions:item.instructions})),fulfillment_method:form.fulfillment,payment_method:form.payment})
         order=mergePlacedOrderData({order:Array.isArray(response)?response[0]:response,form,items,total,pricingSnapshot})
         setCreatedOrder(order)
       }
@@ -705,7 +761,7 @@ export function OrderReviewPage(){
           <article><div><span>Payment method</span><b>{paymentMethodLabel(form.payment)}</b></div><button type="button" onClick={editCheckout}>Edit</button></article>
           {form.payment!=='cod'&&<article><div><span>Payment proof</span><b>{paymentProof?.name||'Upload required'}</b><small>Reference: {form.paymentReference}</small></div><button type="button" onClick={editCheckout}>Edit</button></article>}
         </div>
-        {discount>0&&<p className="review-benefit-note">Present your original Senior Citizen/PWD ID upon {form.fulfillment==='delivery'?'delivery':'pickup'}.</p>}
+        {discount>0&&<p className="review-benefit-note">{benefitDiscountType} discount selected. Present the original valid ID upon {form.fulfillment==='delivery'?'delivery':'pickup'}.</p>}
       </section>
     </div>
     {(error||cart.hasUnavailableItems)&&!modal&&<div className="form-error review-order-error" role="alert">{error||'One or more cart items are now unavailable. Review your cart before continuing.'}{cart.hasUnavailableItems&&<button type="button" className="text-button" onClick={()=>{cart.openCart();navigate('/menu',{replace:true})}}>Review cart</button>}</div>}
@@ -1453,7 +1509,7 @@ export function ProfilePage(){
           <Field label="Email address" type="email" value={values.email} onChange={value=>set('email',value.slice(0,EMAIL_MAX_LENGTH))} maxLength={EMAIL_MAX_LENGTH}/>
           <Field label="Phone number" type="tel" value={values.phone} onChange={value=>set('phone',normalizePhone(value))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Phone number must contain 11 digits and start with 09."/>
         </div>
-        <div className="profile-benefit-actions"><button className="primary-button" type="submit" disabled={savingProfile}>{savingProfile?'Saving…':'Save profile'}</button><BenefitProfileLink/></div>
+        <div className="profile-benefit-actions"><button className="primary-button" type="submit" disabled={savingProfile}>{savingProfile?'Saving…':'Save profile'}</button></div>
         {status&&<p className={`settings-status${statusTone?` is-${statusTone}`:''}`} role={statusTone==='error'?'alert':'status'}>{status}</p>}
         <div className="account-link-row">
           <div className="account-link-copy">

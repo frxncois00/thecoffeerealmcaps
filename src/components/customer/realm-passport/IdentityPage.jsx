@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ShieldCheck, UserRound } from 'lucide-react'
+import { UserRound } from 'lucide-react'
 
 function MemberPhoto({ url, username }) {
   const [failed, setFailed] = useState(false)
@@ -27,6 +27,5 @@ export default function IdentityPage({ identity, loading }) {
       <div><dt>Favorite drink</dt><dd title={identity.favoriteDrink}>{identity.favoriteDrink}</dd></div>
       <div><dt>Favorite food</dt><dd title={identity.favoriteFood}>{identity.favoriteFood}</dd></div>
     </dl>
-    {identity.verification?.kind === 'senior' && <div className="rp-identity-note"><span className="rp-verification"><ShieldCheck size={17} aria-hidden="true" />Senior verified</span></div>}
   </div>
 }

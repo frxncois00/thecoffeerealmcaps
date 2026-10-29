@@ -27,7 +27,7 @@ import { saveRaimuPreference } from './raimu/useRaimu'
 
 const adminGroups = [
   { label: 'Main', links: [['Dashboard','/admin',LayoutDashboard]] },
-  { label: 'Operations', links: [['Inventory Monitoring','/admin/inventory',Boxes],['Purchase Orders','/admin/purchase-orders',ClipboardCheck],['Menu Approvals','/admin/menu-approvals',ClipboardCheck],['Benefits Verification','/admin/benefits-verification',ShieldCheck],['Transaction History','/admin/transactions',ReceiptText]] },
+  { label: 'Operations', links: [['Inventory Monitoring','/admin/inventory',Boxes],['Purchase Orders','/admin/purchase-orders',ClipboardCheck],['Menu Approvals','/admin/menu-approvals',ClipboardCheck],['Transaction History','/admin/transactions',ReceiptText]] },
   { label: 'Reports', links: [['Sales Reports','/admin/reports',FileBarChart],['Inventory Report','/admin/inventory-report',ClipboardList],['Cancellation & Refunds','/admin/cancellations',ShieldCheck]] },
   { label: '', links: [['Analytics','/admin/analytics',BarChart3]] },
   { label: 'Administration', links: [['Content Management','/admin/content',MenuSquare],['Users & Access','/admin/users-access',Users],['System Settings','/admin/settings',Settings]] },
@@ -264,11 +264,12 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
       const key = `${itemType}:${itemId}`
       const saved = stockByKey.get(key)
       const old = payload.old?.quantity == null ? saved : {
-        ...saved, quantity: Number(payload.old.quantity), minimum: Number(payload.old.min_stock_level ?? saved?.minimum ?? 0),
+        ...saved, quantity: Number(payload.old.quantity), critical: Number(payload.old.critical_stock_level ?? saved?.critical ?? 0), minimum: Number(payload.old.min_stock_level ?? saved?.minimum ?? 0),
       }
       const quantity = Number(stock.quantity)
+      const critical = Number(stock.critical_stock_level)
       const minimum = Number(stock.min_stock_level)
-      if (!Number.isFinite(quantity) || !Number.isFinite(minimum)) return
+      if (!Number.isFinite(quantity) || !Number.isFinite(critical) || !Number.isFinite(minimum)) return
       let name = stock.name || saved?.name
       let unit = stock.unit || saved?.unit
       if (!name) {
@@ -278,12 +279,15 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
         name = data?.name || 'Inventory item'
         unit = data?.unit || 'units'
       }
-      stockByKey.set(key, { quantity, minimum, name, unit })
-      const wasLow = old && old.quantity <= old.minimum
-      if (!staffPreferences.notify_low_stock || quantity > minimum || (wasLow && !(quantity <= 0 && old.quantity > 0)) || (payload.eventType !== 'INSERT' && !old)) return
+      stockByKey.set(key, { quantity, critical, minimum, name, unit })
+      const level = (value, criticalLevel, lowLevel) => value <= 0 ? 3 : value <= criticalLevel ? 2 : value <= lowLevel ? 1 : 0
+      const currentLevel = level(quantity, critical, minimum)
+      const previousLevel = old ? level(old.quantity, old.critical, old.minimum) : 0
+      if (!staffPreferences.notify_low_stock || currentLevel === 0 || currentLevel <= previousLevel || (payload.eventType !== 'INSERT' && !old)) return
+      const title = currentLevel === 3 ? 'Out of stock' : currentLevel === 2 ? 'Critical stock' : 'Low stock'
       add({
-        category: 'inventory', title: quantity <= 0 ? 'Out of stock' : 'Low stock',
-        message: `${name} running low — ${quantity} ${unit || 'units'} left`,
+        category: 'inventory', title,
+        message: `${name} ${currentLevel >= 2 ? 'needs immediate restocking' : 'is running low'} - ${quantity} ${unit || 'units'} left`,
         target: { kind: 'inventory', itemType, itemId, name },
         eventKey: `stock:${key}:${payload.commit_timestamp || stock.updated_at || Date.now()}`,
         createdAt: payload.commit_timestamp,
@@ -297,8 +301,8 @@ export default function AppShell({ role, title, eyebrow, children, actions, titl
 
     Promise.all([fetchIngredients(), fetchFinishedProducts()]).then(([ingredients, products]) => {
       if (!active) return
-      ingredients.forEach((item) => stockByKey.set(`ingredient:${item.id}`, { quantity: item.quantity, minimum: item.minStockLevel, name: item.name, unit: item.unit }))
-      products.forEach((item) => stockByKey.set(`finished_product:${item.id}`, { quantity: item.quantity, minimum: item.minStockLevel, name: item.name, unit: item.unit }))
+      ingredients.forEach((item) => stockByKey.set(`ingredient:${item.id}`, { quantity: item.quantity, critical: item.criticalStockLevel, minimum: item.minStockLevel, name: item.name, unit: item.unit }))
+      products.forEach((item) => stockByKey.set(`finished_product:${item.id}`, { quantity: item.quantity, critical: item.criticalStockLevel, minimum: item.minStockLevel, name: item.name, unit: item.unit }))
       stockReady = true
       pendingStockEvents.splice(0).forEach(([payload, itemType]) => void handleStock(payload, itemType))
     }).catch((error) => {

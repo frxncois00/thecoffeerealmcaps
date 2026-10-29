@@ -260,4 +260,7 @@
 .app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main .ua-table td {border-color:var(--admin-line, #e5e5e1)}
 @media(max-width:1100px){.app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main .ua-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main .ua-summary{grid-template-columns:1fr}.app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main .ua-summary-card{min-height:132px}}
+.app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main :is(.inv-summary-grid,.inventory-summary-grid){grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1100px){.app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main :is(.inv-summary-grid,.inventory-summary-grid){grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main :is(.inv-summary-grid,.inventory-summary-grid){grid-template-columns:1fr}}
 

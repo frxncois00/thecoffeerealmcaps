@@ -19,6 +19,7 @@ function normalizeInventoryPayload(payload) {
     ...payload,
     unit: canonicalUnit,
     initialQuantity: Number(payload.initialQuantity ?? 0) * factor,
+    criticalStockLevel: Number(payload.criticalStockLevel ?? 0) * factor,
     minStockLevel: Number(payload.minStockLevel ?? 0) * factor,
     highStockLevel: Number(payload.highStockLevel ?? 0) * factor,
   }
@@ -27,7 +28,7 @@ function normalizeInventoryPayload(payload) {
 export async function fetchIngredients() {
   const { data, error } = await supabase
     .from('ingredients')
-    .select('id,name,category,type,unit,supplier,notes,is_archived,created_at,inventory_stock(quantity,min_stock_level,high_stock_level,updated_at)')
+    .select('id,name,category,type,unit,supplier,notes,is_archived,created_at,inventory_stock(quantity,critical_stock_level,min_stock_level,high_stock_level,updated_at)')
     .eq('is_archived', false)
   if (error) throw error
   return (data || []).map((row) => ({
@@ -39,6 +40,7 @@ export async function fetchIngredients() {
     supplier: row.supplier,
     notes: row.notes,
     quantity: Number(row.inventory_stock?.[0]?.quantity ?? row.inventory_stock?.quantity ?? 0),
+    criticalStockLevel: Number(row.inventory_stock?.[0]?.critical_stock_level ?? row.inventory_stock?.critical_stock_level ?? 0),
     minStockLevel: Number(row.inventory_stock?.[0]?.min_stock_level ?? row.inventory_stock?.min_stock_level ?? 0),
     highStockLevel: Number(row.inventory_stock?.[0]?.high_stock_level ?? row.inventory_stock?.high_stock_level ?? 0),
     updatedAt: row.inventory_stock?.[0]?.updated_at ?? row.inventory_stock?.updated_at ?? row.created_at,
@@ -49,7 +51,7 @@ export async function fetchIngredients() {
 export async function fetchFinishedProducts({ includeArchived = false } = {}) {
   let query = supabase
     .from('finished_products')
-    .select('id,name,category,menu_item_id,unit,quantity,min_stock_level,high_stock_level,supplier,notes,is_archived,updated_at,finished_product_sale_mappings(menu_item_id,variant_key,units_per_sale)')
+    .select('id,name,category,menu_item_id,unit,quantity,critical_stock_level,min_stock_level,high_stock_level,supplier,notes,is_archived,updated_at,finished_product_sale_mappings(menu_item_id,variant_key,units_per_sale)')
   if (!includeArchived) query = query.eq('is_archived', false)
   const { data, error } = await query.order('name')
   if (error) throw error
@@ -64,6 +66,7 @@ export async function fetchFinishedProducts({ includeArchived = false } = {}) {
     menuItemId: row.menu_item_id,
     saleMappings: (row.finished_product_sale_mappings || []).map((mapping) => ({ menuItemId: mapping.menu_item_id, variantKey: mapping.variant_key || '', unitsPerSale: Number(mapping.units_per_sale) })),
     quantity: Number(row.quantity),
+    criticalStockLevel: Number(row.critical_stock_level),
     minStockLevel: Number(row.min_stock_level),
     highStockLevel: Number(row.high_stock_level),
     updatedAt: row.updated_at,
@@ -176,7 +179,7 @@ export async function upsertIngredient(payload) {
   const normalized = normalizeInventoryPayload(payload)
   const { data, error } = await supabase.rpc('staff_upsert_ingredient', {
     p_id: normalized.id || null, p_name: normalized.name, p_category: normalized.category || null, p_type: normalized.type,
-    p_unit: normalized.unit, p_min: normalized.minStockLevel, p_high: normalized.highStockLevel,
+    p_unit: normalized.unit, p_critical: normalized.criticalStockLevel, p_min: normalized.minStockLevel, p_high: normalized.highStockLevel,
     p_supplier: normalized.supplier || null, p_notes: normalized.notes || null, p_initial_quantity: normalized.initialQuantity,
   })
   if (error) throw error
@@ -196,7 +199,7 @@ export async function upsertFinishedProduct(payload) {
   const normalized = normalizeInventoryPayload(payload)
   const { data, error } = await supabase.rpc('staff_upsert_finished_product', {
     p_id: normalized.id || null, p_name: normalized.name, p_category: normalized.category || null, p_menu_item_id: normalized.menuItemId || null,
-    p_unit: normalized.unit, p_min: normalized.minStockLevel, p_high: normalized.highStockLevel,
+    p_unit: normalized.unit, p_critical: normalized.criticalStockLevel, p_min: normalized.minStockLevel, p_high: normalized.highStockLevel,
     p_supplier: normalized.supplier || null, p_notes: normalized.notes || null, p_initial_quantity: normalized.initialQuantity,
   })
   if (error) throw error

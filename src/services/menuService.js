@@ -1,4 +1,4 @@
-import { customerSupabase as supabase } from '../lib/supabase'
+import { publicSupabase as supabase } from '../lib/supabase'
 import { catalog as fallbackCatalog } from '../data/customerCatalog'
 
 import { menuItemAddons } from '../utils/menuAddons'

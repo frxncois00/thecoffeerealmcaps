@@ -1169,6 +1169,12 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
                 <div><dt>Refund</dt><dd>{refundMeta.label}</dd></div>
               </dl>
             </div>
+            {['senior', 'senior citizen', 'pwd'].includes(String(order.discount_type || '').toLowerCase()) && (
+              <div className="txn-order-alert txn-order-alert--id-check">
+                <AlertTriangle size={16} />
+                <div><b>Physical ID check required</b><p>Verify the customer's original valid {order.discount_type} ID before pickup or delivery handoff.</p></div>
+              </div>
+            )}
             {cancellationRequested(order) && (
               <div className="txn-order-alert txn-order-alert--review">
                 <AlertTriangle size={16} />

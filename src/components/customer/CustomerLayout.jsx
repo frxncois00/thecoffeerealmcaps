@@ -385,7 +385,7 @@ function CartDrawer({ cart, user }) {
         aria-labelledby="cart-drawer-title"
       >
         <header>
-          <div><span>Your order</span><h2 id="cart-drawer-title">Cart <b>{cart.itemCount}</b></h2></div>
+          <div><span>Your cart</span><h2 id="cart-drawer-title">Cart <b>{cart.itemCount}</b></h2></div>
           <button type="button" onClick={cart.closeCart} aria-label="Close cart"><X /></button>
         </header>
         <div className="cart-drawer-body">

@@ -10,9 +10,9 @@ import PassportPaper from '../../components/customer/realm-passport/PassportPape
 import PageTurnBook from '../../components/customer/realm-passport/PageTurnBook'
 import './realm-passport.css'
 
-export function RealmPassportBook({ profile, id, orders = [], benefit, claims = [], loading = false, purchasesUnavailable = false, errors = [], retry, memberKey }) {
+export function RealmPassportBook({ profile, id, orders = [], claims = [], loading = false, purchasesUnavailable = false, errors = [], retry, memberKey }) {
   const pending = loading || purchasesUnavailable
-  const presentation = useMemo(() => buildPassportPresentation({ profile, id, orders, benefit, claims, loading: pending }), [profile, id, orders, benefit, claims, pending])
+  const presentation = useMemo(() => buildPassportPresentation({ profile, id, orders, claims, loading: pending }), [profile, id, orders, claims, pending])
   const seen = useSeenStamps(memberKey || profile?.id || id)
   const pages = presentation.pages
   const exportingRef = useRef(false)

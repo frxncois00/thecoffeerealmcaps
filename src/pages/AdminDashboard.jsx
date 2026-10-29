@@ -20,7 +20,6 @@ import SalesReportPage from './SalesReportPage'
 import CancellationReportPage from './CancellationReportPage'
 import PurchaseOrdersPage from './PurchaseOrdersPage'
 import MenuApprovalsPage from './MenuApprovalsPage'
-import BenefitsVerificationPage from './BenefitsVerificationPage'
 import StaffSettingsPage from './StaffSettingsPage'
 import { computeDashboardMetrics, fetchDashboardData } from '../services/adminDashboardService'
 import { describeError } from '../utils/describeError'
@@ -33,7 +32,6 @@ const adminPageTitles = {
   '/admin/inventory': 'Inventory Monitoring',
   '/admin/purchase-orders': 'Purchase Orders',
   '/admin/menu-approvals': 'Menu Approvals',
-  '/admin/benefits-verification': 'Benefits Verification',
   '/admin/transactions': 'Transaction History',
   '/admin/reports': 'Sales',
   '/admin/analytics': 'Analytics',
@@ -243,13 +241,13 @@ export default function AdminDashboard() {
   if (pathname === '/admin/logs') return <Navigate to="/admin/users-access/activity" replace />
   if (pathname === '/admin/users-access') return <Navigate to="/admin/users-access/users" replace />
   if (pathname === '/admin/users-access/approvals') return <Navigate to="/admin/users-access/users" replace />
-  if (pathname === '/admin/users-access/benefits') return <Navigate to="/admin/benefits-verification" replace />
+  if (pathname === '/admin/users-access/benefits') return <Navigate to="/admin" replace />
   if (pathname === '/admin/raimu-knowledge') return <Navigate to="/admin" replace />
   if (pathname.startsWith('/admin/users-access/')) return <UsersAccessPage />
   if (pathname === '/admin/messages') return <CustomerMessagesPage role="admin" />
   if (pathname === '/admin/content') return <ContentManagementPage />
   if (pathname === '/admin/menu-approvals') return <MenuApprovalsPage />
-  if (pathname === '/admin/benefits-verification') return <BenefitsVerificationPage />
+  if (pathname === '/admin/benefits-verification') return <Navigate to="/admin" replace />
   if (pathname === '/admin/settings') return <SystemSettingsPage />
   if (pathname === '/admin/preferences') return <StaffSettingsPage role="admin" />
   if (pathname === '/admin/inventory') return <AdminInventoryPage />
@@ -427,7 +425,8 @@ function LowStockAlerts({ items }) {
   return <Panel title="Low-stock alerts" detail="Inventory below its alert level" action={<Link to="/admin/inventory">View all <ArrowRight size={14} /></Link>} className="ad-rail-panel ad-low-stock-panel">
     <motion.div className="ad-low-stock-list" variants={microContainerVariants}>{items.slice(0, 4).map((item) => {
       const out = item.quantity <= 0
-      return <MotionLink to="/admin/inventory" key={item.id} variants={microItemVariants}><span className={out ? 'is-out' : ''}><PackageX size={16} /></span><div><b>{item.name}</b><small>{item.quantity} {item.unit} left</small></div><em className={out ? 'is-out' : ''}>{out ? 'Out' : 'Low'}</em></MotionLink>
+      const critical = !out && item.quantity <= item.critical
+      return <MotionLink to="/admin/inventory" key={item.id} variants={microItemVariants}><span className={out || critical ? 'is-out' : ''}><PackageX size={16} /></span><div><b>{item.name}</b><small>{item.quantity} {item.unit} left</small></div><em className={out || critical ? 'is-out' : ''}>{out ? 'Out' : critical ? 'Critical' : 'Low'}</em></MotionLink>
     })}</motion.div>
   </Panel>
 }

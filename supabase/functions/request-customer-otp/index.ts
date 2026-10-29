@@ -45,18 +45,18 @@ function generateOtp() {
 }
 
 function buildOtpEmail(type: "registration" | "forgot_password", otp: string, userEmail: string) {
-  const title = type === "forgot_password" ? "Reset Your Password" : "Verify Your Email";
+  const title = type === "forgot_password" ? "Reset your password" : "Verify your email";
   const intro = type === "forgot_password"
-    ? "We received a request to reset your password. Use the OTP below to continue."
-    : "Thank you for registering with thecoffeerealm. Use the OTP below to verify your email address.";
+    ? "Enter this code to choose a new password."
+    : "Enter this code to finish creating your account.";
 
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${escapeHtml(title)}</title></head>
 <body style="margin:0;padding:0;background-color:#eef3ef;font-family:Arial,Helvetica,sans-serif;color:#1f2f26;">
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#eef3ef;margin:0;padding:0;width:100%;"><tr><td align="center" style="padding:32px 16px;">
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:640px;width:100%;"><tr><td style="background-color:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 8px 24px rgba(31,47,38,0.10);">
-      <img src="${escapeHtml(bannerImage)}" alt="thecoffeerealm Email Banner" width="640" style="display:block;width:100%;max-width:640px;height:auto;border:0;margin:0;padding:0;">
+      <img src="${escapeHtml(bannerImage)}" alt="Coffee Realm email banner" width="640" style="display:block;width:100%;max-width:640px;height:auto;border:0;margin:0;padding:0;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-        <tr><td style="padding:32px 32px 12px;text-align:center;"><div style="font-size:13px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:#2f5c46;margin-bottom:10px;">thecoffeerealm</div><div style="font-size:30px;line-height:38px;font-weight:bold;color:#1b2d22;margin:0;">${escapeHtml(title)}</div></td></tr>
+        <tr><td style="padding:32px 32px 12px;text-align:center;"><div style="font-size:30px;line-height:38px;font-weight:bold;color:#1b2d22;margin:0;">${escapeHtml(title)}</div></td></tr>
         <tr><td style="padding:0 32px 8px;text-align:center;font-size:16px;line-height:26px;color:#4f6358;">${escapeHtml(intro)}</td></tr>
         <tr><td style="padding:8px 32px 8px;text-align:center;font-size:14px;line-height:22px;color:#6a7c71;">Sent to: ${escapeHtml(userEmail)}</td></tr>
         <tr><td align="center" style="padding:18px 32px 10px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr><td align="center" style="background-color:#f4faf3;border:2px dashed #2f5c46;border-radius:16px;padding:16px 28px;"><div style="font-size:12px;line-height:18px;color:#5d6f63;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px;">Your OTP Code</div><div style="font-size:36px;line-height:42px;font-weight:bold;letter-spacing:10px;color:#2f5c46;">${escapeHtml(otp)}</div></td></tr></table></td></tr>
@@ -80,9 +80,9 @@ async function sendOtpEmail(to: string, otp: string) {
     body: JSON.stringify({
       from: `${fromName} <${fromEmail}>`,
       to: [to],
-      subject: "thecoffeerealm - Verify Your Email",
+      subject: "Your verification code",
       html: buildOtpEmail("registration", otp, to),
-      text: `Verify Your Email\n\nYour OTP Code: ${otp}\n\nThis OTP will expire in 5 minutes.\n\nthecoffeerealm`,
+      text: `Verify your email\n\nYour verification code: ${otp}\n\nThis code will expire in 5 minutes.`,
     }),
   });
 
