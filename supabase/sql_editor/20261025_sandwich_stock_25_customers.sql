@@ -23,7 +23,7 @@ begin
   if (select count(*) from sandwich_stock_plan) <> 8 or exists (
     select 1 from (values ('Bread','slice',50),('Chicken','gram',720),
       ('Mayonnaise','gram',255),('Lettuce','gram',90),('Tuna','gram',560),
-      ('Cheese','slice',16),('Bacon','strip',16),('Egg','piece',8)) expected(name,unit,quantity)
+      ('Cheese','slice',16),('Bacon','gram',400),('Egg','piece',8)) expected(name,unit,quantity)
     full join sandwich_stock_plan actual using(name)
     where actual.ingredient_id is null or expected.name is null
        or actual.unit is distinct from expected.unit

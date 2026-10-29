@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Check, FileImage, FileText, ImagePlus, Package, PackageCheck, Plus, Send, ShieldAlert, Store, Trash2, Upload, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PurchaseStockBoard from '../components/PurchaseStockBoard'
-import { changePurchaseUnit, pricePerPurchaseUnit, updatePurchaseLine } from '../utils/purchaseLinePricing'
+import { changePurchaseUnit, pricePerPurchaseUnit, updatePurchaseLine, withFixedPurchasePrice } from '../utils/purchaseLinePricing'
 import { needsRestock, suggestedPurchaseAmount } from '../utils/purchaseStock'
 import AppShell from '../components/AppShell'
 import { useAuth } from '../context/AuthContext'
@@ -13,7 +13,7 @@ import { money } from '../utils/money'
 import { supabase } from '../lib/supabase'
 import { hasBellPurchaseOrderToast, pickPurchaseOrderUpdate } from '../utils/purchaseOrderRealtime'
 import { isPastPurchaseOrderDeliveryDate, purchaseOrderToday } from '../utils/purchaseOrderDates'
-import { blankPurchaseOrderLine, supplierOrderLines, suppliersForPurchaseItem } from '../utils/purchaseOrderSuppliers'
+import { blankPurchaseOrderLine, prioritizeSupplierItems, supplierOrderLines, supplierPriceForItem, suppliersForPurchaseItem } from '../utils/purchaseOrderSuppliers'
 import {
   approvePurchaseOrder, cancelPurchaseOrder, fetchPurchaseOrderOptions,
   fetchPurchaseOrders, fetchSuppliers, getPurchaseOrderDocumentUrl, markPurchaseOrderSent, receivePurchaseOrder, reportPurchaseOrderIssue, savePurchaseOrder, saveSupplier, uploadPurchaseOrderDocument,
@@ -528,9 +528,13 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
   const [values, setValues] = useState(() => {
     const supplier = suppliers.find((entry) => entry.name === draft.supplierName)
     const hasSelectedItems = draft.items.some((item) => item.itemId)
-    return supplier && !draft.id && !hasSelectedItems
-      ? { ...draft, items: supplierOrderLines(supplier, options, (option) => unitChoices(option.unit)[0].value) }
-      : draft
+    if (!supplier) return draft
+    if (!hasSelectedItems && !draft.id) return { ...draft, items: supplierOrderLines(supplier, options, (option) => unitChoices(option.unit)[0].value) }
+    return { ...draft, items: draft.items.map((line) => {
+      const option = options.find((entry) => entry.itemType === line.itemType && entry.id === line.itemId)
+      const price = option ? supplierPriceForItem(supplier, option) : null
+      return price == null ? line : withFixedPurchasePrice(line, price, unitFactor(option.unit, line.purchaseUnit))
+    }) }
   })
   const [itemSearches, setItemSearches] = useState({})
   const [submitting, setSubmitting] = useState(false)
@@ -552,8 +556,10 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
   }
   const chooseItem = (index, item) => {
     const matches = suppliersForPurchaseItem(item, suppliers)
-    const supplier = matches.length === 1 ? matches[0] : null
-    const line = { ...blankPurchaseOrderLine(), itemType: item.itemType, itemId: item.id, purchaseUnit: unitChoices(item.unit)[0].value }
+    const supplier = matches.length === 1 ? matches[0] : matches.find((entry) => entry.name === values.supplierName) || null
+    const baseLine = { ...blankPurchaseOrderLine(), itemType: item.itemType, itemId: item.id, purchaseUnit: unitChoices(item.unit)[0].value }
+    const price = supplierPriceForItem(supplier, item)
+    const line = price == null ? baseLine : withFixedPurchasePrice(baseLine, price)
     setValues((current) => ({
       ...current,
       supplierName: supplier?.name || (matches.length > 1 && !matches.some((entry) => entry.name === current.supplierName) ? '' : current.supplierName),
@@ -571,6 +577,11 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
     event.preventDefault(); setError('')
     if (isPastPurchaseOrderDeliveryDate(values.requestedDeliveryDate)) { setError('Requested delivery date cannot be in the past.'); return }
     if (!values.supplierName.trim()) { setError('Select a supplier.'); return }
+    const savedSupplier = suppliers.find((supplier) => supplier.name === values.supplierName)
+    if (savedSupplier && values.items.some((line) => {
+      const item = options.find((option) => option.id === line.itemId && option.itemType === line.itemType)
+      return !item || supplierPriceForItem(savedSupplier, item) == null
+    })) { setError('Every item needs a saved price for this supplier. Update it in Suppliers first.'); return }
     if (values.items.some((line) => {
       const item = options.find((option) => option.id === line.itemId && option.itemType === line.itemType)
       const matches = item ? suppliersForPurchaseItem(item, suppliers) : []
@@ -597,7 +608,7 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
           <section className="po-create-order">
             <div className="po-create-section-heading"><span>Purchase order</span><h3>Order information</h3></div>
             <div className="po-form-grid"><Field label="Requested delivery"><input type="date" min={purchaseOrderToday()} value={values.requestedDeliveryDate} onChange={(event) => set('requestedDeliveryDate', event.target.value)} /></Field></div>
-             <div className="po-section-heading"><div><h3>Items to order</h3><small>Suggested amounts round up to a practical purchase quantity. Price per unit uses the selected unit.</small></div><button type="button" className="ops-secondary-action compact" onClick={() => setValues((current) => ({ ...current, items: [...current.items, blankPurchaseOrderLine()] }))}><Plus size={14} /> Add line</button></div>
+             <div className="po-section-heading"><div><h3>Items to order</h3><small>Suggested amounts round up to a practical purchase quantity. Saved supplier prices are fixed per selected unit.</small></div><button type="button" className="ops-secondary-action compact" onClick={() => setValues((current) => ({ ...current, items: [...current.items, blankPurchaseOrderLine()] }))}><Plus size={14} /> Add line</button></div>
             <div className="po-order-columns" aria-hidden="true"><span>Item name</span><span>Unit</span><span>Quantity</span><span>Total price</span><span>Price / unit</span><span /></div>
             <div className="po-form-lines">{values.items.map((line, index) => {
               const selectedOption = options.find((option) => option.id === line.itemId && option.itemType === line.itemType)
@@ -611,8 +622,8 @@ function PurchaseOrderForm({ draft, options, suppliers, onClose, onSave }) {
                     ? changePurchaseUnit(item, newUnit, unitFactor(selectedOption?.unit, purchaseUnit), unitFactor(selectedOption?.unit, newUnit)) : item) }))
                 }} aria-label="Purchase unit" required disabled={!selectedOption}><option value="">Unit</option>{choices.map((choice) => <option value={choice.value} key={choice.value}>{choice.value}</option>)}</select>
                 <input type="number" min="0.000001" step="any" placeholder="Qty" aria-label="Purchase quantity" value={line.quantityOrdered} onChange={(event) => setLine(index, 'quantityOrdered', event.target.value)} required />
-                <input type="number" min="0" step="0.01" placeholder="₱ Total" aria-label="Estimated total price" value={line.estimatedTotalCost} onChange={(event) => setLine(index, 'estimatedTotalCost', event.target.value)} required />
-                <input type="number" min="0" step="any" inputMode="decimal" placeholder={`₱ / ${purchaseUnit || 'unit'}`} aria-label="Price per purchase unit" title={`Price per ${purchaseUnit || 'purchase unit'}`} value={pricePerPurchaseUnit(line)} onChange={(event) => setLine(index, 'purchaseUnitPrice', event.target.value)} />
+                <input type="number" min="0" step="0.01" placeholder="₱ Total" aria-label="Estimated total price" value={line.estimatedTotalCost} onChange={(event) => setLine(index, 'estimatedTotalCost', event.target.value)} readOnly={line.fixedUnitPrice != null} title={line.fixedUnitPrice != null ? 'Calculated from the supplier price and quantity' : undefined} required />
+                <input type="number" min="0" step="any" inputMode="decimal" placeholder={`₱ / ${purchaseUnit || 'unit'}`} aria-label="Price per purchase unit" title={line.fixedUnitPrice != null ? 'Fixed supplier price per purchase unit' : `Price per ${purchaseUnit || 'purchase unit'}`} value={pricePerPurchaseUnit(line)} onChange={(event) => setLine(index, 'purchaseUnitPrice', event.target.value)} readOnly={line.fixedUnitPrice != null} />
                 <button type="button" className="po-line-remove" onClick={() => setValues((current) => ({ ...current, items: current.items.length === 1 ? current.items : current.items.filter((_, itemIndex) => itemIndex !== index) }))} aria-label="Remove line"><X size={16} /></button>
               </div>
             })}</div>
@@ -638,12 +649,49 @@ function IngredientCombobox({ options, value, placeholder, ariaLabel, onChange, 
 
 function SupplierModal({ options, suppliers = [], onClose, onSave }) {
   const [activeId, setActiveId] = useState('')
-  const [name, setName] = useState(''); const [contact, setContact] = useState(''); const [selected, setSelected] = useState([]); const [search, setSearch] = useState(''); const [saving, setSaving] = useState(false); const [error, setError] = useState('')
-  const visible = options.filter((item) => !search.trim() || item.name.toLowerCase().includes(search.trim().toLowerCase()))
-  function startNew() { setActiveId(''); setName(''); setContact(''); setSelected([]); setSearch(''); setError('') }
-  function editSupplier(supplier) { setActiveId(supplier.id); setName(supplier.name); setContact(supplier.contact || ''); setSelected((supplier.items || []).map((item) => `${item.item_type}:${item.ingredient_id || item.finished_product_id}`)); setSearch(''); setError('') }
+  const [name, setName] = useState(''); const [contact, setContact] = useState(''); const [selected, setSelected] = useState([]); const [prices, setPrices] = useState({}); const [search, setSearch] = useState(''); const [saving, setSaving] = useState(false); const [error, setError] = useState('')
+  const visible = prioritizeSupplierItems(options, selected, search)
+  function startNew() { setActiveId(''); setName(''); setContact(''); setSelected([]); setPrices({}); setSearch(''); setError('') }
+  function editSupplier(supplier) {
+    const items = supplier.items || []
+    setActiveId(supplier.id); setName(supplier.name); setContact(supplier.contact || '')
+    setSelected(items.map((item) => `${item.item_type}:${item.ingredient_id || item.finished_product_id}`))
+    setPrices(Object.fromEntries(items.map((item) => [`${item.item_type}:${item.ingredient_id || item.finished_product_id}`, String(item.unit_price ?? '')])))
+    setSearch(''); setError('')
+  }
   function toggleItem(item) { const key = `${item.itemType}:${item.id}`; setSelected((current) => current.includes(key) ? current.filter((value) => value !== key) : [...current, key]) }
-  async function submit(event) { event.preventDefault(); setError(''); if (!name.trim()) { setError('Supplier name is required.'); return } setSaving(true); try { await onSave({ id: activeId, name, contact, items: options.filter((item) => selected.includes(`${item.itemType}:${item.id}`)) }) } catch (cause) { setError(cause.message || 'Supplier could not be saved.') } finally { setSaving(false) } }
-  return <div className="po-modal-backdrop"><section className="po-modal po-supplier-modal" role="dialog" aria-modal="true" aria-label="Manage suppliers"><header><div><span>Inventory purchasing</span><h2>Suppliers</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header><div className="po-supplier-layout"><aside className="po-supplier-list"><div className="po-supplier-list-head"><b>Saved suppliers</b><button type="button" className="ops-secondary-action compact" onClick={startNew}><Plus size={14} /> Add</button></div>{suppliers.length ? suppliers.map((supplier) => <button type="button" className={`po-supplier-row ${activeId === supplier.id ? 'is-active' : ''}`} key={supplier.id} onClick={() => editSupplier(supplier)}><span><b>{supplier.name}</b><small>{supplier.contact || 'No contact saved'}</small></span><span className="po-supplier-edit">Edit</span></button>) : <p className="po-supplier-empty">No suppliers saved.</p>}</aside><form className="po-supplier-form" onSubmit={submit}><div className="po-supplier-form-title"><div><span>{activeId ? 'Edit supplier' : 'Add supplier'}</span><h3>{activeId ? name : 'New supplier'}</h3></div>{activeId ? <button type="button" className="ops-secondary-action compact" onClick={startNew}>New</button> : null}</div><Field label="Supplier name" required><input value={name} onChange={(event) => setName(event.target.value)} required maxLength={120} /></Field><Field label="Contact number or email"><input value={contact} onChange={(event) => setContact(event.target.value)} maxLength={160} /></Field><Field label="Previously supplied ingredients"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search ingredients" aria-label="Search supplied ingredients" /></Field><div className="po-supplier-items">{visible.map((item) => <label key={`${item.itemType}:${item.id}`}><input type="checkbox" checked={selected.includes(`${item.itemType}:${item.id}`)} onChange={() => toggleItem(item)} /><span>{item.name}</span><small>{item.unit}</small></label>)}</div>{error ? <p className="po-inline-error">{error}</p> : null}<footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-main-action" disabled={saving}>{activeId ? 'Save Changes' : 'Save Supplier'}</button></footer></form></div></section></div>
+  async function submit(event) {
+    event.preventDefault(); setError('')
+    if (!name.trim()) { setError('Supplier name is required.'); return }
+    const items = options.filter((item) => selected.includes(`${item.itemType}:${item.id}`))
+    if (items.some((item) => {
+      const value = prices[`${item.itemType}:${item.id}`] ?? ''
+      return !/^\d{1,10}(?:\.\d{1,4})?$/.test(value) || Number(value) <= 0
+    })) { setError('Enter a positive price with up to four decimal places for every linked item.'); return }
+    setSaving(true)
+    try {
+      await onSave({ id: activeId, name, contact, items: items.map((item) => ({ ...item, unitPrice: prices[`${item.itemType}:${item.id}`] || null })) })
+    } catch (cause) { setError(cause.message || 'Supplier could not be saved.') } finally { setSaving(false) }
+  }
+  return <div className="po-modal-backdrop"><section className="po-modal po-supplier-modal" role="dialog" aria-modal="true" aria-label="Manage suppliers">
+    <header><div><span>Inventory purchasing</span><h2>Suppliers</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header>
+    <div className="po-supplier-layout"><aside className="po-supplier-list"><div className="po-supplier-list-head"><b>Saved suppliers</b><button type="button" className="ops-secondary-action compact" onClick={startNew}><Plus size={14} /> Add</button></div>{suppliers.length ? suppliers.map((supplier) => <button type="button" className={`po-supplier-row ${activeId === supplier.id ? 'is-active' : ''}`} key={supplier.id} onClick={() => editSupplier(supplier)}><span><b>{supplier.name}</b><small>{supplier.contact || 'No contact saved'}</small></span><span className="po-supplier-edit">Edit</span></button>) : <p className="po-supplier-empty">No suppliers saved.</p>}</aside>
+      <form className="po-supplier-form" onSubmit={submit}><div className="po-supplier-form-title"><div><span>{activeId ? 'Edit supplier' : 'Add supplier'}</span><h3>{activeId ? name : 'New supplier'}</h3></div>{activeId ? <button type="button" className="ops-secondary-action compact" onClick={startNew}>New</button> : null}</div>
+        <Field label="Supplier name" required><input value={name} onChange={(event) => setName(event.target.value)} required maxLength={120} /></Field>
+        <Field label="Contact number or email"><input value={contact} onChange={(event) => setContact(event.target.value)} maxLength={160} /></Field>
+        <Field label="Previously supplied ingredients"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search ingredients" aria-label="Search supplied ingredients" /></Field>
+        <p className="po-supplier-items-help">Linked items appear first. Their fixed prices are per inventory unit and can be edited here.</p>
+        <div className="po-supplier-items">{visible.map((item) => {
+          const key = `${item.itemType}:${item.id}`
+          const checked = selected.includes(key)
+          return <div className={`po-supplier-item ${checked ? 'is-linked' : ''}`} key={key}>
+            <label className="po-supplier-item-choice"><input type="checkbox" checked={checked} onChange={() => toggleItem(item)} /><span>{item.name}</span><small>{item.unit}</small></label>
+            {checked ? <label className="po-supplier-item-price"><span>Price / {item.unit}</span><input type="number" min="0.0001" step="0.0001" inputMode="decimal" value={prices[key] ?? ''} onChange={(event) => setPrices((current) => ({ ...current, [key]: event.target.value }))} placeholder="PHP per unit" aria-label={`Price per ${item.unit} for ${item.name}`} required /></label> : null}
+          </div>
+        })}</div>
+        {error ? <p className="po-inline-error">{error}</p> : null}<footer><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button><button type="submit" className="ops-main-action" disabled={saving}>{activeId ? 'Save Changes' : 'Save Supplier'}</button></footer>
+      </form>
+    </div>
+  </section></div>
 }
 function Field({ label, required, children }) { return <label className="po-field"><span>{label}{required ? ' *' : ''}</span>{children}</label> }

@@ -1,6 +1,7 @@
 import MenuBrowser from '../../components/customer/MenuBrowser'
 import RatingStars from '../../components/customer/RatingStars'
 import '../../components/customer/menu-hero.css'
+import '../../components/customer/placed-order.css'
 import { AlertTriangle, ArrowRight, Bike, Camera, Check, ChevronDown, ChevronLeft, Clock3, Coffee, Copy, CreditCard, ExternalLink, Info, Link2, Lock, MapPin, Minus, PackageCheck, PartyPopper, Pencil, Plus, Printer, Receipt, RotateCcw, Search, ShoppingBag, Star, Store, Trash2, Truck, Unlink, X, XCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
@@ -27,6 +28,7 @@ import { scheduleSlots } from '../../utils/checkoutSchedule'
 import { cartPreparationRange, orderPreparationRange } from '../../utils/orderPreparationEstimate'
 import { customerOrderDisplayStatus, isDeliveryReady, orderTrackingSteps } from '../../utils/orderDisplayStatus'
 import { buildVatExemptOrderBreakdown, formatVatRate, vatExemptDiscountBreakdown } from '../../utils/pricing'
+import { orderPriceRows } from '../../utils/orderPriceRows'
 import { IMAGE_UPLOAD_ACCEPT, validateImageFile } from '../../utils/imageUpload'
 import { clearCheckoutDraft, readCheckoutDraft, writeCheckoutDraft } from '../../utils/checkoutDraft'
 import { EMAIL_MAX_LENGTH, isTwoWordPersonName, isValidEmail, isValidPassword, isValidPhone, sanitizeAddressText, sanitizeCatalogText, sanitizeCustomerText, sanitizeDigits, sanitizeEmail, sanitizePersonName, sanitizePhone, sanitizeUsername } from '../../utils/inputValidation'
@@ -218,11 +220,35 @@ const orderStatusTone=status=>{
 const parseScheduleMinutes=value=>{if(!value)return null;const [hour='0',minute='0']=String(value).split(':');const h=Number(hour);const m=Number(minute);return Number.isFinite(h)&&Number.isFinite(m)?h*60+m:null}
 const orderScheduleLabel=order=>{const date=order?.schedule_date||order?.scheduleDate;const time=order?.schedule_time||order?.scheduleTime;if(!date||!time)return 'We’ll confirm your schedule shortly.';const dayLabel=date===manilaDate()?'Today':date===manilaDate(1)?'Tomorrow':new Intl.DateTimeFormat('en-PH',{month:'short',day:'numeric'}).format(new Date(`${date}T00:00:00`));const minutes=parseScheduleMinutes(time);return `${dayLabel} · ${minutes===null?String(time).slice(0,5):timeLabel(minutes)}`}
 const orderCount=order=>(order?.order_items||[]).reduce((sum,item)=>sum+Number(item.quantity||item.qty||0),0)
-const shortenAddress=value=>{const clean=String(value||'').replace(/\s+/g,' ').trim();if(!clean)return '';const compact=clean.split(',').map(part=>part.trim()).filter(Boolean).slice(0,2).join(', ');if(compact.length>=clean.length)return compact;return compact.length>54?`${compact.slice(0,51)}...`:`${compact}...`}
-const completionMessage=order=>orderPaymentMethod(order)==='cod'?'Your order has been received and will be prepared shortly.':'Your payment proof has been submitted for verification.'
 const completionNote=order=>{const notes=[];if(orderPaymentMethod(order)==='cod')notes.push('Please prepare the exact amount. Payment will be collected upon delivery.');else notes.push('Your order will be processed after the payment proof is verified.');if((order?.order_type||order?.fulfillment)==='pickup')notes.push('You will be notified when your order is ready to claim.');return notes.join(' ')}
 const estimatedTimeLabel=order=>((order?.order_type||order?.fulfillment)==='pickup'?'Estimated ready time':'Estimated delivery time')
-const mergePlacedOrderData=({order,form,items,total})=>{const payment=orderPaymentMethod(order)||form.payment;const fulfillment=order?.order_type||order?.fulfillment||form.fulfillment;return {...order,payment_method:payment,payment_status:order?.payment_status||'pending',payments:order?.payments?.length?order.payments:[{method:payment,status:order?.payment_status||'pending'}],order_type:fulfillment,schedule_date:order?.schedule_date||form.scheduleDate,schedule_time:order?.schedule_time||form.scheduleTime,delivery_address:order?.delivery_address||(fulfillment==='delivery'?`${form.address}, Brgy. ${form.barangay}, ${form.city}, ${form.province}`:''),final_total:Number(order?.final_total??order?.total??total??0),total:Number(order?.total??order?.final_total??total??0),order_items:order?.order_items?.length?order.order_items:items.map(item=>({id:item.lineId,quantity:item.quantity}))}}
+const mergePlacedOrderData=({order,form,items,total,pricingSnapshot={}})=>{
+  const payment=orderPaymentMethod(order)||form.payment
+  const fulfillment=order?.order_type||order?.fulfillment||form.fulfillment
+  const hasStoredPricing=order?.subtotal!=null
+  return {
+    ...order,
+    payment_method:payment,
+    payment_status:order?.payment_status||'pending',
+    payments:order?.payments?.length?order.payments:[{method:payment,status:order?.payment_status||'pending'}],
+    order_type:fulfillment,
+    schedule_date:order?.schedule_date||form.scheduleDate,
+    schedule_time:order?.schedule_time||form.scheduleTime,
+    delivery_address:order?.delivery_address||(fulfillment==='delivery'?`${form.address}, Brgy. ${form.barangay}, ${form.city}, ${form.province}`:''),
+    customer_name:order?.customer_name||form.fullName,
+    subtotal:order?.subtotal??pricingSnapshot.subtotal,
+    discount_subtotal:hasStoredPricing?order.discount_subtotal:pricingSnapshot.discount_subtotal,
+    discount_type:hasStoredPricing?order.discount_type:pricingSnapshot.discount_type,
+    discount_amount:hasStoredPricing?order.discount_amount:pricingSnapshot.discount_amount,
+    vat_exempt_amount:hasStoredPricing?order.vat_exempt_amount:pricingSnapshot.vat_exempt_amount,
+    delivery_fee:order?.delivery_fee??pricingSnapshot.delivery_fee,
+    vat_rate:order?.vat_rate??pricingSnapshot.vat_rate,
+    prices_include_vat:order?.prices_include_vat??pricingSnapshot.prices_include_vat,
+    final_total:Number(order?.final_total??order?.total??total??0),
+    total:Number(order?.total??order?.final_total??total??0),
+    order_items:order?.order_items?.length?order.order_items:items.map(item=>({id:item.lineId,quantity:item.quantity})),
+  }
+}
 const trackingSteps=order=>orderTrackingSteps(order,initialOrderStatusLabel(orderPaymentMethod(order)))
 const trackingStatusCopy=(order,status)=>status==='Awaiting Payment Verification'?'Your payment proof is waiting for review.':status==='Order Received'?'Your order is waiting for store confirmation.':status==='Confirmed'?`Scheduled for ${orderScheduleLabel(order)}`:status==='Preparing'?(isDeliveryReady(order)?'Your order is prepared and waiting to go out for delivery.':'The kitchen and bar are preparing your order.'):status==='Out for Delivery'?'Your order is on the way. Confirm once it arrives.':status==='Ready for Pickup'||status==='Ready to Claim'?'Your order is ready to claim at the store.':status==='Received'?'You confirmed that this delivery was received.':status==='Completed'?'This order has been completed.':'Waiting for update'
 const manilaCurrentTime=()=>{const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());const map=Object.fromEntries(parts.map(part=>[part.type,part.value]));return `${String(map.hour).padStart(2,'0')}:${String(map.minute).padStart(2,'0')}`}
@@ -531,8 +557,11 @@ function OrderCompleteModal({order,freshOrder=false,fallbackEstimatedTime='',onT
   const paymentStatus=orderPaymentStatus(order)
   const itemCount=orderCount(order)
   const totalAmount=Number(order?.final_total??order?.total??0)
+  const vatRate=order?.vat_rate??0.12
+  const breakdown=buildVatExemptOrderBreakdown({subtotal:order?.subtotal,discountSubtotal:order?.discount_subtotal,discountType:order?.discount_type,discountAmount:order?.discount_amount,vatExemptAmount:order?.vat_exempt_amount,vatRate,pricesIncludeVat:order?.prices_include_vat!==false})
+  const priceRows=orderPriceRows({breakdown,fulfillment,deliveryFee:order?.delivery_fee,total:totalAmount,vatRate})
   const etaValue=fulfillment==='delivery'?(order?.estimatedDeliveryTime||fallbackEstimatedTime||orderScheduleLabel(order)):orderScheduleLabel(order)
-  const shortAddress=fulfillment==='delivery'?shortenAddress(order?.delivery_address):''
+  const awaitingVerification=orderPaymentMethod(order)!=='cod'&&paymentStatus==='Pending verification'
   const copyOrderNumber=async()=>{
     if(!displayOrderNumber||!navigator?.clipboard?.writeText)return
     await navigator.clipboard.writeText(String(displayOrderNumber))
@@ -540,37 +569,38 @@ function OrderCompleteModal({order,freshOrder=false,fallbackEstimatedTime='',onT
     window.setTimeout(()=>setCopied(false),1400)
   }
   return <div className="payment-modal-backdrop placed-order-backdrop">
-    <section className="payment-modal placed-order-modal" role="dialog" aria-modal="true" aria-labelledby="complete-modal-title">
+    <section className="payment-modal placed-order-modal placed-order-receipt" role="dialog" aria-modal="true" aria-labelledby="complete-modal-title">
       <div className="placed-order-hero">
         <span className="placed-order-check"><Check/></span>
-        <span className="placed-order-kicker">Order completed</span>
         <h2 id="complete-modal-title">Your order has been placed.</h2>
-        <p>{completionMessage(order)}</p>
       </div>
-      <section className="placed-order-details">
-        <h3>Order details</h3>
-        <div className="placed-order-row placed-order-number-row">
-          <span>Order number</span>
-          <div className="placed-order-value placed-order-copy-value">
-            <b>{displayOrderNumber}</b>
-            <button className="placed-order-copy" type="button" onClick={copyOrderNumber}>{copied?'Copied':'Copy'}</button>
-          </div>
-        </div>
-        {displayReferenceNumber&&<div className="placed-order-row"><span>Reference number</span><div className="placed-order-value"><b>{displayReferenceNumber}</b></div></div>}
-        {paymentReference&&<div className="placed-order-row"><span>Payment reference</span><div className="placed-order-value"><b>{paymentReference}</b></div></div>}
-        <div className="placed-order-row"><span>Order status</span><div className="placed-order-value"><b>{status}</b></div></div>
-        <div className="placed-order-row"><span>Payment method</span><div className="placed-order-value"><b>{paymentMethod}</b></div></div>
-        <div className="placed-order-row"><span>Payment status</span><div className="placed-order-value"><b>{paymentStatus}</b></div></div>
-        <div className="placed-order-row"><span>Fulfillment</span><div className="placed-order-value"><b>{fulfillmentLabel(fulfillment)}</b></div></div>
-        <div className="placed-order-row"><span>Items</span><div className="placed-order-value"><b>{itemCount} item{itemCount===1?'':'s'}</b></div></div>
-        <div className="placed-order-row"><span>Total amount</span><div className="placed-order-value"><b>{money(totalAmount)}</b></div></div>
-        <div className="placed-order-row"><span>{estimatedTimeLabel(order)}</span><div className="placed-order-value"><b>{etaValue}</b></div></div>
-        {shortAddress&&<div className="placed-order-row placed-order-address-row"><span>Delivery address</span><div className="placed-order-value"><b title={order?.delivery_address}>{shortAddress}</b></div></div>}
+      <div className={`placed-receipt-notice${awaitingVerification?' is-pending':''}`} role="status">
+        <Clock3 size={16} aria-hidden="true"/><div><b>{awaitingVerification?'Awaiting payment verification':status}</b><p>{completionNote(order)}</p></div>
+      </div>
+      <section className="placed-receipt-card placed-receipt-number" aria-label="Order number">
+        <div><span className="placed-receipt-label">Order number</span><strong>{displayOrderNumber}</strong>{displayReferenceNumber&&<small>Ref. {displayReferenceNumber}</small>}</div>
+        <button className="placed-order-copy" type="button" onClick={copyOrderNumber}>{copied?'Copied':'Copy number'}</button>
       </section>
-      <div className="placed-order-note"><Info/><p>{completionNote(order)}</p></div>
+      <section className="placed-receipt-card" aria-labelledby="placed-fulfillment-title">
+        <h3 id="placed-fulfillment-title">{fulfillmentLabel(fulfillment)}</h3>
+        <dl className="placed-receipt-facts">
+          <div><dt>Schedule</dt><dd>{orderScheduleLabel(order)}</dd></div>
+          <div><dt>{fulfillment==='delivery'?'Estimated time':estimatedTimeLabel(order)}</dt><dd>{etaValue}</dd></div>
+          {order?.customer_name&&<div><dt>Recipient</dt><dd>{order.customer_name}</dd></div>}
+          <div><dt>Items</dt><dd>{itemCount} item{itemCount===1?'':'s'}</dd></div>
+          {fulfillment==='delivery'&&order?.delivery_address&&<div className="placed-receipt-address"><dt>Delivery address</dt><dd>{order.delivery_address}</dd></div>}
+        </dl>
+      </section>
+      <section className="placed-receipt-card" aria-labelledby="placed-payment-title">
+        <header><h3 id="placed-payment-title">Payment</h3><span className={`placed-receipt-badge${awaitingVerification?' is-pending':''}`}>{paymentStatus}</span></header>
+        <dl className="placed-receipt-facts"><div><dt>Method</dt><dd>{paymentMethod}</dd></div>{paymentReference&&<div><dt>Payment reference</dt><dd>{paymentReference}</dd></div>}</dl>
+        <div className="placed-order-pricing" aria-label="Order price breakdown">
+          {priceRows.map(row=><div key={row.label} className={row.kind==='total'?'placed-order-pricing-total':undefined}><span>{row.kind==='total'?'Total amount':row.label}</span><b>{row.kind==='discount'?'-':''}{money(Math.abs(row.amount))}</b></div>)}
+        </div>
+      </section>
       <div className="placed-order-actions">
-        <button className="secondary-button" type="button" onClick={onContinue}>Continue shopping</button>
         <button className="primary-button" type="button" onClick={onTrack}>Track order</button>
+        <button className="text-button" type="button" onClick={onContinue}>Continue shopping</button>
       </div>
     </section>
   </div>
@@ -581,6 +611,7 @@ export function OrderReviewPage(){
   useEffect(()=>{let active=true;fetchPublicPortalData().then(data=>{if(active)setPaymentConfig(data.system.payments)}).catch(()=>{});return()=>{active=false}},[])
   if(!form||!items.length)return <NotFoundPage/>;
   const fee=form.fulfillment==='delivery'?Number(form.deliveryFee||0):0;const eligibleBenefit=mostExpensiveEligibleItemBenefit(items,pricing.vatRate,pricing.pricesIncludeVat);const discount=form.applyBenefitDiscount?eligibleBenefit.benefitAmount:0;const total=subtotal+fee-discount;const breakdown=buildVatExemptOrderBreakdown({subtotal,discountSubtotal:form.applyBenefitDiscount?eligibleBenefit.eligibleGrossAmount:0,discountType:form.applyBenefitDiscount?'PWD':'',discountAmount:form.applyBenefitDiscount?eligibleBenefit.discountAmount:0,vatExemptAmount:form.applyBenefitDiscount?eligibleBenefit.vatAmount:0,vatRate:pricing.vatRate,pricesIncludeVat:pricing.pricesIncludeVat});
+  const pricingSnapshot={subtotal,discount_subtotal:form.applyBenefitDiscount?eligibleBenefit.eligibleGrossAmount:0,discount_type:form.applyBenefitDiscount?'PWD':'',discount_amount:form.applyBenefitDiscount?eligibleBenefit.discountAmount:0,vat_exempt_amount:form.applyBenefitDiscount?eligibleBenefit.vatAmount:0,delivery_fee:fee,vat_rate:pricing.vatRate,prices_include_vat:pricing.pricesIncludeVat}
   const place=async(proof,referenceNumber='')=>{
     if(submittingRef.current||completedRef.current)return
     submittingRef.current=true
@@ -616,7 +647,7 @@ export function OrderReviewPage(){
       let order=createdOrder
       if(!order){
         const response=await createCustomerOrderWithBenefitDiscount({request_key:requestKey,apply_benefit_discount:Boolean(form.applyBenefitDiscount),customer:{...form},items:items.map(item=>({product_id:item.productId,variation_id:item.variation?.id,temperature:normalizeOrderTemperature(item.temperature),addon_ids:(item.addons||[]).map(addon=>addon.id),quantity:item.quantity,special_instructions:item.instructions})),fulfillment_method:form.fulfillment,payment_method:form.payment})
-        order=mergePlacedOrderData({order:Array.isArray(response)?response[0]:response,form,items,total})
+        order=mergePlacedOrderData({order:Array.isArray(response)?response[0]:response,form,items,total,pricingSnapshot})
         setCreatedOrder(order)
       }
       const orderId=order.order_id||order.id
@@ -626,7 +657,7 @@ export function OrderReviewPage(){
         return
       }
       if(proof)await uploadPaymentProof({orderId,userId:sessionCheck.user.id,file:proof,referenceNumber})
-      try{const refreshed=await fetchCustomerOrder(orderId);if(refreshed)order=mergePlacedOrderData({order:refreshed,form,items,total})}catch{/* fall back to the freshly created order snapshot */}
+      try{const refreshed=await fetchCustomerOrder(orderId);if(refreshed)order=mergePlacedOrderData({order:refreshed,form,items,total,pricingSnapshot})}catch{/* fall back to the freshly created order snapshot */}
       setCreatedOrder(order)
       setFreshOrder(true)
       clearCheckoutDraft(sessionCheck.user.id)
@@ -660,9 +691,7 @@ export function OrderReviewPage(){
           return <article key={item.lineId}><img src={item.image} alt=""/><div><h3>{item.name}</h3>{options&&<p>{options}</p>}<small>Quantity: {item.quantity}</small></div><b>{money(lineTotal)}</b></article>
         })}</div>
         <div className="review-order-totals">
-          {breakdown.isVatExemptDiscount?<>{breakdown.regularBaseAmount>0&&<p><span>VATable Sale</span><b>{money(breakdown.regularBaseAmount)}</b></p>}<p><span>VAT-Exempt Sale</span><b>{money(breakdown.vatExemptSale)}</b></p><p><span>{formatVatRate(pricing.vatRate)} VAT</span><b>{money(breakdown.regularVatAmount)}</b></p><p className="checkout-discount-row"><span>Less 20% SC/PWD Discount</span><b>-{money(breakdown.discountAmount)}</b></p></>:<><p><span>VATable Sale</span><b>{money(breakdown.baseAmount)}</b></p><p><span>{formatVatRate(pricing.vatRate)} VAT</span><b>{money(breakdown.vatAmount)}</b></p></>}
-          {form.fulfillment==='delivery'&&<p><span>Delivery fee</span><b>{money(fee)}</b></p>}
-          <p className="review-order-total"><span>Total</span><b>{money(total)}</b></p>
+          {orderPriceRows({breakdown,fulfillment:form.fulfillment,deliveryFee:fee,total,vatRate:pricing.vatRate}).map(row=><p key={row.label} className={row.kind==='total'?'review-order-total':row.kind==='discount'?'checkout-discount-row':undefined}><span>{row.label}</span><b>{row.kind==='discount'?'-':''}{money(Math.abs(row.amount))}</b></p>)}
         </div>
       </section>
       <section className="review-order-card review-order-details">
@@ -683,7 +712,7 @@ export function OrderReviewPage(){
     <button className="primary-button review-place-order" type="button" disabled={busy||cart.hasUnavailableItems||modal==='complete'} onClick={()=>{setError('');placeReviewedOrder()}}>{submitPhase==='checking'?'Checking current item availability…':submitPhase==='placing'?(['paymongo','qrph'].includes(form.payment)?'Starting secure checkout…':form.payment==='cod'?'Placing order…':'Uploading proof and placing order…'):'Place order'} <ArrowRight/></button>
     <p className="review-order-assurance">By placing your order, you confirm that the information above is correct.</p>
     {modal==='cod-confirm'&&form.payment==='cod'&&<CodConfirmationModal paymentConfig={paymentConfig} total={total} busy={busy} onClose={()=>setModal(null)} onConfirm={()=>place()}/>}
-    {modal==='complete'&&<OrderCompleteModal order={createdOrder||mergePlacedOrderData({order:{},form,items,total})} freshOrder={freshOrder} fallbackEstimatedTime={form.estimatedDeliveryTime} onTrack={()=>finish('track')} onContinue={()=>finish('menu')}/>}
+    {modal==='complete'&&<OrderCompleteModal order={createdOrder||mergePlacedOrderData({order:{},form,items,total,pricingSnapshot})} freshOrder={freshOrder} fallbackEstimatedTime={form.estimatedDeliveryTime} onTrack={()=>finish('track')} onContinue={()=>finish('menu')}/>}
   </main>
 }export function OrderConfirmationPage(){const {state}=useLocation();const {id}=useParams();const order=state?.order||{order_number:id,status:'Pending',fulfillment:'delivery',payment:'pending',total:0};return <main className="customer-main narrow"><section className="success-card"><span><Check/></span><small>Order received</small><h1>Thank you. Weâ€™re on it!</h1><p>Your order <b>{customerOrderNumber(order.order_number)}</b> has been placed and is waiting for store confirmation.</p><div><p><span>Status</span><b>{order.status}</b></p><p><span>Fulfillment</span><b>{order.fulfillment||order.fulfillment_method}</b></p><p><span>Total</span><b>{money(order.total||order.total_amount||0)}</b></p></div><Link className="primary-button" to="/orders" state={{trackOrderId:id,order:{...order,id:order.id||id}}}>Track order</Link><Link className="secondary-button" to="/orders">View my orders</Link><Link className="text-button" to="/menu">Continue shopping</Link></section></main>}
 export function PayMongoSuccessPage(){

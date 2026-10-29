@@ -15,7 +15,7 @@ insert into sandwich_recipe_plan values
  ('Tuna Melt Sandwich','Mayonnaise',15,'gram','Condiment'),
  ('Tuna Melt Sandwich','Cheese',1,'slice','Dairy'),
  ('Bacon Egg and Cheese Sandwich','Bread',2,'slice','Bakery'),
- ('Bacon Egg and Cheese Sandwich','Bacon',2,'strip','Protein'),
+ ('Bacon Egg and Cheese Sandwich','Bacon',50,'gram','Protein'),
  ('Bacon Egg and Cheese Sandwich','Egg',1,'piece','Protein'),
  ('Bacon Egg and Cheese Sandwich','Cheese',1,'slice','Dairy');
 

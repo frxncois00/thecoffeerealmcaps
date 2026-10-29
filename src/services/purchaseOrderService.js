@@ -32,8 +32,8 @@ export async function fetchPurchaseOrderOptions() {
 }
 
 export async function fetchSuppliers() {
-  const { data, error } = await supabase.from('suppliers').select('id,name,contact,supplier_items(item_type,ingredient_id,finished_product_id)').order('name')
-  if (error) return []
+  const { data, error } = await supabase.from('suppliers').select('id,name,contact,supplier_items(item_type,ingredient_id,finished_product_id,unit_price)').order('name')
+  if (error) throw error
   return (data || []).map((supplier) => ({ ...supplier, items: supplier.supplier_items || [] }))
 }
 
@@ -41,7 +41,7 @@ export async function saveSupplier(payload) {
   const { data, error } = await supabase.rpc('save_supplier', {
     p_name: payload.name,
     p_contact: payload.contact || null,
-    p_items: payload.items.map((item) => ({ item_type: item.itemType, item_id: item.id })),
+    p_items: payload.items.map((item) => ({ item_type: item.itemType, item_id: item.id, unit_price: item.unitPrice })),
   })
   if (error) throw error
   return data

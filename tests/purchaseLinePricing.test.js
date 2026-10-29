@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { changePurchaseUnit, pricePerPurchaseUnit, updatePurchaseLine } from '../src/utils/purchaseLinePricing.js'
+import { changePurchaseUnit, pricePerPurchaseUnit, updatePurchaseLine, withFixedPurchasePrice } from '../src/utils/purchaseLinePricing.js'
 
 test('prices synchronize in both directions and retain the last edited basis', () => {
   let line = { quantityOrdered: '3', estimatedTotalCost: '30' }
@@ -34,4 +34,19 @@ test('changing purchase unit preserves ordered stock and total cost', () => {
   assert.equal(gramLine.estimatedTotalCost, '135.00')
   assert.equal(pricePerPurchaseUnit(gramLine), '0.15')
   assert.equal(changePurchaseUnit(gramLine, 'kg', 1, 1000).quantityOrdered, '0.9')
+})
+
+test('fixed supplier price calculates totals and follows purchase unit changes', () => {
+  let line = withFixedPurchasePrice({ purchaseUnit: 'g', quantityOrdered: '250', estimatedTotalCost: '' }, 0.75)
+  assert.equal(pricePerPurchaseUnit(line), '0.75')
+  assert.equal(line.estimatedTotalCost, '187.50')
+  assert.equal(updatePurchaseLine(line, 'purchaseUnitPrice', '1'), line)
+  line = updatePurchaseLine(line, 'quantityOrdered', '500')
+  assert.equal(line.estimatedTotalCost, '375.00')
+  line = changePurchaseUnit(line, 'kg', 1, 1000)
+  assert.equal(line.quantityOrdered, '0.5')
+  assert.equal(pricePerPurchaseUnit(line), '750')
+  assert.equal(line.estimatedTotalCost, '375.00')
+  line = updatePurchaseLine(line, 'quantityOrdered', '2')
+  assert.equal(line.estimatedTotalCost, '1500.00')
 })
