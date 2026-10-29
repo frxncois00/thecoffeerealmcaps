@@ -1,0 +1,8 @@
+.customer-app .rider-pickup-card.has-image{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+.rider-pickup-media,.rider-pickup-details{min-width:0}
+.rider-pickup-details{display:grid;gap:14px;align-content:start}
+.rider-pickup-image{display:block;width:100%;max-height:360px;object-fit:contain;border-radius:10px;background:#f6f4ef}
+.rider-pickup-card .field-hint{margin:10px 0 0}
+.delivery-route-estimate{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;padding:12px 14px;border:1px solid var(--customer-border,#e0e5de);border-radius:10px;margin-top:12px;font-size:13px}
+.delivery-route-estimate small{color:var(--customer-muted,#647168)}
+@media(max-width:600px){.customer-app .rider-pickup-card.has-image{grid-template-columns:minmax(0,1fr)}}

@@ -46,6 +46,7 @@ const createCoffeePinIcon = () =>
 export default function DeliveryLocationPicker({
   address,
   initialAddress = '',
+  initialCoordinates,
   barangay,
   selectedArea,
   onAddressChange,
@@ -53,6 +54,7 @@ export default function DeliveryLocationPicker({
   onCoordinatesChange,
 }) {
   const mapContainerRef = useRef(null)
+  const initialCoordinatesRef = useRef(initialCoordinates)
   const mapInstanceRef = useRef(null)
   const markerRef = useRef(null)
   const handlePinMoveRef = useRef(null)
@@ -75,6 +77,7 @@ export default function DeliveryLocationPicker({
   const touchStartRef = useRef(null)
   const suppressNextMapClickRef = useRef(false)
   const lastInitialAddressRef = useRef('')
+  const locationRequestRef = useRef(0)
 
   // Initialize query from existing address on mount
   useEffect(() => {
@@ -86,6 +89,7 @@ export default function DeliveryLocationPicker({
   // Handle Coordinates / Pin Move -> Reverse Geocode
   const handlePinMove = useCallback(
     async (lat, lng, fly = false) => {
+      const requestId = ++locationRequestRef.current
       if (fly && mapInstanceRef.current) {
         mapInstanceRef.current.flyTo([lat, lng], 16, { duration: 1.2 })
       }
@@ -93,10 +97,11 @@ export default function DeliveryLocationPicker({
         markerRef.current.setLatLng([lat, lng])
       }
 
-      onCoordinatesChange?.({ lat, lng })
+      onCoordinatesChange?.(null)
       setIsReverseGeocoding(true)
 
       const result = await reverseGeocodeCoords(lat, lng)
+      if (requestId !== locationRequestRef.current) return
       setIsReverseGeocoding(false)
 
       if (result) {
@@ -110,6 +115,7 @@ export default function DeliveryLocationPicker({
           })
           onBarangayChange('')
         } else {
+          onCoordinatesChange?.({ lat, lng })
           setLocationNotice(null)
           if (result.matchedArea) {
             onBarangayChange(result.matchedArea.barangay)
@@ -148,8 +154,8 @@ export default function DeliveryLocationPicker({
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return
 
-    const initialLat = TCR_STORE_COORDS.lat
-    const initialLng = TCR_STORE_COORDS.lng
+    const initialLat = initialCoordinatesRef.current?.lat ?? TCR_STORE_COORDS.lat
+    const initialLng = initialCoordinatesRef.current?.lng ?? TCR_STORE_COORDS.lng
 
     const map = L.map(mapContainerRef.current, {
       center: [initialLat, initialLng],
@@ -245,6 +251,8 @@ export default function DeliveryLocationPicker({
 
   // Perform Address Search (Debounced)
   const handleSearchInput = value => {
+    locationRequestRef.current += 1
+    onCoordinatesChange?.(null)
     const clean = sanitizeAddressText(value, 200)
     setSearchQuery(clean)
     onAddressChange(clean)
@@ -272,6 +280,8 @@ export default function DeliveryLocationPicker({
 
   // Select Search Result
   const selectResult = (result, { preserveAddress = false } = {}) => {
+    locationRequestRef.current += 1
+    onCoordinatesChange?.(null)
     setShowDropdown(false)
     const selectedStreet = [
       result.street || result.displayName.split(',')[0],
@@ -302,7 +312,7 @@ export default function DeliveryLocationPicker({
     }
 
     if (Number.isFinite(result.lat) && Number.isFinite(result.lng)) {
-      onCoordinatesChange?.({ lat: result.lat, lng: result.lng })
+      if (result.isQuezonCity) onCoordinatesChange?.({ lat: result.lat, lng: result.lng })
       if (mapInstanceRef.current) {
         mapInstanceRef.current.flyTo([result.lat, result.lng], 16, { duration: 1.0 })
       }
@@ -406,6 +416,9 @@ export default function DeliveryLocationPicker({
               className="location-clear-btn"
               onClick={() => {
                 setSearchQuery('')
+                locationRequestRef.current += 1
+                onCoordinatesChange?.(null)
+                onBarangayChange('')
                 onAddressChange('')
                 setSearchResults([])
                 setShowDropdown(false)
@@ -517,7 +530,7 @@ export default function DeliveryLocationPicker({
                 <Check size={14} />
                 <strong>Brgy. {selectedArea.barangay}</strong>
                 <span className="tcr-zone-pill">
-                  ₱{selectedArea.fee} · Est. {selectedArea.estimatedTime}
+                  {selectedArea.estimatedTime}
                 </span>
               </div>
             ) : barangay ? (

@@ -45,6 +45,7 @@
 .ac-panel{min-width:0}.ac-editor-section{border:1px solid var(--mgmt-border);border-radius:14px;background:var(--mgmt-surface);box-shadow:0 10px 28px rgba(31,65,45,.045);overflow:hidden}.ac-editor-section>header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:21px 22px;border-bottom:1px solid var(--mgmt-border)}.ac-editor-body{padding:22px}.ac-editor-section>footer{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:15px 22px;border-top:1px solid var(--mgmt-border);background:var(--mgmt-subtle)}.ac-editor-section>footer>span{font-size:.75rem;color:var(--mgmt-muted)}
 .ac-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px 18px}.ac-field{display:grid;gap:7px;align-content:start}.ac-field--wide{grid-column:1/-1}.ac-field>span{font-size:.76rem;font-weight:700;color:var(--mgmt-text)}.ac-field>small{font-size:.69rem;line-height:1.4;color:var(--mgmt-muted)}.ac-field input,.ac-field textarea,.ac-field select,.ac-store-state select{width:100%;border:1px solid var(--mgmt-border);border-radius:9px;background:var(--mgmt-input);color:var(--mgmt-heading);font:inherit;font-size:.82rem;outline:none;transition:border-color .16s,box-shadow .16s}.ac-field input,.ac-field select,.ac-store-state select{min-height:41px;padding:0 11px}.ac-field textarea{padding:10px 11px;line-height:1.55;resize:vertical}.ac-field input:focus,.ac-field textarea:focus,.ac-field select:focus,.ac-store-state select:focus{border-color:var(--mgmt-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--mgmt-primary) 13%,transparent)}
 .ac-payment-account-row{display:flex;flex-wrap:nowrap;gap:18px;margin-top:17px}.ac-payment-account-row>.ac-field{flex:1 1 0;min-width:0}.ac-payment-account-row-three{grid-template-columns:none}
+.ac-form-grid.ac-delivery-rate-row{grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:17px}.ac-delivery-rate-row>.ac-field{min-width:0}
 .ac-payment-heading{display:inline-flex;align-items:center;gap:9px;white-space:nowrap}.ac-payment-heading>span{width:32px;height:32px;display:grid;place-items:center;overflow:hidden;border:1px solid var(--mgmt-border);border-radius:9px;background:#fff;flex:0 0 32px}.ac-payment-heading img{display:block;width:25px;height:25px;object-fit:contain}
 .ac-primary-button,.ac-secondary-button{min-height:38px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 14px;border-radius:9px;font:inherit;font-size:.78rem;font-weight:800;text-decoration:none;cursor:pointer;transition:transform .14s,background .14s,border-color .14s}.ac-primary-button{border:1px solid var(--mgmt-primary);background:var(--mgmt-primary);color:var(--mgmt-on-primary)}.ac-primary-button:hover{background:var(--mgmt-primary-strong)}.ac-secondary-button{border:1px solid var(--mgmt-border-strong);background:var(--mgmt-surface);color:var(--mgmt-text)}.ac-secondary-button:hover{background:var(--mgmt-hover)}.ac-primary-button:active,.ac-secondary-button:active{transform:translateY(1px)}.ac-primary-button:disabled,.ac-secondary-button:disabled{opacity:.55;cursor:not-allowed}
 .ac-toggle-row,.ac-setting-toggle{display:flex;align-items:center;gap:10px;cursor:pointer}.ac-toggle-row{grid-column:1/-1;padding:4px 0}.ac-toggle-row input,.ac-setting-toggle input{position:absolute;opacity:0;pointer-events:none}.ac-toggle-row>span,.ac-setting-toggle>span:first-of-type{width:36px;height:20px;padding:2px;border-radius:999px;background:var(--mgmt-border-strong);transition:background .16s;flex:0 0 auto}.ac-toggle-row>span i,.ac-setting-toggle>span:first-of-type i{display:block;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.22);transition:transform .16s}.ac-toggle-row input:checked+span,.ac-setting-toggle input:checked+span{background:var(--mgmt-primary)}.ac-toggle-row input:checked+span i,.ac-setting-toggle input:checked+span i{transform:translateX(16px)}.ac-toggle-row b{font-size:.78rem;color:var(--mgmt-text)}
@@ -1302,3 +1303,44 @@ html[data-staff-motion="reduce"] .app-layout.legacy-admin .cancel-animated-path,
 .app-layout.legacy-staff .inventory-summary-grid,.app-layout.legacy-admin .inventory-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media(max-width:1100px){.app-layout.legacy-staff .inventory-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.app-layout.legacy-staff .inventory-summary-grid{grid-template-columns:1fr}}
+
+/* Keep the four inventory totals together across the staff workspace. */
+@media(min-width:701px){
+  .app-layout.legacy-staff .inventory-summary-grid{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:8px;
+  }
+  .app-layout.legacy-staff .inventory-summary-grid .inv-summary-card{
+    min-height:82px;
+    padding:11px 12px;
+    gap:8px;
+  }
+  .app-layout.legacy-staff .inventory-summary-grid .inv-summary-icon{
+    width:30px;
+    height:30px;
+  }
+  .app-layout.legacy-staff .inventory-summary-grid .inv-summary-copy>span{
+    white-space:nowrap;
+  }
+}
+
+/* Inventory totals stay in one row, including narrow staff workspaces. */
+.app-layout.legacy-staff .inventory-summary-grid{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+}
+@media(max-width:900px){
+  .app-layout.legacy-staff .inventory-summary-grid .inv-summary-card{
+    min-height:72px;
+    grid-template-columns:minmax(0,1fr) auto;
+    padding:9px 10px;
+  }
+  .app-layout.legacy-staff .inventory-summary-grid .inv-summary-icon{display:none}
+  .app-layout.legacy-staff .inventory-summary-grid .inv-summary-copy>span{
+    overflow:hidden;
+    font-size:.66rem;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .app-layout.legacy-staff .inventory-summary-grid .inv-summary-card>b{font-size:1.3rem}
+}

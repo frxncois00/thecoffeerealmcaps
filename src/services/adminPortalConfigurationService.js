@@ -2,6 +2,7 @@ import { customerSupabase, isSupabaseConfigured, supabase } from '../lib/supabas
 import { DEFAULT_PRICING } from '../utils/pricing'
 import { validateImageFile } from '../utils/imageUpload'
 import { normalizePublishedTestimonials } from '../utils/publishedTestimonials'
+import { DELIVERY_DEFAULTS } from '../../supabase/functions/delivery-quote/pricing.mjs'
 
 export const CONTENT_DEFAULTS = {
   hero: {
@@ -29,6 +30,7 @@ export const CONTENT_DEFAULTS = {
 }
 
 export const SYSTEM_DEFAULTS = {
+  delivery: { ...DELIVERY_DEFAULTS },
   store: {
     name: 'The Coffee Realm', email: 'thecoffeerealmx@gmail.com', phone: '0966 964 7796',
     address: 'Lot 1 Block 210 Mark Street corner Dollar Street, North Fairview, Quezon City', timezone: 'Asia/Manila',
@@ -98,6 +100,35 @@ const storagePathFromPublicUrl = (url) => {
   const marker = '/storage/v1/object/public/portal-assets/'
   const index = String(url || '').indexOf(marker)
   return index < 0 ? null : decodeURIComponent(String(url).slice(index + marker.length))
+}
+
+export async function saveDeliveryConfiguration(settings, imageFile = null) {
+  requireSupabase()
+  const next = { ...settings }
+  let uploadedPath = null
+  let row
+  try {
+    if (imageFile) {
+      const { extension } = await validateImageFile(imageFile, { label: 'Pickup image' })
+      const path = `delivery/pickup-${crypto.randomUUID()}.${extension}`
+      const { error } = await supabase.storage.from('portal-assets').upload(path, imageFile, { contentType: imageFile.type, upsert: false })
+      if (error) throw error
+      uploadedPath = path
+      const { data } = supabase.storage.from('portal-assets').getPublicUrl(path)
+      if (!data?.publicUrl) throw new Error('Could not create the pickup image URL.')
+      next.pickupImageUrl = data.publicUrl
+    }
+    row = await savePortalConfiguration('system', 'delivery', next, true)
+  } catch (error) {
+    if (uploadedPath) await supabase.storage.from('portal-assets').remove([uploadedPath]).catch(() => {})
+    throw error
+  }
+  // Cleanup must not roll back a successfully saved replacement.
+  const previousPath = storagePathFromPublicUrl(settings.pickupImageUrl)
+  if (uploadedPath && previousPath?.startsWith('delivery/')) {
+    await supabase.storage.from('portal-assets').remove([previousPath]).catch(() => {})
+  }
+  return { settings: next, row }
 }
 
 export async function savePaymentConfiguration(settings, qrFiles = {}) {

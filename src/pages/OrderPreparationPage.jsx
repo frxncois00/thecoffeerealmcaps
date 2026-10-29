@@ -845,6 +845,7 @@ function OrderCard({ order, isNew = false, busy, onView, onMain, onCancel }) {
       </div>
       <h3>{order.order_number}</h3>
       <p className="ops-customer">{getOrderCustomerName(order)}</p>
+      {order.order_type==='delivery'&&<div className="ops-card-row"><span>Rider</span><b>{order.rider_booking==='customer'?'Customer books':'Staff books'}</b></div>}
       <p className="ops-meta">{itemCount(order)} item{itemCount(order) === 1 ? '' : 's'} · {scheduleLabel(order)}</p>
       <div className="ops-card-row"><span>Payment</span><b>{paymentMethodLabel(method)}</b></div>
       <div className="ops-card-row"><span>Status</span><b className={`ops-pay-status ${order.payment_confirmed || method === 'cod' ? '' : 'is-pending'}`}>{paymentStatusLabel(order)}</b></div>
@@ -1196,6 +1197,7 @@ function OrderDrawer({ order, addonNames, onClose, onMain, onCancel, onTracking,
             </div>
             <div className="ops-order-overview-block">
               <h3>{fulfillmentName}</h3>
+              {order.order_type==='delivery'&&<p className="ops-order-address"><b>{order.rider_booking==='customer'?'Customer books rider':'Staff books rider'}</b>{order.delivery_distance_km!=null&&` · ${Number(order.delivery_distance_km).toFixed(1)} km`}</p>}
               {order.delivery_address && <p className="ops-order-address">{order.delivery_address}</p>}
               <div className="ops-order-overview-row"><span>Scheduled</span><b>{scheduleLabel(order)}</b></div>
               <div className="ops-order-overview-row"><span>Placed</span><b>{formatOrderDateTime(order.created_at)}</b></div>

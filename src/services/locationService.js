@@ -247,7 +247,7 @@ export async function searchPhLocations(query) {
  */
 export async function reverseGeocodeCoords(lat, lng) {
   try {
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&layer=address`
     const response = await fetch(url, {
       headers: {
         'Accept-Language': 'en',

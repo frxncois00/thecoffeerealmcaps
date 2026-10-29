@@ -5,15 +5,16 @@ import { raimu } from '../components/raimu/raimuMachine'
 import { describeError } from '../utils/describeError'
 import { EMAIL_MAX_LENGTH, isValidEmail, isValidPhone, sanitizeCatalogText, sanitizeDigits, sanitizePersonName, sanitizePhone } from '../utils/inputValidation'
 import { IMAGE_UPLOAD_ACCEPT, validateImageFile } from '../utils/imageUpload'
+import { validateDeliveryRates } from '../../supabase/functions/delivery-quote/pricing.mjs'
 import {
   SYSTEM_DEFAULTS, fetchBackupRuns, fetchDeliveryZoneSettings, fetchPortalConfiguration,
-  saveDeliveryZoneSettings, savePaymentConfiguration, savePortalConfiguration,
+  saveDeliveryConfiguration, saveDeliveryZoneSettings, savePaymentConfiguration, savePortalConfiguration,
 } from '../services/adminPortalConfigurationService'
 
 const SECTIONS = [
   ['store', 'Store profile', Store, 'Public contact details'],
   ['ordering', 'Hours & ordering', Clock3, 'Availability and fulfillment'],
-  ['delivery', 'Delivery zones', MapPin, 'Fees and estimates'],
+  ['delivery', 'Delivery', MapPin, 'Rates and coverage'],
   ['payments', 'Payments', CreditCard, 'Methods and instructions'],
   ['pricing', 'Pricing & VAT', Percent, 'Global price treatment'],
   ['security', 'Platform security', ShieldCheck, 'Access and safeguards'],
@@ -34,6 +35,7 @@ export default function SystemSettingsPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [qrFiles, setQrFiles] = useState({ gcash: null, bank_transfer: null })
+  const [pickupImageFile, setPickupImageFile] = useState(null)
   const [refreshSignal, setRefreshSignal] = useState(0)
   const [backupRuns, setBackupRuns] = useState([])
   const [backupSetupRequired, setBackupSetupRequired] = useState(false)
@@ -58,7 +60,14 @@ export default function SystemSettingsPage() {
     if (key === 'payments' && !(settings.payments.enabledMethods || []).length) { setError('Keep at least one payment method enabled.'); return }
     setSaving(true); setError('')
     try {
-      if (key === 'delivery') await saveDeliveryZoneSettings(zones)
+      if (key === 'delivery') {
+        validateDeliveryRates(settings.delivery)
+        if (!Number.isFinite(settings.delivery.storeLat) || !Number.isFinite(settings.delivery.storeLng) || settings.delivery.storeLat < 14.56 || settings.delivery.storeLat > 14.79 || settings.delivery.storeLng < 120.96 || settings.delivery.storeLng > 121.16) throw new Error('Enter a valid Quezon City store pin.')
+        await saveDeliveryZoneSettings(zones)
+          const result = await saveDeliveryConfiguration(settings.delivery, pickupImageFile)
+          setSettings(current => ({ ...current, delivery: result.settings }))
+          setPickupImageFile(null); setUpdatedAt(result.row.updated_at); setSetupRequired(false)
+      }
       else if (key === 'payments') {
         const result = await savePaymentConfiguration(settings.payments, qrFiles)
         setSettings((current) => ({ ...current, payments: result.settings })); setQrFiles({ gcash: null, bank_transfer: null }); setUpdatedAt(result.row.updated_at); setSetupRequired(false)
@@ -108,10 +117,25 @@ export default function SystemSettingsPage() {
               <div className="ac-toggle-stack"><Toggle checked={settings.ordering.deliveryEnabled} onChange={(value) => update('ordering', { deliveryEnabled: value })} label="Delivery" hint="Show delivery as a checkout option."/><Toggle checked={Boolean(settings.ordering.allowDeliveryTomorrow)} onChange={(value) => update('ordering', { allowDeliveryTomorrow: value })} label="Allow ordering tomorrow (delivery only)" hint="Allow customers to place delivery orders for today or tomorrow."/><Toggle checked={settings.ordering.pickupEnabled} onChange={(value) => update('ordering', { pickupEnabled: value })} label="Store pickup" hint="Show pickup as a checkout option."/></div>
             </SettingsSection>}
 
-            {section === 'delivery' && <SettingsSection title="Delivery zones" description="A zone update applies to every Barangay assigned to it." onSave={() => save('delivery')} saving={saving}>
+            {section === 'delivery' && <SettingsSection title="Delivery" description="Manual rates. Zones control Quezon City coverage." onSave={() => save('delivery')} saving={saving}>
+              <div className="ac-form-grid ac-delivery-rate-row">
+                <Field label="Base fare (PHP)"><input type="number" min="0" step="0.01" value={settings.delivery.baseFare} onChange={event=>update('delivery',{baseFare:Number(event.target.value)})}/></Field>
+                <Field label="Store latitude"><input type="number" step="0.000001" value={settings.delivery.storeLat} onChange={event=>update('delivery',{storeLat:Number(event.target.value)})}/></Field>
+                <Field label="Store longitude"><input type="number" step="0.000001" value={settings.delivery.storeLng} onChange={event=>update('delivery',{storeLng:Number(event.target.value)})}/></Field>
+              </div>
+              <PickupImageEditor currentUrl={settings.delivery.pickupImageUrl} file={pickupImageFile} onChange={setPickupImageFile} onError={setError} disabled={saving}/>
+              <div className="ac-subsection"><h3>Distance rates</h3><p>Each rate applies within its range. Fill blank rates before use.</p>
+                {settings.delivery.tiers.map((tier,index)=><div className="ac-form-grid" key={index}>
+                  <Field label={`From ${index?settings.delivery.tiers[index-1].upTo:0} km to`}><input type="number" min="0" step="0.1" placeholder="Unlimited" disabled={index===settings.delivery.tiers.length-1} value={tier.upTo??''} onChange={event=>update('delivery',{tiers:settings.delivery.tiers.map((row,i)=>i===index?{...row,upTo:Number(event.target.value)}:row)})}/></Field>
+                  <Field label="PHP / km"><input type="number" min="0" step="0.01" placeholder="Set rate" value={tier.rate??''} onChange={event=>update('delivery',{tiers:settings.delivery.tiers.map((row,i)=>i===index?{...row,rate:event.target.value===''?null:Number(event.target.value)}:row)})}/></Field>
+                </div>)}
+                <button type="button" className="ac-secondary-button" onClick={()=>{const tiers=[...settings.delivery.tiers];const last=tiers.pop();tiers.push({upTo:Number(tiers.at(-1)?.upTo||0)+5,rate:0},last);update('delivery',{tiers})}}>Add tier</button>
+                {settings.delivery.tiers.length>1&&<button type="button" className="ac-secondary-button" onClick={()=>update('delivery',{tiers:settings.delivery.tiers.filter((_,i)=>i!==settings.delivery.tiers.length-2)})}>Remove tier</button>}
+              </div>
+              <div className="ac-subsection"><h3>Coverage</h3></div>
               <div className="ac-zone-list">{zones.map((zone, index) => <article key={zone.zone}>
                 <header><div><MapPin size={17}/><span><b>{zone.zone}</b><small>{zone.barangays.length} Barangay{zone.barangays.length === 1 ? '' : 's'}</small></span></div><Toggle checked={zone.active} onChange={(value) => updateZone(index, { active: value })} label={zone.active ? 'Active' : 'Inactive'}/></header>
-                 <div className="ac-form-grid"><Field label="Delivery fee (PHP)"><input type="number" min="0" step="1" value={zone.fee} onChange={(event) => updateZone(index, { fee: Number(event.target.value) })}/></Field><Field label="Estimated time"><input maxLength={40} value={zone.estimatedTime} onChange={(event) => updateZone(index, { estimatedTime: event.target.value.slice(0, 40) })} placeholder="e.g. 20–35 minutes"/></Field></div>
+                 <div className="ac-form-grid"><Field label="Estimated time"><input maxLength={40} value={zone.estimatedTime} onChange={(event) => updateZone(index, { estimatedTime: event.target.value.slice(0, 40) })} placeholder="e.g. 20-35 minutes"/></Field></div>
                 <details><summary>View included Barangays</summary><p>{zone.barangays.join(', ')}</p></details>
               </article>)}</div>
             </SettingsSection>}
@@ -186,6 +210,33 @@ function BackupSection({ runs, setupRequired }) {
 
 function SettingsSection({ title, description, onSave, saving, children }) {
   return <section className="ac-editor-section"><header><div><h2>{title}</h2><p>{description}</p></div></header><div className="ac-editor-body">{children}</div><footer><span>Review operational impact before saving.</span><button type="button" className="ac-primary-button" onClick={onSave} disabled={saving}><Save size={16}/>{saving ? 'Saving…' : 'Save settings'}</button></footer></section>
+}
+
+function PickupImageEditor({ currentUrl, file, onChange, onError, disabled }) {
+  const [previewUrl, setPreviewUrl] = useState(currentUrl)
+  useEffect(() => {
+    if (!file) { setPreviewUrl(currentUrl); return undefined }
+    const url = URL.createObjectURL(file)
+    setPreviewUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [file, currentUrl])
+  const choose = async event => {
+    const input = event.currentTarget
+    const next = input.files?.[0]
+    input.value = ''
+    if (!next) return
+    try {
+      await validateImageFile(next, { label: 'Pickup image' })
+      onChange(next); onError('')
+    } catch (error) { onError(error.message || 'Could not use this image.') }
+  }
+  return <section className="ac-qr-editor" aria-label="Rider pickup image">
+    <div className="ac-qr-preview">{previewUrl ? <img src={previewUrl} alt="Rider pickup location preview"/> : <span><Image size={24}/><small>No image</small></span>}<i>{file ? 'Preview' : 'Current image'}</i></div>
+    <div className="ac-qr-copy"><b>Pickup image</b><p>Shown in “I’ll book”.</p><small>JPG, PNG or WEBP · Up to 5 MB</small><div>
+      <label className="ac-secondary-button ac-file-button"><Upload size={16}/>{previewUrl ? 'Change image' : 'Upload image'}<input type="file" accept={IMAGE_UPLOAD_ACCEPT} onChange={choose} disabled={disabled}/></label>
+      {file && <button type="button" className="ac-text-button" onClick={()=>onChange(null)} disabled={disabled}>Discard</button>}
+    </div>{file && <small>Save settings to publish.</small>}</div>
+  </section>
 }
 
 function QrAssetEditor({ label, currentUrl, file, onChange, onError }) {

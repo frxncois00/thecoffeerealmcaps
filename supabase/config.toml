@@ -1,0 +1,4 @@
+[functions.delivery-quote]
+# Authentication is enforced in the handler with auth.getUser() and the
+# customer-role RPC, rather than the gateway's legacy JWT-secret check.
+verify_jwt = false

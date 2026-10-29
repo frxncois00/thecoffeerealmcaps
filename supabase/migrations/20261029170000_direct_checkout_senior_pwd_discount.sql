@@ -23,7 +23,7 @@ begin
 
   if coalesce((request_payload ->> 'apply_benefit_discount')::boolean, false) then
     v_benefit_kind := lower(nullif(trim(request_payload ->> 'benefit_type'), ''));
-    if v_benefit_kind not in ('senior', 'pwd') then
+    if v_benefit_kind is null or v_benefit_kind not in ('senior', 'pwd') then
       raise exception 'Choose a valid Senior Citizen or PWD discount';
     end if;
     if not coalesce((request_payload ->> 'benefit_confirmation')::boolean, false) then
@@ -55,7 +55,7 @@ begin
 
   update public.order_items set is_discounted = true, discount_amount = v_discount, vat_exempt_amount = v_vat_removed where id = v_target_item;
   update public.orders
-  set discount_type = case when v_benefit_kind = 'pwd' then 'PWD' else 'Senior Citizen' end,
+  set discount_type = case when v_benefit_kind = 'pwd' then 'PWD' else 'Senior' end,
       discount_customer_name = v_order.customer_name,
       discount_subtotal = v_target_unit,
       discount_amount = v_discount,
@@ -66,7 +66,7 @@ begin
   update public.payments set amount_due = round(amount_due - v_savings, 2) where order_id = v_order_id;
 
   return v_result || jsonb_build_object(
-    'discount_type', case when v_benefit_kind = 'pwd' then 'PWD' else 'Senior Citizen' end,
+    'discount_type', case when v_benefit_kind = 'pwd' then 'PWD' else 'Senior' end,
     'discount_amount', v_discount,
     'vat_exempt_amount', v_vat_removed,
     'total', round(v_order.final_total - v_savings, 2)

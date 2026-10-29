@@ -264,3 +264,38 @@
 @media(max-width:1100px){.app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main :is(.inv-summary-grid,.inventory-summary-grid){grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main :is(.inv-summary-grid,.inventory-summary-grid){grid-template-columns:1fr}}
 
+/* Keep ingredient and product inventory totals on one compact desktop row. */
+@media(min-width:701px){
+  .app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main :is(.inv-summary-grid,.inventory-summary-grid){
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:8px;
+  }
+  .app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main .inv-summary-card{
+    min-width:0;
+    min-height:82px;
+    padding:12px 14px;
+  }
+  .app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main .inv-summary-card .inv-summary-copy>span{
+    white-space:nowrap;
+  }
+}
+
+/* Inventory totals stay in one row, including narrow admin workspaces. */
+.app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main :is(.inv-summary-grid,.inventory-summary-grid){
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+}
+@media(max-width:900px){
+  .app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main .inv-summary-card{
+    min-height:72px;
+    padding:9px 10px;
+  }
+  .app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main .inv-summary-card .inv-summary-copy>span{
+    overflow:hidden;
+    font-size:.66rem;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .app-layout.legacy-admin:is([data-theme="light"],[data-theme="dark"]) .internal-main .inv-summary-card>b{font-size:1.3rem}
+}
+
