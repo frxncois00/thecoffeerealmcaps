@@ -60,6 +60,7 @@ export default function DeliveryLocationPicker({
   onAddressChange,
   onBarangayChange,
   onCoordinatesChange,
+  onCoordinatesPreview,
   afterSearch,
 }) {
   const mapContainerRef = useRef(null)
@@ -67,6 +68,7 @@ export default function DeliveryLocationPicker({
   const mapInstanceRef = useRef(null)
   const markerRef = useRef(null)
   const handlePinMoveRef = useRef(null)
+  const coordinatesPreviewRef = useRef(onCoordinatesPreview)
   const isInternalUpdate = useRef(false)
 
   const [searchQuery, setSearchQuery] = useState(address || '')
@@ -157,6 +159,10 @@ export default function DeliveryLocationPicker({
     handlePinMoveRef.current = handlePinMove
   }, [handlePinMove])
 
+  useEffect(() => {
+    coordinatesPreviewRef.current = onCoordinatesPreview
+  }, [onCoordinatesPreview])
+
   // Initialize Map
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return
@@ -199,8 +205,19 @@ export default function DeliveryLocationPicker({
 
     marker.bindPopup('<b>Delivery Pin</b><br>Click anywhere on the map or drag this pin!').openPopup()
 
-    // Drag end listener
+    let dragLookupTimer
+    marker.on('drag', () => {
+      const pos = marker.getLatLng()
+      coordinatesPreviewRef.current?.({ lat: pos.lat, lng: pos.lng })
+      window.clearTimeout(dragLookupTimer)
+      dragLookupTimer = window.setTimeout(() => {
+        handlePinMoveRef.current?.(pos.lat, pos.lng, false)
+      }, 450)
+    })
+
+    // Resolve the final address immediately when dragging stops.
     marker.on('dragend', () => {
+      window.clearTimeout(dragLookupTimer)
       const pos = marker.getLatLng()
       handlePinMoveRef.current?.(pos.lat, pos.lng, false)
     })
@@ -261,6 +278,7 @@ export default function DeliveryLocationPicker({
     resizeObserver?.observe(mapContainerRef.current)
 
     return () => {
+      window.clearTimeout(dragLookupTimer)
       resizeObserver?.disconnect()
       clearTouchHold()
       mapElement?.removeEventListener('touchstart', onTouchStart)
