@@ -40,6 +40,7 @@ import { EMAIL_MAX_LENGTH, isTwoWordPersonName, isValidEmail, isValidPassword, i
 import { extractReferenceNumberFromReceipt } from '../../services/ocrService'
 import DeliveryLocationPicker from '../../components/customer/DeliveryLocationPicker'
 import { TCR_STORE_COORDS } from '../../services/locationService'
+import { calculateDeliveryFee } from '../../../supabase/functions/delivery-quote/pricing.mjs'
 import { ReceiptPaper } from '../../components/common/ReceiptDocument'
 import { printReceipt } from '../../components/common/receiptUtils'
 export function MenuPage() {
@@ -192,6 +193,7 @@ const validPaymentReference=(payment,value)=>payment==='gcash'?/^[0-9]{13}$/.tes
 const paymentReferenceMessage=payment=>payment==='bank_transfer'?'Enter 6 to 25 digits from your bank transfer receipt.':'Enter exactly 13 digits from your GCash receipt.'
 const fulfillmentLabel=value=>value==='pickup'?'Store pickup':'Delivery'
 const coordinateDistanceKm=(from,to)=>{if(!from||!to)return null;const radians=value=>Number(value)*Math.PI/180;const earthRadiusKm=6371;const latDelta=radians(to.lat)-radians(from.lat);const lngDelta=radians(to.lng)-radians(from.lng);const a=Math.sin(latDelta/2)**2+Math.cos(radians(from.lat))*Math.cos(radians(to.lat))*Math.sin(lngDelta/2)**2;return earthRadiusKm*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))}
+const estimateDeliveryFee=(distance,settings)=>{try{return distance==null?null:calculateDeliveryFee(distance,settings)}catch{return null}}
 const titleCase=value=>String(value||'').replace(/[_-]+/g,' ').replace(/\s+/g,' ').trim().replace(/\b\w/g,letter=>letter.toUpperCase())
 const orderPaymentMethod=order=>order?.payments?.[0]?.method||order?.payment_method||order?.payment||'gcash'
 const orderPaymentStatus=order=>{
@@ -280,6 +282,7 @@ export function CheckoutPage(){
   const [deliveryQuote,setDeliveryQuote]=useState(null);const [quoteError,setQuoteError]=useState('');const [quoteLoading,setQuoteLoading]=useState(false);
   const [addresses,setAddresses]=useState([]);const [selectedAddress,setSelectedAddress]=useState('');const [addressMode,setAddressMode]=useState('loading');const [draftReady,setDraftReady]=useState(false);const [requestKey,setRequestKey]=useState(()=>crypto.randomUUID());
   const [form,setForm]=useState(emptyCheckoutForm);
+  const [previewCoordinates,setPreviewCoordinates]=useState(null)
   const staffDelivery=form.fulfillment==='delivery'&&form.riderBooking!=='customer';
   const quoteKey=staffDelivery&&form.coordinates?JSON.stringify([form.coordinates.lat,form.coordinates.lng]):'';
   useEffect(()=>{
@@ -317,6 +320,7 @@ export function CheckoutPage(){
   }).catch(()=>{if(active){setAddresses([]);setAddressMode(current=>current==='loading'||current==='saved'?'new':current)}});return()=>{active=false}},[draftReady,user?.id]);
   useEffect(()=>()=>{if(paymentProofPreview)URL.revokeObjectURL(paymentProofPreview)},[paymentProofPreview]);
   const applyAddress=address=>{
+    setPreviewCoordinates(null)
     if(addressMode==='saved'&&selectedAddress===String(address.id))return
     setDeliveryQuote(null)
     setSelectedAddress(String(address.id))
@@ -324,19 +328,20 @@ export function CheckoutPage(){
     setForm(current=>({...current,coordinates:savedAddressCoordinates(address),address:address.address_line||'',barangay:address.barangay||'',city:address.city||'Quezon City',province:address.province||'Metro Manila',postal:''}))
   }
   const defaultAddress=addresses.find(address=>address.is_default)||null
-  const setCheckoutCoordinates=coords=>{set('coordinates',coords);if(!coords||addressMode!=='saved'||!selectedAddress)return;const saved=addresses.find(address=>String(address.id)===selectedAddress);const existing=savedAddressCoordinates(saved);if(existing&&Math.abs(existing.lat-coords.lat)<1e-7&&Math.abs(existing.lng-coords.lng)<1e-7)return;saveAddressCoordinates(selectedAddress,coords).then(updated=>{if(updated)setAddresses(current=>current.map(address=>String(address.id)===selectedAddress?updated:address))}).catch(()=>{})}
+  const setCheckoutCoordinates=coords=>{setPreviewCoordinates(null);set('coordinates',coords);if(!coords||addressMode!=='saved'||!selectedAddress)return;const saved=addresses.find(address=>String(address.id)===selectedAddress);const existing=savedAddressCoordinates(saved);if(existing&&Math.abs(existing.lat-coords.lat)<1e-7&&Math.abs(existing.lng-coords.lng)<1e-7)return;saveAddressCoordinates(selectedAddress,coords).then(updated=>{if(updated)setAddresses(current=>current.map(address=>String(address.id)===selectedAddress?updated:address))}).catch(()=>{})}
   const chooseAddressMode=mode=>{
     if(mode==='saved'&&addresses.length){applyAddress(defaultAddress||addresses[0]);return}
     setAddressMode('new')
     setSelectedAddress('')
+    setPreviewCoordinates(null)
     setForm(current=>({...current,coordinates:null,address:'',barangay:'',city:'Quezon City',province:'Metro Manila',postal:''}))
   }
-  const selectedArea=availableAreas.find(area=>area.barangay.toLowerCase()===form.barangay.trim().toLowerCase());const fee=staffDelivery?(activeQuote?.fee||0):0;const liveDeliveryDistanceKm=activeQuote?.distance_km??coordinateDistanceKm(TCR_STORE_COORDS,form.coordinates);const pickupSlots=useMemo(()=>scheduleSlots(manilaDate(),'pickup',systemSettings.ordering,prepMinutes,scheduleNow),[systemSettings.ordering,prepMinutes,scheduleNow]);const deliverySlots=useMemo(()=>scheduleSlots(form.scheduleDate||manilaDate(),'delivery',systemSettings.ordering,prepMinutes,scheduleNow),[form.scheduleDate,systemSettings.ordering,prepMinutes,scheduleNow]);const eligibleBenefit=mostExpensiveEligibleItemBenefit(items,pricing.vatRate,pricing.pricesIncludeVat);const applyBenefitDiscount=Boolean(form.benefitType);const benefitDiscount=applyBenefitDiscount?eligibleBenefit.benefitAmount:0;const total=subtotal+fee-benefitDiscount;
+  const selectedArea=availableAreas.find(area=>area.barangay.toLowerCase()===form.barangay.trim().toLowerCase());const liveCoordinates=previewCoordinates||form.coordinates;const liveDeliveryDistanceKm=previewCoordinates?coordinateDistanceKm(TCR_STORE_COORDS,previewCoordinates):(activeQuote?.distance_km??coordinateDistanceKm(TCR_STORE_COORDS,form.coordinates));const provisionalFee=estimateDeliveryFee(liveDeliveryDistanceKm,systemSettings.delivery);const fee=staffDelivery?(previewCoordinates?(provisionalFee||0):(activeQuote?.fee??provisionalFee??0)):0;const deliveryFeeEstimated=staffDelivery&&Boolean(liveCoordinates)&&(!activeQuote||Boolean(previewCoordinates));const pickupSlots=useMemo(()=>scheduleSlots(manilaDate(),'pickup',systemSettings.ordering,prepMinutes,scheduleNow),[systemSettings.ordering,prepMinutes,scheduleNow]);const deliverySlots=useMemo(()=>scheduleSlots(form.scheduleDate||manilaDate(),'delivery',systemSettings.ordering,prepMinutes,scheduleNow),[form.scheduleDate,systemSettings.ordering,prepMinutes,scheduleNow]);const eligibleBenefit=mostExpensiveEligibleItemBenefit(items,pricing.vatRate,pricing.pricesIncludeVat);const applyBenefitDiscount=Boolean(form.benefitType);const benefitDiscount=applyBenefitDiscount?eligibleBenefit.benefitAmount:0;const total=subtotal+fee-benefitDiscount;
   useEffect(()=>{if(form.fulfillment==='pickup'){setForm(current=>current.scheduleTime&&pickupSlots.some(slot=>slot.id===current.scheduleTime)?current:{...current,scheduleDate:manilaDate(),scheduleTime:pickupSlots[0]?.id||''})}else if(form.fulfillment==='delivery'){setForm(current=>current.scheduleTime&&deliverySlots.some(slot=>slot.id===current.scheduleTime)?current:{...current,scheduleTime:deliverySlots[0]?.id||''})}},[form.fulfillment,form.scheduleDate,pickupSlots,deliverySlots,systemSettings.ordering?.allowDeliveryTomorrow]);
   if(!items.length)return <Empty title="Nothing to checkout" body="Your cart needs at least one item." action="Browse menu" to="/menu"/>;
   if(cart.hasUnavailableItems)return <main className="customer-main"><section className="empty-state"><AlertTriangle/><h1>Update your cart</h1><p>Remove unavailable items before continuing to checkout.</p><button className="primary-button" type="button" onClick={cart.openCart}>Review cart</button></section></main>;
   const set=(key,value)=>setForm(current=>({...current,[key]:value}));
-  const previewCheckoutCoordinates=coords=>set('coordinates',coords)
+  const previewCheckoutCoordinates=coords=>setPreviewCoordinates(coords)
   const setFulfillment=value=>setForm(current=>{const allowed=customerPaymentMethods(systemSettings.payments).filter(method=>value==='delivery'&&current.riderBooking!=='customer'||method!=='cod');const payment=allowed.includes(current.payment)?current.payment:(allowed[0]||'');const targetDate=value==='delivery'&&Boolean(systemSettings.ordering?.allowDeliveryTomorrow)?(current.scheduleDate||manilaDate()):manilaDate();const nextTime=value==='pickup'?(pickupSlots[0]?.id||''):(scheduleSlots(targetDate,'delivery',systemSettings.ordering,prepMinutes)[0]?.id||'');return {...current,fulfillment:value,payment,paymentReference:payment===current.payment?current.paymentReference:'',scheduleDate:targetDate,scheduleTime:nextTime}});
   const clearPaymentProof=()=>{if(paymentProofPreview)URL.revokeObjectURL(paymentProofPreview);setPaymentProof(null);setPaymentProofPreview('');setPaymentProofError('');setValidatingPaymentProof(false)}
   const setPayment=value=>{if(value===form.payment)return;setForm(current=>({...current,payment:value,paymentReference:''}));setPaymentReferenceError('');clearPaymentProof()};
@@ -453,7 +458,7 @@ export function CheckoutPage(){
     {systemSettings.ordering.storeStatus!=='open'&&<p className="field-hint error">{systemSettings.ordering.closureMessage}</p>}
     {cart.checkingAvailability?<p className="checkout-stock-refresh" role="status">Checking current item availability…</p>:null}
     <button type="submit" className="primary-button checkout-submit" disabled={cart.checkingAvailability||validatingPaymentProof||systemSettings.ordering.storeStatus!=='open'||!form.payment||(staffDelivery&&(!selectedArea||!activeQuote||quoteLoading))}>Review order · {money(total)} <ArrowRight/></button>
-  </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} prepMinutes={prepMinutes} deliveryDistanceKm={liveDeliveryDistanceKm} benefit={eligibleBenefit} benefitType={form.benefitType} benefitConfirmed={form.benefitConfirmed} benefitConfirmationError={benefitConfirmationError} confirmationRef={benefitConfirmationRef} onBenefitTypeChange={value=>{setBenefitConfirmationError(false);setForm(current=>({...current,benefitType:value,benefitConfirmed:value?current.benefitConfirmed:false}))}} onBenefitConfirmationChange={value=>{setBenefitConfirmationError(false);set('benefitConfirmed',value)}} fulfillment={form.fulfillment} selectedArea={form.riderBooking==='customer'?{barangay:'',fee:0}:activeQuote?selectedArea:null} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div>
+  </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} prepMinutes={prepMinutes} deliveryDistanceKm={liveDeliveryDistanceKm} deliveryFeeEstimated={deliveryFeeEstimated} benefit={eligibleBenefit} benefitType={form.benefitType} benefitConfirmed={form.benefitConfirmed} benefitConfirmationError={benefitConfirmationError} confirmationRef={benefitConfirmationRef} onBenefitTypeChange={value=>{setBenefitConfirmationError(false);setForm(current=>({...current,benefitType:value,benefitConfirmed:value?current.benefitConfirmed:false}))}} onBenefitConfirmationChange={value=>{setBenefitConfirmationError(false);set('benefitConfirmed',value)}} fulfillment={form.fulfillment} selectedArea={form.riderBooking==='customer'?{barangay:'',fee:0}:liveCoordinates?{}:null} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div>
   </main>
 }
 function CheckoutSection({n,title,aside,children}){return <section className="checkout-section"><header><b>{n}</b><h2>{title}</h2>{aside&&<div className="checkout-section-aside">{aside}</div>}</header>{children}</section>}
@@ -582,7 +587,7 @@ function BarangayField({areas=deliveryAreas,value,onChange,selectedArea}){
   </div>
 }
 function mostExpensiveEligibleItemBenefit(items=[],vatRate=0.12,pricesIncludeVat=true){const target=items.filter(item=>item.onlineBenefitEligible).sort((a,b)=>(b.unitPrice+(b.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0))-(a.unitPrice+(a.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0)))[0];if(!target)return{eligibleGrossAmount:0,vatAmount:0,discountAmount:0,benefitAmount:0};const eligibleGrossAmount=Number(target.unitPrice)+(target.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0);return{eligibleGrossAmount,...vatExemptDiscountBreakdown(eligibleGrossAmount,vatRate,0.2,pricesIncludeVat)}}
-function CheckoutPreview({items,subtotal,fee,total,prepMinutes,deliveryDistanceKm,benefit,benefitType='',benefitConfirmed=false,benefitConfirmationError=false,confirmationRef,onBenefitTypeChange=()=>{},onBenefitConfirmationChange=()=>{},fulfillment,selectedArea,vatRate,pricesIncludeVat}){
+function CheckoutPreview({items,subtotal,fee,total,prepMinutes,deliveryDistanceKm,deliveryFeeEstimated=false,benefit,benefitType='',benefitConfirmed=false,benefitConfirmationError=false,confirmationRef,onBenefitTypeChange=()=>{},onBenefitConfirmationChange=()=>{},fulfillment,selectedArea,vatRate,pricesIncludeVat}){
   const applyBenefitDiscount=Boolean(benefitType)
   const discountLabel=benefitType==='senior'?'Senior Citizen':benefitType==='pwd'?'PWD':''
   const breakdown=buildVatExemptOrderBreakdown({subtotal,discountSubtotal:applyBenefitDiscount?benefit.eligibleGrossAmount:0,discountType:discountLabel,discountAmount:applyBenefitDiscount?benefit.discountAmount:0,vatExemptAmount:applyBenefitDiscount?benefit.vatAmount:0,vatRate,pricesIncludeVat})
@@ -619,7 +624,7 @@ function CheckoutPreview({items,subtotal,fee,total,prepMinutes,deliveryDistanceK
           <p><span>VATable Sale</span><b>{money(breakdown.baseAmount)}</b></p>
           <p><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.vatAmount)}</b></p>
         </>}
-        {fulfillment==='delivery'&&<p><span>{deliveryDistanceKm!=null?`Delivery (${Number(deliveryDistanceKm).toFixed(1)} km)`:'Delivery'}</span><b>{selectedArea?money(fee):'Pin address'}</b></p>}
+        {fulfillment==='delivery'&&<p><span>{deliveryDistanceKm!=null?`Delivery (${Number(deliveryDistanceKm).toFixed(1)} km)`:'Delivery'}</span><b>{selectedArea?<>{deliveryFeeEstimated&&'≈'}{money(fee)}</>:'Pin address'}</b></p>}
         <p className="grand"><span>Total</span><b>{money(total)}</b></p>
       </div>
     </div>
