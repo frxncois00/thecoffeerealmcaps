@@ -96,8 +96,18 @@ export async function submitPurchaseOrderDelivery(id, { lines, answers, notes = 
   if (error) throw error
 }
 
-export async function reviewPurchaseOrderDelivery(id, reportId, decision, note, replacement) {
-  const { error } = await supabase.rpc('decide_purchase_order_receiving', { p_id: id, p_report_id: reportId, p_decision: decision, p_note: note || null, p_replacement: replacement })
+export async function returnPurchaseOrderDelivery(id, { lines, notes = '', documentIds }) {
+  const { error } = await supabase.rpc('return_purchase_order_delivery', {
+    p_id: id,
+    p_lines: lines.map((line) => ({ id: line.id, receivedQuantity: Number(line.receivedQuantity) })),
+    p_document_ids: documentIds,
+    p_notes: notes || null,
+  })
+  if (error) throw error
+}
+
+export async function reviewPurchaseOrderDelivery(id, reportId, note) {
+  const { error } = await supabase.rpc('decide_purchase_order_receiving', { p_id: id, p_report_id: reportId, p_decision: 'approve', p_note: note || null, p_replacement: true })
   if (error) throw error
 }
 

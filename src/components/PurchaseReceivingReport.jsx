@@ -34,9 +34,10 @@ export function ReceivingValues({ values, replacement = false }) {
   return <dl className="po-report-values" aria-label="Receiving financial breakdown">{entries.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{money(value)}</dd></div>)}</dl>
 }
 
-export default function PurchaseReceivingReport({ order, lines, onChange, answers, notes, onNotes, photos, onPhotos, onBack, onSubmit, saving, error }) {
+export default function PurchaseReceivingReport({ order, lines, onChange, answers, notes, onNotes, photos, onPhotos, onBack, onSubmit, onReturnAll, saving, error }) {
   const [errors, setErrors] = useState({})
   const [returnedAll, setReturnedAll] = useState(false)
+  const [confirmReturn, setConfirmReturn] = useState(false)
   const dialog = useRef(null)
   const photoInput = useRef(null)
   const headingId = useId()
@@ -101,11 +102,11 @@ export default function PurchaseReceivingReport({ order, lines, onChange, answer
         <div className="po-report-notes"><label><span>Note <small>(optional)</small></span><textarea rows="2" maxLength={3000} value={notes} onChange={(event) => onNotes(event.target.value)} disabled={saving} placeholder="Describe the issues for the admin…" /></label><button type="button" className="ops-secondary-action" onClick={() => photoInput.current?.click()} disabled={saving || photos.length >= 5}><Paperclip size={19} /> Add photos</button><input ref={photoInput} type="file" accept=".jpg,.jpeg,.png,.webp" multiple hidden onChange={(event) => { onPhotos([...photos, ...Array.from(event.target.files || [])].slice(0, 5)); event.target.value = '' }} /></div>
         {photos.length ? <ul className="po-report-photos">{photos.map((file, index) => <li key={`${file.name}-${index}`}><span>{file.name}</span><button type="button" disabled={saving} onClick={() => onPhotos(photos.filter((_, i) => i !== index))} aria-label={`Remove ${file.name}`}><X size={14} /></button></li>)}</ul> : null}
         <ReceivingValues values={values} replacement={order.items.some((item) => item.acceptedQuantity > 0)} />
-        <p className="po-report-approval-note"><AlertTriangle size={18} /><span>Admin approval is required before inventory and payment are updated.</span></p>
-        {returnedAll ? <p className="po-report-hint" role="status">All physically received quantities are marked for return. Review, then submit the report.</p> : null}
+        <p className="po-report-approval-note"><AlertTriangle size={18} /><span>{returnedAll ? 'Confirm the physical return to close this order without changing inventory.' : 'Admin approval is required before inventory and payment are updated.'}</span></p>
         {errors.form || error ? <p className="po-inline-error" role="alert" tabIndex={-1}>{errors.form || error}</p> : null}
       </div>
-      <footer><button type="button" className="ops-secondary-action" onClick={onBack} disabled={saving}>Back</button><button type="button" className="ops-secondary-action po-return-all" disabled={saving || !lines.some((line) => Number(line.receivedQuantity) > 0)} onClick={() => { onChange(returnAllReceived(lines)); setErrors({}); setReturnedAll(true) }}>Return all received</button><button type="submit" className="ops-main-action" disabled={saving || !selectedCount}>{saving ? 'Submitting…' : `Submit selected issues (${selectedCount})`}</button></footer>
+      <footer><button type="button" className="ops-secondary-action" onClick={onBack} disabled={saving}>Back</button><button type="button" className="ops-secondary-action po-return-all" disabled={saving || order.items.some((item) => Number(item.acceptedQuantity) > 0) || !lines.some((line) => Number(line.receivedQuantity) > 0)} onClick={() => { onChange(returnAllReceived(lines)); setErrors({}); setReturnedAll(true); setConfirmReturn(true) }}>Return all received</button><button type="submit" className="ops-main-action" disabled={saving || !selectedCount}>{saving ? 'Submitting…' : `Submit selected issues (${selectedCount})`}</button></footer>
     </form>
+    {confirmReturn ? <div className="po-report-confirm-backdrop"><section className="po-modal po-report-confirm" role="alertdialog" aria-modal="true" aria-label="Confirm return of all received items"><header><h2>Return all received items?</h2></header><div className="po-report-confirm-body"><p>Confirm the received items have been physically returned. This will mark the purchase order Returned and will not add anything to inventory. Supplier refunds are handled outside the system.</p>{error ? <p className="po-inline-error" role="alert">{error}</p> : null}</div><footer><button type="button" className="ops-secondary-action" onClick={() => setConfirmReturn(false)} disabled={saving}>Keep editing</button><button type="button" className="ops-destructive-action" onClick={onReturnAll} disabled={saving}>{saving ? 'Returning…' : 'Confirm return'}</button></footer></section></div> : null}
   </section></div>
 }
