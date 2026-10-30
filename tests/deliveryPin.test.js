@@ -13,7 +13,7 @@ test('blocked primary geocoder falls back to Photon and verifies city and barang
   assert.match(calls[1], /photon.*reverse/)
   const primary = new URL(calls[0])
   assert.equal(primary.searchParams.get('layer'), 'address')
-  assert.equal(primary.searchParams.get('zoom'), '14')
+  assert.equal(primary.searchParams.get('zoom'), '18')
   assert.deepEqual(new URL(calls[1]).searchParams.getAll('layer'), ['street', 'locality', 'district'])
 })
 
@@ -78,6 +78,15 @@ test('administrative boundary lookup handles missing neighborhood names', async 
   assert.equal(actual, 'North Fairview')
   assert.equal(calls[2].options.method, 'POST')
   assert.match(new URLSearchParams(calls[2].options.body).get('data'), /is_in\(14.72,121.06\)/)
+})
+
+test('administrative boundary lookup accepts barangays mapped at level 8 or 9', async () => {
+  for (const adminLevel of ['8', '9']) {
+    const actual = await verifyDeliveryPin(14.72, 121.06, 'North Fairview', { useCache: false, knownBarangays: ['North Fairview'], fetchImpl: async url => url.includes('interpreter')
+      ? json({ elements: [{ tags: { admin_level: '6', name: 'Quezon City' } }, { tags: { admin_level: adminLevel, name: 'North Fairview' } }] })
+      : json({ address: { city: 'Quezon City', district: 'District 5' }, features: [{ properties: { city: 'Quezon City', district: 'District 5' } }] }) })
+    assert.equal(actual, 'North Fairview')
+  }
 })
 
 test('barangay boundary alone cannot approve a pin outside Quezon City', async () => {

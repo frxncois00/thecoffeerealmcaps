@@ -2,7 +2,7 @@ const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300
 const verifiedPins = new Map()
 
 function findBarangay(address, knownBarangays) {
-  const keys = ['quarter', 'suburb', 'village', 'neighbourhood', 'neighborhood', 'residential', 'subdivision', 'city_district', 'district', 'locality', 'name']
+  const keys = ['quarter', 'suburb', 'village', 'hamlet', 'neighbourhood', 'neighborhood', 'residential', 'subdivision', 'borough', 'city_district', 'district', 'locality', 'name']
   const candidates = keys.map(key => address[key]).filter(value => typeof value === 'string')
   for (const candidate of candidates) {
     const exact = knownBarangays.find(name => normalize(name) === normalize(candidate))
@@ -47,7 +47,7 @@ export async function verifyDeliveryPin(lat, lng, barangay, { fetchImpl = fetch,
   const providers = [
     // POIs/business entries often lack the barangay even when their surrounding
     // address is complete. Ask for address features instead, using the same pin.
-    { url: `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&layer=address&zoom=14&lat=${lat}&lon=${lng}`, address: body => body?.address ? { ...body.address, display_name: body.display_name } : null },
+    { url: `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&layer=address&zoom=18&lat=${lat}&lon=${lng}`, address: body => body?.address ? { ...body.address, display_name: body.display_name } : null },
     { url: `${photonUrl}?lat=${lat}&lon=${lng}&lang=en&layer=street&layer=locality&layer=district&radius=0.2&limit=1`, address: body => body?.features?.[0]?.properties },
   ]
   const providerResults = await Promise.all(providers.map(async provider => {
@@ -65,7 +65,7 @@ export async function verifyDeliveryPin(lat, lng, barangay, { fetchImpl = fetch,
   // Reverse geocoders may return a subdivision or POI instead of the barangay.
   // Query the administrative areas containing the coordinates in that case.
   try {
-    const query = `[out:json][timeout:8];is_in(${lat},${lng})->.a;area.a["boundary"="administrative"]["admin_level"~"^(6|10)$"];out tags;`
+    const query = `[out:json][timeout:8];is_in(${lat},${lng})->.a;area.a["boundary"="administrative"]["admin_level"~"^(6|8|9|10)$"];out tags;`
     const response = await fetchImpl(overpassUrl, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ data: query }).toString(), signal: AbortSignal.timeout(10000) })
     if (response.ok) {
       const data = await response.json()
@@ -73,7 +73,7 @@ export async function verifyDeliveryPin(lat, lng, barangay, { fetchImpl = fetch,
       const names = tags => ['name', 'name:en', 'official_name', 'alt_name', 'short_name'].flatMap(key => String(tags[key] || '').split(';')).filter(Boolean)
       const cityConfirmed = areas.some(tags => tags.admin_level === '6' && names(tags).some(name => ['quezoncity', 'cityofquezoncity'].includes(normalize(name))))
       if (cityConfirmed) {
-        for (const tags of areas.filter(tags => tags.admin_level === '10')) {
+        for (const tags of areas.filter(tags => ['8', '9', '10'].includes(tags.admin_level))) {
           for (const name of names(tags)) {
             const canonical = knownBarangays.find(known => normalize(known) === normalize(name))
             if (canonical) return remember(canonical)
