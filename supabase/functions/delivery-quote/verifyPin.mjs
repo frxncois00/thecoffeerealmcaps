@@ -25,7 +25,7 @@ function matchAddress(address, knownBarangays) {
   const cities = ['city', 'town', 'municipality', 'county'].map(key => normalize(address[key]))
   if (!cities.some(city => ['quezoncity', 'cityofquezoncity'].includes(city))) return { mismatch: 'city' }
   const barangay = findBarangay(address, knownBarangays)
-  return barangay ? { barangay } : { mismatch: 'barangay' }
+  return barangay ? { barangay } : { mismatch: 'barangay', cityConfirmed: true }
 }
 
 // A provider failure never permits checkout: another provider must confirm
@@ -44,6 +44,7 @@ export async function verifyDeliveryPin(lat, lng, barangay, { fetchImpl = fetch,
   }
   const headers = { 'User-Agent': 'TheCoffeeRealm/1.0 (+https://thecoffeerealm.store)', 'Accept-Language': 'en', Accept: 'application/json' }
   let mismatch = ''
+  let cityWasConfirmed = false
   const providers = [
     // POIs/business entries often lack the barangay even when their surrounding
     // address is complete. Ask for address features instead, using the same pin.
@@ -60,6 +61,7 @@ export async function verifyDeliveryPin(lat, lng, barangay, { fetchImpl = fetch,
   }))
   for (const result of providerResults) {
     if (result?.barangay) return remember(result.barangay)
+    if (result?.cityConfirmed) cityWasConfirmed = true
     if (result?.mismatch) mismatch = result.mismatch
   }
   // Reverse geocoders may return a subdivision or POI instead of the barangay.
@@ -73,6 +75,7 @@ export async function verifyDeliveryPin(lat, lng, barangay, { fetchImpl = fetch,
       const names = tags => ['name', 'name:en', 'official_name', 'alt_name', 'short_name'].flatMap(key => String(tags[key] || '').split(';')).filter(Boolean)
       const cityConfirmed = areas.some(tags => tags.admin_level === '6' && names(tags).some(name => ['quezoncity', 'cityofquezoncity'].includes(normalize(name))))
       if (cityConfirmed) {
+        cityWasConfirmed = true
         for (const tags of areas.filter(tags => ['8', '9', '10'].includes(tags.admin_level))) {
           for (const name of names(tags)) {
             const canonical = knownBarangays.find(known => normalize(known) === normalize(name))
@@ -84,6 +87,8 @@ export async function verifyDeliveryPin(lat, lng, barangay, { fetchImpl = fetch,
     }
   } catch { /* Keep verification closed when boundary lookup is unavailable. */ }
   if (mismatch === 'city') throw new Error('Choose a pin within Quezon City.')
+  const selectedBarangay = knownBarangays.find(known => normalize(known) === normalize(barangay))
+  if (mismatch === 'barangay' && cityWasConfirmed && selectedBarangay) return remember(selectedBarangay)
   if (mismatch === 'barangay') throw new Error('Cannot confirm the barangay. Move the pin closer to your address.')
   throw new Error('Address check is unavailable. Please retry shortly.')
 }

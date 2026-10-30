@@ -45,7 +45,18 @@ test('unavailable services never skip location verification', async () => {
 })
 test('outside city and incorrect barangay are rejected', async () => {
   await assert.rejects(verifyDeliveryPin(14.72, 121.06, 'North Fairview', { useCache: false, fetchImpl: async () => json({ address: { city: 'Caloocan', suburb: 'North Fairview' }, features: [{ properties: { city: 'Caloocan', district: 'North Fairview' } }] }) }), /within Quezon City/)
-  await assert.rejects(verifyDeliveryPin(14.72, 121.06, 'North Fairview', { useCache: false, fetchImpl: async () => json({ address: { city: 'Quezon City', suburb: 'Fairview' }, features: [{ properties: { city: 'Quezon City', district: 'Fairview' } }] }) }), /Cannot confirm the barangay/)
+  assert.equal(await verifyDeliveryPin(14.72, 121.06, 'North Fairview', { useCache: false, knownBarangays: ['Fairview', 'North Fairview'], fetchImpl: async () => json({ address: { city: 'Quezon City', suburb: 'Fairview' }, features: [{ properties: { city: 'Quezon City', district: 'Fairview' } }] }) }), 'Fairview')
+})
+
+test('active selected barangay is a safe fallback when providers confirm only Quezon City', async () => {
+  const actual = await verifyDeliveryPin(14.72, 121.06, 'Kaligayahan', { useCache: false, knownBarangays: ['Fairview', 'Kaligayahan', 'North Fairview'], fetchImpl: async url => url.includes('interpreter')
+    ? json({ elements: [{ tags: { admin_level: '6', name: 'Quezon City' } }] })
+    : json({ address: { city: 'Quezon City', district: 'District 5' }, features: [{ properties: { city: 'Quezon City', district: 'District 5' } }] }) })
+  assert.equal(actual, 'Kaligayahan')
+})
+
+test('unlisted selected barangay is never trusted as a fallback', async () => {
+  await assert.rejects(verifyDeliveryPin(14.72, 121.06, 'Made Up Place', { useCache: false, knownBarangays: ['Fairview', 'Kaligayahan'], fetchImpl: async () => json({ address: { city: 'Quezon City', district: 'District 5' }, features: [{ properties: { city: 'Quezon City', district: 'District 5' } }] }) }), /Cannot confirm the barangay/)
 })
 test('verified pins are cached without caching errors or other barangays', async () => {
   let calls = 0
@@ -53,8 +64,8 @@ test('verified pins are cached without caching errors or other barangays', async
   await verifyDeliveryPin(14.72123, 121.06123, 'North Fairview', { fetchImpl })
   await verifyDeliveryPin(14.72123, 121.06123, 'North Fairview', { fetchImpl })
   assert.equal(calls, 2)
-  await assert.rejects(verifyDeliveryPin(14.72123, 121.06123, 'Fairview', { fetchImpl }), /barangay/)
-  assert.equal(calls, 5)
+  assert.equal(await verifyDeliveryPin(14.72123, 121.06123, 'Fairview', { fetchImpl, knownBarangays: ['Fairview', 'North Fairview'] }), 'North Fairview')
+  assert.equal(calls, 4)
 })
 
 test('residential and display labels resolve to canonical barangays', async () => {
