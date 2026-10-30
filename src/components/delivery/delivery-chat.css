@@ -1,5 +1,7 @@
 .dc-backdrop,.dc-dialog-backdrop{--dc-bg:#fafbf9;--dc-panel:#fff;--dc-soft:#f2f5f0;--dc-line:#e2e7df;--dc-ink:#22362a;--dc-muted:#7b887c;--dc-green:#355a41;--dc-accent:#e8eee4;position:fixed;inset:0;z-index:1200;display:grid;place-items:center;padding:24px;background:rgba(18,31,23,.36);backdrop-filter:blur(5px);color:var(--dc-ink);font-family:inherit}
 .dc-backdrop[data-theme="dark"]{--dc-bg:#17201b;--dc-panel:#1d2821;--dc-soft:#243129;--dc-line:#344439;--dc-ink:#edf3eb;--dc-muted:#a4b3a6;--dc-green:#90b98e;--dc-accent:#354a39}
+.dc-backdrop[data-theme="neutral"]{--dc-bg:#f7f7f5;--dc-panel:#fff;--dc-soft:#f0f1ee;--dc-line:#dedfda;--dc-ink:#292d2a;--dc-muted:#737873;--dc-green:#4f6756;--dc-accent:#e8ece8;background:rgba(35,38,36,.24)}
+.dc-backdrop[data-theme="neutral"] .dc-inbox{box-shadow:0 28px 80px rgba(30,34,31,.18)}
 .dc-inbox{display:grid;grid-template-columns:25% 25% 50%;width:min(1240px,96vw);height:min(730px,89vh);max-height:calc(100dvh - 48px);background:var(--dc-panel);border:1px solid var(--dc-line);border-radius:20px;overflow:hidden;box-shadow:0 32px 100px rgba(15,32,22,.24);outline:none;text-align:left}
 .dc-inbox *{box-sizing:border-box}
 .dc-composer .dc-attach-icon{position:absolute;left:-40px;bottom:8px;display:grid;place-items:center;width:32px;height:36px;border:0;background:transparent;color:var(--dc-muted);cursor:pointer;overflow:hidden}

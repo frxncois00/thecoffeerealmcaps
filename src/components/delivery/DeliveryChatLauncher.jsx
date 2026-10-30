@@ -43,7 +43,7 @@ export default function DeliveryChatLauncher({ role = 'staff' }) {
     <button type="button" className={`internal-utility-button dc-launcher${role==='customer'?' dc-customer-launcher':''}`} aria-label={`Delivery messages${count?`, ${count} active`:''}`} title="Delivery messages" onClick={()=>{setOpen(true);void inbox.refresh()}}>
       <MessageCircle size={19}/>{role==='customer'&&<span>Messages</span>}{count>0&&<b className="dc-count">{count>99?'99+':count}</b>}
     </button>
-    {open&&createPortal(<DeliveryInbox role={role} userId={user?.id} inbox={inbox} target={target} now={now} theme={resolvedTheme} onClose={()=>{setOpen(false);setTarget(null)}}/>,document.body)}
+    {open&&createPortal(<DeliveryInbox role={role} userId={user?.id} inbox={inbox} target={target} now={now} theme={role==='customer'?'neutral':resolvedTheme} onClose={()=>{setOpen(false);setTarget(null)}}/>,document.body)}
   </>
 }
 

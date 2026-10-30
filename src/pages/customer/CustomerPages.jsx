@@ -271,6 +271,7 @@ export function CheckoutPage(){
   useEffect(()=>{const refresh=()=>setScheduleNow(Date.now());const timer=setInterval(refresh,1000);window.addEventListener('focus',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[]);
 
   const [customerErrors,setCustomerErrors]=useState({fullName:'',contact:''});
+  const [benefitConfirmationError,setBenefitConfirmationError]=useState(false);const benefitConfirmationRef=useRef(null);
   const [paymentProof,setPaymentProof]=useState(null);const [paymentProofPreview,setPaymentProofPreview]=useState('');const [paymentProofError,setPaymentProofError]=useState('');const [paymentReferenceError,setPaymentReferenceError]=useState('');const [validatingPaymentProof,setValidatingPaymentProof]=useState(false);
   const [systemSettings,setSystemSettings]=useState(SYSTEM_DEFAULTS);
   const [availableAreas,setAvailableAreas]=useState([]);
@@ -413,7 +414,7 @@ export function CheckoutPage(){
       if(Boolean(systemSettings.ordering?.allowDeliveryTomorrow)&&!form.scheduleTime){setSubmitError(`Choose an available delivery time for ${form.scheduleDate===manilaDate(1)?'tomorrow':'today'}.`);return}
     }
     if(form.benefitType&&!eligibleBenefit.benefitAmount){setSubmitError('Your cart does not contain an item eligible for the selected discount.');return}
-    if(form.benefitType&&!form.benefitConfirmed){setSubmitError('Confirm that you will present the original valid ID before reviewing your order.');return}
+    if(form.benefitType&&!form.benefitConfirmed){setBenefitConfirmationError(true);setSubmitError('Confirm that you will present the original valid ID before reviewing your order.');window.requestAnimationFrame(()=>{benefitConfirmationRef.current?.scrollIntoView({behavior:'smooth',block:'center'});benefitConfirmationRef.current?.focus({preventScroll:true})});return}
     if(['gcash','bank_transfer'].includes(form.payment)&&!validPaymentReference(form.payment,form.paymentReference)){setPaymentReferenceError(paymentReferenceMessage(form.payment));return}
     setPaymentReferenceError('')
     if(['gcash','bank_transfer'].includes(form.payment)&&!paymentProof){setPaymentProofError('Upload your payment proof before reviewing the order.');return}
@@ -450,7 +451,7 @@ export function CheckoutPage(){
     {systemSettings.ordering.storeStatus!=='open'&&<p className="field-hint error">{systemSettings.ordering.closureMessage}</p>}
     {cart.checkingAvailability?<p className="checkout-stock-refresh" role="status">Checking current item availability…</p>:null}
     <button type="submit" className="primary-button checkout-submit" disabled={cart.checkingAvailability||validatingPaymentProof||systemSettings.ordering.storeStatus!=='open'||!form.payment||(staffDelivery&&(!selectedArea||!activeQuote||quoteLoading))}>Review order · {money(total)} <ArrowRight/></button>
-  </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} benefit={eligibleBenefit} benefitType={form.benefitType} benefitConfirmed={form.benefitConfirmed} onBenefitTypeChange={value=>setForm(current=>({...current,benefitType:value,benefitConfirmed:value?current.benefitConfirmed:false}))} onBenefitConfirmationChange={value=>set('benefitConfirmed',value)} fulfillment={form.fulfillment} selectedArea={form.riderBooking==='customer'?{barangay:'',fee:0}:activeQuote?selectedArea:null} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div>
+  </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} benefit={eligibleBenefit} benefitType={form.benefitType} benefitConfirmed={form.benefitConfirmed} benefitConfirmationError={benefitConfirmationError} confirmationRef={benefitConfirmationRef} onBenefitTypeChange={value=>{setBenefitConfirmationError(false);setForm(current=>({...current,benefitType:value,benefitConfirmed:value?current.benefitConfirmed:false}))}} onBenefitConfirmationChange={value=>{setBenefitConfirmationError(false);setSubmitError(current=>current==='Confirm that you will present the original valid ID before reviewing your order.'?'':current);set('benefitConfirmed',value)}} fulfillment={form.fulfillment} selectedArea={form.riderBooking==='customer'?{barangay:'',fee:0}:activeQuote?selectedArea:null} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div>
   </main>
 }
 function CheckoutSection({n,title,children}){return <section className="checkout-section"><header><b>{n}</b><h2>{title}</h2></header>{children}</section>}
@@ -579,7 +580,7 @@ function BarangayField({areas=deliveryAreas,value,onChange,selectedArea}){
   </div>
 }
 function mostExpensiveEligibleItemBenefit(items=[],vatRate=0.12,pricesIncludeVat=true){const target=items.filter(item=>item.onlineBenefitEligible).sort((a,b)=>(b.unitPrice+(b.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0))-(a.unitPrice+(a.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0)))[0];if(!target)return{eligibleGrossAmount:0,vatAmount:0,discountAmount:0,benefitAmount:0};const eligibleGrossAmount=Number(target.unitPrice)+(target.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0);return{eligibleGrossAmount,...vatExemptDiscountBreakdown(eligibleGrossAmount,vatRate,0.2,pricesIncludeVat)}}
-function CheckoutPreview({items,subtotal,fee,total,benefit,benefitType='',benefitConfirmed=false,onBenefitTypeChange=()=>{},onBenefitConfirmationChange=()=>{},fulfillment,selectedArea,vatRate,pricesIncludeVat}){
+function CheckoutPreview({items,subtotal,fee,total,benefit,benefitType='',benefitConfirmed=false,benefitConfirmationError=false,confirmationRef,onBenefitTypeChange=()=>{},onBenefitConfirmationChange=()=>{},fulfillment,selectedArea,vatRate,pricesIncludeVat}){
   const applyBenefitDiscount=Boolean(benefitType)
   const discountLabel=benefitType==='senior'?'Senior Citizen':benefitType==='pwd'?'PWD':''
   const breakdown=buildVatExemptOrderBreakdown({subtotal,discountSubtotal:applyBenefitDiscount?benefit.eligibleGrossAmount:0,discountType:discountLabel,discountAmount:applyBenefitDiscount?benefit.discountAmount:0,vatExemptAmount:applyBenefitDiscount?benefit.vatAmount:0,vatRate,pricesIncludeVat})
@@ -603,7 +604,7 @@ function CheckoutPreview({items,subtotal,fee,total,benefit,benefitType='',benefi
       {[{id:'',name:'No discount'},{id:'pwd',name:'PWD'},{id:'senior',name:'Senior Citizen'}].map(option=><label key={option.id||'none'} className={`checkout-benefit-type${benefitType===option.id?' is-selected':''}`}><input type="radio" name="benefit-type" value={option.id} checked={benefitType===option.id} disabled={Boolean(option.id)&&!benefit.benefitAmount} onChange={()=>onBenefitTypeChange(option.id)}/><span>{option.name}</span></label>)}
     </div>
     {!benefit.benefitAmount&&<small>No eligible item in your cart.</small>}
-    {applyBenefitDiscount&&benefit.benefitAmount>0&&<label className="checkout-benefit-confirmation"><input type="checkbox" required checked={benefitConfirmed} onChange={event=>onBenefitConfirmationChange(event.target.checked)}/><span>I confirm that I will present the original valid {discountLabel} ID upon {fulfillment==='delivery'?'delivery':'pickup'}. <span className="checkout-required" aria-hidden="true">*</span></span></label>}
+    {applyBenefitDiscount&&benefit.benefitAmount>0&&<><label className={`checkout-benefit-confirmation${benefitConfirmationError?' is-invalid':''}`}><input ref={confirmationRef} type="checkbox" required checked={benefitConfirmed} aria-invalid={benefitConfirmationError} aria-describedby={benefitConfirmationError?'checkout-benefit-confirmation-error':undefined} onChange={event=>onBenefitConfirmationChange(event.target.checked)}/><span>I confirm that I will present the original valid {discountLabel} ID upon {fulfillment==='delivery'?'delivery':'pickup'}. <span className="checkout-required" aria-hidden="true">*</span></span></label>{benefitConfirmationError&&<p className="checkout-benefit-confirmation-error" id="checkout-benefit-confirmation-error" role="alert">Check this box before reviewing your order.</p>}</>}
 
   </section>
       <div className="checkout-totals" aria-label="Order totals">
