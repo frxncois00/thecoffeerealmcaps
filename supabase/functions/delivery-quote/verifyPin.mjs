@@ -50,17 +50,17 @@ export async function verifyDeliveryPin(lat, lng, barangay, { fetchImpl = fetch,
     { url: `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&layer=address&zoom=14&lat=${lat}&lon=${lng}`, address: body => body?.address ? { ...body.address, display_name: body.display_name } : null },
     { url: `${photonUrl}?lat=${lat}&lon=${lng}&lang=en&layer=street&layer=locality&layer=district&radius=0.2&limit=1`, address: body => body?.features?.[0]?.properties },
   ]
-  for (const provider of providers) {
-    let address
+  const providerResults = await Promise.all(providers.map(async provider => {
     try {
       const response = await fetchImpl(provider.url, { headers, signal: AbortSignal.timeout(7000) })
-      if (!response.ok) continue
-      address = provider.address(await response.json())
-    } catch { continue }
-    if (!address || typeof address !== 'object') continue
-    const result = matchAddress(address, knownBarangays)
-    if (result.barangay) return remember(result.barangay)
-    mismatch = result.mismatch
+      if (!response.ok) return null
+      const address = provider.address(await response.json())
+      return address && typeof address === 'object' ? matchAddress(address, knownBarangays) : null
+    } catch { return null }
+  }))
+  for (const result of providerResults) {
+    if (result?.barangay) return remember(result.barangay)
+    if (result?.mismatch) mismatch = result.mismatch
   }
   // Reverse geocoders may return a subdivision or POI instead of the barangay.
   // Query the administrative areas containing the coordinates in that case.

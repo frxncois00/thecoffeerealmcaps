@@ -52,9 +52,9 @@ test('verified pins are cached without caching errors or other barangays', async
   const fetchImpl = async () => { calls++; return json({ address: { city: 'Quezon City', suburb: 'North Fairview' } }) }
   await verifyDeliveryPin(14.72123, 121.06123, 'North Fairview', { fetchImpl })
   await verifyDeliveryPin(14.72123, 121.06123, 'North Fairview', { fetchImpl })
-  assert.equal(calls, 1)
+  assert.equal(calls, 2)
   await assert.rejects(verifyDeliveryPin(14.72123, 121.06123, 'Fairview', { fetchImpl }), /barangay/)
-  assert.equal(calls, 4)
+  assert.equal(calls, 5)
 })
 
 test('residential and display labels resolve to canonical barangays', async () => {

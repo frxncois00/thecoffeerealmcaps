@@ -7,7 +7,10 @@ export const deliveryChatClient = role => role === 'customer' ? customerSupabase
 export async function listDeliveryChats(role) {
   const { data, error } = await deliveryChatClient(role).rpc('list_delivery_chats')
   if (error) throw error
-  return data || []
+  if (!data?.length) return []
+  const { data: details, error: detailsError } = await deliveryChatClient(role).from('orders').select('id,discount_amount,payments(method,reference_number,created_at)').in('id',data.map(thread=>thread.id))
+  if (detailsError) throw detailsError
+  return data.map(thread=>{const detail=details?.find(order=>order.id===thread.id);return {...thread,...detail,payments:[...(detail?.payments||[])].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))}})
 }
 
 export async function fetchDeliveryMessages(role, orderId, { before, after } = {}) {
@@ -28,6 +31,24 @@ export async function sendDeliveryMessage(role, orderId, body, clientKey) {
 export async function markDeliveryChatRead(role, orderId, lastId) {
   const { error } = await deliveryChatClient(role).rpc('mark_delivery_chat_read', { p_order_id: orderId, p_last_id: lastId })
   if (error) throw error
+}
+
+export async function sendDeliveryImage(role, orderId, file, attempt) {
+  const client=deliveryChatClient(role)
+  const { extension, mimeType }=await validateImageFile(file,{label:'Chat image'})
+  if(!attempt.path){
+    const {data,error}=await client.auth.getUser()
+    if(error||!data.user)throw new Error('Sign in again to send an image.')
+    attempt.path=`${orderId}/${data.user.id}/${attempt.key}.${extension}`
+  }
+  if(!attempt.uploaded){
+    const {error}=await client.storage.from('delivery-proofs').upload(attempt.path,file,{contentType:mimeType,upsert:false})
+    if(error&&error.statusCode!=='409'&&error.statusCode!==409)throw error
+    attempt.uploaded=true
+  }
+  const {data,error}=await client.rpc('send_delivery_chat_image',{p_order_id:orderId,p_path:attempt.path,p_client_key:attempt.key})
+  if(error)throw error
+  return data
 }
 
 export async function getDeliveryProofUrls(role, paths) {

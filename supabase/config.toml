@@ -2,3 +2,7 @@
 # Authentication is enforced in the handler with auth.getUser() and the
 # customer-role RPC, rather than the gateway's legacy JWT-secret check.
 verify_jwt = false
+
+[functions.xendit-webhook]
+# Xendit calls this endpoint directly; the function verifies x-callback-token.
+verify_jwt = false

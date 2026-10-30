@@ -25,7 +25,7 @@ Deno.serve(async (request) => {
       if (!['admin', 'staff'].includes(role)) return json({ error: 'Operations access required.' }, 403)
       const orderNumber = String(body?.order_number || '').trim().toUpperCase()
       const nextStatus = String(body?.next_status || '')
-      if (!/^CR-\d{4}-\d{4}$/.test(orderNumber) || !['Ready for Pickup', 'Out for Delivery', 'Completed'].includes(nextStatus)) return json({ error: 'Invalid order action.' }, 400)
+      if (!/^(?:CR|PU|D)-\d{4}-\d{4}$/.test(orderNumber) || !['Ready for Pickup', 'Out for Delivery', 'Completed'].includes(nextStatus)) return json({ error: 'Invalid order action.' }, 400)
       const { data: order, error: findError } = await supabase.from('orders').select('id,order_number,status').eq('order_number', orderNumber).maybeSingle()
       if (findError || !order) return json({ error: 'Order not found.' }, 404)
       const { error: actionError } = await supabase.rpc('staff_advance_order_status', { p_order_id: order.id, p_new_status: nextStatus })
@@ -75,7 +75,7 @@ Deno.serve(async (request) => {
     if (/\bwhat\s+(?:can\s+(?:you|u)\s+do|do\s+(?:you|u)\s+do)\b|\bhow\s+can\s+(?:you|u)\s+help\b/i.test(message)) {
       return json({ text: `I can check store orders, inventory, menu, sales, purchase requests, and approved procedures. I can also prepare reports and help with order updates. What would you like to check?`, provider: 'instant' })
     }
-    const requestedOrder = message.match(/CR[-\s]?\d{4}[-\s]?\d{4}/i)?.[0]?.replace(/\s/g, '-').toUpperCase()
+    const requestedOrder = message.match(/(?:CR|PU|D)[-\s]?\d{4}[-\s]?\d{4}/i)?.[0]?.replace(/\s/g, '-').toUpperCase()
     const recentOrder = history.filter((turn: { role: string }) => turn.role === 'user').slice().reverse().map((turn: { content: string }) => turn.content.match(/CR[-\s]?\d{4}[-\s]?\d{4}/i)?.[0]?.replace(/\s/g, '-').toUpperCase()).find(Boolean)
     const requestedStatus = /ready for pickup/i.test(message) ? 'Ready for Pickup' : /out for delivery/i.test(message) ? 'Out for Delivery' : /\bcompleted\b/i.test(message) ? 'Completed' : ''
     if (['admin', 'staff'].includes(role) && requestedOrder && requestedStatus && /\b(mark|set|update|move|advance)\b/i.test(message)) {
@@ -171,8 +171,8 @@ Deno.serve(async (request) => {
       return json({ text: `Here are the 10 most recent transactions:\n${lines.join('\n')}`, provider: 'workspace' })
     }
     if (['admin', 'staff', 'cashier'].includes(role) && lowerMessage.includes('receipt')) {
-      const orderNumber = message.match(/CR[-\s]?\d{4}[-\s]?\d{4}/i)?.[0]?.replace(/\s/g, '-')
-      if (!orderNumber) return json({ text: 'Please provide the order number, for example CR-0920-0131, so I can generate the receipt.', provider: 'workspace' })
+      const orderNumber = message.match(/(?:CR|PU|D)[-\s]?\d{4}[-\s]?\d{4}/i)?.[0]?.replace(/\s/g, '-').toUpperCase()
+      if (!orderNumber) return json({ text: 'Please provide the order number, for example PU-0920-0131 or D-0920-0131, so I can generate the receipt.', provider: 'workspace' })
       const { data: orders, error: receiptError } = await dataClient.from('orders').select('order_number,customer_name,order_type,final_total,status,payment_status,created_at,order_items(item_name,display_name,quantity,unit_price,line_total)').eq('order_number', orderNumber).limit(1)
       if (receiptError) return json({ error: `I could not check the receipt: ${receiptError.message}` }, 502)
       const order = orders?.[0]

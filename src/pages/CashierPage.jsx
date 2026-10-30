@@ -1720,8 +1720,8 @@ function CashierReceipt({ order, onClose, onNotice }) {
 function getQueueDisplayNumber(order) {
   const raw = order.counterNumber || order.counter_number || order.orderNumber || order.order_number || ''
   const str = String(raw)
-  // Online orders use CR-MMDD-XXXX format — always show the last 4 chars as-is
-  if (order.orderSource === 'customer_pos' || /^CR-/i.test(str)) {
+  // Online pickup and delivery orders use PU-/D-; CR- remains valid for older orders.
+  if (order.orderSource === 'customer_pos' || /^(?:CR|PU|D)-/i.test(str)) {
     return str.slice(-4) || str
   }
   // Walk-in orders: extract trailing digits, pad to 2

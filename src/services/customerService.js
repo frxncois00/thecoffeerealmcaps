@@ -87,21 +87,21 @@ export async function fetchCustomerAccountDeletionEligibility(userId){
 }
 export async function createCustomerOrder(payload){if(!isSupabaseConfigured)throw new Error('Supabase is not configured.');const {data,error}=await supabase.rpc('create_customer_order',{request_payload:payload});if(error)throw error;return data}
 export async function createCustomerOrderWithBenefitDiscount(payload){if(!isSupabaseConfigured)throw new Error('Supabase is not configured.');const {data,error}=await supabase.rpc('create_customer_order_with_benefit_discount',{request_payload:payload});if(error)throw error;return data}
-export async function createPaymongoCheckout({orderId,origin,paymentMethod='paymongo'}){
+export async function createXenditCheckout({orderId,origin}){
   if(!isSupabaseConfigured)throw new Error('Supabase is not configured.')
-  const {data,error}=await supabase.functions.invoke('create-paymongo-checkout',{body:{order_id:orderId,origin,payment_method:paymentMethod}})
+  const {data,error}=await supabase.functions.invoke('create-xendit-checkout',{body:{order_id:orderId,origin}})
   if(error){
-    let message=error.message||'Could not start the PayMongo checkout.'
+    let message=error.message||'Could not start the Xendit checkout.'
     try{const body=await error.context?.json();message=body?.error||message}catch{/* Keep the original function error. */}
     throw new Error(message)
   }
-  if(!data?.checkout_url)throw new Error(data?.error||'PayMongo did not return a checkout URL.')
+  if(!data?.checkout_url)throw new Error(data?.error||'Xendit did not return a checkout URL.')
   return data
 }
-export async function verifyPaymongoPayment({orderId}){
+export async function verifyXenditPayment({orderId}){
   if(!isSupabaseConfigured)return {paid:false}
   try{
-    const {data,error}=await supabase.functions.invoke('create-paymongo-checkout',{body:{action:'verify',order_id:orderId}})
+    const {data,error}=await supabase.functions.invoke('create-xendit-checkout',{body:{action:'verify',order_id:orderId}})
     if(error)return {paid:false,error:error.message}
     return data||{paid:false}
   }catch(err){

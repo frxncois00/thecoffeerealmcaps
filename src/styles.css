@@ -5757,7 +5757,7 @@
 .internal-title-row+span{display:block;margin-top:8px}
 .internal-title-row .ops-order-view-toggle{margin-top:0}
 .ops-order-view-toggle button{min-height:44px;border:0;border-radius:10px;padding:0 14px;background:transparent;color:#53675c;font:inherit;font-size:.82rem;font-weight:800;cursor:pointer;transition:background .18s ease,color .18s ease,box-shadow .18s ease}
-.ops-order-view-toggle button b{display:inline-block;min-width:20px;margin-left:8px;padding:0;background:none;color:inherit;font-size:1.15rem;font-weight:900;line-height:1;text-align:right;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.ops-order-view-toggle button b{display:inline-block;min-width:20px;margin-left:8px;padding:0;background:none;color:inherit;font-size:1.05rem;font-weight:900;line-height:1;text-align:right;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
 .ops-order-view-toggle button.active{background:#fff;color:#244a36;box-shadow:0 2px 8px rgba(31,65,45,.13)}
 .ops-order-view-toggle button.active b{background:none;color:#244a36}
 .ops-summary-card{display:flex;flex-direction:column;align-items:flex-start;gap:6px;background:#fff;border:1px solid #dce3dd;border-radius:16px;padding:14px 16px;text-align:left}
@@ -6684,8 +6684,12 @@
   .internal-live-datetime{min-width:118px;padding:2px 5px}.internal-live-datetime b{font-size:.7rem}
   .internal-utility-button{width:36px;height:36px}
 }
-.legacy-staff .ops-order-view-toggle{padding:5px;border-color:rgba(36,74,54,.1);background:rgba(237,244,239,.9);box-shadow:inset 0 1px 1px rgba(36,74,54,.06),0 7px 16px rgba(31,65,45,.05)}
-.legacy-staff .ops-order-view-toggle button.active{background:linear-gradient(180deg,#fff,#f6faf7);box-shadow:0 6px 14px rgba(31,65,45,.11),inset 0 1px 0 #fff}
+.legacy-staff .internal-page-header:has(.ops-order-view-toggle)>div:first-child{flex:1;min-width:0}
+.legacy-staff .internal-title-row:has(.ops-order-view-toggle){width:100%;flex-wrap:nowrap}
+.legacy-staff .internal-title-row .ops-order-view-toggle{flex:1;min-width:0;padding:5px;border-color:rgba(36,74,54,.1);background:#fff;box-shadow:inset 0 1px 1px rgba(36,74,54,.04),0 7px 16px rgba(31,65,45,.05)}
+.legacy-staff .internal-title-row .ops-order-view-toggle button{flex:1;white-space:nowrap}
+.legacy-staff .ops-order-view-toggle button.active{background:linear-gradient(135deg,#315c45,#234a36);color:#fff;box-shadow:0 7px 16px rgba(36,74,54,.2)}
+.legacy-staff .ops-order-view-toggle button.active b{color:#fff}
 .legacy-staff .ops-summary-row{gap:16px;margin:24px 0}
 .legacy-staff .ops-summary-card{position:relative;isolation:isolate;overflow:hidden;min-height:118px;padding:18px;border-color:rgba(36,74,54,.09);background:linear-gradient(145deg,#fff 0%,#f7fbf8 100%);box-shadow:0 14px 28px rgba(31,65,45,.08),inset 0 1px 0 rgba(255,255,255,.95);transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
 .legacy-staff .ops-summary-card:before{content:'';position:absolute;z-index:-1;top:-48px;right:-26px;width:115px;height:115px;border-radius:50%;background:radial-gradient(circle,rgba(209,226,214,.72),rgba(209,226,214,0) 70%)}
@@ -6701,7 +6705,7 @@
 .legacy-staff .ops-toolbar select:hover{background:#fff;box-shadow:0 6px 14px rgba(31,65,45,.08)}
 .ops-fulfillment-toggle{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;width:100%;margin:-6px 0 18px;padding:5px;border:1px solid var(--mgmt-border,rgba(36,74,54,.11));border-radius:15px;background:var(--mgmt-surface,rgba(255,255,255,.92));box-shadow:0 8px 20px rgba(31,65,45,.06),inset 0 1px 0 var(--mgmt-highlight,#fff)}
 .ops-fulfillment-toggle button{min-height:44px;border:0;border-radius:11px;background:transparent;color:var(--mgmt-muted,#607168);font:inherit;font-size:.82rem;font-weight:800;letter-spacing:.01em;cursor:pointer;transition:background .18s ease,color .18s ease,box-shadow .18s ease}
-.ops-fulfillment-toggle button:hover{background:var(--mgmt-hover,#eef5f0);color:var(--mgmt-text,#284837)}
+.ops-fulfillment-toggle button:hover{background:transparent;color:var(--mgmt-muted,#607168)}
 .ops-fulfillment-toggle button.active{background:linear-gradient(135deg,#315c45,#234a36);color:#fff;box-shadow:0 7px 16px rgba(36,74,54,.2)}
 .ops-fulfillment-count{display:inline-grid;place-items:center;min-width:23px;height:23px;margin-left:8px;padding:0 5px;border:1px solid rgba(49,92,69,.2);border-radius:999px;background:#e5eee8;color:#315c45;font-size:.72rem;font-weight:900;line-height:1;vertical-align:middle;font-variant-numeric:tabular-nums;box-shadow:inset 0 1px 0 rgba(255,255,255,.85)}.ops-fulfillment-toggle button.active .ops-fulfillment-count{border-color:rgba(255,255,255,.38);background:#fff;color:#244a36;box-shadow:0 2px 6px rgba(17,48,31,.2)}
 .ops-fulfillment-toggle button:focus-visible{outline:2px solid #315c45;outline-offset:2px}
@@ -6753,7 +6757,7 @@
 @media(max-width:1100px) and (min-width:701px){.legacy-staff .ops-cancel-groups{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.legacy-staff .ops-cancellations{padding:18px}.legacy-staff .ops-cancellations-heading{align-items:flex-start}.legacy-staff .ops-cancel-groups{grid-template-columns:1fr}.legacy-staff .ops-cancel-group{min-height:0}.legacy-staff .ops-cancel-list{--ops-cancel-card-row:166px}.legacy-staff .ops-cancel-card:hover{transform:none}}
 @media(max-width:1100px){.legacy-staff .ops-toolbar{grid-template-columns:minmax(200px,.9fr) repeat(3,minmax(170px,1fr)) auto;overflow-x:auto}.legacy-staff .ops-toolbar-field{min-width:0}}
-@media(max-width:700px){.legacy-staff .internal-main{padding:18px 14px 40px}.legacy-staff .internal-page-header{padding:18px}.legacy-staff .ops-summary-row{gap:10px}.legacy-staff .ops-summary-card{min-height:104px;padding:14px}.legacy-staff .ops-toolbar{grid-template-columns:minmax(200px,.9fr) repeat(3,minmax(170px,1fr)) auto;border-radius:16px}.legacy-staff .ops-toolbar-field{min-width:0}.legacy-staff .ops-toolbar select{width:100%}.legacy-staff .ops-kanban{padding:0}.legacy-staff .ops-card:hover{transform:none}}
+@media(max-width:700px){.legacy-staff .internal-main{padding:18px 14px 40px}.legacy-staff .internal-page-header{padding:18px}.legacy-staff .internal-title-row:has(.ops-order-view-toggle){flex-wrap:wrap}.legacy-staff .ops-summary-row{gap:10px}.legacy-staff .ops-summary-card{min-height:104px;padding:14px}.legacy-staff .ops-toolbar{grid-template-columns:minmax(200px,.9fr) repeat(3,minmax(170px,1fr)) auto;border-radius:16px}.legacy-staff .ops-toolbar-field{min-width:0}.legacy-staff .ops-toolbar select{width:100%}.legacy-staff .ops-kanban{padding:0}.legacy-staff .ops-card:hover{transform:none}}
 
 /* Completed and cancelled order grids */
 .ops-completed-grid{align-items:stretch}

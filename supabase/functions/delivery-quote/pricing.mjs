@@ -29,7 +29,7 @@ export function calculateDeliveryFee(distanceKm, settings) {
     const length = Math.max(0, Math.min(distanceKm, end) - start)
     if (length > 0 && tier.rate === null) throw new Error('Delivery rate unavailable for this distance. Contact the store.')
     fee += length * (tier.rate ?? 0)
-    if (distanceKm <= end) return Math.round((fee + Number.EPSILON) * 100) / 100
+    if (distanceKm <= end) return Math.round(fee + Number.EPSILON)
     start = end
   }
   throw new Error('Delivery rate unavailable.')

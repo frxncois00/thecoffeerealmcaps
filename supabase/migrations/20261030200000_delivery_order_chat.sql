@@ -53,8 +53,10 @@ alter table public.delivery_chat_messages enable row level security;
 alter table public.delivery_chat_reads enable row level security;
 revoke all on public.delivery_chat_messages,public.delivery_chat_reads from anon,authenticated;
 grant select on public.delivery_chat_messages,public.delivery_chat_reads to authenticated;
+drop policy if exists "Participants read delivery messages" on public.delivery_chat_messages;
 create policy "Participants read delivery messages" on public.delivery_chat_messages for select to authenticated
   using(public.can_read_delivery_chat(order_id));
+drop policy if exists "Participants read own delivery read position" on public.delivery_chat_reads;
 create policy "Participants read own delivery read position" on public.delivery_chat_reads for select to authenticated
   using(user_id=auth.uid() and public.can_read_delivery_chat(order_id));
 
@@ -75,6 +77,7 @@ begin
   end if;
   return new;
 end; $$;
+drop trigger if exists delivery_chat_state_before_update on public.orders;
 create trigger delivery_chat_state_before_update before update on public.orders
   for each row execute function public.sync_delivery_chat_state();
 
@@ -98,6 +101,7 @@ begin
   end if;
   return new;
 end; $$;
+drop trigger if exists delivery_chat_events_after_update on public.orders;
 create trigger delivery_chat_events_after_update after update on public.orders
   for each row execute function public.publish_delivery_chat_events();
 -- Open conversations for already prepared active deliveries; don't reopen old finished orders.
@@ -191,13 +195,16 @@ grant execute on function public.staff_dispatch_delivery(uuid,text) to authentic
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
 values('delivery-proofs','delivery-proofs',false,5242880,array['image/jpeg','image/png','image/webp'])
 on conflict(id) do nothing;
+drop policy if exists "Participants read delivery proof" on storage.objects;
 create policy "Participants read delivery proof" on storage.objects for select to authenticated
 using(bucket_id='delivery-proofs' and public.can_read_delivery_chat((storage.foldername(name))[1]::uuid));
+drop policy if exists "Staff upload delivery proof" on storage.objects;
 create policy "Staff upload delivery proof" on storage.objects for insert to authenticated
 with check(bucket_id='delivery-proofs' and public.is_delivery_chat_staff()
   and (storage.foldername(name))[2]=auth.uid()::text
   and exists(select 1 from public.orders where id=(storage.foldername(name))[1]::uuid and order_type='delivery'
     and status='Out for Delivery' and delivery_chat_closed_at is null and delivery_confirmation_started_at is null));
+drop policy if exists "Staff clean unused delivery uploads" on storage.objects;
 create policy "Staff clean unused delivery uploads" on storage.objects for delete to authenticated
 using(bucket_id='delivery-proofs' and public.is_delivery_chat_staff() and (storage.foldername(name))[2]=auth.uid()::text
   and not exists(select 1 from public.delivery_chat_messages where name=any(attachment_paths)));

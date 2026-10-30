@@ -34,7 +34,7 @@ import {
   NotFoundPage,
   OrderConfirmationPage,
   OrderReviewPage,
-  PayMongoSuccessPage,
+  XenditSuccessPage,
   ProductPage,
   ProfilePage,
 } from './pages/customer/CustomerPages'
@@ -59,7 +59,8 @@ export default function App() {
           <Route path="/help" element={<HelpPage />} />
           <Route path="/checkout" element={protect(<CheckoutPage />)} />
           <Route path="/checkout/review" element={protect(<OrderReviewPage />)} />
-          <Route path="/checkout/paymongo/success" element={protect(<PayMongoSuccessPage />)} />
+          <Route path="/checkout/xendit/success" element={protect(<XenditSuccessPage />)} />
+          <Route path="/checkout/paymongo/success" element={<Navigate to="/checkout/xendit/success" replace />} />
           <Route path="/orders" element={protect(<MyOrdersPage />)} />
           <Route path="/orders/:id/confirmation" element={protect(<OrderConfirmationPage />)} />
           <Route path="/orders/:id/track" element={protect(<Navigate to="/orders" replace />)} />

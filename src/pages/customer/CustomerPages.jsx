@@ -17,7 +17,7 @@ import { useAvailableQuantity } from '../../hooks/useAvailableQuantity'
 import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePricing } from '../../context/usePricing'
-import { createCustomerOrderWithBenefitDiscount, createPaymongoCheckout, verifyPaymongoPayment, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, checkCustomerPaymentReference, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
+import { createCustomerOrderWithBenefitDiscount, createXenditCheckout, verifyXenditPayment, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, checkCustomerPaymentReference, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
 import RealmPassportProfileLink, { RealmIdProfileField } from '../../components/customer/RealmPassportProfileLink'
 import { deliveryAreas } from '../../data/deliveryAreas'
 import { money } from '../../utils/money'
@@ -186,7 +186,7 @@ const timeLabel=minutes=>{const hour=Math.floor(minutes/60);const minute=minutes
 const normalizePhone=value=>sanitizePhone(value)
 const normalizePostal=value=>String(value||'').replace(/\D/g,'').slice(0,6)
 const customerOrderNumber=value=>{const raw=String(value||'').trim();if(!raw)return '';if(/^(WI|CR)-\d{4}-\d{4,}$/i.test(raw))return raw.toUpperCase();if(/^#?D\d{10}$/i.test(raw))return raw.startsWith('#')?raw:`#${raw.toUpperCase()}`;if(/^\d{10,}$/.test(raw))return `#D${raw.slice(-10)}`;return raw}
-const paymentMethodLabel=value=>value==='cod'?'Cash on delivery':value==='bank_transfer'?'Bank transfer':value==='paymongo'?'PayMongo':value==='qrph'?'QRPh via PayMongo':'GCash'
+const paymentMethodLabel=value=>value==='cod'?'Cash on delivery':value==='bank_transfer'?'Bank transfer':['paymongo','qrph','xendit'].includes(value)?'Xendit':'GCash'
 const validPaymentReference=(payment,value)=>payment==='gcash'?/^[0-9]{13}$/.test(String(value||'').trim()):payment==='bank_transfer'?/^[0-9]{6,25}$/.test(String(value||'').trim()):true
 const paymentReferenceMessage=payment=>payment==='bank_transfer'?'Enter 6 to 25 digits from your bank transfer receipt.':'Enter exactly 13 digits from your GCash receipt.'
 const fulfillmentLabel=value=>value==='pickup'?'Store pickup':'Delivery'
@@ -223,7 +223,7 @@ const orderStatusTone=status=>{
   return 'status-chip--neutral'
 }
 const parseScheduleMinutes=value=>{if(!value)return null;const [hour='0',minute='0']=String(value).split(':');const h=Number(hour);const m=Number(minute);return Number.isFinite(h)&&Number.isFinite(m)?h*60+m:null}
-const orderScheduleLabel=order=>{const date=order?.schedule_date||order?.scheduleDate;const time=order?.schedule_time||order?.scheduleTime;if(!date||!time)return 'We’ll confirm your schedule shortly.';const dayLabel=date===manilaDate()?'Today':date===manilaDate(1)?'Tomorrow':new Intl.DateTimeFormat('en-PH',{month:'short',day:'numeric'}).format(new Date(`${date}T00:00:00`));const minutes=parseScheduleMinutes(time);return `${dayLabel} · ${minutes===null?String(time).slice(0,5):timeLabel(minutes)}`}
+const orderScheduleLabel=order=>{if((order?.order_type||order?.fulfillment)==='delivery')return'Now';const date=order?.schedule_date||order?.scheduleDate;const time=order?.schedule_time||order?.scheduleTime;if(!date||!time)return 'We’ll confirm your schedule shortly.';const dayLabel=date===manilaDate()?'Today':date===manilaDate(1)?'Tomorrow':new Intl.DateTimeFormat('en-PH',{month:'short',day:'numeric'}).format(new Date(`${date}T00:00:00`));const minutes=parseScheduleMinutes(time);return `${dayLabel} · ${minutes===null?String(time).slice(0,5):timeLabel(minutes)}`}
 const orderCount=order=>(order?.order_items||[]).reduce((sum,item)=>sum+Number(item.quantity||item.qty||0),0)
 const completionNote=order=>{const notes=[];if(orderPaymentMethod(order)==='cod')notes.push('Please prepare the exact amount. Payment will be collected upon delivery.');else notes.push('Your order will be processed after the payment proof is verified.');if((order?.order_type||order?.fulfillment)==='pickup')notes.push('You will be notified when your order is ready to claim.');return notes.join(' ')}
 const estimatedTimeLabel=order=>((order?.order_type||order?.fulfillment)==='pickup'?'Estimated ready time':'Estimated delivery time')
@@ -260,7 +260,7 @@ const trackingSteps=order=>orderTrackingSteps(order,initialOrderStatusLabel(orde
 const trackingStatusCopy=(order,status)=>status==='Awaiting Payment Verification'?'Your payment proof is waiting for review.':status==='Order Received'?'Your order is waiting for store confirmation.':status==='Confirmed'?`Scheduled for ${orderScheduleLabel(order)}`:status==='Preparing'?(isDeliveryReady(order)?'Your order is prepared and waiting to go out for delivery.':'The kitchen and bar are preparing your order.'):status==='Out for Delivery'?'Your order is on the way. Confirm once it arrives.':status==='Ready for Pickup'||status==='Ready to Claim'?'Your order is ready to claim at the store.':status==='Received'?'You confirmed that this delivery was received.':status==='Completed'?'This order has been completed.':'Waiting for update'
 const manilaCurrentTime=()=>{const parts=new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());const map=Object.fromEntries(parts.map(part=>[part.type,part.value]));return `${String(map.hour).padStart(2,'0')}:${String(map.minute).padStart(2,'0')}`}
 const emptyCheckoutForm=()=>({fullName:'',email:'',contact:'',fulfillment:'delivery',riderBooking:'staff',deliveryQuoteId:'',deliveryDistanceKm:null,address:'',barangay:'',city:'Quezon City',province:'Metro Manila',postal:'',instructions:'',payment:'cod',paymentReference:'',scheduleDate:manilaDate(),scheduleTime:'10:00',deliveryFee:0,deliveryZone:'',estimatedDeliveryTime:'',benefitType:'',benefitConfirmed:false,coordinates:null})
-const customerPaymentMethods=payments=>Array.from(new Set(payments?.enabledMethods||[]))
+const customerPaymentMethods=payments=>Array.from(new Set((payments?.enabledMethods||[]).map(method=>['paymongo','qrph'].includes(method)?'xendit':method)))
 export function CheckoutPage(){
   const cart=useCart();const {items,subtotal}=cart;const {user,profile}=useAuth();const {pricing}=usePricing();const navigate=useNavigate();
   const [submitError,setSubmitError]=useState('');
@@ -283,9 +283,9 @@ export function CheckoutPage(){
     if(!quoteKey)return undefined;
     let active=true;setQuoteLoading(true);
     const [lat,lng]=JSON.parse(quoteKey);
-    const timer=window.setTimeout(()=>fetchDeliveryQuote({coordinates:{lat,lng}}).then(quote=>{if(active){setDeliveryQuote({...quote,key:quoteKey});if(quote.barangay)setForm(current=>({...current,barangay:quote.barangay}))}}).catch(error=>{if(active)setQuoteError(error.message)}).finally(()=>{if(active)setQuoteLoading(false)}),650);
+    const timer=window.setTimeout(()=>fetchDeliveryQuote({coordinates:{lat,lng},barangay:form.barangay}).then(quote=>{if(active){setDeliveryQuote({...quote,key:quoteKey});if(quote.barangay)setForm(current=>({...current,barangay:quote.barangay}))}}).catch(error=>{if(active)setQuoteError(error.message)}).finally(()=>{if(active)setQuoteLoading(false)}),250);
     return()=>{active=false;window.clearTimeout(timer)};
-  },[quoteKey,quoteRetry]);
+  },[quoteKey,quoteRetry,form.barangay]);
   const activeQuote=deliveryQuote?.key===quoteKey&&Date.parse(deliveryQuote.expires_at)>scheduleNow?deliveryQuote:null;
   useEffect(()=>{if(!user?.id)return;const draft=readCheckoutDraft(user.id);if(draft){setForm({...emptyCheckoutForm(),...draft.form,scheduleDate:draft.form?.scheduleDate||manilaDate(),scheduleTime:draft.form?.scheduleTime||manilaCurrentTime()});setAddressMode(['saved','new'].includes(draft.addressMode)?draft.addressMode:'new');setSelectedAddress(String(draft.selectedAddress||''));setRequestKey(draft.requestKey||crypto.randomUUID())}else{setAddressMode('loading')}setDraftReady(true)},[user?.id]);
   useEffect(()=>{if(!draftReady)return;setForm(current=>{const targetDate=current.fulfillment==='delivery'&&Boolean(systemSettings.ordering?.allowDeliveryTomorrow)&&current.scheduleDate===manilaDate(1)?manilaDate(1):manilaDate();return {...current,scheduleDate:targetDate,postal:''}})},[draftReady,systemSettings.ordering]);
@@ -430,20 +430,20 @@ export function CheckoutPage(){
       }
     }
     const availability=await cart.refreshAvailability();if(!availability.ok){setSubmitError('We could not verify current stock. Please try again.');return}if(!availability.available){setSubmitError('One or more cart items are now unavailable. Review your cart before continuing.');return}
-    const targetDate=form.fulfillment==='delivery'&&Boolean(systemSettings.ordering?.allowDeliveryTomorrow)?(form.scheduleDate||manilaDate()):manilaDate();
+    const targetDate=manilaDate();
     const availableDeliverySlots=scheduleSlots(targetDate,'delivery',systemSettings.ordering,prepMinutes);
     if(!scheduleSlots(targetDate,form.fulfillment,systemSettings.ordering,prepMinutes).some(slot=>slot.id===form.scheduleTime)&&form.fulfillment==='pickup'){setSubmitError('Choose a later pickup time that allows enough preparation time.');return}
-    if(form.fulfillment==='delivery'&&!availableDeliverySlots.length){setSubmitError('No delivery schedules remain for this date.');return}
+    if(form.fulfillment==='delivery'&&!availableDeliverySlots.length){setSubmitError('Delivery is unavailable for the rest of today.');return}
     const validDeliveryTime=availableDeliverySlots.some(slot=>slot.id===form.scheduleTime)?form.scheduleTime:(availableDeliverySlots[0]?.id||'10:00');
     const checkout={...form,scheduleDate:targetDate,scheduleTime:form.fulfillment==='pickup'?form.scheduleTime:validDeliveryTime,deliveryFee:fee,deliveryQuoteId:staffDelivery?activeQuote.id:'',deliveryDistanceKm:staffDelivery?activeQuote.distance_km:null,deliveryZone:staffDelivery?(selectedArea?.zone||''):'',estimatedDeliveryTime:selectedArea?.estimatedTime||''};writeCheckoutDraft(user.id,{form:checkout,addressMode,selectedAddress,requestKey});navigate('/checkout/review',{state:{checkout,paymentProof}})
   };
   return <main className="customer-main checkout-page"><section className="page-title"><span>Secure checkout</span><h1>How should we prepare your order?</h1></section><div className="checkout-layout"><form className="checkout-form" noValidate onSubmit={submit}>
     <CheckoutSection n="1" title="Customer information"><div className="form-grid"><Field label="Full name" value={form.fullName} error={customerErrors.fullName} onChange={value=>{set('fullName',sanitizePersonName(value,60));setCustomerErrors(current=>({...current,fullName:''}))}} onBlur={()=>setCustomerErrors(current=>({...current,fullName:isTwoWordPersonName(form.fullName)?'':'Enter your first and last name (at least 2 words).'}))} maxLength={60} pattern="\S+(\s+\S+)+" title="Enter your first and last name (at least 2 words)."/><Field label="Contact number" type="tel" value={form.contact} error={customerErrors.contact} onChange={value=>{set('contact',normalizePhone(value));setCustomerErrors(current=>({...current,contact:''}))}} onBlur={()=>setCustomerErrors(current=>({...current,contact:isValidPhone(form.contact)?'':'Enter a valid contact number starting with 09 (11 digits).'}))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Contact number must contain 11 digits and start with 09."/></div>{submitError&&<p className="field-hint error">{submitError}</p>}</CheckoutSection>
-    <CheckoutSection n="2" title="Fulfillment"><div className="fulfillment-controls"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/>{form.fulfillment==='delivery'&&Boolean(systemSettings.ordering?.allowDeliveryTomorrow)&&<Choice title="Delivery date" options={[{id:manilaDate(),name:'Today'},{id:manilaDate(1),name:'Tomorrow'}]} value={form.scheduleDate||manilaDate()} onChange={value=>set('scheduleDate',value)}/>}{form.fulfillment==='delivery'&&Boolean(systemSettings.ordering?.allowDeliveryTomorrow)&&<SelectField label={`Delivery time (${form.scheduleDate===manilaDate(1)?'tomorrow':'today'})`} value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={deliverySlots} placeholder={deliverySlots.length?'Choose a time':`No delivery times available ${form.scheduleDate===manilaDate(1)?'tomorrow':'today'}`} disabled={!deliverySlots.length}/>}{form.fulfillment==='pickup'&&<SelectField label="Pickup time (today)" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={pickupSlots} placeholder={pickupSlots.length?'Choose a time':'No pickup times available today'} disabled={!pickupSlots.length}/>}</div>
+    <CheckoutSection n="2" title="Fulfillment"><div className="fulfillment-controls"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/>{form.fulfillment==='delivery'&&<div className="checkout-payment-cod"><Clock3 size={18}/><p><b>Delivery: Now</b><span>We will prepare the order as soon as it is confirmed.</span></p></div>}{form.fulfillment==='pickup'&&<SelectField label="Pickup time (today)" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={pickupSlots} placeholder={pickupSlots.length?'Choose a time':'No pickup times available today'} disabled={!pickupSlots.length}/>}</div>
     <p className={"field-hint"}>Preparation: {prepMinutes} min.</p>
     {form.fulfillment==='delivery'&&<Choice title="Who books the rider?" options={[{id:'customer',name:'I’ll book'},{id:'staff',name:'Staff books'}]} value={form.riderBooking||'staff'} onChange={value=>{set('riderBooking',value);if(value==='customer'&&form.payment==='cod'){const method=customerPaymentMethods(systemSettings.payments).find(method=>method!=='cod')||'';setPayment(method)}}}/>}
     {form.fulfillment==='pickup'&&!pickupSlots.length&&<p className={"field-hint error"}>This order needs more preparation time than remains today. Reduce the quantities or order during the next opening hours.</p>}{staffDelivery?<>{addresses.length>0&&<fieldset className={`address-source-picker${addresses.length?' has-saved-addresses':''}`}><legend>Delivery address</legend><div>{addresses.length>0&&<button type="button" className={addressMode==='saved'?'active':''} onClick={()=>chooseAddressMode('saved')} aria-pressed={addressMode==='saved'}><span><MapPin size={18}/></span><b>Use saved address</b><small>{defaultAddress?(defaultAddress.label||'Default address'):`${addresses.length} saved address${addresses.length===1?'':'es'}`}</small></button>}<button type="button" className={addressMode==='new'?'active':''} onClick={()=>chooseAddressMode('new')} aria-pressed={addressMode==='new'}><span><Pencil size={18}/></span><b>{addresses.length?'Enter a new address':'Enter your delivery address'}</b>{addresses.length>0&&<small>Search or pin on the map</small>}</button></div></fieldset>}<DeliveryLocationPicker key={`${addressMode}-${selectedAddress||'new'}`} initialCoordinates={form.coordinates} initialAddress={addressMode==='saved'?[addresses.find(address=>String(address.id)===selectedAddress)?.address_line,form.city].filter(Boolean).join(', '):''} address={form.address} barangay={form.barangay} selectedArea={selectedArea} onAddressChange={value=>set('address',sanitizeAddressText(value,200))} onBarangayChange={value=>set('barangay',value)} onCoordinatesChange={coords=>set('coordinates',coords)} />{form.fulfillment==='delivery'&&form.address.trim()&&!selectedArea&&<p className="field-hint error">We do not deliver outside Quezon City for now. Please select an address within Quezon City.</p>}</>:form.fulfillment==='delivery'?<RiderPickupCard store={systemSettings.store} delivery={systemSettings.delivery}/>:<PickupStoreLocation/>}{staffDelivery&&<div className="delivery-route-estimate" aria-live="polite">{quoteLoading?'Calculating route…':activeQuote?<><b>{activeQuote.distance_km.toFixed(1)} km · {money(activeQuote.fee)}</b><small>Estimated fee. Rider fare may vary.</small></>:<><span>{quoteError||(deliveryQuote?'Estimate expired. Refresh to continue.':'Pin your address to calculate delivery.')}</span>{quoteKey&&<button type="button" className="text-button" onClick={()=>setQuoteRetry(value=>value+1)}>Retry</button>}</>}</div>}<Field label={form.fulfillment==='delivery'?'Delivery instructions':'Pickup note (optional)'} value={form.instructions} onChange={value=>set('instructions',sanitizeCustomerText(value,300))} maxLength={300} required={false}/></CheckoutSection>
-    <CheckoutSection n="3" title="Payment"><Choice title="Payment method" options={customerPaymentMethods(systemSettings.payments).filter(method=>(staffDelivery)||method!=='cod').map(method=>({id:method,name:method==='cod'?'Cash on delivery':method==='bank_transfer'?'Bank transfer':method==='paymongo'?'PayMongo':method==='qrph'?'QRPh via PayMongo':'GCash'}))} value={form.payment} onChange={setPayment}/><CheckoutPaymentDetails payment={form.payment} paymentConfig={systemSettings.payments} total={total} referenceNumber={form.paymentReference} referenceError={paymentReferenceError} onReferenceChange={value=>{set('paymentReference',sanitizeDigits(value,form.payment==='gcash'?13:25));if(validPaymentReference(form.payment,value))setPaymentReferenceError('');if(paymentProofError&&paymentProofError.includes('already been used'))setPaymentProofError('')}} onReferenceBlur={handleReferenceBlur} proof={paymentProof} previewUrl={paymentProofPreview} proofError={paymentProofError} validatingProof={validatingPaymentProof} onProofChange={choosePaymentProof} onProofClear={clearPaymentProof}/></CheckoutSection>
+    <CheckoutSection n="3" title="Payment"><Choice title="Payment method" options={customerPaymentMethods(systemSettings.payments).filter(method=>(staffDelivery)||method!=='cod').map(method=>({id:method,name:method==='cod'?'Cash on delivery':method==='bank_transfer'?'Bank transfer':method==='xendit'?'Xendit':'GCash'}))} value={form.payment} onChange={setPayment}/><CheckoutPaymentDetails payment={form.payment} paymentConfig={systemSettings.payments} total={total} referenceNumber={form.paymentReference} referenceError={paymentReferenceError} onReferenceChange={value=>{set('paymentReference',sanitizeDigits(value,form.payment==='gcash'?13:25));if(validPaymentReference(form.payment,value))setPaymentReferenceError('');if(paymentProofError&&paymentProofError.includes('already been used'))setPaymentProofError('')}} onReferenceBlur={handleReferenceBlur} proof={paymentProof} previewUrl={paymentProofPreview} proofError={paymentProofError} validatingProof={validatingPaymentProof} onProofChange={choosePaymentProof} onProofClear={clearPaymentProof}/></CheckoutSection>
     {systemSettings.ordering.storeStatus!=='open'&&<p className="field-hint error">{systemSettings.ordering.closureMessage}</p>}
     {cart.checkingAvailability?<p className="checkout-stock-refresh" role="status">Checking current item availability…</p>:null}
     <button type="submit" className="primary-button checkout-submit" disabled={cart.checkingAvailability||validatingPaymentProof||systemSettings.ordering.storeStatus!=='open'||!form.payment||(staffDelivery&&(!selectedArea||!activeQuote||quoteLoading))}>Review order · {money(total)} <ArrowRight/></button>
@@ -467,7 +467,7 @@ function CheckoutPaymentDetails({payment,paymentConfig,total,referenceNumber,ref
   const proofInputRef=useRef(null)
   const [qrAction,setQrAction]=useState('')
   if(payment==='cod')return <div className="checkout-payment-cod"><Info size={18}/><p><b>Pay when your order arrives.</b><span>Please prepare the exact amount whenever possible. Cash on delivery is available up to {money(Number(paymentConfig.codMaximum||1000))}.</span></p></div>
-  if(payment==='paymongo'||payment==='qrph')return <section className="checkout-payment-details" aria-live="polite" aria-labelledby="checkout-paymongo-title"><div className="checkout-payment-details-head"><span><Lock size={19}/></span><div><h3 id="checkout-paymongo-title">Pay with PayMongo</h3></div><b>{money(total)}</b></div><div className="checkout-payment-instructions"><p>Continue to PayMongo after reviewing your order to complete payment securely.</p></div></section>
+  if(payment==='xendit')return <section className="checkout-payment-details" aria-live="polite" aria-labelledby="checkout-xendit-title"><div className="checkout-payment-details-head"><span><Lock size={19}/></span><div><h3 id="checkout-xendit-title">Pay with Xendit</h3></div><b>{money(total)}</b></div><div className="checkout-payment-instructions"><p>Continue to Xendit’s test checkout after reviewing your order.</p></div></section>
   if(!['gcash','bank_transfer'].includes(payment))return null
   const isGcash=payment==='gcash'
   const label=isGcash?'GCash':'Bank transfer'
@@ -715,7 +715,7 @@ export function OrderReviewPage(){
         const {products}=await fetchMenuCatalog({strict:true})
         const prep=cartPreparationRange(items,products)?.max||30
         const {system}=await fetchPublicPortalData()
-        if(!scheduleSlots(form.scheduleDate,form.fulfillment,system.ordering,prep).some(slot=>slot.id===form.scheduleTime))throw new Error('This time no longer allows enough preparation time. Return to checkout and choose a later time.')
+        if(form.fulfillment==='pickup'&&!scheduleSlots(form.scheduleDate,'pickup',system.ordering,prep).some(slot=>slot.id===form.scheduleTime))throw new Error('This pickup time no longer allows enough preparation time. Return to checkout and choose a later time.')
       }
       setSubmitPhase('placing')
       // Confirm Supabase has a genuinely valid session for THIS attempt before
@@ -730,15 +730,21 @@ export function OrderReviewPage(){
         navigate('/login',{replace:true,state:{from:'/checkout',authMessage:'Your session has expired. Please log in again to complete your order.'}})
         return
       }
+      let checkoutForm=form
+      if(form.fulfillment==='delivery'&&form.riderBooking!=='customer'){
+        const freshQuote=await fetchDeliveryQuote({coordinates:form.coordinates,barangay:form.barangay})
+        checkoutForm={...form,deliveryQuoteId:freshQuote.id,deliveryDistanceKm:freshQuote.distance_km,deliveryFee:freshQuote.fee,barangay:freshQuote.barangay||form.barangay}
+      }
       let order=createdOrder
       if(!order){
-        const response=await createCustomerOrderWithBenefitDiscount({request_key:requestKey,apply_benefit_discount:applyBenefitDiscount,benefit_type:form.benefitType||null,benefit_confirmation:Boolean(form.benefitConfirmed),customer:{...form},items:items.map(item=>({product_id:item.productId,variation_id:item.variation?.id,temperature:normalizeOrderTemperature(item.temperature),addon_ids:(item.addons||[]).map(addon=>addon.id),quantity:item.quantity,special_instructions:item.instructions})),fulfillment_method:form.fulfillment,rider_booking:form.riderBooking||'staff',delivery_quote_id:form.deliveryQuoteId||null,payment_method:form.payment})
-        order=mergePlacedOrderData({order:Array.isArray(response)?response[0]:response,form,items,total,pricingSnapshot})
+        const response=await createCustomerOrderWithBenefitDiscount({request_key:requestKey,apply_benefit_discount:applyBenefitDiscount,benefit_type:form.benefitType||null,benefit_confirmation:Boolean(form.benefitConfirmed),customer:{...checkoutForm},items:items.map(item=>({product_id:item.productId,variation_id:item.variation?.id,temperature:normalizeOrderTemperature(item.temperature),addon_ids:(item.addons||[]).map(addon=>addon.id),quantity:item.quantity,special_instructions:item.instructions})),fulfillment_method:form.fulfillment,rider_booking:form.riderBooking||'staff',delivery_quote_id:checkoutForm.deliveryQuoteId||null,payment_method:form.payment==='xendit'?'paymongo':form.payment})
+        const confirmedPricing={...pricingSnapshot,delivery_fee:Number(checkoutForm.deliveryFee||0)}
+        order=mergePlacedOrderData({order:Array.isArray(response)?response[0]:response,form:checkoutForm,items,total:subtotal+Number(checkoutForm.deliveryFee||0)-discount,pricingSnapshot:confirmedPricing})
         setCreatedOrder(order)
       }
       const orderId=order.order_id||order.id
-      if(['paymongo','qrph'].includes(form.payment)){
-        const checkout=await createPaymongoCheckout({orderId,origin:window.location.origin,paymentMethod:form.payment})
+      if(form.payment==='xendit'){
+        const checkout=await createXenditCheckout({orderId,origin:window.location.origin})
         window.location.assign(checkout.checkout_url)
         return
       }
@@ -757,7 +763,7 @@ export function OrderReviewPage(){
       setSubmitPhase('idle')
     }
   };
-  const placeReviewedOrder=()=>{if(submittingRef.current||completedRef.current||cart.hasUnavailableItems)return;if(form.payment==='cod'){setModal('cod-confirm');return}if(['paymongo','qrph'].includes(form.payment)){place(null);return}if(!paymentProof){setError('Payment proof is missing. Return to checkout and upload it again.');return}place(paymentProof,form.paymentReference)}
+  const placeReviewedOrder=()=>{if(submittingRef.current||completedRef.current||cart.hasUnavailableItems)return;if(form.payment==='cod'){setModal('cod-confirm');return}if(form.payment==='xendit'){place(null);return}if(!paymentProof){setError('Payment proof is missing. Return to checkout and upload it again.');return}place(paymentProof,form.paymentReference)}
   const itemCount=items.reduce((sum,item)=>sum+Number(item.quantity||0),0)
   const scheduledDay=form.scheduleDate===manilaDate()?'Today':form.scheduleDate===manilaDate(1)?'Tomorrow':form.scheduleDate
   const scheduledTime=timeLabel(Number(form.scheduleTime?.slice(0,2))*60+Number(form.scheduleTime?.slice(3,5)))
@@ -785,7 +791,7 @@ export function OrderReviewPage(){
           <article><div><span>Recipient</span><b>{form.fullName}</b><small>{form.contact}</small></div><button type="button" onClick={editCheckout}>Edit</button></article>
           <article><div><span>{form.fulfillment==='delivery'&&form.riderBooking!=='customer'?'Delivery address':'Pickup location'}</span><b>{deliveryAddress}</b>{form.instructions&&<small>{form.instructions}</small>}</div><button type="button" onClick={editCheckout}>Edit</button></article>
           {form.fulfillment==='delivery'&&<article><div><span>Rider</span><b>{form.riderBooking==='customer'?'Customer books rider':'Staff books rider'}</b>{form.deliveryDistanceKm!=null&&<small>{Number(form.deliveryDistanceKm).toFixed(1)} km</small>}</div></article>}
-          <article><div><span>Schedule</span><b>{scheduledDay} · {scheduledTime}</b></div><button type="button" onClick={editCheckout}>Edit</button></article>
+          <article><div><span>{form.fulfillment==='delivery'?'Delivery':'Schedule'}</span><b>{form.fulfillment==='delivery'?'Now':`${scheduledDay} · ${scheduledTime}`}</b></div>{form.fulfillment==='pickup'&&<button type="button" onClick={editCheckout}>Edit</button>}</article>
           <article><div><span>Estimated preparation time</span><b>{(()=>{const estimate=cartPreparationRange(items,prepProducts);return estimate?`${estimate.min}–${estimate.max} min`:'Being confirmed'})()}</b></div></article>
           {form.estimatedDeliveryTime&&<article><div><span>Estimated travel time</span><b>{form.estimatedDeliveryTime}</b></div></article>}
           <article><div><span>Payment method</span><b>{paymentMethodLabel(form.payment)}</b></div><button type="button" onClick={editCheckout}>Edit</button></article>
@@ -795,13 +801,13 @@ export function OrderReviewPage(){
       </section>
     </div>
     {(error||cart.hasUnavailableItems)&&!modal&&<div className="form-error review-order-error" role="alert">{error||'One or more cart items are now unavailable. Review your cart before continuing.'}{cart.hasUnavailableItems&&<button type="button" className="text-button" onClick={()=>{cart.openCart();navigate('/menu',{replace:true})}}>Review cart</button>}</div>}
-    <button className="primary-button review-place-order" type="button" disabled={busy||cart.hasUnavailableItems||modal==='complete'} onClick={()=>{setError('');placeReviewedOrder()}}>{submitPhase==='checking'?'Checking current item availability…':submitPhase==='placing'?(['paymongo','qrph'].includes(form.payment)?'Starting secure checkout…':form.payment==='cod'?'Placing order…':'Uploading proof and placing order…'):'Place order'} <ArrowRight/></button>
+    <button className="primary-button review-place-order" type="button" disabled={busy||cart.hasUnavailableItems||modal==='complete'} onClick={()=>{setError('');placeReviewedOrder()}}>{submitPhase==='checking'?'Checking current item availability…':submitPhase==='placing'?(form.payment==='xendit'?'Starting Xendit test checkout…':form.payment==='cod'?'Placing order…':'Uploading proof and placing order…'):'Place order'} <ArrowRight/></button>
     <p className="review-order-assurance">By placing your order, you confirm that the information above is correct.</p>
     {modal==='cod-confirm'&&form.payment==='cod'&&<CodConfirmationModal paymentConfig={paymentConfig} total={total} busy={busy} onClose={()=>setModal(null)} onConfirm={()=>place()}/>}
     {modal==='complete'&&<OrderCompleteModal order={createdOrder||mergePlacedOrderData({order:{},form,items,total,pricingSnapshot})} freshOrder={freshOrder} fallbackEstimatedTime={form.estimatedDeliveryTime} onTrack={()=>finish('track')} onContinue={()=>finish('menu')}/>}
   </main>
 }export function OrderConfirmationPage(){const {state}=useLocation();const {id}=useParams();const order=state?.order||{order_number:id,status:'Pending',fulfillment:'delivery',payment:'pending',total:0};return <main className="customer-main narrow"><section className="success-card"><span><Check/></span><small>Order received</small><h1>Thank you. Weâ€™re on it!</h1><p>Your order <b>{customerOrderNumber(order.order_number)}</b> has been placed and is waiting for store confirmation.</p><div><p><span>Status</span><b>{order.status}</b></p><p><span>Fulfillment</span><b>{order.fulfillment||order.fulfillment_method}</b></p><p><span>Total</span><b>{money(order.total||order.total_amount||0)}</b></p></div><Link className="primary-button" to="/orders" state={{trackOrderId:id,order:{...order,id:order.id||id}}}>Track order</Link><Link className="secondary-button" to="/orders">View my orders</Link><Link className="text-button" to="/menu">Continue shopping</Link></section></main>}
-export function PayMongoSuccessPage(){
+export function XenditSuccessPage(){
   const [searchParams]=useSearchParams();const orderId=searchParams.get('order_id')||'';const navigate=useNavigate();const {clearCart}=useCart();const {user}=useAuth();const [order,setOrder]=useState(null);const [loading,setLoading]=useState(true);const [error,setError]=useState('');
   useEffect(()=>{
     if(!orderId){setLoading(false);return undefined}
@@ -809,8 +815,8 @@ export function PayMongoSuccessPage(){
     let active=true;let cleared=false;let attempts=0
     const load=async()=>{
       try{
-        // Actively check and sync payment status with PayMongo API
-        await verifyPaymongoPayment({orderId})
+        // Actively check and sync payment status with Xendit.
+        await verifyXenditPayment({orderId})
         const next=await fetchCustomerOrder(orderId)
         if(!active)return
         if(next){

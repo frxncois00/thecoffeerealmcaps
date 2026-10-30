@@ -29,14 +29,14 @@ const PENDING_STATUSES = ['Order Received', 'Awaiting Payment Verification', 'Pe
 const DELIVERY_COLUMNS = [
   { key: 'pending', title: 'Pending', subtitle: 'Verify payment proofs', icon: Clock, tone: 'amber' },
   { key: 'preparing', title: 'Preparing', subtitle: 'Orders being prepared', icon: Coffee, tone: 'blue' },
-  { key: 'ready', title: 'Ready for Delivery', subtitle: 'Prepared for delivery handoff', icon: Package, tone: 'green' },
+  { key: 'ready', title: 'Ready for Delivery', subtitle: 'Prepared for delivery handoff', icon: Package, tone: 'purple' },
   { key: 'delivery', title: 'Out for Delivery', subtitle: 'Orders currently being delivered', icon: Bike, tone: 'teal' },
 ]
 
 const PICKUP_COLUMNS = [
   { key: 'pending', title: 'Pending Confirmation', subtitle: 'Verify payment proofs', icon: Clock, tone: 'amber' },
   { key: 'preparing', title: 'Preparing', subtitle: 'Orders being prepared', icon: Coffee, tone: 'blue' },
-  { key: 'ready', title: 'Ready to Claim', subtitle: 'Customer pickup or walk-in claim', icon: Package, tone: 'green' },
+  { key: 'ready', title: 'Ready to Claim', subtitle: 'Customer pickup or walk-in claim', icon: Package, tone: 'cyan' },
 ]
 
 const ORDER_TABS = ['active', 'completed', 'cancelled']
@@ -60,8 +60,8 @@ function stageOf(order) {
 function paymentMethod(order) {
   return order.payments?.[0]?.method || 'gcash'
 }
-function isPayMongoMethod(method) {
-  return method === 'qrph' || method === 'paymongo'
+function isHostedPaymentMethod(method) {
+  return method === 'qrph' || method === 'paymongo' || method === 'xendit'
 }
 function paymentIsConfirmed(order) {
   const payment = order.payments?.[0]
@@ -71,23 +71,22 @@ function paymentMethodLabel(method) {
   return method === 'cash' ? 'Cash'
     : method === 'cod' ? 'Cash on Delivery'
       : method === 'bank_transfer' ? 'Bank Transfer'
-        : method === 'qrph' ? 'QRPh via PayMongo'
-          : method === 'paymongo' ? 'PayMongo'
+        : ['qrph', 'paymongo', 'xendit'].includes(method) ? 'Xendit'
             : 'GCash'
 }
 function paymentStatusLabel(order) {
   const method = paymentMethod(order)
   const paid = paymentIsConfirmed(order)
   if (method === 'cod') return paid ? 'Paid' : 'Pay upon delivery'
-  if (paid) return isPayMongoMethod(method) ? 'Verified via PayMongo' : 'Verified'
-  return isPayMongoMethod(method) ? 'Awaiting PayMongo payment' : 'Pending verification'
+  if (paid) return isHostedPaymentMethod(method) ? 'Verified via Xendit' : 'Verified'
+  return isHostedPaymentMethod(method) ? 'Awaiting Xendit payment' : 'Pending verification'
 }
 function itemCount(order) {
   return (order.order_items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0)
 }
 function scheduleDate(order) {
   if (!order.schedule_date || !order.schedule_time) return null
-  return new Date(`${order.schedule_date}T${order.schedule_time}`)
+  return new Date(`${order.schedule_date}T${order.schedule_time}+08:00`)
 }
 function isOverdue(order) {
   const stage = stageOf(order)
@@ -106,9 +105,13 @@ function timeAgo(dateString) {
 }
 function scheduleLabel(order) {
   const when = scheduleDate(order)
-  if (!when && order.order_type === 'walk-in') return 'Now'
+  if (order.order_type === 'walk-in' || order.order_type === 'pickup') {
+    const time = when || (order.created_at ? new Date(order.created_at) : null)
+    if (!time || Number.isNaN(time.getTime())) return 'Time pending'
+    return new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true }).format(time)
+  }
   if (!when) return 'Schedule pending'
-  return new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(when)
+  return new Intl.DateTimeFormat('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).format(when)
 }
 function filterDateFor(order, view) {
   const date = view === 'cancelled'
@@ -152,7 +155,7 @@ function orderStatusTone(status) {
   if (s === 'cancelled') return 'cancelled'
   if (s === 'preparing' || s === 'in prep') return 'preparing'
   if (s === 'ready for pickup' || s === 'ready' || s === 'ready to claim') return 'pickup'
-  if (s === 'ready for delivery') return 'pickup'
+  if (s === 'ready for delivery') return 'ready-delivery'
   if (s === 'out for delivery' || s === 'delivery') return 'delivery'
   if (/pending|awaiting|received|ordered/i.test(s)) return 'attention'
   return 'neutral'
@@ -204,7 +207,7 @@ function mainActionFor(order) {
   if (stage === 'pending') {
     if (method === 'cod') return { label: 'Confirm Order', next: null, kind: 'confirm' }
     if (paymentIsConfirmed(order)) return { label: 'Confirm Order', next: null, kind: 'confirm' }
-    if (isPayMongoMethod(method)) return { label: 'Awaiting PayMongo payment', next: null, kind: 'waiting', disabled: true, disabledReason: 'The order will unlock automatically after PayMongo confirms the payment.' }
+    if (isHostedPaymentMethod(method)) return { label: 'Awaiting Xendit payment', next: null, kind: 'waiting', disabled: true, disabledReason: 'The order will unlock automatically after Xendit confirms the payment.' }
     return { label: 'Verify Payment', next: null, kind: 'confirm', disabled: !order.payment_proof_path, disabledReason: 'Waiting for the customer to upload payment proof.' }
   }
   // The stored ready state is shared by pickup and delivery orders.
@@ -259,6 +262,10 @@ export default function OrderPreparationPage() {
   const loadSequenceRef = useRef(0)
   const newOrderTimersRef = useRef(new Map())
   useEffect(() => { initialNotificationCancellationRef.current = notificationCancellation }, [notificationCancellation])
+  useEffect(() => {
+    const target = orders.find(order => order.id === location.state?.deliveryOrderId)
+    if (target) setDrawerOrder(target)
+  }, [orders, location.state?.deliveryOrderId, location.state?.openedAt])
   useEffect(() => { const timer = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(timer) }, [])
   useEffect(() => {
     let active = true
@@ -621,12 +628,22 @@ export default function OrderPreparationPage() {
     const activeOrders = orders.filter((order) => matchesFilters(order, 'active') && !['completed', 'cancelled'].includes(stageOf(order)) && !cancellationRequested(order))
     const activePickupOrders = activeOrders.filter((order) => ['pickup', 'walk-in'].includes(order.order_type))
     const activeDeliveryOrders = activeOrders.filter((order) => order.order_type === 'delivery')
+    const completedOrders = orders.filter((order) => matchesFilters(order, 'completed') && stageOf(order) === 'completed')
+    const completedPickupOrders = completedOrders.filter((order) => ['pickup', 'walk-in'].includes(order.order_type))
+    const completedDeliveryOrders = completedOrders.filter((order) => order.order_type === 'delivery')
+    const cancelledOrders = orders.filter((order) => matchesFilters(order, 'cancelled') && (stageOf(order) === 'cancelled' || cancellationRequested(order)))
+    const cancelledPickupOrders = cancelledOrders.filter((order) => ['pickup', 'walk-in'].includes(order.order_type))
+    const cancelledDeliveryOrders = cancelledOrders.filter((order) => order.order_type === 'delivery')
     return {
       active: fulfillmentMode === 'delivery' ? activeDeliveryOrders : activePickupOrders,
       activePickupCount: activePickupOrders.length,
       activeDeliveryCount: activeDeliveryOrders.length,
-      completed: orders.filter((order) => matchesFilters(order, 'completed') && stageOf(order) === 'completed'),
-      cancelled: orders.filter((order) => matchesFilters(order, 'cancelled') && (stageOf(order) === 'cancelled' || cancellationRequested(order))),
+      completed: fulfillmentMode === 'delivery' ? completedDeliveryOrders : completedPickupOrders,
+      completedPickupCount: completedPickupOrders.length,
+      completedDeliveryCount: completedDeliveryOrders.length,
+      cancelled: fulfillmentMode === 'delivery' ? cancelledDeliveryOrders : cancelledPickupOrders,
+      cancelledPickupCount: cancelledPickupOrders.length,
+      cancelledDeliveryCount: cancelledDeliveryOrders.length,
     }
   }, [orders, search, fulfillmentMode, paymentFilter, dateFilter, now])
   const filtered = useMemo(() => filteredByTab[activeTab] || [], [filteredByTab, activeTab])
@@ -659,8 +676,10 @@ export default function OrderPreparationPage() {
   const cancellationRequests = useMemo(() => sorted.filter((o) => cancellationRequested(o) && !cancellationStartedByStaff(o)), [sorted])
 
   const activeOrderCount = filteredByTab.activePickupCount + filteredByTab.activeDeliveryCount
-  const completedOrderCount = filteredByTab.completed.length
-  const cancelledOrderCount = filteredByTab.cancelled.length
+  const completedOrderCount = filteredByTab.completedPickupCount + filteredByTab.completedDeliveryCount
+  const cancelledOrderCount = filteredByTab.cancelledPickupCount + filteredByTab.cancelledDeliveryCount
+  const fulfillmentPickupCount = filteredByTab[`${activeTab}PickupCount`] || 0
+  const fulfillmentDeliveryCount = filteredByTab[`${activeTab}DeliveryCount`] || 0
   const today = now.toLocaleDateString('en-CA')
   const yesterdayDate = new Date(now)
   yesterdayDate.setDate(yesterdayDate.getDate() - 1)
@@ -675,13 +694,13 @@ export default function OrderPreparationPage() {
     <AppShell role="staff" title="Order Preparation" onRefresh={load} activeOrderId={drawerOrder?.id} titleActions={
       <div className="ops-order-view-toggle" role="tablist" aria-label="Order view">
         <button type="button" role="tab" aria-selected={activeTab === 'active'} className={activeTab === 'active' ? 'active' : ''} onClick={() => setActiveTab('active')}>
-          Active Orders <b>{activeOrderCount}</b>
+          Active Orders {activeOrderCount > 0 && <b>{activeOrderCount}</b>}
         </button>
         <button type="button" role="tab" aria-selected={activeTab === 'completed'} className={activeTab === 'completed' ? 'active' : ''} onClick={() => setActiveTab('completed')}>
-          Completed Orders <b>{completedOrderCount}</b>
+          Completed Orders {completedOrderCount > 0 && <b>{completedOrderCount}</b>}
         </button>
         <button type="button" role="tab" aria-selected={activeTab === 'cancelled'} className={activeTab === 'cancelled' ? 'active' : ''} onClick={() => setActiveTab('cancelled')}>
-          Cancelled Orders <b>{cancelledOrderCount}</b>
+          Cancelled Orders {cancelledOrderCount > 0 && <b>{cancelledOrderCount}</b>}
         </button>
       </div>
     } actions={
@@ -701,23 +720,21 @@ export default function OrderPreparationPage() {
     }>
       {error && <p className="form-error">{error}</p>}
 
+      <div className="ops-fulfillment-toggle" role="group" aria-label="Fulfillment queue">
+        <button type="button" className={fulfillmentMode === 'pickup-walk-in' ? 'active' : ''} aria-pressed={fulfillmentMode === 'pickup-walk-in'} onClick={() => setFulfillmentMode('pickup-walk-in')}>Pick up &amp; Walk in {fulfillmentPickupCount > 0 && <small className="ops-fulfillment-count">{fulfillmentPickupCount}</small>}</button>
+        <button type="button" className={fulfillmentMode === 'delivery' ? 'active' : ''} aria-pressed={fulfillmentMode === 'delivery'} onClick={() => setFulfillmentMode('delivery')}>Delivery {fulfillmentDeliveryCount > 0 && <small className="ops-fulfillment-count">{fulfillmentDeliveryCount}</small>}</button>
+      </div>
       <div className="ops-toolbar">
         <label className="ops-search">
           <Search size={17} />
           <span className="sr-only">Search orders</span>
           <input value={search} onChange={(e) => setSearch(e.target.value.slice(0, 100))} maxLength={100} placeholder="Search order number or customer name" />
         </label>
-        <label className="ops-toolbar-field"><span>Payment method</span><select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}><option value="all">All methods</option><option value="cash">Cash</option><option value="gcash">GCash</option><option value="bank_transfer">Bank transfer</option><option value="cod">Cash on Delivery</option><option value="qrph">QRPh via PayMongo</option><option value="paymongo">PayMongo</option></select></label>
+        <label className="ops-toolbar-field"><span>Payment method</span><select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}><option value="all">All methods</option><option value="cash">Cash</option><option value="gcash">GCash</option><option value="bank_transfer">Bank transfer</option><option value="cod">Cash on Delivery</option><option value="qrph">Xendit</option><option value="paymongo">Xendit (legacy method)</option></select></label>
         <label className="ops-toolbar-field"><span>Date</span><select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}><option value="">All dates</option><option value={today}>Today</option><option value={yesterday}>Yesterday</option></select></label>
-        <label className="ops-toolbar-field"><span>Sort by</span><select value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="oldest">Oldest first</option><option value="newest">Newest first</option><option value="scheduled">{activeTab === 'cancelled' ? 'Cancelled time' : 'Scheduled time'}</option><option value="priority">{activeTab === 'completed' ? 'Recently completed' : 'Lowest preparation time'}</option></select></label>
+        <label className="ops-toolbar-field"><span>Sort by</span><select value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="oldest">First in, first out</option><option value="newest">Newest first</option><option value="scheduled">{activeTab === 'cancelled' ? 'Cancelled time' : 'Scheduled time'}</option><option value="priority">{activeTab === 'completed' ? 'Recently completed' : 'Lowest preparation time'}</option></select></label>
         <div className="ops-layout-toggle" role="group" aria-label="Order layout view"><button type="button" className={layoutView === 'grid' ? 'active' : ''} aria-label="Grid view" aria-pressed={layoutView === 'grid'} onClick={() => setLayoutView('grid')}><Grid2X2 size={17}/></button><button type="button" className={layoutView === 'table' ? 'active' : ''} aria-label="Table view" aria-pressed={layoutView === 'table'} onClick={() => setLayoutView('table')}><List size={19}/></button></div>
       </div>
-      {activeTab === 'active' && (
-        <div className="ops-fulfillment-toggle" role="group" aria-label="Fulfillment queue">
-          <button type="button" className={fulfillmentMode === 'pickup-walk-in' ? 'active' : ''} aria-pressed={fulfillmentMode === 'pickup-walk-in'} onClick={() => setFulfillmentMode('pickup-walk-in')}>Pick up &amp; Walk in <small className="ops-fulfillment-count">{filteredByTab.activePickupCount}</small></button>
-          <button type="button" className={fulfillmentMode === 'delivery' ? 'active' : ''} aria-pressed={fulfillmentMode === 'delivery'} onClick={() => setFulfillmentMode('delivery')}>Delivery <small className="ops-fulfillment-count">{filteredByTab.activeDeliveryCount}</small></button>
-        </div>
-      )}
       {activeTab === 'active' && <>
       {loading ? (
         <p className="customer-state">Loading orders…</p>
@@ -841,9 +858,9 @@ function OrderCard({ order, isNew = false, busy, onView, onMain, onCancel }) {
   const main = mainActionFor(order)
   const method = paymentMethod(order)
   const isCancelBlocked = isOrderCancellationBlocked(order.status)
-  const canCancel = stage !== 'completed' && stage !== 'cancelled' && !cancellationRequested(order)
+  const canCancel = stage !== 'completed' && stage !== 'cancelled' && !cancellationRequested(order) && !isCancelBlocked
   return (
-    <article className={`ops-card${overdue ? ' is-overdue' : ''}${isNew ? ' is-new-order' : ''}`}>
+    <article data-order-stage={stage === 'ready' ? (order.order_type === 'delivery' ? 'ready-delivery' : 'ready-claim') : stage} className={`ops-card ops-delivery-card${overdue ? ' is-overdue' : ''}${isNew ? ' is-new-order' : ''}`}>
       <div className="ops-card-top">
         <span className={`ops-type-badge ${order.order_type}`}>{order.order_type === 'delivery' ? <Bike size={13} /> : <Package size={13} />} {order.order_type === 'walk-in' ? 'Walk-in' : order.order_type === 'pickup' ? 'Pickup' : 'Delivery'}</span>
         <span className="ops-time">{timeAgo(order.created_at)}</span>
@@ -851,7 +868,8 @@ function OrderCard({ order, isNew = false, busy, onView, onMain, onCancel }) {
       </div>
       <h3>{order.order_number}</h3>
       <p className="ops-customer">{getOrderCustomerName(order)}</p>
-      {order.order_type==='delivery'&&<div className="ops-card-row"><span>Rider</span><b>{order.rider_booking==='customer'?'Customer books':'Staff books'}</b></div>}
+      {order.order_type==='delivery'&&<div className="ops-delivery-facts"><div className="ops-card-row"><span>Booked by</span><b>{order.rider_booking==='customer'?'Customer':'Staff'}</b></div><div className="ops-card-row"><span>Date</span><b>{scheduleLabel(order)}</b></div><div className="ops-card-row"><span>Items</span><b>{itemCount(order)} item{itemCount(order) === 1 ? '' : 's'}</b></div></div>}
+      {order.order_type !== 'delivery' && <div className="ops-delivery-facts"><div className="ops-card-row"><span>Time</span><b>{scheduleLabel(order)}</b></div><div className="ops-card-row"><span>Items</span><b>{itemCount(order)} item{itemCount(order) === 1 ? '' : 's'}</b></div></div>}
       <p className="ops-meta">{itemCount(order)} item{itemCount(order) === 1 ? '' : 's'} · {scheduleLabel(order)}</p>
       <div className="ops-card-row"><span>Payment</span><b>{paymentMethodLabel(method)}</b></div>
       <div className="ops-card-row"><span>Status</span><b className={`ops-pay-status ${order.payment_confirmed || method === 'cod' ? '' : 'is-pending'}`}>{paymentStatusLabel(order)}</b></div>

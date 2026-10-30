@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { Paperclip } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowUp, Check, Clock3, ExternalLink, Loader2, LockKeyhole, MapPin, MessageCircle, Phone, Search, ShoppingBag, X } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useTheme } from '../../context/ThemeContext'
@@ -10,6 +12,8 @@ import { money } from '../../utils/money'
 import { CustomerReceiptDialog } from './DeliveryDialogs'
 import { useDeliveryDialog } from './useDeliveryDialog'
 import './delivery-chat.css'
+import { sendDeliveryImage } from '../../services/deliveryChatService'
+import { IMAGE_UPLOAD_ACCEPT, validateImageFile } from '../../utils/imageUpload'
 
 const clock = value => new Intl.DateTimeFormat('en-PH',{timeZone:'Asia/Manila',hour:'numeric',minute:'2-digit'}).format(new Date(value))
 const initials = name => String(name||'Customer').trim().split(/\s+/).slice(0,2).map(part=>part[0]).join('').toUpperCase()
@@ -44,6 +48,7 @@ export default function DeliveryChatLauncher({ role = 'staff' }) {
 }
 
 export function DeliveryInbox({ role,userId,inbox,target,now,theme,onClose }) {
+  const navigate = useNavigate()
   const [selectedId,setSelectedId]=useState(target)
   const [view,setView]=useState('active')
   const [search,setSearch]=useState('')
@@ -73,7 +78,7 @@ export function DeliveryInbox({ role,userId,inbox,target,now,theme,onClose }) {
         </div>
         <footer className="dc-inbox-foot"><i className={inbox.connected?'is-connected':''}/>{inbox.connected?'Live updates':'Connecting…'}</footer>
       </aside>
-      <aside className="dc-details"><OrderDetails thread={selected}/></aside>
+      <aside className="dc-details"><OrderDetails thread={selected} onView={()=>{onClose();navigate(role==='customer'?'/orders':'/staff',{state:{deliveryOrderId:selected?.id,openedAt:Date.now()}})}}/></aside>
       <main className="dc-chat">
         <header className="dc-chat-header"><button type="button" className="dc-icon dc-mobile-back" onClick={()=>setMobilePane('list')} aria-label="Back to conversations"><ArrowLeft size={19}/></button>{selected&&<Avatar thread={selected} customer={role==='customer'}/>}<div className="dc-chat-heading"><h2>{selected?(role==='customer'?'The Coffee Realm':selected.customer_name||'Customer'):'Delivery chat'}</h2><span>{selected?.order_number||'Select a conversation'}</span></div>
           {selected?.confirmation_deadline&&deliveryChatIsOpen(selected,now)&&<span className="dc-deadline"><Clock3 size={13}/>Closes in {deliveryCountdown(selected.confirmation_deadline,now)}</span>}
@@ -91,17 +96,22 @@ export function DeliveryInbox({ role,userId,inbox,target,now,theme,onClose }) {
 
 function OrderDetails({ thread }) {
   if(!thread)return <div className="dc-details-empty"><ShoppingBag size={25}/><span>Order details</span></div>
+  const items=thread.items||[]
+  const payment=thread.payments?.[0]
+  const methods={gcash:'GCash',bank_transfer:'Bank transfer',cod:'Cash on Delivery',cash:'Cash',qrph:'Xendit',paymongo:'Xendit',xendit:'Xendit'}
   const awaiting=thread.confirmation_deadline&&!thread.closed_at&&thread.status==='Out for Delivery'
-  return <><header className="dc-details-title"><ShoppingBag size={16}/><h3>Order details</h3></header><div className="dc-order-body">
-    <div className="dc-order-number"><strong>{thread.order_number}</strong><span className={`dc-status${thread.closed_at?' is-closed':''}`}>{awaiting?'Awaiting confirmation':thread.status==='Ready for Pickup'?'Ready for Delivery':thread.status}</span></div>
-    <section className="dc-order-contact"><b>{thread.customer_name}</b>{thread.customer_phone&&<p><Phone size={13}/>{thread.customer_phone}</p>}{thread.delivery_address&&<p><MapPin size={14}/>{thread.delivery_address}</p>}</section>
-    <section className="dc-order-items">{(thread.items||[]).map(item=><div key={item.id}><span><b>{item.quantity}×</b> {item.name}</span><strong>{money(item.line_total)}</strong></div>)}</section>
-    <div className="dc-order-total"><span>Total</span><b>{money(thread.final_total)}</b></div>
-    <section className="dc-order-facts"><span><Check size={13}/>{thread.rider_booking==='customer'?'Customer books rider':'Rider booked by store'}</span><span><Check size={13}/>{thread.payment_confirmed||thread.payment_status==='paid'?'Paid': 'Payment on delivery'}</span></section>
+  return <><header className="dc-details-title"><ShoppingBag size={16}/><h3>Order details</h3></header><div className="dc-receipt">
+    <div className="dc-receipt-heading"><strong>{thread.order_number}</strong><span className="dc-status">{awaiting?'Awaiting confirmation':thread.status==='Ready for Pickup'?'Ready for Delivery':thread.status}</span></div>
+    <div className="dc-receipt-contact"><p><MapPin size={13}/><span>{thread.delivery_address||'No address provided'}</span></p><p><Phone size={13}/><span>{thread.customer_phone||'No phone number'}</span></p><p><span>Booked by</span><b>{thread.rider_booking==='customer'?'Customer':'Staff'}</b></p></div>
+    <div className="dc-receipt-items"><div className="dc-receipt-row dc-receipt-label"><b>{items.reduce((sum,item)=>sum+Number(item.quantity||0),0)} items</b><span>Price</span></div>{items.map(item=><div className="dc-receipt-row" key={item.id}><span>{item.quantity}× {item.name}</span><b>{money(item.line_total)}</b></div>)}</div>
+    <div className="dc-receipt-totals">{Number(thread.discount_amount)>0&&<div className="dc-receipt-row"><span>Discount</span><b>−{money(thread.discount_amount)}</b></div>}{Number(thread.delivery_fee)>0&&<div className="dc-receipt-row"><span>Delivery fee</span><b>{money(thread.delivery_fee)}</b></div>}<div className="dc-receipt-row dc-receipt-total"><b>Total</b><strong>{money(thread.final_total)}</strong></div></div>
+    <div className="dc-receipt-payment"><div><span>Payment method</span><b>{methods[payment?.method]||payment?.method||'Not available'}</b></div><div><span>Reference number</span><b>{payment?.reference_number||'—'}</b></div></div>
   </div></>
 }
 
 function ThreadMessages({ role,userId,thread,now,onRefresh,onReceive }) {
+  const [imageFile,setImageFile]=useState(null)
+  const imageAttempt=useRef(null)
   const [messages,setMessages]=useState([])
   const [loading,setLoading]=useState(true)
   const [error,setError]=useState('')
@@ -117,6 +127,14 @@ function ThreadMessages({ role,userId,thread,now,onRefresh,onReceive }) {
   const sendingRef=useRef(false)
   const mounted=useRef(true)
   const open=deliveryChatIsOpen(thread,now)
+  const quickMessages = !open || role !== 'staff' ? []
+    : thread.confirmation_deadline ? ['Have you received your order?', 'Please confirm receipt.']
+    : thread.status === 'Out for Delivery' ? ['Your order is on the way.', 'Please keep your phone nearby.']
+    : ['Ready for Pickup', 'Ready for Delivery', 'Ready to Claim', 'Ready'].includes(thread.status)
+      ? thread.rider_booking === 'customer'
+        ? ['Your order is ready.', 'Please book your rider.', 'Has your rider arrived?']
+        : ['Your order is ready.', 'We’re booking your rider.', 'Waiting for the rider.']
+      : []
   const refreshMessages=useCallback(async(initial=false)=>{
     try{
       const data=await fetchDeliveryMessages(role,thread.id,initial?{}:{after:lastId.current??0})
@@ -154,6 +172,17 @@ function ThreadMessages({ role,userId,thread,now,onRefresh,onReceive }) {
   }
   const send=async event=>{
     event.preventDefault()
+    if(imageFile){
+      if(!open||sendingRef.current)return
+      sendingRef.current=true;setSending(true);setError('')
+      try{
+        if(!imageAttempt.current)imageAttempt.current={key:crypto.randomUUID()}
+        const message=await sendDeliveryImage(role,thread.id,imageFile,imageAttempt.current)
+        if(mounted.current){stickToBottom.current=true;setMessages(current=>mergeDeliveryMessages(current,[message]));setImageFile(null);imageAttempt.current=null;void onRefresh()}
+      }catch(cause){if(mounted.current)setError(cause.message||'Image not sent. Try again.')}
+      finally{sendingRef.current=false;if(mounted.current)setSending(false)}
+      return
+    }
     const captured=draft,body=draft.trim()
     if(!body||!open||sendingRef.current)return
     if(attempt.current?.body!==body)attempt.current={body,key:crypto.randomUUID()}
@@ -177,7 +206,9 @@ function ThreadMessages({ role,userId,thread,now,onRefresh,onReceive }) {
       })}
     </div>
     {error&&<div className="dc-message-error" role="alert">{error}<button type="button" onClick={()=>void refreshMessages()}>Retry</button></div>}
-    {open?<form className="dc-composer" onSubmit={send}><textarea value={draft} onChange={event=>setDraft(event.target.value)} maxLength={DELIVERY_MESSAGE_LIMIT} rows={1} aria-label="Message" placeholder={role==='customer'?'Message our team…':`Message ${thread.customer_name?.split(' ')[0]||'customer'}…`} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();event.currentTarget.form.requestSubmit()}}}/><button type="submit" disabled={sending||!draft.trim()} aria-label={sending?'Sending message':'Send message'}>{sending?<Loader2 className="spin" size={17}/>:<ArrowUp size={20}/>}</button></form>:<div className="dc-chat-closed"><LockKeyhole size={15}/>{thread.fulfillment_hold?'Messaging is paused.':'Chat closed. You can still read your messages.'}</div>}
+    {quickMessages.length > 0 && <div className="dc-quick-messages" role="group" aria-label="Quick messages"><span>Quick replies</span><div>{quickMessages.map(message => <button type="button" key={message} disabled={sending} onClick={event => { setDraft(message); event.currentTarget.closest('.dc-chat')?.querySelector('textarea')?.focus() }}>{message}</button>)}</div></div>}
+    {open&&imageFile&&<div className="dc-image-upload"><span>{imageFile.name}</span><button type="button" disabled={sending} onClick={()=>{setImageFile(null);imageAttempt.current=null}} aria-label="Remove attached image"><X size={14}/></button></div>}
+    {open?<form className="dc-composer" onSubmit={send}><label className="dc-attach-icon" title="Attach one image (up to 5 MB)"><Paperclip size={19}/><input type="file" accept={IMAGE_UPLOAD_ACCEPT} aria-label="Attach image" disabled={sending} onChange={async event=>{const file=event.target.files?.[0];event.target.value='';if(!file)return;try{await validateImageFile(file,{label:'Chat image'});setImageFile(file);imageAttempt.current=null;setError('')}catch(cause){setError(cause.message)}}}/></label><textarea value={draft} onChange={event=>setDraft(event.target.value)} maxLength={DELIVERY_MESSAGE_LIMIT} rows={1} aria-label="Message" placeholder={role==='customer'?'Message our team…':`Message ${thread.customer_name?.split(' ')[0]||'customer'}…`} onKeyDown={event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.nativeEvent.isComposing){event.preventDefault();event.currentTarget.form.requestSubmit()}}}/>{draft.length>0&&<button type="button" className="dc-clear-message" aria-label="Clear message" title="Clear message" onClick={event=>{setDraft('');event.currentTarget.form?.querySelector('textarea')?.focus()}}><X size={15}/></button>}<button type="submit" disabled={sending||(!draft.trim()&&!imageFile)} aria-label={sending?'Sending message':'Send message'}>{sending?<Loader2 className="spin" size={17}/>:<ArrowUp size={20}/>}</button></form>:<div className="dc-chat-closed"><LockKeyhole size={15}/>{thread.fulfillment_hold?'Messaging is paused.':'Chat closed. You can still read your messages.'}</div>}
   </>
 }
 

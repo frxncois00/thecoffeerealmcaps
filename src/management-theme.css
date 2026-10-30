@@ -300,9 +300,10 @@ html[data-staff-motion="reduce"] .app-layout:is(.legacy-staff,.legacy-admin) *,h
 .app-layout.legacy-staff :is(.ops-secondary-action,.legacy-ghost,.secondary-button):hover,.app-layout.legacy-admin :is(.ops-secondary-action,.legacy-ghost,.secondary-button):hover{background:var(--mgmt-hover)}
 .app-layout.legacy-staff :is(.ops-main-action,.legacy-primary,.primary-button),.app-layout.legacy-admin :is(.ops-main-action,.legacy-primary,.primary-button){background:linear-gradient(135deg,var(--mgmt-primary),var(--mgmt-primary-strong));color:var(--mgmt-on-primary);border-color:transparent}
 
-.app-layout.legacy-staff .ops-order-view-toggle{border-color:var(--mgmt-border);background:var(--mgmt-subtle);box-shadow:inset 0 1px 0 var(--mgmt-highlight)}
+.app-layout.legacy-staff .ops-order-view-toggle{border-color:var(--mgmt-border);background:#fff;box-shadow:inset 0 1px 0 var(--mgmt-highlight)}
 .app-layout.legacy-staff .ops-order-view-toggle button{color:var(--mgmt-muted)}
-.app-layout.legacy-staff .ops-order-view-toggle button.active{background:var(--mgmt-elevated);color:var(--mgmt-heading);box-shadow:0 6px 14px rgba(0,0,0,.13),inset 0 1px 0 var(--mgmt-highlight)}
+.app-layout.legacy-staff .ops-order-view-toggle button.active{background:linear-gradient(135deg,#315c45,#234a36);color:#fff;box-shadow:0 7px 16px rgba(36,74,54,.2)}
+.app-layout.legacy-staff .ops-order-view-toggle button.active b{color:#fff}
 .app-layout.legacy-staff .ops-toolbar{border-color:var(--mgmt-border);background:var(--mgmt-surface);box-shadow:var(--mgmt-shadow),inset 0 1px 0 var(--mgmt-highlight)}
 .app-layout.legacy-staff .ops-search,.app-layout.legacy-staff .ops-toolbar select{border-color:var(--mgmt-border);background:var(--mgmt-input);color:var(--mgmt-text)}
 .app-layout.legacy-staff .ops-toolbar-field{color:var(--mgmt-muted)}
@@ -1343,4 +1344,89 @@ html[data-staff-motion="reduce"] .app-layout.legacy-admin .cancel-animated-path,
     white-space:nowrap;
   }
   .app-layout.legacy-staff .inventory-summary-grid .inv-summary-card>b{font-size:1.3rem}
+}
+
+/* Unified admin and staff notification count badge. */
+/* Keep order filters on one stable row as zoom changes the available width. */
+.app-layout.legacy-staff .ops-toolbar{
+  display:flex;
+  align-items:center;
+  flex-wrap:nowrap;
+  gap:10px;
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  overflow-x:auto;
+}
+.app-layout.legacy-staff .ops-toolbar>.ops-search{flex:1 0 220px;width:auto;min-width:220px;max-width:none}
+.app-layout.legacy-staff .ops-toolbar>.ops-search input{width:100%;min-width:0}
+.app-layout.legacy-staff .ops-toolbar>.ops-toolbar-field{flex:0 0 auto;display:flex;flex-direction:row;align-items:center;gap:6px}
+.app-layout.legacy-staff .ops-toolbar>.ops-toolbar-field select{width:145px;min-width:0;max-width:145px;flex:0 0 145px}
+.app-layout.legacy-staff .ops-toolbar>.ops-toolbar-field:nth-child(3) select{width:105px;max-width:105px;flex-basis:105px}
+.app-layout.legacy-staff .ops-toolbar>.ops-layout-toggle{flex:0 0 auto;margin-left:0}
+/* Delivery cards follow the compact reference while inheriting portal fonts. */
+.app-layout .ops-card[data-order-stage="pending"]{--order-card-accent:#d97706}
+.app-layout .ops-card[data-order-stage="preparing"]{--order-card-accent:#2563eb}
+.app-layout .ops-card[data-order-stage="ready-delivery"]{--order-card-accent:#9333ea}
+.app-layout .ops-card[data-order-stage="ready-claim"]{--order-card-accent:#0891b2}
+.app-layout .ops-card[data-order-stage="delivery"]{--order-card-accent:#db2777}
+.app-layout .ops-card[data-order-stage="completed"]{--order-card-accent:#16a34a}
+.app-layout .ops-card[data-order-stage="cancelled"]{--order-card-accent:#dc2626}
+.app-layout.legacy-staff .ops-column.tone-amber{--order-panel-pastel:#fff3dc}
+.app-layout.legacy-staff .ops-column.tone-blue{--order-panel-pastel:#e8f0ff}
+.app-layout.legacy-staff .ops-column.tone-purple{--order-panel-pastel:#f3eaff}
+.app-layout.legacy-staff .ops-column.tone-cyan{--order-panel-pastel:#e0f6fa}
+.app-layout.legacy-staff .ops-column.tone-teal{--order-panel-pastel:#fce7f1}
+.app-layout.legacy-staff .ops-completed-orders{--ops-column-accent:#16a34a;border-radius:18px;padding:14px}
+.app-layout.legacy-staff .ops-cancel-group{--ops-column-accent:#dc2626}
+.app-layout.legacy-staff :is(.ops-column,.ops-completed-orders,.ops-cancel-group){background:var(--mgmt-surface);border:2px solid color-mix(in srgb,var(--ops-column-accent) 38%,white);box-shadow:none}
+.app-layout.legacy-staff:not([data-theme="dark"]) .ops-card.ops-delivery-card{background:#fff;border:1px solid var(--mgmt-border);box-shadow:none}
+.app-layout.legacy-staff[data-theme="dark"] :is(.ops-column,.ops-completed-orders,.ops-cancel-group){background:var(--mgmt-surface);border-color:color-mix(in srgb,var(--ops-column-accent) 60%,var(--mgmt-border))}
+.app-layout.legacy-staff .ops-column.tone-amber{--ops-column-accent:#d97706}
+.app-layout.legacy-staff .ops-column.tone-blue{--ops-column-accent:#2563eb}
+.app-layout.legacy-staff .ops-column.tone-purple{--ops-column-accent:#9333ea}
+.app-layout.legacy-staff .ops-column.tone-cyan{--ops-column-accent:#0891b2}
+.app-layout.legacy-staff .ops-column.tone-teal{--ops-column-accent:#db2777}
+.app-layout.legacy-staff .ops-column .ops-column-dot{background:var(--ops-column-accent)}
+.app-layout.legacy-staff .ops-column .ops-column-count{color:var(--ops-column-accent)}
+.app-layout :is(.ops-table-status--attention,.ops-order-hero-status--attention){background:#fff3d8;color:#b45309}
+.app-layout :is(.ops-table-status--preparing,.ops-order-hero-status--preparing){background:#dbeafe;color:#1d4ed8}
+.app-layout :is(.ops-table-status--ready-delivery,.ops-order-hero-status--ready-delivery){background:#f3e8ff;color:#7e22ce}
+.app-layout :is(.ops-table-status--pickup,.ops-order-hero-status--pickup){background:#cffafe;color:#0e7490}
+.app-layout :is(.ops-table-status--delivery,.ops-order-hero-status--delivery){background:#fce7f3;color:#be185d}
+.app-layout :is(.ops-table-status--completed,.ops-order-hero-status--completed){background:#dcfce7;color:#15803d}
+.app-layout .ops-card .ops-simple-order-type{display:block;margin:-5px 0 10px;padding:0;border:0;background:transparent;color:var(--mgmt-muted);font-size:.7rem;font-weight:600;line-height:1.4}
+.app-layout .ops-card.ops-delivery-card{position:relative;padding:14px;border-radius:12px;gap:0}
+.app-layout .ops-delivery-card .ops-card-top{position:absolute;top:16px;right:14px;margin:0}
+.app-layout .ops-delivery-card .ops-type-badge,.app-layout .ops-delivery-card>.ops-meta,.app-layout .ops-delivery-card>.ops-card-row:has(.ops-pay-status){display:none}
+.app-layout .ops-delivery-card>h3{margin:0 65px 3px 0}
+.app-layout .ops-delivery-card>.ops-customer{margin:0 0 12px}
+.app-layout .ops-delivery-card .ops-delivery-facts{border-top:1px solid var(--mgmt-border);padding-top:10px}
+.app-layout .ops-delivery-card .ops-card-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0;padding:4px 0}
+.app-layout .ops-delivery-card .ops-card-row>b{text-align:right}
+.app-layout .ops-delivery-card .ops-card-total{border-top:1px solid var(--mgmt-border);margin-top:10px;padding-top:14px;padding-bottom:12px}
+.app-layout .ops-delivery-card .ops-card-actions{display:grid;gap:6px;margin:0}
+.app-layout .ops-delivery-card .ops-card-actions-row{display:flex;gap:7px}
+.app-layout .ops-delivery-card .ops-card-actions-row>button{flex:1;min-width:0}
+.app-layout .ops-delivery-card .ops-card-actions button{min-height:34px;border-radius:8px}
+.app-layout .ops-delivery-card:has(.ops-overdue-chip) .ops-card-top{position:static;justify-content:flex-end;margin-bottom:6px}
+.app-layout:is(.legacy-admin,.legacy-staff) .internal-utility-button :is(.notification-badge,.internal-utility-badge,.dc-count){
+  position:absolute;
+  top:-7px;
+  right:-6px;
+  display:grid;
+  place-items:center;
+  min-width:23px;
+  height:23px;
+  margin:0;
+  padding:0 5px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+  line-height:1;
+  border:0;
+  background:#7f1d1d;
+  color:#fff !important;
+  box-shadow:none;
+  text-shadow:none;
 }
