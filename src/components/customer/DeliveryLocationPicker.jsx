@@ -151,7 +151,9 @@ export default function DeliveryLocationPicker({
           }
         }
 
-        const premise = exactPremisePrefix(searchQuery)
+        const geocodedStreet = String(result.street || '').trim()
+        const sameStreet = geocodedStreet && searchQuery.toLowerCase().includes(geocodedStreet.toLowerCase())
+        const premise = sameStreet ? exactPremisePrefix(searchQuery) : ''
         const formattedAddress = withBarangay(withPremise(premise, result.street), result.barangay)
 
         if (formattedAddress) {
