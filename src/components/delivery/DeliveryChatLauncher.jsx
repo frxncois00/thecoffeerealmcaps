@@ -24,7 +24,7 @@ function Avatar({ thread, customer = false }) {
   return <span className="dc-avatar">{customer?<img src="/images/coffeerealmlogo.png" alt=""/>:thread?.customer_avatar&&!failed?<img src={thread.customer_avatar} alt="" onError={()=>setFailed(true)}/>:initials(thread?.customer_name)}</span>
 }
 
-export default function DeliveryChatLauncher({ role = 'staff' }) {
+export default function DeliveryChatLauncher({ role = 'staff', showLauncher = true }) {
   const { user } = useAuth()
   const { resolvedTheme } = useTheme()
   const inbox = useDeliveryChats(role,user?.id)
@@ -40,9 +40,9 @@ export default function DeliveryChatLauncher({ role = 'staff' }) {
   },[refreshInbox])
   const count=inbox.threads.filter(thread=>deliveryChatIsOpen(thread,now)).length
   return <>
-    <button type="button" className={`internal-utility-button dc-launcher${role==='customer'?' dc-customer-launcher':''}`} aria-label={`Delivery messages${count?`, ${count} active`:''}`} title="Delivery messages" onClick={()=>{setOpen(true);void inbox.refresh()}}>
+    {showLauncher&&<button type="button" className={`internal-utility-button dc-launcher${role==='customer'?' dc-customer-launcher':''}`} aria-label={`Delivery messages${count?`, ${count} active`:''}`} title="Delivery messages" onClick={()=>{setOpen(true);void inbox.refresh()}}>
       <MessageCircle size={19}/>{role==='customer'&&<span>Messages</span>}{count>0&&<b className="dc-count">{count>99?'99+':count}</b>}
-    </button>
+    </button>}
     {open&&createPortal(<DeliveryInbox role={role} userId={user?.id} inbox={inbox} target={target} now={now} theme={role==='customer'?'neutral':resolvedTheme} onClose={()=>{setOpen(false);setTarget(null)}}/>,document.body)}
   </>
 }
@@ -63,11 +63,15 @@ export function DeliveryInbox({ role,userId,inbox,target,now,theme,onClose }) {
     const thread=inbox.threads.find(item=>String(item.id)===String(target))
     if(thread){handledTarget.current=target;setSelectedId(target);setMobilePane('chat');setView(deliveryChatIsOpen(thread)?'active':'history')}
   },[target,inbox.threads])
-  useEffect(()=>{if(!selectedId&&list.length)setSelectedId(list[0].id)},[selectedId,list])
+  useEffect(()=>{
+    if(selectedId||target)return
+    const first=role==='customer'?(inbox.threads.find(thread=>deliveryChatIsOpen(thread,now))||inbox.threads[0]):list[0]
+    if(first)setSelectedId(first.id)
+  },[selectedId,target,role,inbox.threads,list,now])
   const close=()=>{if(!confirmOrder)onClose()}
-  return <div className="dc-backdrop" data-theme={theme} onMouseDown={event=>{if(event.target===event.currentTarget)close()}}>
+  return <div className="dc-backdrop" data-theme={theme} data-role={role} onMouseDown={event=>{if(event.target===event.currentTarget)close()}}>
     <section className={`dc-inbox dc-pane-${mobilePane}`} ref={dialog} role="dialog" aria-modal="true" aria-label="Delivery messages" tabIndex={-1}>
-      <aside className="dc-conversations">
+      {role!=='customer'&&<aside className="dc-conversations">
         <header className="dc-inbox-title"><div><MessageCircle size={18}/><h2>Delivery messages</h2></div><button type="button" className="dc-icon dc-mobile-close" onClick={close} aria-label="Close messages"><X size={19}/></button></header>
         <div className="dc-search"><Search size={15}/><input value={search} maxLength={80} placeholder="Search orders" aria-label="Search conversations" onChange={event=>setSearch(event.target.value)}/></div>
         <div className="dc-tabs"><button type="button" className={view==='active'?'is-active':''} onClick={()=>setView('active')}>Active</button><button type="button" className={view==='history'?'is-active':''} onClick={()=>setView('history')}>History</button></div>
@@ -77,15 +81,15 @@ export function DeliveryInbox({ role,userId,inbox,target,now,theme,onClose }) {
           </button>):<p className="dc-empty"><MessageCircle size={25}/>{view==='active'?'No active delivery chats':'No closed conversations'}</p>}
         </div>
         <footer className="dc-inbox-foot"><i className={inbox.connected?'is-connected':''}/>{inbox.connected?'Live updates':'Connecting…'}</footer>
-      </aside>
-      <aside className="dc-details"><OrderDetails thread={selected} onView={()=>{onClose();navigate(role==='customer'?'/orders':'/staff',{state:{deliveryOrderId:selected?.id,openedAt:Date.now()}})}}/></aside>
+      </aside>}
+      {role!=='customer'&&<aside className="dc-details"><OrderDetails thread={selected} onView={()=>{onClose();navigate('/staff',{state:{deliveryOrderId:selected?.id,openedAt:Date.now()}})}}/></aside>}
       <main className="dc-chat">
-        <header className="dc-chat-header"><button type="button" className="dc-icon dc-mobile-back" onClick={()=>setMobilePane('list')} aria-label="Back to conversations"><ArrowLeft size={19}/></button>{selected&&<Avatar thread={selected} customer={role==='customer'}/>}<div className="dc-chat-heading"><h2>{selected?(role==='customer'?'The Coffee Realm':selected.customer_name||'Customer'):'Delivery chat'}</h2><span>{selected?.order_number||'Select a conversation'}</span></div>
+        <header className="dc-chat-header">{role!=='customer'&&<button type="button" className="dc-icon dc-mobile-back" onClick={()=>setMobilePane('list')} aria-label="Back to conversations"><ArrowLeft size={19}/></button>}{selected&&<Avatar thread={selected} customer={role==='customer'}/>}<div className="dc-chat-heading"><h2>{selected?(role==='customer'?'The Coffee Realm':selected.customer_name||'Customer'):'Delivery chat'}</h2><span>{selected?.order_number||'Select a conversation'}</span></div>
           {selected?.confirmation_deadline&&deliveryChatIsOpen(selected,now)&&<span className="dc-deadline"><Clock3 size={13}/>Closes in {deliveryCountdown(selected.confirmation_deadline,now)}</span>}
           <button type="button" className="dc-icon" onClick={close} aria-label="Close messages"><X size={20}/></button>
         </header>
         {inbox.error?<div className="dc-empty dc-load-error" role="alert"><p>Delivery messages are unavailable.</p><button type="button" onClick={inbox.refresh}>Retry</button></div>:selected?<>
-          <button type="button" className="dc-mobile-order" onClick={()=>setMobilePane(current=>current==='details'?'chat':'details')}><ShoppingBag size={15}/>{mobilePane==='details'?'Back to messages':'Order details'}</button>
+          {role!=='customer'&&<button type="button" className="dc-mobile-order" onClick={()=>setMobilePane(current=>current==='details'?'chat':'details')}><ShoppingBag size={15}/>{mobilePane==='details'?'Back to messages':'Order details'}</button>}
           <ThreadMessages key={selected.id} role={role} userId={userId} thread={selected} now={now} onRefresh={inbox.refresh} onReceive={()=>setConfirmOrder({id:selected.id,order_number:selected.order_number})}/>
         </>:<div className="dc-empty dc-no-selection"><MessageCircle size={38}/><h3>Ready when your order is</h3><p>Delivery chats open once preparation is complete.</p></div>}
       </main>
@@ -196,7 +200,11 @@ function ThreadMessages({ role,userId,thread,now,onRefresh,onReceive }) {
       {hasOlder&&<button type="button" className="dc-older" onClick={loadOlder} disabled={older}>{older?'Loading…':'Earlier messages'}</button>}
       {loading?<p className="dc-empty"><Loader2 className="spin" size={20}/>Loading conversation…</p>:messages.map(message=>{
         if(message.kind==='system')return <div key={message.id} className="dc-system-message"><span>{message.body}</span><time dateTime={message.created_at}>{clock(message.created_at)}</time></div>
-        const mine=message.sender_id===userId
+        // Align by conversation side: all staff and automated store updates
+        // belong to the store, even when they have no individual sender ID.
+        const mine=role==='customer'
+          ? message.sender_role==='customer'
+          : message.sender_role==='staff'||message.sender_role==='system'
         return <article key={message.id} className={`dc-message${mine?' is-mine':''}${message.kind==='proof'?' is-proof':''}`}>
           <span className="dc-message-author">{message.sender_role==='system'?'The Coffee Realm':message.sender_name}</span>
           <div className="dc-message-bubble">{message.attachment_paths?.length>0&&<ProofImages role={role} paths={message.attachment_paths}/>}<p>{message.body}</p>{message.kind==='tracking'&&/^https?:\/\/\S+$/i.test(message.tracking_url||'')&&<a className="dc-tracking-link" href={message.tracking_url} target="_blank" rel="noreferrer">Track rider<ExternalLink size={14}/></a>}

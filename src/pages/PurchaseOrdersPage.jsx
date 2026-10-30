@@ -30,7 +30,6 @@ const RECEIVING_CHECKS = [
   { question: 'Are all quantities complete?', issue: 'The delivered quantities are incomplete.', reason: 'Quantity mismatch' },
   { question: 'Are all items free from damage?', issue: 'Some items are damaged.', reason: 'Damaged items' },
   { question: 'Are all items within acceptable expiry dates?', issue: 'Some items have unacceptable expiry dates.', reason: 'Expired items' },
-  { question: 'Were all items stored properly during delivery?', issue: 'Some items were not stored properly during delivery.', reason: 'Quality issue' },
 ]
 const RECEIVING_UPLOAD_ACCEPT = '.jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx'
 

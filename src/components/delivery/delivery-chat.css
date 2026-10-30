@@ -2,8 +2,15 @@
 .dc-backdrop[data-theme="dark"]{--dc-bg:#17201b;--dc-panel:#1d2821;--dc-soft:#243129;--dc-line:#344439;--dc-ink:#edf3eb;--dc-muted:#a4b3a6;--dc-green:#90b98e;--dc-accent:#354a39}
 .dc-backdrop[data-theme="neutral"]{--dc-bg:#f7f7f5;--dc-panel:#fff;--dc-soft:#f0f1ee;--dc-line:#dedfda;--dc-ink:#292d2a;--dc-muted:#737873;--dc-green:#4f6756;--dc-accent:#e8ece8;background:rgba(35,38,36,.24)}
 .dc-backdrop[data-theme="neutral"] .dc-inbox{box-shadow:0 28px 80px rgba(30,34,31,.18)}
+.dc-backdrop[data-role="customer"]{--dc-bg:#f8f8f7;--dc-panel:#fff;--dc-soft:#f3f3f1;--dc-line:#dedfdb;--dc-ink:#303330;--dc-muted:#737773;--dc-green:#66736a;--dc-accent:#eceeeb;background:rgba(42,45,43,.18)}
+.dc-backdrop[data-role="customer"] .dc-inbox>.dc-conversations,.dc-backdrop[data-role="customer"] .dc-inbox>.dc-details,.dc-backdrop[data-role="customer"] .dc-inbox>.dc-chat{background:var(--dc-panel);box-shadow:none}
+.dc-backdrop[data-role="customer"] .dc-tabs button.is-active{background:#69706b;color:#fff}
+.dc-backdrop[data-role="customer"] .dc-message.is-mine .dc-message-bubble{border-color:#d8dcd8;background:#e8ebe8;color:var(--dc-ink)}
+.dc-backdrop[data-role="customer"] .dc-composer>button:not(.dc-clear-message){background:#69736c;color:#fff}
 .dc-inbox{display:grid;grid-template-columns:25% 25% 50%;width:min(1240px,96vw);height:min(730px,89vh);max-height:calc(100dvh - 48px);background:var(--dc-panel);border:1px solid var(--dc-line);border-radius:20px;overflow:hidden;box-shadow:0 32px 100px rgba(15,32,22,.24);outline:none;text-align:left}
 .dc-inbox *{box-sizing:border-box}
+.dc-backdrop[data-role="customer"] .dc-inbox{width:min(640px,100%);height:min(730px,85dvh);grid-template-columns:minmax(0,1fr)}
+.dc-backdrop[data-role="customer"] .dc-inbox>.dc-chat{display:flex}
 .dc-composer .dc-attach-icon{position:absolute;left:-40px;bottom:8px;display:grid;place-items:center;width:32px;height:36px;border:0;background:transparent;color:var(--dc-muted);cursor:pointer;overflow:hidden}
 .dc-attach-icon input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
 .dc-attach-icon:focus-within{outline:2px solid var(--dc-green);border-radius:6px}
