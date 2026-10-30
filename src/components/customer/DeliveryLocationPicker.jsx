@@ -43,6 +43,14 @@ const createCoffeePinIcon = () =>
     popupAnchor: [0, -42],
   })
 
+const hasExactAddressDetails = value =>
+  /(?:\b\d+[a-z]?(?:[-/]\d+[a-z]?)?\b|\b(?:house|bldg|building|block|blk|lot|unit|room|floor|flr)\b)/i.test(String(value || ''))
+
+const withBarangay = (street, barangay) => {
+  const cleanStreet = String(street || '').trim().replace(/,?\s*(?:brgy\.?|barangay)\s+[^,]+$/i, '')
+  return [cleanStreet, barangay && `Brgy. ${barangay}`].filter(Boolean).join(', ')
+}
+
 export default function DeliveryLocationPicker({
   address,
   initialAddress = '',
@@ -52,6 +60,7 @@ export default function DeliveryLocationPicker({
   onAddressChange,
   onBarangayChange,
   onCoordinatesChange,
+  afterSearch,
 }) {
   const mapContainerRef = useRef(null)
   const initialCoordinatesRef = useRef(initialCoordinates)
@@ -126,10 +135,8 @@ export default function DeliveryLocationPicker({
           }
         }
 
-        const formattedAddress = [
-          result.street,
-          result.barangay && `Brgy. ${result.barangay}`,
-        ].filter(Boolean).join(', ')
+        const detailedInput = hasExactAddressDetails(searchQuery) ? searchQuery : ''
+        const formattedAddress = withBarangay(detailedInput || result.street, result.barangay)
 
         if (formattedAddress) {
           isInternalUpdate.current = true
@@ -143,7 +150,7 @@ export default function DeliveryLocationPicker({
         }
       }
     },
-    [onAddressChange, onBarangayChange, onCoordinatesChange]
+    [onAddressChange, onBarangayChange, onCoordinatesChange, searchQuery]
   )
 
   useEffect(() => {
@@ -165,9 +172,22 @@ export default function DeliveryLocationPicker({
     })
 
     // Clean OpenStreetMap Tile Layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const primaryTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
+      crossOrigin: true,
     }).addTo(map)
+    let tileErrorCount = 0
+    let fallbackTiles = null
+    primaryTiles.on('tileerror', () => {
+      tileErrorCount += 1
+      if (tileErrorCount < 3 || fallbackTiles) return
+      map.removeLayer(primaryTiles)
+      fallbackTiles = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 20,
+        subdomains: 'abcd',
+        crossOrigin: true,
+      }).addTo(map)
+    })
 
     // Store marker
     const pinIcon = createCoffeePinIcon()
@@ -235,8 +255,13 @@ export default function DeliveryLocationPicker({
     setTimeout(() => {
       map.invalidateSize()
     }, 200)
+    const resizeObserver = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(() => map.invalidateSize({ animate: false }))
+      : null
+    resizeObserver?.observe(mapContainerRef.current)
 
     return () => {
+      resizeObserver?.disconnect()
       clearTouchHold()
       mapElement?.removeEventListener('touchstart', onTouchStart)
       mapElement?.removeEventListener('touchmove', onTouchMove)
@@ -283,10 +308,11 @@ export default function DeliveryLocationPicker({
     locationRequestRef.current += 1
     onCoordinatesChange?.(null)
     setShowDropdown(false)
-    const selectedStreet = [
-      result.street || result.displayName.split(',')[0],
-      result.isQuezonCity && result.barangay && `Brgy. ${result.barangay}`,
-    ].filter(Boolean).join(', ')
+    const detailedInput = hasExactAddressDetails(searchQuery) ? searchQuery : ''
+    const selectedStreet = withBarangay(
+      detailedInput || result.street || result.displayName.split(',')[0],
+      result.isQuezonCity ? result.barangay : ''
+    )
     if (!preserveAddress) {
       setSearchQuery(selectedStreet)
       onAddressChange(selectedStreet)
@@ -387,48 +413,50 @@ export default function DeliveryLocationPicker({
       {/* Smart Search Bar */}
       <div className="location-search-wrapper">
         <label htmlFor="delivery-address-search" className="location-search-label">
-          <span>House no. / Bldg. / Street / Village & Barangay</span>
+          <span>House no. / Street / Village & Barangay</span>
           <span className="location-qc-badge">Quezon City Only</span>
         </label>
-        <div className="location-search-input-box">
-          <span className="location-search-icon">
-            {isSearching ? (
-              <Loader2 className="spinning" size={18} />
-            ) : (
-              <Search size={18} />
-            )}
-          </span>
-          <input
-            id="delivery-address-search"
-            type="text"
-            value={searchQuery}
-            onChange={e => handleSearchInput(e.target.value)}
-            onFocus={() => {
-              if (searchResults.length > 0) setShowDropdown(true)
-            }}
-            placeholder="Search your street, village, or building in Quezon City..."
-            autoComplete="off"
-            required
-            maxLength={200}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              className="location-clear-btn"
-              onClick={() => {
-                setSearchQuery('')
-                locationRequestRef.current += 1
-                onCoordinatesChange?.(null)
-                onBarangayChange('')
-                onAddressChange('')
-                setSearchResults([])
-                setShowDropdown(false)
+        <div className="location-search-row">
+          <div className="location-search-input-box">
+            <span className="location-search-icon">
+              {isSearching ? (
+                <Loader2 className="spinning" size={18} />
+              ) : (
+                <Search size={18} />
+              )}
+            </span>
+            <input
+              id="delivery-address-search"
+              type="text"
+              value={searchQuery}
+              onChange={e => handleSearchInput(e.target.value)}
+              onFocus={() => {
+                if (searchResults.length > 0) setShowDropdown(true)
               }}
-              aria-label="Clear search"
-            >
-              <X size={15} />
-            </button>
-          )}
+              placeholder="Search your exact address"
+              autoComplete="off"
+              required
+              maxLength={200}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="location-clear-btn"
+                onClick={() => {
+                  setSearchQuery('')
+                  locationRequestRef.current += 1
+                  onCoordinatesChange?.(null)
+                  onBarangayChange('')
+                  onAddressChange('')
+                  setSearchResults([])
+                  setShowDropdown(false)
+                }}
+                aria-label="Clear search"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
           <button
             type="button"
             className={`location-locate-me-btn ${isLocating ? 'is-locating' : ''}`}
@@ -451,9 +479,9 @@ export default function DeliveryLocationPicker({
         </div>
 
         {/* Search Suggestions Dropdown */}
-        {showDropdown && searchResults.length > 0 && (
+        {showDropdown && (
           <div className="location-dropdown" role="listbox">
-            {searchResults.map((res, idx) => (
+            {searchResults.length > 0 ? searchResults.map((res, idx) => (
               <button
                 key={res.id || idx}
                 type="button"
@@ -478,10 +506,17 @@ export default function DeliveryLocationPicker({
                   <small className="location-item-desc">{res.displayName}</small>
                 </div>
               </button>
-            ))}
+            )) : !isSearching && searchQuery.trim().length >= 2 && (
+              <div className="location-dropdown-empty">
+                <strong>No exact Quezon City match</strong>
+                <small>Keep your complete address, then place the pin on the map.</small>
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {afterSearch}
 
       {/* Out of Delivery Area Notice */}
       {locationNotice && (

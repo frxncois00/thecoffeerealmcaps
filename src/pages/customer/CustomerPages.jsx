@@ -1,6 +1,6 @@
 import DeliveryChatLauncher from '../../components/delivery/DeliveryChatLauncher'
 import { CustomerReceiptDialog } from '../../components/delivery/DeliveryDialogs'
-import { hasDeliveryChat, openDeliveryChat } from '../../utils/deliveryChat'
+import { deliveryChatIsOpen, hasDeliveryChat, openDeliveryChat } from '../../utils/deliveryChat'
 import RiderPickupCard from '../../components/customer/RiderPickupCard'
 import '../../components/customer/rider-delivery.css'
 import { fetchDeliveryQuote } from '../../services/deliveryQuoteService'
@@ -414,7 +414,7 @@ export function CheckoutPage(){
       if(Boolean(systemSettings.ordering?.allowDeliveryTomorrow)&&!form.scheduleTime){setSubmitError(`Choose an available delivery time for ${form.scheduleDate===manilaDate(1)?'tomorrow':'today'}.`);return}
     }
     if(form.benefitType&&!eligibleBenefit.benefitAmount){setSubmitError('Your cart does not contain an item eligible for the selected discount.');return}
-    if(form.benefitType&&!form.benefitConfirmed){setBenefitConfirmationError(true);setSubmitError('Confirm that you will present the original valid ID before reviewing your order.');window.requestAnimationFrame(()=>{benefitConfirmationRef.current?.scrollIntoView({behavior:'smooth',block:'center'});benefitConfirmationRef.current?.focus({preventScroll:true})});return}
+    if(form.benefitType&&!form.benefitConfirmed){setBenefitConfirmationError(true);setSubmitError('');window.requestAnimationFrame(()=>{benefitConfirmationRef.current?.scrollIntoView({behavior:'smooth',block:'center'});benefitConfirmationRef.current?.focus({preventScroll:true})});return}
     if(['gcash','bank_transfer'].includes(form.payment)&&!validPaymentReference(form.payment,form.paymentReference)){setPaymentReferenceError(paymentReferenceMessage(form.payment));return}
     setPaymentReferenceError('')
     if(['gcash','bank_transfer'].includes(form.payment)&&!paymentProof){setPaymentProofError('Upload your payment proof before reviewing the order.');return}
@@ -443,18 +443,17 @@ export function CheckoutPage(){
   };
   return <main className="customer-main checkout-page"><section className="page-title"><span>Secure checkout</span><h1>How should we prepare your order?</h1></section><div className="checkout-layout"><form className="checkout-form" noValidate onSubmit={submit}>
     <CheckoutSection n="1" title="Customer information"><div className="form-grid"><Field label="Full name" value={form.fullName} error={customerErrors.fullName} onChange={value=>{set('fullName',sanitizePersonName(value,60));setCustomerErrors(current=>({...current,fullName:''}))}} onBlur={()=>setCustomerErrors(current=>({...current,fullName:isTwoWordPersonName(form.fullName)?'':'Enter your first and last name (at least 2 words).'}))} maxLength={60} pattern="\S+(\s+\S+)+" title="Enter your first and last name (at least 2 words)."/><Field label="Contact number" type="tel" value={form.contact} error={customerErrors.contact} onChange={value=>{set('contact',normalizePhone(value));setCustomerErrors(current=>({...current,contact:''}))}} onBlur={()=>setCustomerErrors(current=>({...current,contact:isValidPhone(form.contact)?'':'Enter a valid contact number starting with 09 (11 digits).'}))} inputMode="numeric" maxLength={11} pattern="09[0-9]{9}" title="Contact number must contain 11 digits and start with 09."/></div>{submitError&&<p className="field-hint error">{submitError}</p>}</CheckoutSection>
-    <CheckoutSection n="2" title="Fulfillment"><div className="fulfillment-controls"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/>{form.fulfillment==='delivery'&&<div className="checkout-payment-cod"><Clock3 size={18}/><p><b>Delivery: Now</b><span>We will prepare the order as soon as it is confirmed.</span></p></div>}{form.fulfillment==='pickup'&&<SelectField label="Pickup time (today)" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={pickupSlots} placeholder={pickupSlots.length?'Choose a time':'No pickup times available today'} disabled={!pickupSlots.length}/>}</div>
-    <p className={"field-hint"}>Preparation: {prepMinutes} min.</p>
-    {form.fulfillment==='delivery'&&<Choice title="Who books the rider?" options={[{id:'customer',name:'I’ll book'},{id:'staff',name:'Staff books'}]} value={form.riderBooking||'staff'} onChange={value=>{set('riderBooking',value);if(value==='customer'&&form.payment==='cod'){const method=customerPaymentMethods(systemSettings.payments).find(method=>method!=='cod')||'';setPayment(method)}}}/>}
-    {form.fulfillment==='pickup'&&!pickupSlots.length&&<p className={"field-hint error"}>This order needs more preparation time than remains today. Reduce the quantities or order during the next opening hours.</p>}{staffDelivery?<>{addresses.length>0&&<fieldset className={`address-source-picker${addresses.length?' has-saved-addresses':''}`}><legend>Delivery address</legend><div>{addresses.length>0&&<button type="button" className={addressMode==='saved'?'active':''} onClick={()=>chooseAddressMode('saved')} aria-pressed={addressMode==='saved'}><span><MapPin size={18}/></span><b>Use saved address</b><small>{defaultAddress?(defaultAddress.label||'Default address'):`${addresses.length} saved address${addresses.length===1?'':'es'}`}</small></button>}<button type="button" className={addressMode==='new'?'active':''} onClick={()=>chooseAddressMode('new')} aria-pressed={addressMode==='new'}><span><Pencil size={18}/></span><b>{addresses.length?'Enter a new address':'Enter your delivery address'}</b>{addresses.length>0&&<small>Search or pin on the map</small>}</button></div></fieldset>}<DeliveryLocationPicker key={`${addressMode}-${selectedAddress||'new'}`} initialCoordinates={form.coordinates} initialAddress={addressMode==='saved'?[addresses.find(address=>String(address.id)===selectedAddress)?.address_line,form.city].filter(Boolean).join(', '):''} address={form.address} barangay={form.barangay} selectedArea={selectedArea} onAddressChange={value=>set('address',sanitizeAddressText(value,200))} onBarangayChange={value=>set('barangay',value)} onCoordinatesChange={setCheckoutCoordinates} />{form.fulfillment==='delivery'&&form.address.trim()&&!selectedArea&&<p className="field-hint error">We do not deliver outside Quezon City for now. Please select an address within Quezon City.</p>}</>:form.fulfillment==='delivery'?<RiderPickupCard store={systemSettings.store} delivery={systemSettings.delivery}/>:<PickupStoreLocation/>}{staffDelivery&&<div className="delivery-route-estimate" aria-live="polite">{quoteLoading?'Calculating route…':activeQuote?<><b>{activeQuote.distance_km.toFixed(1)} km · {money(activeQuote.fee)}</b><small>Estimated fee. Rider fare may vary.</small></>:<span>{quoteError||(deliveryQuote?'Estimate expired. Recalculating automatically…':'Pin your address to calculate delivery.')}</span>}</div>}<Field label={form.fulfillment==='delivery'?'Delivery instructions':'Pickup note (optional)'} value={form.instructions} onChange={value=>set('instructions',sanitizeCustomerText(value,300))} maxLength={300} required={false}/></CheckoutSection>
+    <CheckoutSection n="2" title="Fulfillment" aside={form.fulfillment==='delivery'&&<span className="fulfillment-now"><Clock3 size={15}/>Delivery · Now</span>}><div className="fulfillment-controls"><Choice title="Method" options={[systemSettings.ordering.deliveryEnabled&&{id:'delivery',name:'Delivery'},systemSettings.ordering.pickupEnabled&&{id:'pickup',name:'Store pickup'}].filter(Boolean)} value={form.fulfillment} onChange={setFulfillment}/>{form.fulfillment==='pickup'&&<SelectField label="Pickup time (today)" value={form.scheduleTime} onChange={value=>set('scheduleTime',value)} options={pickupSlots} placeholder={pickupSlots.length?'Choose a time':'No pickup times available today'} disabled={!pickupSlots.length}/>}</div>
+    {form.fulfillment==='delivery'&&<Choice inline className="rider-booking-choice" title="Who books the rider?" options={[{id:'customer',name:'I’ll book it myself'},{id:'staff',name:'I’ll let staff book it'}]} value={form.riderBooking||'staff'} onChange={value=>{set('riderBooking',value);if(value==='customer'&&form.payment==='cod'){const method=customerPaymentMethods(systemSettings.payments).find(method=>method!=='cod')||'';setPayment(method)}}}/>}
+    {form.fulfillment==='pickup'&&!pickupSlots.length&&<p className={"field-hint error"}>This order needs more preparation time than remains today. Reduce the quantities or order during the next opening hours.</p>}{staffDelivery?<>{addresses.length>0&&<fieldset className={`address-source-picker${addresses.length?' has-saved-addresses':''}`}><legend>Delivery address</legend><div>{addresses.length>0&&<button type="button" className={addressMode==='saved'?'active':''} onClick={()=>chooseAddressMode('saved')} aria-pressed={addressMode==='saved'}><span><MapPin size={18}/></span><b>Use saved address</b><small>{defaultAddress?(defaultAddress.label||'Default address'):`${addresses.length} saved address${addresses.length===1?'':'es'}`}</small></button>}<button type="button" className={addressMode==='new'?'active':''} onClick={()=>chooseAddressMode('new')} aria-pressed={addressMode==='new'}><span><Pencil size={18}/></span><b>{addresses.length?'Enter a new address':'Enter your delivery address'}</b>{addresses.length>0&&<small>Search or pin on the map</small>}</button></div></fieldset>}<DeliveryLocationPicker key={`${addressMode}-${selectedAddress||'new'}`} initialCoordinates={form.coordinates} initialAddress={addressMode==='saved'?[addresses.find(address=>String(address.id)===selectedAddress)?.address_line,form.city].filter(Boolean).join(', '):''} address={form.address} barangay={form.barangay} selectedArea={selectedArea} onAddressChange={value=>set('address',sanitizeAddressText(value,200))} onBarangayChange={value=>set('barangay',value)} onCoordinatesChange={setCheckoutCoordinates} afterSearch={<Field label="Delivery instructions" value={form.instructions} onChange={value=>set('instructions',sanitizeCustomerText(value,300))} maxLength={300} required={false}/>} />{form.fulfillment==='delivery'&&form.address.trim()&&!selectedArea&&<p className="field-hint error">We do not deliver outside Quezon City for now. Please select an address within Quezon City.</p>}</>:form.fulfillment==='delivery'?<RiderPickupCard store={systemSettings.store} delivery={systemSettings.delivery}/>:<PickupStoreLocation/>}{!staffDelivery&&<Field label={form.fulfillment==='delivery'?'Delivery instructions':'Pickup note (optional)'} value={form.instructions} onChange={value=>set('instructions',sanitizeCustomerText(value,300))} maxLength={300} required={false}/>}</CheckoutSection>
     <CheckoutSection n="3" title="Payment"><Choice title="Payment method" options={customerPaymentMethods(systemSettings.payments).filter(method=>(staffDelivery)||method!=='cod').map(method=>({id:method,name:method==='cod'?'Cash on delivery':method==='bank_transfer'?'Bank transfer':method==='xendit'?'Xendit':'GCash'}))} value={form.payment} onChange={setPayment}/><CheckoutPaymentDetails payment={form.payment} paymentConfig={systemSettings.payments} total={total} referenceNumber={form.paymentReference} referenceError={paymentReferenceError} onReferenceChange={value=>{set('paymentReference',sanitizeDigits(value,form.payment==='gcash'?13:25));if(validPaymentReference(form.payment,value))setPaymentReferenceError('');if(paymentProofError&&paymentProofError.includes('already been used'))setPaymentProofError('')}} onReferenceBlur={handleReferenceBlur} proof={paymentProof} previewUrl={paymentProofPreview} proofError={paymentProofError} validatingProof={validatingPaymentProof} onProofChange={choosePaymentProof} onProofClear={clearPaymentProof}/></CheckoutSection>
     {systemSettings.ordering.storeStatus!=='open'&&<p className="field-hint error">{systemSettings.ordering.closureMessage}</p>}
     {cart.checkingAvailability?<p className="checkout-stock-refresh" role="status">Checking current item availability…</p>:null}
     <button type="submit" className="primary-button checkout-submit" disabled={cart.checkingAvailability||validatingPaymentProof||systemSettings.ordering.storeStatus!=='open'||!form.payment||(staffDelivery&&(!selectedArea||!activeQuote||quoteLoading))}>Review order · {money(total)} <ArrowRight/></button>
-  </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} benefit={eligibleBenefit} benefitType={form.benefitType} benefitConfirmed={form.benefitConfirmed} benefitConfirmationError={benefitConfirmationError} confirmationRef={benefitConfirmationRef} onBenefitTypeChange={value=>{setBenefitConfirmationError(false);setForm(current=>({...current,benefitType:value,benefitConfirmed:value?current.benefitConfirmed:false}))}} onBenefitConfirmationChange={value=>{setBenefitConfirmationError(false);setSubmitError(current=>current==='Confirm that you will present the original valid ID before reviewing your order.'?'':current);set('benefitConfirmed',value)}} fulfillment={form.fulfillment} selectedArea={form.riderBooking==='customer'?{barangay:'',fee:0}:activeQuote?selectedArea:null} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div>
+  </form><CheckoutPreview items={items} subtotal={subtotal} fee={fee} total={total} prepMinutes={prepMinutes} deliveryDistanceKm={activeQuote?.distance_km} benefit={eligibleBenefit} benefitType={form.benefitType} benefitConfirmed={form.benefitConfirmed} benefitConfirmationError={benefitConfirmationError} confirmationRef={benefitConfirmationRef} onBenefitTypeChange={value=>{setBenefitConfirmationError(false);setForm(current=>({...current,benefitType:value,benefitConfirmed:value?current.benefitConfirmed:false}))}} onBenefitConfirmationChange={value=>{setBenefitConfirmationError(false);set('benefitConfirmed',value)}} fulfillment={form.fulfillment} selectedArea={form.riderBooking==='customer'?{barangay:'',fee:0}:activeQuote?selectedArea:null} vatRate={pricing.vatRate} pricesIncludeVat={pricing.pricesIncludeVat}/></div>
   </main>
 }
-function CheckoutSection({n,title,children}){return <section className="checkout-section"><header><b>{n}</b><h2>{title}</h2></header>{children}</section>}
+function CheckoutSection({n,title,aside,children}){return <section className="checkout-section"><header><b>{n}</b><h2>{title}</h2>{aside&&<div className="checkout-section-aside">{aside}</div>}</header>{children}</section>}
 function PickupStoreLocation(){
   const [copied,setCopied]=useState(false)
   const address='Lot 1 Block 210 Mark Street corner Dollar Street, North Fairview, Quezon City'
@@ -580,12 +579,12 @@ function BarangayField({areas=deliveryAreas,value,onChange,selectedArea}){
   </div>
 }
 function mostExpensiveEligibleItemBenefit(items=[],vatRate=0.12,pricesIncludeVat=true){const target=items.filter(item=>item.onlineBenefitEligible).sort((a,b)=>(b.unitPrice+(b.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0))-(a.unitPrice+(a.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0)))[0];if(!target)return{eligibleGrossAmount:0,vatAmount:0,discountAmount:0,benefitAmount:0};const eligibleGrossAmount=Number(target.unitPrice)+(target.addons||[]).reduce((sum,addon)=>sum+Number(addon.price||0),0);return{eligibleGrossAmount,...vatExemptDiscountBreakdown(eligibleGrossAmount,vatRate,0.2,pricesIncludeVat)}}
-function CheckoutPreview({items,subtotal,fee,total,benefit,benefitType='',benefitConfirmed=false,benefitConfirmationError=false,confirmationRef,onBenefitTypeChange=()=>{},onBenefitConfirmationChange=()=>{},fulfillment,selectedArea,vatRate,pricesIncludeVat}){
+function CheckoutPreview({items,subtotal,fee,total,prepMinutes,deliveryDistanceKm,benefit,benefitType='',benefitConfirmed=false,benefitConfirmationError=false,confirmationRef,onBenefitTypeChange=()=>{},onBenefitConfirmationChange=()=>{},fulfillment,selectedArea,vatRate,pricesIncludeVat}){
   const applyBenefitDiscount=Boolean(benefitType)
   const discountLabel=benefitType==='senior'?'Senior Citizen':benefitType==='pwd'?'PWD':''
   const breakdown=buildVatExemptOrderBreakdown({subtotal,discountSubtotal:applyBenefitDiscount?benefit.eligibleGrossAmount:0,discountType:discountLabel,discountAmount:applyBenefitDiscount?benefit.discountAmount:0,vatExemptAmount:applyBenefitDiscount?benefit.vatAmount:0,vatRate,pricesIncludeVat})
   return <div className="checkout-preview-column"><aside className="checkout-preview">
-    <header><span>Order preview</span><h2>Your cart</h2></header>
+    <header><div><span>Order preview</span><h2>Your cart</h2></div><small className="checkout-prep-time">Preparation: {prepMinutes} min.</small></header>
     <div className="checkout-preview-items">
       {items.map(item=><article key={item.lineId}>
         <img src={item.image} alt=""/>
@@ -604,7 +603,7 @@ function CheckoutPreview({items,subtotal,fee,total,benefit,benefitType='',benefi
       {[{id:'',name:'No discount'},{id:'pwd',name:'PWD'},{id:'senior',name:'Senior Citizen'}].map(option=><label key={option.id||'none'} className={`checkout-benefit-type${benefitType===option.id?' is-selected':''}`}><input type="radio" name="benefit-type" value={option.id} checked={benefitType===option.id} disabled={Boolean(option.id)&&!benefit.benefitAmount} onChange={()=>onBenefitTypeChange(option.id)}/><span>{option.name}</span></label>)}
     </div>
     {!benefit.benefitAmount&&<small>No eligible item in your cart.</small>}
-    {applyBenefitDiscount&&benefit.benefitAmount>0&&<><label className={`checkout-benefit-confirmation${benefitConfirmationError?' is-invalid':''}`}><input ref={confirmationRef} type="checkbox" required checked={benefitConfirmed} aria-invalid={benefitConfirmationError} aria-describedby={benefitConfirmationError?'checkout-benefit-confirmation-error':undefined} onChange={event=>onBenefitConfirmationChange(event.target.checked)}/><span>I confirm that I will present the original valid {discountLabel} ID upon {fulfillment==='delivery'?'delivery':'pickup'}. <span className="checkout-required" aria-hidden="true">*</span></span></label>{benefitConfirmationError&&<p className="checkout-benefit-confirmation-error" id="checkout-benefit-confirmation-error" role="alert">Check this box before reviewing your order.</p>}</>}
+    {applyBenefitDiscount&&benefit.benefitAmount>0&&<><label className={`checkout-benefit-confirmation${benefitConfirmationError?' is-invalid':''}`}><input ref={confirmationRef} type="checkbox" required checked={benefitConfirmed} aria-invalid={benefitConfirmationError} aria-describedby={benefitConfirmationError?'checkout-benefit-confirmation-error':undefined} onChange={event=>onBenefitConfirmationChange(event.target.checked)}/><span>I’ll present my original valid {discountLabel} ID. <span className="checkout-required" aria-hidden="true">*</span></span></label>{benefitConfirmationError&&<p className="checkout-benefit-confirmation-error" id="checkout-benefit-confirmation-error" role="alert">Please confirm by clicking checkbox.</p>}</>}
 
   </section>
       <div className="checkout-totals" aria-label="Order totals">
@@ -617,7 +616,7 @@ function CheckoutPreview({items,subtotal,fee,total,benefit,benefitType='',benefi
           <p><span>VATable Sale</span><b>{money(breakdown.baseAmount)}</b></p>
           <p><span>{formatVatRate(vatRate)} VAT</span><b>{money(breakdown.vatAmount)}</b></p>
         </>}
-        {fulfillment==='delivery'&&<p><span>Delivery fee</span><b>{selectedArea?money(fee):'Pin address'}</b></p>}
+        {fulfillment==='delivery'&&<p><span>{deliveryDistanceKm!=null?`Delivery (${Number(deliveryDistanceKm).toFixed(1)} km)`:'Delivery'}</span><b>{selectedArea?money(fee):'Pin address'}</b></p>}
         <p className="grand"><span>Total</span><b>{money(total)}</b></p>
       </div>
     </div>
@@ -882,6 +881,7 @@ export function MyOrdersPage(){
   const [toast,setToast]=useState('')
   const [receiveError,setReceiveError]=useState('')
   const [receiveTarget,setReceiveTarget]=useState(null)
+  const [chatNow,setChatNow]=useState(Date.now)
   const {addItem}=useCart()
   const load=()=>{
     if(!user?.id)return
@@ -898,6 +898,7 @@ export function MyOrdersPage(){
     return()=>{supabase.removeChannel(channel)}
   },[user])
   useEffect(()=>{if(!toast)return undefined;const t=setTimeout(()=>setToast(''),4000);return()=>clearTimeout(t)},[toast])
+  useEffect(()=>{const timer=setInterval(()=>setChatNow(Date.now()),1000);return()=>clearInterval(timer)},[])
 
   const currentOrders=orders.filter(o=>!['Completed','Received','Cancelled'].includes(o.status))
   const pastOrders=orders.filter(o=>['Completed','Received','Cancelled'].includes(o.status))
@@ -944,7 +945,8 @@ export function MyOrdersPage(){
   }
 
   return <main className="customer-main">
-    <section className="page-title"><h1>My orders</h1><DeliveryChatLauncher role="customer"/></section>
+    <section className="page-title"><h1>My orders</h1></section>
+    <DeliveryChatLauncher role="customer" showLauncher={false}/>
     <div className="order-tabs">
       <button className={tab==='current'?'active':''} onClick={()=>setTab('current')}>Current Orders{currentOrders.length>0&&<b className="order-tab-count">{currentOrders.length}</b>}</button>
       <button className={tab==='past'?'active':''} onClick={()=>setTab('past')}>Past Orders</button>
@@ -954,11 +956,11 @@ export function MyOrdersPage(){
     {loading?<OrdersSkeleton/>:error?<section className="customer-state error-state"><h2>We couldn't load your orders.</h2><p>{error}</p></section>:<>
       {tab==='current'&&(currentOrders.length===0?<EmptyOrders hasAny={orders.length>0} label="current orders"/>:
         <section className="current-orders-list">{currentOrders.map((order,index)=><CurrentOrderCard key={order.id} order={order} addonNames={addonNames} index={index}
-          onView={()=>setDetailOrder(order)} onCancel={()=>setCancelOrderTarget(order)} onTrack={()=>setTrackOrder(order)} onReceive={()=>runReceive(order)} receiving={false}/>)}</section>)}
+          now={chatNow} onView={()=>setDetailOrder(order)} onCancel={()=>setCancelOrderTarget(order)} onTrack={()=>setTrackOrder(order)} onReceive={()=>runReceive(order)} receiving={false}/>)}</section>)}
       {tab==='past'&&(pastOrders.length===0?<EmptyOrders hasAny={orders.length>0} label="past orders"/>:<>
         <section className="orders-grid">{visiblePast.map((order,index)=>order.status==='Cancelled'
           ?<CancelledOrderCard key={order.id} order={order} index={index} onView={()=>setDetailOrder(order)}/>
-          :<PastOrderCard key={order.id} order={order} index={index}
+          :<PastOrderCard key={order.id} order={order} index={index} now={chatNow}
             onView={()=>setDetailOrder(order)} onReceipt={()=>setReceiptOrder(order)}
             onReorder={()=>runReorder(order)} onFeedback={()=>{setFeedbackThankYou(false);setFeedbackOrder(order)}}
             reordering={reorderState?.orderId===order.id&&reorderState.busy}/>)}</section>
@@ -967,7 +969,7 @@ export function MyOrdersPage(){
     </>}
     {receiveTarget&&<CustomerReceiptDialog order={receiveTarget} onClose={()=>setReceiveTarget(null)} onDone={result=>{const received={...receiveTarget,...result,status:result.status||'Completed',delivery_chat_closed_at:new Date().toISOString()};patchOrder(receiveTarget.id,received);setReceiveTarget(null);setTrackOrder(null);setTab('past');setFeedbackThankYou(true);setFeedbackOrder(received)}}/>}
     <AnimatePresence>{detailOrder&&<OrderDetailsDrawer order={orders.find(o=>o.id===detailOrder.id)||detailOrder} addonNames={addonNames} onClose={()=>setDetailOrder(null)}/>}</AnimatePresence>
-    <AnimatePresence>{trackOrder&&<TrackOrderModal order={orders.find(o=>o.id===trackOrder.id)||trackOrder} onClose={()=>setTrackOrder(null)} onReceive={()=>runReceive(orders.find(o=>o.id===trackOrder.id)||trackOrder)} receiving={false}/>}</AnimatePresence>
+    <AnimatePresence>{trackOrder&&<TrackOrderModal order={orders.find(o=>o.id===trackOrder.id)||trackOrder} now={chatNow} onClose={()=>setTrackOrder(null)} onReceive={()=>runReceive(orders.find(o=>o.id===trackOrder.id)||trackOrder)} receiving={false}/>}</AnimatePresence>
     <AnimatePresence>{cancelOrder&&<CancelOrderModal order={cancelOrder} onClose={()=>setCancelOrderTarget(null)} onConfirm={runCancel}/>}</AnimatePresence>
     <AnimatePresence>{receiptOrder&&<ReceiptModal order={receiptOrder} addonNames={addonNames} onClose={()=>setReceiptOrder(null)}/>}</AnimatePresence>
     <AnimatePresence>{feedbackOrder&&<FeedbackModal order={feedbackOrder} userId={user?.id} thankYou={feedbackThankYou} onClose={()=>{setFeedbackOrder(null);setFeedbackThankYou(false)}} onDone={()=>setToast('Thanks for your feedback!')}/>}</AnimatePresence>
@@ -997,7 +999,7 @@ function PreparationEstimate({order}){
 
 const cardEnter=index=>({initial:{opacity:0,y:10},animate:{opacity:1,y:0},transition:{duration:0.28,delay:Math.min(index*0.05,0.3),ease:[0.22,1,0.36,1]}})
 
-function CurrentOrderCard({order,addonNames,onView,onCancel,onTrack,onReceive,receiving,index=0}){
+function CurrentOrderCard({order,addonNames,now,onView,onCancel,onTrack,onReceive,receiving,index=0}){
   const status=orderStatusLabel(order)
   const steps=trackingSteps(order)
   const currentIndex=Math.max(steps.indexOf(status),0)
@@ -1023,7 +1025,7 @@ function CurrentOrderCard({order,addonNames,onView,onCancel,onTrack,onReceive,re
     <div className="order-card-actions">
       <button className="secondary-button" type="button" onClick={onView}>View Details</button>
       <button className="primary-button" type="button" onClick={onTrack}>Track Order</button>
-      {hasDeliveryChat(order)&&<button className="secondary-button dc-order-message-button" type="button" onClick={()=>openDeliveryChat(order.id)}><MessageCircle size={15}/>Message staff</button>}
+      {hasDeliveryChat(order)&&deliveryChatIsOpen(order,now)&&<button className="secondary-button dc-order-message-button" type="button" onClick={()=>openDeliveryChat(order.id)}><MessageCircle size={15}/>Message staff</button>}
       {status==='Out for Delivery'&&order.order_type==='delivery'&&<button className="primary-button order-received-button" type="button" onClick={onReceive} disabled={receiving}><Check size={15}/> {receiving?'Confirming…':'Mark as completed'}</button>}
       {canCustomerCancel(order)&&<button className="text-button danger" type="button" onClick={onCancel}>Cancel Order</button>}
     </div>
@@ -1031,7 +1033,7 @@ function CurrentOrderCard({order,addonNames,onView,onCancel,onTrack,onReceive,re
   </motion.article>
 }
 
-function PastOrderCard({order,onView,onReceipt,onReorder,onFeedback,reordering,index=0}){
+function PastOrderCard({order,now,onView,onReceipt,onReorder,onFeedback,reordering,index=0}){
   const status=orderStatusLabel(order)
   return <motion.article {...cardEnter(index)}><span className={`status-chip ${orderStatusTone(status)}`}>{status}</span><h2>{customerOrderNumber(order.order_number)}</h2>
     <p>{new Intl.DateTimeFormat('en-PH',{dateStyle:'medium',timeStyle:'short'}).format(new Date(order.created_at))} · {orderCount(order)} item{orderCount(order)===1?'':'s'}</p>
@@ -1039,7 +1041,7 @@ function PastOrderCard({order,onView,onReceipt,onReorder,onFeedback,reordering,i
     <div className="past-order-actions">
       <button className="secondary-button" type="button" onClick={onReorder} disabled={reordering}><RotateCcw size={14}/> {reordering?'Adding…':'Reorder'}</button>
       <button className="secondary-button" type="button" onClick={onView}>View</button>
-      {hasDeliveryChat(order)&&<button className="secondary-button dc-order-message-button" type="button" onClick={()=>openDeliveryChat(order.id)}><MessageCircle size={14}/>Messages</button>}
+      {hasDeliveryChat(order)&&deliveryChatIsOpen(order,now)&&<button className="secondary-button dc-order-message-button" type="button" onClick={()=>openDeliveryChat(order.id)}><MessageCircle size={14}/>Messages</button>}
       <button className="secondary-button" type="button" onClick={onReceipt}><Printer size={14}/> Receipt</button>
       {['Completed','Received'].includes(status)&&<button className="primary-button" type="button" onClick={onFeedback}><Star size={14}/> Feedback</button>}
     </div>
@@ -1214,7 +1216,7 @@ function ReorderResultModal({state,onClose}){
   </motion.div>
 }
 
-function TrackOrderModal({order,onClose,onReceive,receiving}){
+function TrackOrderModal({order,now,onClose,onReceive,receiving}){
   const status=orderStatusLabel(order)
   const steps=trackingSteps(order)
   const currentIndex=Math.max(steps.indexOf(status),0)
@@ -1246,7 +1248,7 @@ function TrackOrderModal({order,onClose,onReceive,receiving}){
           <motion.div className="track-modal-line-fill" initial={{height:0}} animate={{height:`${(currentIndex/(steps.length-1))*100}%`}} transition={{duration:0.6,ease:[0.22,1,0.36,1]}}/>
         </div>
       </div>
-      {hasDeliveryChat(order)&&<button type="button" className="secondary-button full dc-order-message-button" onClick={()=>{onClose();openDeliveryChat(order.id)}}><MessageCircle size={15}/>Message staff</button>}
+      {hasDeliveryChat(order)&&deliveryChatIsOpen(order,now)&&<button type="button" className="secondary-button full dc-order-message-button" onClick={()=>{onClose();openDeliveryChat(order.id)}}><MessageCircle size={15}/>Message staff</button>}
       <div className="track-modal-footer">
         <span>{orderCount(order)} item{orderCount(order)===1?'':'s'} · {paymentMethodLabel(orderPaymentMethod(order))}</span>
         <b>{money(Number(order.final_total||0))}</b>

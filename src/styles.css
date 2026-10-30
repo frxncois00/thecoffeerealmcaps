@@ -5832,6 +5832,7 @@
 .ops-main-action.compact{min-height:36px;font-size:.76rem;padding:0 12px}
 .ops-main-action:hover:not(:disabled){background:#1b3a29}
 .ops-main-action:disabled{background:#cbd5c9;cursor:not-allowed}
+.ops-main-action.ops-delivery-countdown:disabled{background:#e5eee7;color:#315c45;font-variant-numeric:tabular-nums;letter-spacing:.08em;opacity:1}
 .ops-card-actions-row{display:flex;gap:8px}
 .ops-secondary-action{flex:1;min-height:38px;border:1px solid #dce3dd;background:#fff;color:#334155;border-radius:10px;font-weight:700;font-size:.78rem}
 .ops-secondary-action:hover{background:#f1f5f2}
@@ -6898,11 +6899,13 @@
 .txn-order-alert--id-check{border-color:#e2c27a;background:#fff8e7;color:#684d12}
 @media(max-width:460px){.checkout-preview-items{padding-inline:18px}.checkout-preview-items article{grid-template-columns:54px minmax(0,1fr);gap:11px}.checkout-preview-items img{width:54px;height:54px}.checkout-preview-item-price{grid-column:2;margin-top:-4px}.checkout-preview-footer{padding-inline:10px}}
 .checkout-page .schedule-fields{padding-right:0;padding-left:0;background:#fff}
-.fulfillment-controls{display:grid;grid-template-columns:minmax(220px,.85fr) minmax(170px,.65fr) minmax(220px,1fr);align-items:start;gap:22px;margin:0 0 20px}
+.fulfillment-controls{display:grid;grid-template-columns:minmax(220px,.85fr) minmax(220px,1fr);align-items:start;gap:22px;margin:0 0 20px}
 .fulfillment-controls .choice-group,.fulfillment-controls .field{margin:0}
 .fulfillment-controls .field select{min-height:44px}
+.checkout-section-aside{margin-left:auto}.fulfillment-now{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:#edf4ef;color:var(--cr-green);font-size:.76rem;font-weight:800;line-height:1;white-space:nowrap}.fulfillment-now svg{flex:none}
+.rider-booking-choice{display:grid;grid-template-columns:max-content minmax(0,440px);align-items:center;gap:18px;margin:4px 0 20px}.rider-booking-choice .choice-inline-title{font-weight:800;white-space:nowrap}.rider-booking-choice>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-width:440px}.rider-booking-choice button,.rider-booking-choice button:first-child,.rider-booking-choice button:last-child{min-height:42px;margin:0;padding:0 16px;border-radius:6px}
 @media(max-width:900px){.fulfillment-controls{grid-template-columns:1fr 1fr}.fulfillment-controls>.field{grid-column:1/-1}}
-@media(max-width:680px){.fulfillment-controls{grid-template-columns:1fr;gap:16px}.fulfillment-controls>.field{grid-column:auto}}
+@media(max-width:680px){.fulfillment-controls{grid-template-columns:1fr;gap:16px}.fulfillment-controls>.field{grid-column:auto}.checkout-section-aside{margin-left:auto}.fulfillment-now{padding:6px 8px;font-size:.7rem}.rider-booking-choice{grid-template-columns:max-content minmax(0,1fr);gap:8px}.rider-booking-choice>div{min-width:0}.rider-booking-choice button{min-width:0;padding:0 8px;font-size:.72rem;white-space:normal}}
 .barangay-combobox{position:relative}
 .barangay-field>label{display:block;margin-bottom:10px;font-weight:800}
 .barangay-combobox>input{padding-right:44px}
@@ -8850,9 +8853,17 @@
 }
 
 /* Smart Input Box */
+.location-search-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .location-search-input-box {
   position: relative;
   display: flex;
+  flex: 1;
+  min-width: 0;
   align-items: center;
   background: #ffffff;
   border: 1.5px solid #d4c5b3;
@@ -8917,7 +8928,7 @@
   align-items: center;
   gap: 6px;
   height: 38px;
-  margin-right: 6px;
+  margin: 0;
   padding: 0 14px;
   border: none;
   border-radius: 10px;
@@ -8975,6 +8986,7 @@
   cursor: pointer;
   transition: background 0.15s ease;
 }
+.location-dropdown-empty{display:grid;gap:4px;padding:12px;color:#4f5e54}.location-dropdown-empty strong{font-size:.82rem}.location-dropdown-empty small{color:var(--cr-muted);font-size:.75rem;line-height:1.4}
 
 .location-dropdown-item:hover,
 .location-dropdown-item.is-active {
@@ -9248,27 +9260,24 @@
 }
 
 @media (max-width: 640px) {
+  .location-search-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
   .location-search-input-box {
-    flex-wrap: wrap;
-    padding: 6px;
+    padding: 0;
   }
   .location-search-input-box input {
-    height: 40px;
+    height: 48px;
     width: 100%;
-    order: 1;
   }
   .location-search-icon {
-    display: none;
+    display: flex;
   }
   .location-locate-me-btn {
     width: 100%;
-    margin-right: 0;
-    margin-top: 4px;
+    height: 42px;
     justify-content: center;
-    order: 3;
-  }
-  .location-clear-btn {
-    order: 2;
   }
   .tcr-map-viewport-container {
     height: 220px;
@@ -10002,6 +10011,9 @@
 .admin-transaction-drawer .ops-order-overview-row{grid-template-columns:92px minmax(0,1fr)}
 .admin-transaction-drawer .txn-exception-section{padding:14px;margin-bottom:22px}
 @media(max-width:390px){.admin-transaction-drawer .ops-order-hero-facts{grid-template-columns:1fr 1fr}.admin-transaction-drawer .ops-order-hero-facts div:last-child{grid-column:1/-1}}
-.checkout-benefit-confirmation.is-invalid{background:#fff1f2;color:#b42318;box-shadow:inset 0 0 0 2px #d92d20}
-.checkout-benefit-confirmation.is-invalid input{outline:2px solid #d92d20;outline-offset:2px}
-.checkout-benefit-confirmation-error{margin:8px 0 0;color:#b42318;font-size:.78rem;font-weight:600;line-height:1.4}
+.checkout-benefit-confirmation.is-invalid{background:#f4f8f5;color:#334a3c;box-shadow:none}
+.checkout-benefit-confirmation.is-invalid input{outline:1px solid #d92d20;outline-offset:1px}
+.checkout-benefit-confirmation-error{margin:5px 0 0 2px;color:#b42318;font-size:.72rem;font-weight:600;line-height:1.25;white-space:nowrap}
+
+.checkout-preview-footer label.checkout-benefit-confirmation{display:flex;flex-direction:row;align-items:flex-start}.checkout-preview-footer .checkout-benefit-confirmation>span{flex:1;min-width:0}
+.checkout-preview>header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.checkout-prep-time{margin-top:3px;padding:6px 9px;border-radius:7px;background:#edf4ef;color:var(--cr-green);font-size:.7rem;font-weight:800;white-space:nowrap}

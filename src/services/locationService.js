@@ -1,5 +1,7 @@
 import { deliveryAreas } from '../data/deliveryAreas.js'
 
+const GEOAPIFY_API_KEY = String(import.meta.env.VITE_GEOAPIFY_API_KEY || '').trim()
+
 export const TCR_STORE_COORDS = {
   lat: 14.7088,
   lng: 121.0605,
@@ -177,8 +179,16 @@ export function formatStreetAddress(addressObj = {}) {
   const parts = []
 
   // House number / building
-  const house = addressObj.house_number || addressObj.building || ''
-  if (house) parts.push(house)
+  const premises = [
+    addressObj.house_number,
+    addressObj.house_name,
+    addressObj.building,
+    addressObj.apartment,
+    addressObj.office,
+    addressObj.shop,
+    addressObj.amenity,
+  ].filter(Boolean)
+  parts.push(...premises)
 
   // Road / street / avenue
   const road = addressObj.road || addressObj.pedestrian || addressObj.footway || addressObj.street || ''
@@ -188,7 +198,55 @@ export function formatStreetAddress(addressObj = {}) {
   const residential = addressObj.residential || addressObj.subdivision || addressObj.neighbourhood || ''
   if (residential && residential !== road) parts.push(residential)
 
-  return parts.filter(Boolean).join(', ')
+  return [...new Set(parts.filter(Boolean))].join(', ')
+}
+
+const geoapifyAddressObject = properties => ({
+  house_number: properties.housenumber,
+  house_name: properties.name,
+  building: properties.building,
+  road: properties.street,
+  neighbourhood: properties.suburb || properties.neighbourhood,
+  quarter: properties.district,
+  city_district: properties.district,
+  city: properties.city,
+  municipality: properties.municipality,
+  county: properties.county,
+  state: properties.state,
+  postcode: properties.postcode,
+  country: properties.country,
+})
+
+const geoapifyResult = feature => {
+  const properties = feature?.properties || {}
+  const coords = {
+    lat: Number(properties.lat ?? feature?.geometry?.coordinates?.[1]),
+    lng: Number(properties.lon ?? feature?.geometry?.coordinates?.[0]),
+  }
+  const address = geoapifyAddressObject(properties)
+  const displayName = properties.formatted || ''
+  const isQc = isWithinQuezonCity(address, displayName, coords)
+  const matchedArea = isQc ? matchBarangay(displayName, address, coords) : null
+  return {
+    id: properties.place_id || properties.datasource?.raw?.place_id || displayName,
+    displayName,
+    name: properties.name || properties.address_line1 || properties.street,
+    lat: coords.lat,
+    lng: coords.lng,
+    street: formatStreetAddress(address) || properties.address_line1 || '',
+    barangay: isQc ? (matchedArea?.barangay || properties.suburb || properties.district || '') : '',
+    matchedArea,
+    isQuezonCity: isQc,
+    rawAddress: address,
+  }
+}
+
+async function fetchGeoapify(path, params) {
+  const url = new URL(`https://api.geoapify.com/v1/geocode/${path}`)
+  Object.entries({...params,apiKey:GEOAPIFY_API_KEY}).forEach(([key,value])=>url.searchParams.set(key,value))
+  const response = await fetch(url)
+  if (!response.ok) throw new Error(`Geoapify request failed (${response.status})`)
+  return response.json()
 }
 
 /**
@@ -199,13 +257,26 @@ export async function searchPhLocations(query) {
   if (!clean || clean.length < 2) return []
 
   try {
-    const searchParam = clean.toLowerCase().includes('philippines')
+    if (GEOAPIFY_API_KEY) {
+      const data = await fetchGeoapify('autocomplete', {
+        text: clean,
+        format: 'geojson',
+        filter: 'rect:120.96,14.56,121.16,14.79',
+        bias: `proximity:${TCR_STORE_COORDS.lng},${TCR_STORE_COORDS.lat}`,
+        lang: 'en',
+        limit: '8',
+      })
+      return (data.features || []).map(geoapifyResult).filter(item => item.isQuezonCity)
+    }
+
+    const hasQuezonCity = /\b(?:quezon city|qc)\b/i.test(clean)
+    const searchParam = hasQuezonCity
       ? clean
-      : `${clean}, Philippines`
+      : `${clean}, Quezon City, Metro Manila, Philippines`
 
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(
       searchParam
-    )}&countrycodes=ph&format=json&addressdetails=1&limit=8`
+    )}&countrycodes=ph&format=json&addressdetails=1&namedetails=1&limit=8&viewbox=120.96,14.79,121.16,14.56&bounded=1`
 
     const response = await fetch(url, {
       headers: {
@@ -236,7 +307,7 @@ export async function searchPhLocations(query) {
         isQuezonCity: isQc,
         rawAddress: addr,
       }
-    })
+    }).filter(item => item.isQuezonCity)
   } catch {
     return []
   }
@@ -247,7 +318,19 @@ export async function searchPhLocations(query) {
  */
 export async function reverseGeocodeCoords(lat, lng) {
   try {
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&layer=address`
+    if (GEOAPIFY_API_KEY) {
+      const data = await fetchGeoapify('reverse', {
+        lat: String(lat),
+        lon: String(lng),
+        format: 'geojson',
+        lang: 'en',
+        limit: '1',
+      })
+      const feature = data.features?.[0]
+      return feature ? geoapifyResult(feature) : null
+    }
+
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&namedetails=1&zoom=18&layer=address`
     const response = await fetch(url, {
       headers: {
         'Accept-Language': 'en',
