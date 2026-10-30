@@ -337,6 +337,7 @@ export default function DeliveryLocationPicker({
     if (cleanAddress === lastInitialAddressRef.current || !mapInstanceRef.current) return undefined
     lastInitialAddressRef.current = cleanAddress
     setSearchQuery(address || cleanAddress)
+    if (Number.isFinite(initialCoordinatesRef.current?.lat) && Number.isFinite(initialCoordinatesRef.current?.lng)) return undefined
     let active = true
     searchPhLocations(cleanAddress).then(results => {
       if (!active) return
