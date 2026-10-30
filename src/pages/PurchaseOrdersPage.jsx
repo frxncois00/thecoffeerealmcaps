@@ -4,6 +4,8 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Check, FileImage, FileText, ImagePlus, Package, PackageCheck, Plus, Send, ShieldAlert, Store, Trash2, Upload, X } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PurchaseStockBoard from '../components/PurchaseStockBoard'
+import PurchaseReceivingReport, { ReceivingValues } from '../components/PurchaseReceivingReport'
+import { ISSUE_LABELS, RECEIVING_CHECKS, receivingLines, validateReceivingReport } from '../utils/purchaseReceiving'
 import { changePurchaseUnit, pricePerPurchaseUnit, updatePurchaseLine, withFixedPurchasePrice } from '../utils/purchaseLinePricing'
 import { needsRestock, suggestedPurchaseAmount } from '../utils/purchaseStock'
 import AppShell from '../components/AppShell'
@@ -16,21 +18,19 @@ import { isPastPurchaseOrderDeliveryDate, purchaseOrderToday } from '../utils/pu
 import { blankPurchaseOrderLine, prioritizeSupplierItems, supplierOrderLines, supplierPriceForItem, suppliersForPurchaseItem } from '../utils/purchaseOrderSuppliers'
 import {
   approvePurchaseOrder, cancelPurchaseOrder, fetchPurchaseOrderOptions,
-  fetchPurchaseOrders, fetchSuppliers, getPurchaseOrderDocumentUrl, markPurchaseOrderSent, receivePurchaseOrder, reportPurchaseOrderIssue, savePurchaseOrder, saveSupplier, uploadPurchaseOrderDocument,
+  fetchPurchaseOrders, fetchSuppliers, getPurchaseOrderDocumentUrl, markPurchaseOrderSent, submitPurchaseOrderDelivery, reviewPurchaseOrderDelivery, settlePurchaseOrderDelivery, savePurchaseOrder, saveSupplier, uploadPurchaseOrderDocument,
 } from '../services/purchaseOrderService'
 
 const STATUS_META = {
   draft: ['Draft', 'neutral'], pending_approval: ['Pending Approval', 'amber'], approved: ['Ready to send', 'blue'],
+  pending_receiving_review: ['For Admin Review', 'amber'], approved_for_payment: ['Ready for Payment', 'green'], received: ['Received', 'green'],
+  receiving_correction: ['Correction requested', 'amber'], receiving_rejected: ['Report rejected', 'red'], receiving_information: ['More information needed', 'amber'],
+  awaiting_replacement: ['Awaiting Replacement', 'purple'], awaiting_adjustment: ['Awaiting Adjusted Invoice', 'amber'], completed_with_issues: ['Completed with Issues', 'green'],
   rejected: ['Needs revision', 'red'], sent: ['Awaiting delivery', 'purple'], closed: ['Completed', 'green'], returned: ['Returned', 'red'], cancelled: ['Cancelled', 'neutral'],
 }
 const LEGACY_STATUSES = new Set(['partially_received', 'received', 'pending_receiving_review', 'approved_for_payment', 'payment_review', 'disputed'])
+const RECEIVABLE_STATUSES = ['sent', 'awaiting_replacement', 'receiving_correction', 'receiving_rejected', 'receiving_information']
 
-const RECEIVING_CHECKS = [
-  { question: 'Are all items the correct products?', issue: 'Some delivered products do not match the order.', reason: 'Wrong items' },
-  { question: 'Are all quantities complete?', issue: 'The delivered quantities are incomplete.', reason: 'Quantity mismatch' },
-  { question: 'Are all items free from damage?', issue: 'Some items are damaged.', reason: 'Damaged items' },
-  { question: 'Are all items within acceptable expiry dates?', issue: 'Some items have unacceptable expiry dates.', reason: 'Expired items' },
-]
 const RECEIVING_UPLOAD_ACCEPT = '.jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx'
 
 function tableActionsFor(order, isAdmin) {
@@ -42,7 +42,7 @@ function tableActionsFor(order, isAdmin) {
   if (order.status === 'draft') return [{ label: 'Edit', type: 'edit' }, { label: 'Submit', type: 'submit' }]
   if (order.status === 'rejected') return [{ label: 'Revise', type: 'edit' }]
   if (order.status === 'approved') return [{ label: 'Mark Sent', type: 'send' }]
-  if (order.status === 'sent') return [{ label: 'Submit', type: 'receive' }]
+  if (RECEIVABLE_STATUSES.includes(order.status)) return [{ label: order.status === 'sent' ? 'Receive' : 'Check delivery', type: 'receive' }]
   return []
 }
 
@@ -110,6 +110,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   const [draft, setDraft] = useState(EMPTY_DRAFT)
   const [action, setAction] = useState(null)
   const [receivingOpen, setReceivingOpen] = useState(false)
+  const uploadedFiles = useRef(new WeakMap())
   const [receivingIntent, setReceivingIntent] = useState('receive')
 
   useEffect(() => {
@@ -264,7 +265,7 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
   }
   const lowStockItems = useMemo(() => options.filter(needsRestock), [options])
   const lowStockCount = lowStockItems.length
-  const visibleOrders = useMemo(() => orders.filter((order) => !LEGACY_STATUSES.has(order.status)), [orders])
+  const visibleOrders = useMemo(() => orders.filter((order) => !LEGACY_STATUSES.has(order.status) || order.reports?.length), [orders])
   const counts = useMemo(() => visibleOrders.reduce((acc, order) => { acc[order.status] = (acc[order.status] || 0) + 1; return acc }, {}), [visibleOrders])
   const filtered = useMemo(() => {
     const term = query.trim().toLowerCase()
@@ -335,28 +336,37 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
       announce(action.type === 'approve' ? 'Purchase order approved.' : action.type === 'submit' ? 'Purchase order submitted for approval.' : `${action.type[0].toUpperCase()}${action.type.slice(1)} action saved.`)
     } catch (cause) { setError(describeError(cause, 'Purchase order action could not be completed.')) }
   }
-  async function submitReceiving(lines, notes, documents = {}) {
-    try {
-      for (const file of documents.proof || []) await uploadPurchaseOrderDocument(selected.id, 'receiving_proof', file)
-      for (const file of documents.invoice || []) await uploadPurchaseOrderDocument(selected.id, 'supplier_invoice', file)
-      for (const file of documents.receipt || []) await uploadPurchaseOrderDocument(selected.id, 'supplier_receipt', file)
-      await receivePurchaseOrder(selected.id, lines, notes)
-      setReceivingOpen(false)
-      setShortcutOrderId('')
-      await load()
-      announce('Order completed. Ingredients have been restocked.')
-      return true
-    } catch (cause) { setError(describeError(cause, 'Receiving could not be submitted.')); return false }
+  async function submitReceiving(payload) {
+    const documentIds = [...(payload.documentIds || [])]
+    const types = { proof: 'receiving_proof', invoice: 'supplier_invoice', receipt: 'supplier_receipt', photos: 'issue_evidence' }
+    for (const [key, type] of Object.entries(types)) for (const file of payload.documents[key] || []) {
+      const cached = uploadedFiles.current.get(file)
+      const document = cached?.purchase_order_id === selected.id && cached.document_type === type ? cached : await uploadPurchaseOrderDocument(selected.id, type, file)
+      uploadedFiles.current.set(file, document)
+      documentIds.push(document.id)
+    }
+    await submitPurchaseOrderDelivery(selected.id, { ...payload, documentIds: [...new Set(documentIds)] })
+    setReceivingOpen(false)
+    setShortcutOrderId('')
+    await load()
+    announce(payload.report ? 'Report sent for admin review. Inventory and payment remain on hold.' : 'Delivery received. Accepted items added to inventory and ready for payment.')
   }
-  async function reportIssue(issues) {
-    try {
-      await reportPurchaseOrderIssue(selected.id, issues[0].reason, 'Return affected items', issues.map((issue) => issue.issue).join(' '))
-      setReceivingOpen(false)
-      setShortcutOrderId('')
-      await load()
-      announce('Order returned and closed. Admin has been notified.')
-      return true
-    } catch (cause) { setError(describeError(cause, 'Issue could not be reported.')); return false }
+  async function reviewReceiving(reportId, decision, note, replacement) {
+    await reviewPurchaseOrderDelivery(selected.id, reportId, decision, note, replacement)
+    await load()
+    announce(decision === 'approve' ? 'Report approved. Only accepted quantities were added to inventory.' : 'Review decision saved and returned to staff.')
+  }
+  async function settleReceiving(amount, reference, documents) {
+    const ids = []
+    for (const [type, file] of documents) {
+      const cached = uploadedFiles.current.get(file)
+      const document = cached?.purchase_order_id === selected.id && cached.document_type === type ? cached : await uploadPurchaseOrderDocument(selected.id, type, file)
+      uploadedFiles.current.set(file, document)
+      ids.push(document.id)
+    }
+    await settlePurchaseOrderDelivery(selected.id, amount, reference, ids)
+    await load()
+    announce('Payment recorded. Purchase order completed.')
   }
 
   return (
@@ -370,9 +380,9 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
       <section className="po-summary" aria-label="Purchase order summary">
         <Summary label="Pending Approval" value={counts.pending_approval || 0} tone="amber" icon={<AlertTriangle size={18} />} detail="Needs review" />
         <Summary label="Approved" value={counts.approved || 0} tone="blue" icon={<Check size={18} />} detail="Ready to send" />
-        <Summary label="Awaiting delivery" value={counts.sent || 0} tone="purple" icon={<PackageCheck size={18} />} detail="Open deliveries" />
-        <Summary label="Completed" value={counts.closed || 0} tone="green" icon={<Package size={18} />} detail="Completed orders" />
-        <Summary label="Returned" value={counts.returned || 0} tone="red" icon={<ShieldAlert size={18} />} detail="Closed returns" />
+        <Summary label="Awaiting delivery" value={(counts.sent || 0) + (counts.awaiting_replacement || 0)} tone="purple" icon={<PackageCheck size={18} />} detail="Open deliveries" />
+        <Summary label="Completed" value={(counts.closed || 0) + (counts.completed_with_issues || 0)} tone="green" icon={<Package size={18} />} detail="Completed orders" />
+        <Summary label="For Admin Review" value={counts.pending_receiving_review || 0} tone="amber" icon={<ShieldAlert size={18} />} detail="Receiving issues" />
       </section>
 
       <section className="po-toolbar">
@@ -391,11 +401,11 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
       </section>
       <TablePagination page={currentPage} totalPages={pageCount} onPageChange={setPage} pageSize={pageSize} onPageSizeChange={setPageSize} pageSizeOptions={[10, 25, 50]} total={filtered.length} label="Purchase order pages" />
 
-      {selectedId && selected ? <PurchaseOrderDrawer order={selected} isAdmin={isAdmin} onClose={() => setSelectedId('')} onEdit={() => openEdit(selected)} onSubmit={() => saveDraft({ ...emptyDraftFromOrder(selected), submit: true })} onApprove={() => setAction({ type: 'approve', title: 'Approve purchase order', label: 'Approve', note: '' })} onReject={() => setAction({ type: 'reject', title: 'Disapprove purchase order', label: 'Disapprove', note: '' })} onSend={() => setAction({ type: 'send', title: 'Mark as sent', label: 'Mark Sent', note: selected.supplierReference || '' })} onReceive={() => { setReceivingIntent('receive'); setReceivingOpen(true) }} onCancel={() => setAction({ type: 'cancel', title: 'Cancel purchase order', label: 'Cancel PO', note: '' })} /> : null}
+      {selectedId && selected ? <PurchaseOrderDrawer order={selected} isAdmin={isAdmin} onReview={reviewReceiving} onSettle={settleReceiving} onClose={() => setSelectedId('')} onEdit={() => openEdit(selected)} onSubmit={() => saveDraft({ ...emptyDraftFromOrder(selected), submit: true })} onApprove={() => setAction({ type: 'approve', title: 'Approve purchase order', label: 'Approve', note: '' })} onReject={() => setAction({ type: 'reject', title: 'Disapprove purchase order', label: 'Disapprove', note: '' })} onSend={() => setAction({ type: 'send', title: 'Mark as sent', label: 'Mark Sent', note: selected.supplierReference || '' })} onReceive={() => { setReceivingIntent('receive'); setReceivingOpen(true) }} onCancel={() => setAction({ type: 'cancel', title: 'Cancel purchase order', label: 'Cancel PO', note: '' })} /> : null}
 
       {formOpen ? <PurchaseOrderForm draft={draft} options={options.filter((option) => option.itemType === 'ingredient')} suppliers={suppliers} onClose={() => setFormOpen(false)} onSave={saveDraft} /> : null}
       {supplierOpen ? <SupplierModal options={options.filter((option) => option.itemType === 'ingredient')} suppliers={suppliers} onClose={() => setSupplierOpen(false)} onSave={async (payload) => { await saveSupplierRecord(payload); setSupplierOpen(false) }} /> : null}
-      {receivingOpen && selected ? <ReceivingModal order={selected} intent={receivingIntent} onClose={() => { setReceivingOpen(false); setShortcutOrderId('') }} onSave={submitReceiving} onReport={reportIssue} /> : null}
+      {receivingOpen && selected ? <ReceivingModal order={selected} intent={receivingIntent} onClose={() => { setReceivingOpen(false); setShortcutOrderId('') }} onSave={submitReceiving} /> : null}
       {action ? <ActionModal action={action} onClose={() => { setAction(null); setShortcutOrderId('') }} onChange={(note) => setAction((current) => ({ ...current, note }))} onConfirm={runAction} /> : null}
     </AppShell>
   )
@@ -404,20 +414,23 @@ export default function PurchaseOrdersPage({ role = 'staff' }) {
 function Summary({ label, value, tone, icon, detail }) { return <article className={`inv-summary-card tone-${tone} po-summary-card`}><span className="inv-summary-icon">{icon}</span><span className="inv-summary-copy"><span>{label}</span><small>{detail}</small></span><b>{value}</b></article> }
 function StatusBadge({ status }) { return <span className={`po-status po-status-${toneFor(status)}`}>{labelFor(status)}</span> }
 
-function PurchaseOrderDrawer({ order, isAdmin, onClose, onEdit, onSubmit, onApprove, onReject, onSend, onReceive, onCancel }) {
+function PurchaseOrderDrawer({ order, isAdmin, onReview, onSettle, onClose, onEdit, onSubmit, onApprove, onReject, onSend, onReceive, onCancel }) {
   const itemPagination = useTablePagination(order.items, order.id)
   const canEdit = !isAdmin && ['draft', 'rejected'].includes(order.status)
   const canSend = order.status === 'approved'
-  const canReceive = !isAdmin && order.status === 'sent'
+  const canReceive = !isAdmin && RECEIVABLE_STATUSES.includes(order.status)
   const canCancel = !isAdmin && ['draft', 'pending_approval', 'approved', 'rejected'].includes(order.status)
   return <><button type="button" className="po-drawer-backdrop" onClick={onClose} aria-label="Close purchase order details" /><aside className="po-drawer" role="dialog" aria-modal="true" aria-label={`Purchase order ${order.po_number}`} onClick={(event) => event.stopPropagation()}>
     <header><button type="button" className="po-close" onClick={onClose} aria-label="Close purchase order"><X size={18} /></button><div className="po-drawer-title"><div><span>Purchase order</span><h2>{order.po_number}</h2></div><StatusBadge status={order.status} /></div></header>
     <div className="po-drawer-body">
-      <div className="po-stage-guidance"><strong>{labelFor(order.status)}</strong><p>{{ draft: 'Staff: complete the order and submit it for approval.', pending_approval: 'Admin: review quantities, estimated costs, and the requested delivery date.', approved: 'Staff or admin: send the approved order to the supplier, then record it as sent.', sent: 'Staff: inspect the delivery. Receive all correct items or report problems and return the order.', closed: 'Delivery completed and inventory restocked.', returned: 'Delivery reported and order closed. No stock was added.', rejected: 'Staff: revise the order using the admin feedback, then resubmit.' }[order.status] || 'Review the activity and documents for this order.'}</p>{order.rejection_reason && <p>Review note: {order.rejection_reason}</p>}</div>
+      <div className="po-stage-guidance"><strong>{labelFor(order.status)}</strong><p>{{ draft: 'Staff: complete the order and submit it for approval.', pending_approval: 'Admin: review quantities, estimated costs, and the requested delivery date.', approved: 'Staff or admin: send the approved order to the supplier, then record it as sent.', sent: 'Staff: inspect the delivery. Receive complete orders or submit item-level issues for admin review.', pending_receiving_review: 'Inventory is unchanged and payment is on hold until admin approval.', approved_for_payment: 'Accepted items are in inventory. Record payment for the accepted amount.', awaiting_replacement: 'Accepted items are in inventory. Check only the outstanding quantities when the replacement arrives.', awaiting_adjustment: 'Accepted items are in inventory. Attach an adjusted invoice or supplier credit before recording payment.', receiving_correction: 'Correct the receiving report using the admin feedback, then resubmit.', receiving_rejected: 'The report was rejected. Review the reason and submit a corrected receiving check.', receiving_information: 'Provide the information requested by the admin and resubmit the report.', completed_with_issues: 'Accepted items were stocked and paid. Delivery issues and decisions are preserved below.', closed: 'Delivery completed and inventory restocked.', returned: 'Delivery reported and order closed. No stock was added.', rejected: 'Staff: revise the order using the admin feedback, then resubmit.' }[order.status] || 'Review the activity and documents for this order.'}</p>{order.rejection_reason && <p>Review note: {order.rejection_reason}</p>}</div>
       <div className="po-detail-grid"><div><span>Supplier</span><b>{order.supplierName}</b></div><div><span>Delivery date</span><b>{dateLabel(order.requestedDeliveryDate)}</b></div><div><span>Created by</span><b>{order.createdByName || '—'}</b></div><div><span>Estimated total</span><b>{money(totalFor(order))}</b></div></div>
       <div className="po-section-heading"><h3>Items</h3><span>{order.items.length} lines</span></div>
       <div className="po-lines"><table><thead><tr><th>Item</th><th>Ordered</th><th>Accepted</th><th>Cost</th></tr></thead><tbody>{itemPagination.pageRows.map((item) => <tr key={item.id}><td><b>{item.item_name}</b><small>{item.unit}</small></td><td>{qty(item.quantityOrdered)}</td><td>{qty(item.acceptedQuantity)}</td><td>{money(item.actualUnitCost === '' ? item.estimatedUnitCost : item.actualUnitCost)}</td></tr>)}</tbody></table></div>
       <TablePagination {...itemPagination} label="Purchase order item pages" />
+      {order.reports?.length ? <ReceivingReview order={order} isAdmin={isAdmin} onReview={onReview} /> : null}
+      {order.reports?.length ? <p className="po-review-meta">Accepted payable amount: <strong>{money(Number(order.payable_amount || 0))}</strong>{order.status === 'pending_receiving_review' ? ' · Payment on hold' : ''}</p> : null}
+      {isAdmin && ['approved_for_payment', 'awaiting_adjustment'].includes(order.status) ? <ReceivingSettlement key={order.status} order={order} onSave={onSettle} /> : null}
       {order.documents?.length ? <div className="po-document-list"><div className="po-section-heading"><h3>Attached documents</h3></div>{Array.from(new Map(order.documents.map((document) => [`${String(document.file_name || '').trim().toLowerCase()}|${String(document.document_type || '').trim().toLowerCase()}`, document])).values()).map((document) => <div key={`${document.file_name}|${document.document_type}`}><DocumentLink document={document} /><small>{document.document_type.replaceAll('_', ' ')}</small></div>)}</div> : null}
       <div className="po-section-heading"><h3>Activity</h3></div>
       <div className="po-events">{order.events.length ? order.events.map((event) => <div key={event.id}><i /><span><b>{event.action}</b><small>{dateTimeLabel(event.created_at)}{event.note ? ` · ${event.note}` : ''}</small></span></div>) : <span>No activity recorded.</span>}</div>
@@ -433,59 +446,114 @@ function PurchaseOrderDrawer({ order, isAdmin, onClose, onEdit, onSubmit, onAppr
   </aside></>
 }
 
-function ReceivingModal({ order, intent, onClose, onSave, onReport }) {
-  const [lines] = useState(order.items.map((item) => ({ ...item })))
+function ReceivingModal({ order, onClose, onSave }) {
+  const correcting = ['receiving_correction', 'receiving_rejected', 'receiving_information'].includes(order.status)
+  const prior = correcting ? order.reports?.[0] : null
+  const [lines, setLines] = useState(() => receivingLines(order))
   const linePagination = useTablePagination(lines, order.id)
-  const [answers, setAnswers] = useState({})
-  const [confirmReport, setConfirmReport] = useState(false)
+  const [answers, setAnswers] = useState(prior?.answers || {})
+  const [reportOpen, setReportOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [notes, setNotes] = useState(prior?.notes || '')
+  const [photos, setPhotos] = useState([])
   const [proof, setProof] = useState([])
   const [invoice, setInvoice] = useState([])
   const [receipt, setReceipt] = useState([])
-  const issues = RECEIVING_CHECKS.filter((_, index) => answers[index] === 'no')
-  const checksComplete = RECEIVING_CHECKS.every((_, index) => answers[index] === 'yes')
-  useEffect(() => {
-    if (!confirmReport) return undefined
-    const dialog = document.querySelector('.po-report-confirm')
-    const previous = document.activeElement
-    const buttons = [...dialog.querySelectorAll('button:not(:disabled)')]
-    buttons[0]?.focus()
-    function onKeyDown(event) {
-      if (event.key === 'Escape') { event.preventDefault(); setConfirmReport(false); return }
-      if (event.key !== 'Tab') return
-      const first = buttons[0], last = buttons[buttons.length - 1]
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
-    }
-    dialog.addEventListener('keydown', onKeyDown)
-    return () => { dialog.removeEventListener('keydown', onKeyDown); if (previous?.isConnected) previous.focus() }
-  }, [confirmReport])
-  async function submit(event) {
-    event.preventDefault()
+  const issueCount = RECEIVING_CHECKS.filter((_, index) => answers[index] === 'no').length
+  const answered = RECEIVING_CHECKS.every((_, index) => ['yes', 'no'].includes(answers[index]))
+  const checksComplete = answered && !issueCount
+  const existing = (type) => (order.documents || []).filter((document) => prior?.document_ids?.includes(document.id) && document.document_type === type)
+  function hasDocuments() { return (proof.length || existing('receiving_proof').length) && (invoice.length || existing('supplier_invoice').length) && (receipt.length || existing('supplier_receipt').length) }
+  async function submit(report) {
+    if (saving) return
     setError('')
-    if (!checksComplete) { setError('Confirm Yes for every delivery check, or report the issues to Admin.'); return }
-    if (!proof.length || !invoice.length || !receipt.length) { const message = 'Upload proof, invoice, and receipt before submitting.'; setError(message); return }
+    if (!hasDocuments()) { setError('Upload proof of delivery, the supplier invoice, and the delivery receipt before submitting.'); return }
+    const submittedLines = report ? lines : lines.map((line) => ({ ...line, receivedQuantity: line.quantityOrdered, selected: false, issues: [] }))
+    const errors = validateReceivingReport(submittedLines, answers, report)
+    if (Object.keys(errors).length) { setError(Object.values(errors)[0]); return }
     setSaving(true)
-    const receivedLines = lines.map((line) => ({ ...line, receivedQuantity: line.quantityOrdered, acceptedQuantity: line.quantityOrdered, damagedQuantity: 0, missingQuantity: 0, actualUnitCost: line.estimatedUnitCost }))
-    try { if (!await onSave(receivedLines, '', { proof, invoice, receipt })) setError('Receiving could not be completed. Check the error and try again.') } finally { setSaving(false) }
+    try { await onSave({ lines: submittedLines, answers, notes, report, documents: { proof, invoice, receipt, photos }, documentIds: prior?.document_ids || [] }) }
+    catch (cause) { setError(describeError(cause, 'Receiving could not be submitted. Your report is still available to retry.')) }
+    finally { setSaving(false) }
   }
+  function upload(label, type, files, onChange) { return <><DocumentUpload label={label} hint="Images or documents · up to 10 MB each" accept={RECEIVING_UPLOAD_ACCEPT} files={files} onChange={onChange} multiple limit={5} required />{existing(type).map((document) => <DocumentLink key={document.id} document={document} />)}</> }
   return <div className="po-modal-backdrop">
-    <section className="po-modal po-receiving-modal po-receiving-guide" role="dialog" aria-modal="true" aria-label={intent === 'report' ? 'Report purchase order delivery issue' : 'Receive purchase order'}>
-      <header><div><h2>{intent === 'report' ? `Report delivery issue for ${order.po_number}` : `Receive delivery for ${order.po_number}`}</h2><p className="po-modal-intro">Check the delivery against the order before adding the items to stock.</p></div><button type="button" onClick={onClose} aria-label="Close"><X size={18} /></button></header>
-      <form onSubmit={submit}>
-        <div className="po-receiving-steps">
-          <div className="po-receiving-step is-active"><b>1</b><span><strong>Review items</strong><small>Compare with the order</small></span></div>
-          <div className="po-receiving-step"><b>2</b><span><strong>Check delivery</strong><small>Answer all questions</small></span></div>
-          <div className="po-receiving-step"><b>3</b><span><strong>Finish</strong><small>Receive or return the order</small></span></div>
-        </div>
-        <div className="po-receive-body-grid"><div className="po-receive-left"><div className="po-receive-items-table-wrap"><table className="po-receive-items-table"><thead><tr><th>Item</th><th>Quantity</th><th>Cost per unit</th><th>Total price</th></tr></thead><tbody>{linePagination.pageRows.map((line) => <tr key={line.id}><td>{line.item_name}</td><td>{qty(line.quantityOrdered)} {line.unit}</td><td>{money(line.estimatedUnitCost)}</td><td>{money(Number(line.quantityOrdered || 0) * Number(line.estimatedUnitCost || 0))}</td></tr>)}</tbody></table></div><TablePagination {...linePagination} label="Receiving item pages" /><div className="po-receive-grand-total"><span>Final total</span><strong>{money(lines.reduce((sum, line) => sum + Number(line.quantityOrdered || 0) * Number(line.estimatedUnitCost || 0), 0))}</strong></div><DocumentUpload label="Proof of items received" hint="Images or documents" accept={RECEIVING_UPLOAD_ACCEPT} files={proof} onChange={setProof} multiple limit={5} required /></div><div className="po-receive-right"><fieldset className="po-receiving-checklist"><legend>Delivery checks</legend>{RECEIVING_CHECKS.map((check, index) => <div className="po-receiving-check" key={check.question}><span>{check.question}</span><div role="group" aria-label={check.question}><button type="button" className={answers[index] === 'yes' ? 'is-selected' : ''} aria-pressed={answers[index] === 'yes'} onClick={() => setAnswers((current) => ({ ...current, [index]: 'yes' }))}>Yes</button><button type="button" className={answers[index] === 'no' ? 'is-selected is-no' : ''} aria-pressed={answers[index] === 'no'} onClick={() => setAnswers((current) => ({ ...current, [index]: 'no' }))}>No</button></div></div>)}</fieldset>{issues.length > 0 ? <p className="po-receiving-report-prompt" role="status">Report to Admin and return this order. No items will be added to stock.</p> : null}<DocumentUpload label="Invoice" hint="Images or documents" accept={RECEIVING_UPLOAD_ACCEPT} files={invoice} onChange={setInvoice} multiple limit={5} required /><DocumentUpload label="Supplier delivery receipt" hint="Images or documents" accept={RECEIVING_UPLOAD_ACCEPT} files={receipt} onChange={setReceipt} multiple limit={5} required /></div></div>
-        {error ? <p className="po-inline-error" role="alert">{error}</p> : null}
-        <footer><button type="button" className="ops-destructive-action" onClick={() => setConfirmReport(true)} disabled={!issues.length || saving}>Report to Admin</button><button type="submit" className="ops-main-action" disabled={!checksComplete || saving}>{saving ? 'Submitting…' : 'Submit as Received'}</button><button type="button" className="ops-secondary-action" onClick={onClose}>Cancel</button></footer>
+    <section className="po-modal po-receiving-modal po-receiving-guide" role="dialog" aria-modal={!reportOpen} aria-label="Receive purchase order" inert={reportOpen || undefined}>
+      <header><div><h2>{order.items.some((item) => item.acceptedQuantity > 0) ? 'Receive replacement' : 'Receive delivery'} for {order.po_number}</h2></div><button type="button" onClick={onClose} disabled={saving} aria-label="Close"><X size={18} /></button></header>
+      <form onSubmit={(event) => { event.preventDefault(); submit(false) }}>
+        {prior?.review_note ? <p className="po-receiving-report-prompt">Admin feedback: {prior.review_note}</p> : null}
+        <div className="po-receive-body-grid"><div className="po-receive-left"><div className="po-receive-items-table-wrap"><table className="po-receive-items-table"><thead><tr><th>Item</th><th>Ordered quantity</th><th>Unit price</th><th>Total price</th></tr></thead><tbody>{linePagination.pageRows.map((line) => <tr key={line.id}><td>{line.item_name}</td><td>{qty(line.quantityOrdered)} {line.unit}</td><td>{money(line.estimatedUnitCost)}</td><td>{money(line.quantityOrdered * line.estimatedUnitCost)}</td></tr>)}</tbody></table></div><TablePagination {...linePagination} label="Receiving item pages" /><div className="po-receive-grand-total"><span>{order.items.some((item) => item.acceptedQuantity > 0) ? 'Outstanding delivery total' : 'Order total'}</span><strong>{money(lines.reduce((sum, line) => sum + line.quantityOrdered * line.estimatedUnitCost, 0))}</strong></div>{upload('Proof of delivery', 'receiving_proof', proof, setProof)}</div>
+        <div className="po-receive-right"><fieldset className="po-receiving-checklist" disabled={saving}><legend>Delivery checks</legend>{RECEIVING_CHECKS.map((check, index) => <div className="po-receiving-check" key={check.question}><span>{check.question}</span><div role="group" aria-label={check.question}>{['yes', 'no'].map((answer) => <button key={answer} type="button" className={answers[index] === answer ? 'is-selected' + (answer === 'no' ? ' is-no' : '') : ''} aria-pressed={answers[index] === answer} onClick={() => setAnswers((current) => ({ ...current, [index]: answer }))}>{answer === 'yes' ? 'Yes' : 'No'}</button>)}</div></div>)}</fieldset>{issueCount ? <p className="po-receiving-report-prompt" role="status">Identify the affected items in Report to Admin. Inventory and payment stay on hold during review.</p> : null}{upload('Supplier invoice', 'supplier_invoice', invoice, setInvoice)}{upload('Supplier delivery receipt', 'supplier_receipt', receipt, setReceipt)}</div></div>
+        {error && !reportOpen ? <p className="po-inline-error" role="alert">{error}</p> : null}
+        <footer><button type="button" className="ops-destructive-action" disabled={!answered || !issueCount || saving} onClick={() => { setError(''); setReportOpen(true) }}>Report to Admin</button><button type="submit" className="ops-main-action" disabled={!checksComplete || saving}>{saving ? 'Submitting…' : 'Submit as Received'}</button><button type="button" className="ops-secondary-action" onClick={onClose} disabled={saving}>Cancel</button></footer>
       </form>
     </section>
-    {confirmReport ? <div className="po-report-confirm-backdrop"><section className="po-modal po-report-confirm" role="dialog" aria-modal="true" aria-labelledby="po-report-confirm-title"><header><div><span>{order.po_number}</span><h2 id="po-report-confirm-title">Return this order?</h2></div><button type="button" onClick={() => setConfirmReport(false)} aria-label="Close confirmation"><X size={18} /></button></header><div className="po-report-confirm-body"><ul>{issues.map((issue) => <li key={issue.question}>{issue.issue}</li>)}</ul><p>Admin will be notified. The order will close as Returned and no stock will be added.</p></div>{error ? <p className="po-inline-error" role="alert">{error}</p> : null}<footer><button type="button" className="ops-secondary-action" onClick={() => setConfirmReport(false)} disabled={saving}>Back to review</button><button type="button" className="ops-destructive-action" disabled={saving} onClick={async () => { setSaving(true); setError(''); try { const reported = await onReport(issues); if (reported) setConfirmReport(false); else setError('Report could not be sent. Try again.') } finally { setSaving(false) } }}>{saving ? 'Sending…' : 'Confirm return'}</button></footer></section></div> : null}
+    {reportOpen ? <PurchaseReceivingReport order={order} lines={lines} onChange={setLines} answers={answers} notes={notes} onNotes={setNotes} photos={photos} onPhotos={setPhotos} onBack={() => { setReportOpen(false); setError('') }} onSubmit={() => submit(true)} saving={saving} error={error} /> : null}
   </div>
+}
+
+function ReceivingReportSnapshot({ report, documents }) {
+  return <><p className="po-review-meta">{report.submitted_profile?.full_name || 'Staff'} · {dateTimeLabel(report.submitted_at)} · {report.status.replaceAll('_', ' ')}</p>
+    <ul>{RECEIVING_CHECKS.filter((_, index) => report.answers[index] === 'no').map((check) => <li key={check.question}>{check.question} <strong>No</strong></li>)}</ul>
+    <table><thead><tr><th>Item</th><th>Ordered / received</th><th>Issue qty / reason</th></tr></thead><tbody>{report.lines.map((line) => <tr key={line.id}><td>{line.item_name}<small>{money(line.estimatedUnitCost)} / {line.unit}</small></td><td>{qty(line.quantityOrdered)} / {qty(line.receivedQuantity)} {line.unit}</td><td>{line.issues.length ? line.issues.map((issue, index) => <div key={index}>{qty(issue.quantity)} {line.unit} · {ISSUE_LABELS[issue.type]}</div>) : 'Accepted'}</td></tr>)}</tbody></table>
+    <ReceivingValues values={{ orderTotal: Number(report.order_total), acceptedValue: Number(report.accepted_value), returnValue: Number(report.return_value), missingValue: Number(report.missing_value), notReceivedValue: Number(report.not_received_value) }} replacement={report.previous_status === 'awaiting_replacement'} />
+    {report.notes ? <p>Staff note: {report.notes}</p> : null}
+    {documents.filter((document) => report.document_ids?.includes(document.id)).map((document) => <div key={document.id}><DocumentLink document={document} /></div>)}
+    {report.reviewed_at ? <p className="po-review-meta">{report.reviewed_profile?.full_name || 'System'} · {dateTimeLabel(report.reviewed_at)}{report.review_note ? ' · ' + report.review_note : ''}{report.replacement_expected ? ' · Replacement expected' : ''}</p> : null}
+  </>
+}
+
+function ReceivingReview({ order, isAdmin, onReview }) {
+  const report = order.reports[0]
+  const [decision, setDecision] = useState('approve')
+  const [note, setNote] = useState('')
+  const [replacement, setReplacement] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function submit(event) {
+    event.preventDefault()
+    if (busy) return
+    setBusy(true); setError('')
+    try { await onReview(report.id, decision, note, replacement === 'yes') }
+    catch (cause) { setError(describeError(cause, 'Review could not be saved.')) }
+    finally { setBusy(false) }
+  }
+  return <section className="po-review-card"><h3>Receiving report</h3><ReceivingReportSnapshot report={report} documents={order.documents} />
+    {report.status === 'pending' ? <p className="po-report-approval-note"><AlertTriangle size={17} /> Inventory unchanged. Payment on hold. Returns await approval.</p> : null}
+    {isAdmin && report.status === 'pending' && order.status === 'pending_receiving_review' ? <form className="po-review-fields" onSubmit={submit}>
+      <label>Admin decision<select value={decision} onChange={(event) => setDecision(event.target.value)} disabled={busy}><option value="approve">Approve report</option><option value="correct">Return for correction</option><option value="reject">Reject with reason</option><option value="information">Request more information</option></select></label>
+      {decision === 'approve' ? <label>Will the supplier replace the affected quantities?<select value={replacement} onChange={(event) => setReplacement(event.target.value)} required disabled={busy}><option value="">Select replacement plan</option><option value="yes">Yes, await replacement</option><option value="no">No, require an adjusted invoice or credit</option></select></label> : null}
+      <label>{decision === 'information' ? 'Information needed' : decision === 'approve' ? 'Review note (optional)' : 'Reason'}<textarea rows="3" maxLength={3000} value={note} onChange={(event) => setNote(event.target.value)} required={decision !== 'approve'} disabled={busy} /></label>
+      {error ? <p className="po-inline-error" role="alert">{error}</p> : null}<button type="submit" className="ops-main-action" disabled={busy || (decision !== 'approve' && !note.trim())}>{busy ? 'Saving…' : decision === 'approve' ? 'Approve and accept quantities' : 'Save review decision'}</button>
+    </form> : null}
+    {order.reports.slice(1).map((older) => <details className="po-report-history" key={older.id}><summary>Previous delivery · {dateTimeLabel(older.submitted_at)}</summary><ReceivingReportSnapshot report={older} documents={order.documents} /></details>)}
+  </section>
+}
+
+function ReceivingSettlement({ order, onSave }) {
+  const [reference, setReference] = useState('')
+  const [adjustment, setAdjustment] = useState([])
+  const [payment, setPayment] = useState([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const amount = Number(order.payable_amount || 0)
+  const needsAdjustment = order.status === 'awaiting_adjustment'
+  async function submit(event) {
+    event.preventDefault()
+    if (busy) return
+    if ((needsAdjustment && !adjustment.length) || (amount > 0 && !payment.length)) { setError('Attach the required settlement documents.'); return }
+    setBusy(true); setError('')
+    try { await onSave(amount, reference, [...adjustment.map((file) => ['adjusted_invoice', file]), ...payment.map((file) => ['payment_receipt', file])]) }
+    catch (cause) { setError(describeError(cause, 'Settlement could not be recorded.')) }
+    finally { setBusy(false) }
+  }
+  return <section className="po-review-card"><h3>Record payment</h3><p>Amount payable: <strong>{money(amount)}</strong>. Record settlement after paying the supplier.</p><form className="po-review-fields" onSubmit={submit}>
+    {needsAdjustment ? <DocumentUpload label="Adjusted invoice or supplier credit" files={adjustment} onChange={setAdjustment} accept={RECEIVING_UPLOAD_ACCEPT} required /> : null}
+    {amount > 0 ? <DocumentUpload label="Proof of payment" files={payment} onChange={setPayment} accept={RECEIVING_UPLOAD_ACCEPT} required /> : null}
+    <label>Payment or settlement reference<input value={reference} onChange={(event) => setReference(event.target.value)} maxLength={200} required disabled={busy} /></label>
+    {error ? <p className="po-inline-error" role="alert">{error}</p> : null}<button className="ops-main-action" type="submit" disabled={busy || !reference.trim()}>{busy ? 'Saving…' : amount > 0 ? 'Record payment and complete' : 'Record credit and complete'}</button>
+  </form></section>
 }
 
 function FilePreview({ file }) {
@@ -503,8 +571,10 @@ function DocumentUpload({ label, hint, files = [], onChange, accept = 'image/*,a
   }
   return <section className="po-upload-card">
     <div className="po-upload-heading"><span>{label}{required ? ' *' : ''}</span>{multiple ? <small>{files.length}/{limit}</small> : null}</div>
-    {files.length ? <div className="po-upload-files">{files.map((file, index) => <div className="po-upload-file" key={`${file.name}-${file.lastModified}-${index}`}><FilePreview file={file} /><span><b>{file.name}</b><small>{(file.size / 1024 / 1024).toFixed(1)} MB</small></span><button type="button" onClick={() => onChange(files.filter((_, fileIndex) => fileIndex !== index))} aria-label={`Remove ${file.name}`}><Trash2 size={16} /></button></div>)}</div> : null}
-    {files.length < limit ? <label className="po-upload-drop" htmlFor={inputId}><ImagePlus size={24} aria-hidden="true" /><span><b>{files.length ? 'Add another file' : 'Choose a file'}</b><small>{hint}</small></span><input id={inputId} className="po-upload-input" type="file" accept={accept} multiple={multiple} onChange={selectFiles} /></label> : null}
+    <div className="po-upload-files">
+      {files.map((file, index) => <div className="po-upload-file" key={`${file.name}-${file.lastModified}-${index}`}><FilePreview file={file} /><span><b>{file.name}</b><small>{(file.size / 1024 / 1024).toFixed(1)} MB</small></span><button type="button" onClick={() => onChange(files.filter((_, fileIndex) => fileIndex !== index))} aria-label={`Remove ${file.name}`}><Trash2 size={16} /></button></div>)}
+      {files.length < limit ? <label className="po-upload-drop" htmlFor={inputId}><ImagePlus size={24} aria-hidden="true" /><span><b>{files.length ? 'Add another file' : 'Choose a file'}</b><small>{hint}</small></span><input id={inputId} className="po-upload-input" type="file" accept={accept} multiple={multiple} onChange={selectFiles} /></label> : null}
+    </div>
   </section>
 }
 

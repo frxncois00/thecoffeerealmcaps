@@ -16,7 +16,7 @@ function purchaseUnitFactor(baseUnit, purchaseUnit) {
 export async function fetchPurchaseOrders(createdBy = null) {
   let query = supabase
     .from('purchase_orders')
-    .select('*,created_by_profile:profiles!purchase_orders_created_by_fkey(full_name),purchase_order_items(*),purchase_order_events(id,from_status,to_status,action,note,created_by,created_at,profiles(full_name)),purchase_order_documents(*)')
+    .select('*,created_by_profile:profiles!purchase_orders_created_by_fkey(full_name),purchase_order_items(*),purchase_order_events(id,from_status,to_status,action,note,created_by,created_at,profiles(full_name)),purchase_order_documents(*),purchase_order_receiving_reports(*,submitted_profile:profiles!purchase_order_receiving_reports_submitted_by_fkey(full_name),reviewed_profile:profiles!purchase_order_receiving_reports_reviewed_by_fkey(full_name))')
     .order('updated_at', { ascending: false })
   if (createdBy) query = query.eq('created_by', createdBy)
   const { data, error } = await query
@@ -88,27 +88,21 @@ export async function markPurchaseOrderSent(id, supplierReference = '') {
   if (error) throw error
 }
 
-export async function receivePurchaseOrder(id, lines, receivingNotes = '') {
-  const { error } = await supabase.rpc('submit_purchase_order_receiving', {
-    p_id: id,
-    p_lines: lines.map((line) => ({
-      id: line.id,
-      received_quantity: Number(line.receivedQuantity || 0),
-      accepted_quantity: Number(line.acceptedQuantity || 0),
-      damaged_quantity: Number(line.damagedQuantity || 0),
-      missing_quantity: Number(line.missingQuantity || 0),
-      actual_unit_cost: line.actualUnitCost === '' ? null : Number(line.actualUnitCost),
-      batch_number: line.batchNumber || null,
-      expiration_date: line.expirationDate || null,
-      receiving_notes: line.receivingNotes || null,
-    })),
-    p_receiving_notes: receivingNotes || null,
+export async function submitPurchaseOrderDelivery(id, { lines, answers, notes = '', documentIds, report }) {
+  const { error } = await supabase.rpc('submit_purchase_order_delivery', {
+    p_id: id, p_lines: lines.map((line) => ({ id: line.id, receivedQuantity: Number(line.receivedQuantity), selected: line.selected, issues: line.issues.map((issue) => ({ type: issue.type, quantity: Number(issue.quantity) })) })),
+    p_answers: answers, p_notes: notes || null, p_document_ids: documentIds, p_report: report,
   })
   if (error) throw error
 }
 
-export async function reportPurchaseOrderIssue(id, reason, resolution, note = '') {
-  const { error } = await supabase.rpc('report_purchase_order_issue', { p_id: id, p_reason: reason, p_resolution: resolution, p_note: note || null })
+export async function reviewPurchaseOrderDelivery(id, reportId, decision, note, replacement) {
+  const { error } = await supabase.rpc('decide_purchase_order_receiving', { p_id: id, p_report_id: reportId, p_decision: decision, p_note: note || null, p_replacement: replacement })
+  if (error) throw error
+}
+
+export async function settlePurchaseOrderDelivery(id, amount, reference, documentIds) {
+  const { error } = await supabase.rpc('settle_purchase_order_delivery', { p_id: id, p_amount: amount, p_reference: reference, p_document_ids: documentIds })
   if (error) throw error
 }
 
@@ -157,6 +151,7 @@ function normalizePurchaseOrder(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     documents: row.purchase_order_documents || [],
+    reports: (row.purchase_order_receiving_reports || []).sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at)),
     items: (row.purchase_order_items || []).map((item) => ({
       ...item,
       itemType: item.item_type,
