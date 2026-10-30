@@ -46,6 +46,19 @@ const createCoffeePinIcon = () =>
 const hasExactAddressDetails = value =>
   /(?:\b\d+[a-z]?(?:[-/]\d+[a-z]?)?\b|\b(?:house|bldg|building|block|blk|lot|unit|room|floor|flr)\b)/i.test(String(value || ''))
 
+const exactPremisePrefix = value => {
+  const text = String(value || '').trim()
+  const labeled = text.match(/^((?:(?:house|bldg|building|block|blk|lot|unit|room|floor|flr)\.?\s*[a-z0-9-]+(?:\s+|,\s*)?)+)/i)
+  if (labeled) return labeled[1].trim().replace(/,$/, '')
+  return text.match(/^(\d+[a-z]?(?:[-/]\d+[a-z]?)?)(?=\s|,)/i)?.[1] || ''
+}
+
+const withPremise = (premise, street) => {
+  const cleanStreet = String(street || '').trim()
+  if (!premise || !cleanStreet || cleanStreet.toLowerCase().startsWith(premise.toLowerCase())) return cleanStreet
+  return `${premise}, ${cleanStreet}`
+}
+
 const withBarangay = (street, barangay) => {
   const cleanStreet = String(street || '').trim().replace(/,?\s*(?:brgy\.?|barangay)\s+[^,]+$/i, '')
   return [cleanStreet, barangay && `Brgy. ${barangay}`].filter(Boolean).join(', ')
@@ -108,7 +121,8 @@ export default function DeliveryLocationPicker({
         markerRef.current.setLatLng([lat, lng])
       }
 
-      onCoordinatesChange?.(null)
+      // Keep checkout distance and fee responsive while the address lookup runs.
+      onCoordinatesChange?.({ lat, lng })
       setIsReverseGeocoding(true)
 
       const result = await reverseGeocodeCoords(lat, lng)
@@ -137,8 +151,8 @@ export default function DeliveryLocationPicker({
           }
         }
 
-        const detailedInput = hasExactAddressDetails(searchQuery) ? searchQuery : ''
-        const formattedAddress = withBarangay(detailedInput || result.street, result.barangay)
+        const premise = exactPremisePrefix(searchQuery)
+        const formattedAddress = withBarangay(withPremise(premise, result.street), result.barangay)
 
         if (formattedAddress) {
           isInternalUpdate.current = true
