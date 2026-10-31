@@ -768,9 +768,18 @@ export function OrderReviewPage(){
       }
       let order=createdOrder
       if(!order){
-        const response=await createCustomerOrderWithBenefitDiscount({request_key:requestKey,apply_benefit_discount:applyBenefitDiscount,benefit_type:form.benefitType||null,benefit_confirmation:Boolean(form.benefitConfirmed),customer:{...checkoutForm},items:items.map(item=>({product_id:item.productId,variation_id:item.variation?.id,temperature:normalizeOrderTemperature(item.temperature),addon_ids:(item.addons||[]).map(addon=>addon.id),quantity:item.quantity,special_instructions:item.instructions})),fulfillment_method:form.fulfillment,rider_booking:form.riderBooking||'staff',delivery_quote_id:checkoutForm.deliveryQuoteId||null,payment_method:form.payment==='xendit'?'paymongo':form.payment})
+        const orderPayload=key=>({request_key:key,apply_benefit_discount:applyBenefitDiscount,benefit_type:form.benefitType||null,benefit_confirmation:Boolean(form.benefitConfirmed),customer:{...checkoutForm},items:items.map(item=>({product_id:item.productId,variation_id:item.variation?.id,temperature:normalizeOrderTemperature(item.temperature),addon_ids:(item.addons||[]).map(addon=>addon.id),quantity:item.quantity,special_instructions:item.instructions})),fulfillment_method:form.fulfillment,rider_booking:form.riderBooking||'staff',delivery_quote_id:checkoutForm.deliveryQuoteId||null,payment_method:form.payment==='xendit'?'paymongo':form.payment})
+        let response=await createCustomerOrderWithBenefitDiscount(orderPayload(requestKey))
+        let responseOrder=Array.isArray(response)?response[0]:response
+        const staleStatus=String(responseOrder?.status||'').trim().toLowerCase()
+        if(staleStatus==='cancelled'||staleStatus==='canceled'||Boolean(responseOrder?.payment_confirmed)||String(responseOrder?.payment_status||'').toLowerCase()==='paid'){
+          const freshRequestKey=crypto.randomUUID()
+          writeCheckoutDraft(sessionCheck.user.id,{...(savedDraft||{}),form:checkoutForm,requestKey:freshRequestKey})
+          response=await createCustomerOrderWithBenefitDiscount(orderPayload(freshRequestKey))
+          responseOrder=Array.isArray(response)?response[0]:response
+        }
         const confirmedPricing={...pricingSnapshot,delivery_fee:Number(checkoutForm.deliveryFee||0)}
-        order=mergePlacedOrderData({order:Array.isArray(response)?response[0]:response,form:checkoutForm,items,total:subtotal+Number(checkoutForm.deliveryFee||0)-discount,pricingSnapshot:confirmedPricing})
+        order=mergePlacedOrderData({order:responseOrder,form:checkoutForm,items,total:subtotal+Number(checkoutForm.deliveryFee||0)-discount,pricingSnapshot:confirmedPricing})
         setCreatedOrder(order)
       }
       const orderId=order.order_id||order.id
@@ -827,7 +836,7 @@ export function OrderReviewPage(){
           <article><div><span>Estimated preparation time</span><b>{(()=>{const estimate=cartPreparationRange(items,prepProducts);return estimate?`${estimate.min}–${estimate.max} min`:'Being confirmed'})()}</b></div></article>
           {form.estimatedDeliveryTime&&<article><div><span>Estimated travel time</span><b>{form.estimatedDeliveryTime}</b></div></article>}
           <article><div><span>Payment method</span><b>{paymentMethodLabel(form.payment)}</b></div><button type="button" onClick={editCheckout}>Edit</button></article>
-          {form.payment!=='cod'&&<article><div><span>Payment proof</span><b>{paymentProof?.name||'Upload required'}</b><small>Reference: {form.paymentReference}</small></div><button type="button" onClick={editCheckout}>Edit</button></article>}
+          {!['cod','xendit'].includes(form.payment)&&<article><div><span>Payment proof</span><b>{paymentProof?.name||'Upload required'}</b><small>Reference: {form.paymentReference}</small></div><button type="button" onClick={editCheckout}>Edit</button></article>}
         </div>
         {discount>0&&<p className="review-benefit-note">{benefitDiscountType} discount selected. Present the original valid ID upon {form.fulfillment==='delivery'?'delivery':'pickup'}.</p>}
       </section>
