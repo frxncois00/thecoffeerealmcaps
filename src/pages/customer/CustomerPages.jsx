@@ -17,7 +17,7 @@ import { useAvailableQuantity } from '../../hooks/useAvailableQuantity'
 import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
 import { usePricing } from '../../context/usePricing'
-import { createCustomerOrderWithBenefitDiscount, createXenditCheckout, verifyXenditPayment, fetchAddresses, createAddress, updateAddress, saveAddressCoordinates, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, checkCustomerPaymentReference, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
+import { createCustomerOrderWithBenefitDiscount, createXenditCheckout, verifyXenditPayment, cancelPaymongoCheckout, fetchAddresses, createAddress, updateAddress, saveAddressCoordinates, deleteAddress, setDefaultAddress, saveProfile, deleteCustomerAccount, fetchCustomerAccountDeletionEligibility, uploadPaymentProof, checkCustomerPaymentReference, fetchCustomerOrders, fetchCustomerOrder, cancelCustomerOrder, getCustomerPaymentProofUrl, fetchOrderFeedback, submitOrderFeedback, fetchAddonNameMap, PROFILE_PICTURE_ACCEPT, validateProfilePicture } from '../../services/customerService'
 import RealmPassportProfileLink, { RealmIdProfileField } from '../../components/customer/RealmPassportProfileLink'
 import { deliveryAreas } from '../../data/deliveryAreas'
 import { money } from '../../utils/money'
@@ -267,7 +267,7 @@ const emptyCheckoutForm=()=>({fullName:'',email:'',contact:'',fulfillment:'deliv
 const savedAddressCoordinates=address=>{if(address?.latitude==null||address?.longitude==null||address.latitude===''||address.longitude==='')return null;const lat=Number(address.latitude),lng=Number(address.longitude);return Number.isFinite(lat)&&Number.isFinite(lng)?{lat,lng}:null}
 const customerPaymentMethods=payments=>Array.from(new Set((payments?.enabledMethods||[]).map(method=>['paymongo','qrph'].includes(method)?'xendit':method)))
 export function CheckoutPage(){
-  const cart=useCart();const {items,subtotal}=cart;const {user,profile}=useAuth();const {pricing}=usePricing();const navigate=useNavigate();
+  const cart=useCart();const {items,subtotal}=cart;const {user,profile}=useAuth();const {pricing}=usePricing();const navigate=useNavigate();const [searchParams]=useSearchParams();
   const [submitError,setSubmitError]=useState('');
   const {products:prepProducts}=useMenuCatalog();
   const prepMinutes=cartPreparationRange(items,prepProducts)?.max||30;
@@ -296,6 +296,26 @@ export function CheckoutPage(){
   },[quoteKey,form.barangay,addressMode]);
   const activeQuote=deliveryQuote?.key===quoteKey&&Date.parse(deliveryQuote.expires_at)>scheduleNow?deliveryQuote:null;
   useEffect(()=>{if(!user?.id)return;const draft=readCheckoutDraft(user.id);if(draft){setForm({...emptyCheckoutForm(),...draft.form,scheduleDate:draft.form?.scheduleDate||manilaDate(),scheduleTime:draft.form?.scheduleTime||manilaCurrentTime()});setAddressMode(['saved','new'].includes(draft.addressMode)?draft.addressMode:'new');setSelectedAddress(String(draft.selectedAddress||''));setRequestKey(draft.requestKey||crypto.randomUUID())}else{setAddressMode('loading')}setDraftReady(true)},[user?.id]);
+  useEffect(()=>{
+    const cancelledOrderId=searchParams.get('paymongo')==='cancel'?searchParams.get('order_id'):''
+    if(!draftReady||!user?.id||!cancelledOrderId)return
+    let active=true
+    const resetAttempt=async()=>{
+      try{
+        const result=await cancelPaymongoCheckout({orderId:cancelledOrderId})
+        if(!active)return
+        if(result?.paid){navigate(`/checkout/paymongo/success?order_id=${encodeURIComponent(cancelledOrderId)}`,{replace:true});return}
+        setRequestKey(crypto.randomUUID())
+        window.sessionStorage.removeItem('paymongo:last-order-id')
+        setSubmitError('QrPH payment was not completed. The order was cancelled; you can try again below.')
+        navigate('/checkout',{replace:true})
+      }catch(cause){
+        if(active)setSubmitError(describeError(cause,'Payment was not completed. Please try again.'))
+      }
+    }
+    void resetAttempt()
+    return()=>{active=false}
+  },[draftReady,navigate,searchParams,user?.id])
   useEffect(()=>{if(!draftReady)return;setForm(current=>{const targetDate=current.fulfillment==='delivery'&&Boolean(systemSettings.ordering?.allowDeliveryTomorrow)&&current.scheduleDate===manilaDate(1)?manilaDate(1):manilaDate();return {...current,scheduleDate:targetDate,postal:''}})},[draftReady,systemSettings.ordering]);
   useEffect(()=>{if(!draftReady||!user?.id||addressMode==='loading')return undefined;const timeout=window.setTimeout(()=>writeCheckoutDraft(user.id,{form,addressMode,selectedAddress,requestKey}),120);return()=>window.clearTimeout(timeout)},[addressMode,draftReady,form,requestKey,selectedAddress,user?.id]);
   useEffect(()=>{setForm(current=>({...current,fullName:current.fullName||profile?.full_name||profile?.name||'',email:current.email||profile?.email||user?.email||'',contact:current.contact||normalizePhone(profile?.contact_number||profile?.phone||'')}))},[profile,user]);
@@ -822,7 +842,6 @@ export function OrderReviewPage(){
 export function XenditSuccessPage(){
   const [searchParams]=useSearchParams();const orderId=searchParams.get('order_id')||window.sessionStorage.getItem('paymongo:last-order-id')||'';const navigate=useNavigate();const {clearCart}=useCart();const {user}=useAuth();const [order,setOrder]=useState(null);const [loading,setLoading]=useState(true);const [error,setError]=useState('');
   useEffect(()=>{
-    if(user?.id)clearCheckoutDraft(user.id)
     if(!orderId){clearCart();setLoading(false);return undefined}
     let active=true;let cleared=false;let attempts=0
     const load=async()=>{
@@ -833,7 +852,8 @@ export function XenditSuccessPage(){
         if(!active)return
         if(next){
           setOrder(next)
-          if(!cleared){clearCart();window.sessionStorage.removeItem('paymongo:last-order-id');cleared=true}
+          const paymentIsPaid=Boolean(next.payment_confirmed)||String(next.payment_status||'').toLowerCase()==='paid'||String(next.payments?.[0]?.status||'').toLowerCase()==='paid'
+          if(paymentIsPaid&&!cleared){clearCart();if(user?.id)clearCheckoutDraft(user.id);window.sessionStorage.removeItem('paymongo:last-order-id');cleared=true}
         }
       }catch(cause){
         if(active)setError(describeError(cause,'Could not load the payment result.'))

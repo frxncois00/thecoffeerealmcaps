@@ -109,6 +109,16 @@ export async function verifyXenditPayment({orderId}){
     return {paid:false,error:err?.message}
   }
 }
+export async function cancelPaymongoCheckout({orderId}){
+  if(!isSupabaseConfigured)return {cancelled:false}
+  const {data,error}=await supabase.functions.invoke('create-paymongo-checkout',{body:{action:'cancel',order_id:orderId}})
+  if(error){
+    let message=error.message||'Could not cancel the QrPH checkout.'
+    try{const body=await error.context?.json();message=body?.error||message}catch{/* Keep the original function error. */}
+    throw new Error(message)
+  }
+  return data||{cancelled:false}
+}
 export async function fetchCustomerBenefitApplication(customerId){if(!customerId)return null;const {data,error}=await supabase.from('benefit_applications').select('status,kind').eq('customer_id',customerId).maybeSingle();if(error)throw error;return data}
 
 export async function uploadPaymentProof({orderId,userId,file,referenceNumber}){

@@ -88,6 +88,38 @@ Deno.serve(async (request) => {
     const payment = (order.payments || []).find((entry: { method?: string }) => ["paymongo", "qrph"].includes(entry.method || "")) || order.payments?.[0];
     if (!payment?.id) return json({ error: "The order payment record is unavailable." }, 409);
 
+    if (action === "cancel") {
+      if (order.payment_confirmed || order.payment_status === "paid" || payment.status === "paid") {
+        return json({ success: true, paid: true, cancelled: false, order_id: order.id });
+      }
+
+      if (payment.provider_checkout_session_id) {
+        const verifyRes = await fetch(`https://api.paymongo.com/v1/checkout_sessions/${payment.provider_checkout_session_id}`, {
+          headers: { Accept: "application/json", Authorization: basicAuth(paymongoSecretKey) },
+        });
+        if (verifyRes.ok) {
+          const verifyBody = await verifyRes.json();
+          const paidPayment = paidCheckoutPayment(verifyBody?.data, payment.provider_checkout_session_id, checkoutMinorUnits(payment.amount_due), paymongoEnvironment === "live");
+          if (paidPayment) return json({ success: true, paid: true, cancelled: false, order_id: order.id });
+        }
+      }
+
+      const now = new Date().toISOString();
+      const { error: cancelPaymentError } = await admin.from("payments").update({
+        status: "failed",
+        provider_status: "cancelled",
+      }).eq("id", payment.id).neq("status", "paid");
+      if (cancelPaymentError) throw cancelPaymentError;
+      const { error: cancelOrderError } = await admin.from("orders").update({
+        status: "Cancelled",
+        payment_status: "failed",
+        payment_confirmed: false,
+        updated_at: now,
+      }).eq("id", order.id).eq("payment_confirmed", false);
+      if (cancelOrderError) throw cancelOrderError;
+      return json({ success: true, paid: false, cancelled: true, order_id: order.id });
+    }
+
     // If verify action was requested: query PayMongo directly for session payment status
     if (action === "verify") {
       if (order.payment_confirmed || order.payment_status === "paid" || payment.status === "paid") {
