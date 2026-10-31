@@ -7,6 +7,7 @@ supabase/.temp/
 
 # local tooling artifacts
 .codex-dev.err
+.codex-dev.out
 .claude/settings.local.json
 /tmp/
 /%SystemDrive%/

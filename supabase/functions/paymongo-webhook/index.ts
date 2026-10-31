@@ -46,11 +46,11 @@ async function signatureIsValid(rawBody: string, header: string) {
   if (!webhookSecret || !header) return false;
   const values = parseSignature(header);
   const timestamp = String(values.t || "");
-  const testSignature = String(values.te || "");
-  if (!/^\d+$/.test(timestamp) || !testSignature) return false;
+  const signatures = [String(values.te || ""), String(values.li || "")].filter(Boolean);
+  if (!/^\d+$/.test(timestamp) || !signatures.length) return false;
   if (Math.abs(Math.floor(Date.now() / 1000) - Number(timestamp)) > 300) return false;
   const expected = await hmac(`${timestamp}.${rawBody}`, webhookSecret);
-  return safeEqual(expected, testSignature);
+  return signatures.some((signature) => safeEqual(expected, signature));
 }
 
 Deno.serve(async (request) => {
@@ -77,8 +77,6 @@ Deno.serve(async (request) => {
   const session = ((event.data || attributes.data || {}) as Record<string, unknown>);
   const sessionAttributes = (session.attributes || {}) as Record<string, unknown>;
   const livemode = event.livemode ?? attributes.livemode ?? sessionAttributes.livemode;
-  if (livemode === true) return json({ error: "Live events are disabled for this test integration." }, 400);
-
   const sessionId = String(session.id || "");
   const payments = Array.isArray(sessionAttributes.payments) ? sessionAttributes.payments as Record<string, unknown>[] : [];
   const paidPayment = payments.find((entry) => String((entry.attributes as Record<string, unknown> | undefined)?.status || "") === "paid");
@@ -95,8 +93,15 @@ Deno.serve(async (request) => {
   if (paymentError) throw paymentError;
 
   if (!payment) return json({ received: true, ignored: true, reason: "Unknown checkout session." });
-  if (payment.status === "paid") return json({ received: true, already_processed: true });
-  if (!paidPayment || paidAttributes.currency !== "PHP" || !receivedAmount || receivedAmount !== Math.round(Number(payment.amount_due || 0) * 100)) {
+  if (payment.status === "paid") {
+    if (["Pending Confirmation", "Awaiting Payment Verification", "Order Received"].includes(String(payment.orders?.status || ""))) {
+      const { error: statusError } = await admin.from("orders").update({ status: "Preparing", updated_at: new Date().toISOString() }).eq("id", payment.order_id);
+      if (statusError) throw statusError;
+    }
+    return json({ received: true, already_processed: true });
+  }
+  const expectedAmount = Math.max(100, Math.round(Number(payment.amount_due || 0) * 100));
+  if (!paidPayment || paidAttributes.currency !== "PHP" || !receivedAmount || receivedAmount !== expectedAmount) {
     console.error("[paymongo-webhook] amount mismatch", { sessionId, receivedAmount, expected: payment.amount_due });
     return json({ error: "Payment amount does not match the order." }, 422);
   }
@@ -120,17 +125,14 @@ Deno.serve(async (request) => {
   }).eq("id", payment.id);
   if (paymentUpdateError) throw paymentUpdateError;
 
+  const shouldPrepare = ["Pending Confirmation", "Awaiting Payment Verification", "Order Received"].includes(String(payment.orders?.status || ""));
   const { error: orderUpdateError } = await admin.from("orders").update({
     payment_status: "paid",
     payment_confirmed: true,
+    ...(shouldPrepare ? { status: "Preparing" } : {}),
     updated_at: now,
   }).eq("id", payment.order_id);
   if (orderUpdateError) throw orderUpdateError;
-
-  if (["Pending Confirmation", "Awaiting Payment Verification", "Order Received"].includes(String(payment.orders?.status || ""))) {
-    const { error: statusError } = await admin.from("orders").update({ status: "Order Received", updated_at: now }).eq("id", payment.order_id);
-    if (statusError) throw statusError;
-  }
 
   return json({ received: true, order_id: payment.order_id, payment_id: providerPaymentId || sessionId });
 });

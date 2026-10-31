@@ -71,15 +71,15 @@ function paymentMethodLabel(method) {
   return method === 'cash' ? 'Cash'
     : method === 'cod' ? 'Cash on Delivery'
       : method === 'bank_transfer' ? 'Bank Transfer'
-        : ['qrph', 'paymongo', 'xendit'].includes(method) ? 'Xendit'
+        : ['qrph', 'paymongo', 'xendit'].includes(method) ? 'QrPH'
             : 'GCash'
 }
 function paymentStatusLabel(order) {
   const method = paymentMethod(order)
   const paid = paymentIsConfirmed(order)
   if (method === 'cod') return paid ? 'Paid' : 'Pay upon delivery'
-  if (paid) return isHostedPaymentMethod(method) ? 'Verified via Xendit' : 'Verified'
-  return isHostedPaymentMethod(method) ? 'Awaiting Xendit payment' : 'Pending verification'
+  if (paid) return isHostedPaymentMethod(method) ? 'Verified via QrPH' : 'Verified'
+  return isHostedPaymentMethod(method) ? 'Awaiting QrPH payment' : 'Pending verification'
 }
 function itemCount(order) {
   return (order.order_items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0)
@@ -207,7 +207,7 @@ function mainActionFor(order) {
   if (stage === 'pending') {
     if (method === 'cod') return { label: 'Confirm Order', next: null, kind: 'confirm' }
     if (paymentIsConfirmed(order)) return { label: 'Confirm Order', next: null, kind: 'confirm' }
-    if (isHostedPaymentMethod(method)) return { label: 'Awaiting Xendit payment', next: null, kind: 'waiting', disabled: true, disabledReason: 'The order will unlock automatically after Xendit confirms the payment.' }
+    if (isHostedPaymentMethod(method)) return { label: 'Awaiting QrPH payment', next: null, kind: 'waiting', disabled: true, disabledReason: 'The order will unlock automatically after QrPH confirms the payment.' }
     return { label: 'Verify Payment', next: null, kind: 'confirm', disabled: !order.payment_proof_path, disabledReason: 'Waiting for the customer to upload payment proof.' }
   }
   // The stored ready state is shared by pickup and delivery orders.
@@ -739,7 +739,7 @@ export default function OrderPreparationPage() {
           <span className="sr-only">Search orders</span>
           <input value={search} onChange={(e) => setSearch(e.target.value.slice(0, 100))} maxLength={100} placeholder="Search order number or customer name" />
         </label>
-        <label className="ops-toolbar-field"><span>Payment method</span><select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}><option value="all">All methods</option><option value="cash">Cash</option><option value="gcash">GCash</option><option value="bank_transfer">Bank transfer</option><option value="cod">Cash on Delivery</option><option value="qrph">Xendit</option><option value="paymongo">Xendit (legacy method)</option></select></label>
+        <label className="ops-toolbar-field"><span>Payment method</span><select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}><option value="all">All methods</option><option value="cash">Cash</option><option value="gcash">GCash</option><option value="bank_transfer">Bank transfer</option><option value="cod">Cash on Delivery</option><option value="qrph">QrPH</option><option value="paymongo">QrPH (legacy method)</option></select></label>
         <label className="ops-toolbar-field"><span>Date</span><select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}><option value="">All dates</option><option value={today}>Today</option><option value={yesterday}>Yesterday</option></select></label>
         <label className="ops-toolbar-field"><span>Sort by</span><select value={sortBy} onChange={(e) => setSortBy(e.target.value)}><option value="oldest">First in, first out</option><option value="newest">Newest first</option><option value="scheduled">{activeTab === 'cancelled' ? 'Cancelled time' : 'Scheduled time'}</option><option value="priority">{activeTab === 'completed' ? 'Recently completed' : 'Lowest preparation time'}</option></select></label>
         <div className="ops-layout-toggle" role="group" aria-label="Order layout view"><button type="button" className={layoutView === 'grid' ? 'active' : ''} aria-label="Grid view" aria-pressed={layoutView === 'grid'} onClick={() => setLayoutView('grid')}><Grid2X2 size={17}/></button><button type="button" className={layoutView === 'table' ? 'active' : ''} aria-label="Table view" aria-pressed={layoutView === 'table'} onClick={() => setLayoutView('table')}><List size={19}/></button></div>

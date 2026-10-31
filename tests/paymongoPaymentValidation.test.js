@@ -15,3 +15,9 @@ test('only a paid payment for the bound session and exact peso amount is accepte
   assert.equal(paidCheckoutPayment(session(12500), 'cs_test_2', 12500), null)
   assert.equal(paidCheckoutPayment({ id: 'cs_test_1', attributes: { status: 'paid' } }, 'cs_test_1', 12500), null)
 })
+
+test('live checkout validation requires an explicitly live session', () => {
+  const liveSession = { ...session(100), attributes: { ...session(100).attributes, livemode: true } }
+  assert.equal(paidCheckoutPayment(liveSession, 'cs_test_1', 100, true)?.id, 'pay_1')
+  assert.equal(paidCheckoutPayment(liveSession, 'cs_test_1', 100, false), null)
+})

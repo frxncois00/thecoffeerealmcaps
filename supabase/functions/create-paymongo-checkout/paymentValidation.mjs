@@ -1,5 +1,5 @@
-export function paidCheckoutPayment(session, expectedSessionId, expectedAmountMinor) {
-  if (!session || session.id !== expectedSessionId || session.attributes?.livemode === true) return null
+export function paidCheckoutPayment(session, expectedSessionId, expectedAmountMinor, expectedLivemode = false) {
+  if (!session || session.id !== expectedSessionId || Boolean(session.attributes?.livemode) !== Boolean(expectedLivemode)) return null
   const payments = session.attributes?.payments
   if (!Array.isArray(payments)) return null
   return payments.find((payment) =>

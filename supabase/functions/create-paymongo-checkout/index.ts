@@ -12,8 +12,9 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const paymongoSecretKey = Deno.env.get("PAYMONGO_SECRET_KEY") || "";
-const returnOrigin = originFromRequest(Deno.env.get("PAYMONGO_RETURN_ORIGIN") || "https://thecoffeerealm.store");
-const paymongoMethods = (Deno.env.get("PAYMONGO_PAYMENT_METHOD_TYPES") || "card,gcash,qrph")
+const paymongoEnvironment = paymongoSecretKey.startsWith("sk_live_") ? "live" : "test";
+const configuredReturnOrigin = originFromRequest(Deno.env.get("PAYMONGO_RETURN_ORIGIN") || "https://thecoffeerealm.store");
+const paymongoMethods = (Deno.env.get("PAYMONGO_PAYMENT_METHOD_TYPES") || (paymongoEnvironment === "live" ? "qrph" : "card,gcash,qrph"))
   .split(",")
   .map((method) => method.trim().toLowerCase())
   .filter(Boolean);
@@ -24,6 +25,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 });
 
 const minorUnits = (value: unknown) => Math.round(Number(value || 0) * 100);
+const checkoutMinorUnits = (value: unknown) => Math.max(100, minorUnits(value));
 
 function originFromRequest(value: unknown) {
   const origin = String(value || "").trim();
@@ -45,8 +47,8 @@ Deno.serve(async (request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (request.method !== "POST") return json({ error: "Use POST." }, 405);
   if (!supabaseUrl || !anonKey || !serviceRoleKey) return json({ error: "Supabase is not configured." }, 500);
-  if (!paymongoSecretKey.startsWith("sk_test_")) {
-    return json({ error: "PayMongo test mode is not configured. Add an sk_test_ secret to Supabase Functions secrets." }, 503);
+  if (!/^sk_(test|live)_/.test(paymongoSecretKey)) {
+    return json({ error: "PayMongo is not configured. Add a valid secret key to Supabase Functions secrets." }, 503);
   }
 
   const authorization = request.headers.get("Authorization") || "";
@@ -66,6 +68,8 @@ Deno.serve(async (request) => {
     const body = await request.json().catch(() => ({}));
     const action = String(body?.action || "checkout").trim().toLowerCase();
     const orderId = String(body?.order_id || "").trim();
+    const requestedOrigin = originFromRequest(body?.origin);
+    const returnOrigin = requestedOrigin?.startsWith("http://localhost") ? requestedOrigin : configuredReturnOrigin;
 
     if (!/^[0-9a-f-]{36}$/i.test(orderId)) {
       return json({ error: "A valid order ID is required." }, 400);
@@ -87,13 +91,17 @@ Deno.serve(async (request) => {
     // If verify action was requested: query PayMongo directly for session payment status
     if (action === "verify") {
       if (order.payment_confirmed || order.payment_status === "paid" || payment.status === "paid") {
+        if (["Pending Confirmation", "Awaiting Payment Verification", "Order Received"].includes(String(order.status || ""))) {
+          const { error: statusError } = await admin.from("orders").update({ status: "Preparing", updated_at: new Date().toISOString() }).eq("id", order.id);
+          if (statusError) throw statusError;
+        }
         return json({ success: true, paid: true, order_id: order.id });
       }
       if (!payment.provider_checkout_session_id) {
         return json({ success: true, paid: false, order_id: order.id, note: "No checkout session found." });
       }
 
-      const verifyRes = await fetch(`https://api.paymongo.com/v2/checkout_sessions/${payment.provider_checkout_session_id}`, {
+      const verifyRes = await fetch(`https://api.paymongo.com/v1/checkout_sessions/${payment.provider_checkout_session_id}`, {
         method: "GET",
         headers: {
           Accept: "application/json",
@@ -107,7 +115,8 @@ Deno.serve(async (request) => {
         const paidPayment = paidCheckoutPayment(
           sessionData,
           payment.provider_checkout_session_id,
-          minorUnits(payment.amount_due),
+          checkoutMinorUnits(payment.amount_due),
+          paymongoEnvironment === "live",
         );
 
         if (paidPayment) {
@@ -124,16 +133,14 @@ Deno.serve(async (request) => {
           }).eq("id", payment.id);
           if (paidError) throw paidError;
 
+          const shouldPrepare = ["Pending Confirmation", "Awaiting Payment Verification", "Order Received"].includes(String(order.status || ""));
           const { error: orderPaidError } = await admin.from("orders").update({
             payment_status: "paid",
             payment_confirmed: true,
+            ...(shouldPrepare ? { status: "Preparing" } : {}),
             updated_at: now,
           }).eq("id", order.id);
           if (orderPaidError) throw orderPaidError;
-
-          if (["Pending Confirmation", "Awaiting Payment Verification"].includes(String(order.status || ""))) {
-            await admin.from("orders").update({ status: "Order Received", updated_at: now }).eq("id", order.id);
-          }
 
           return json({ success: true, paid: true, order_id: order.id });
         }
@@ -145,6 +152,15 @@ Deno.serve(async (request) => {
     if (!returnOrigin) return json({ error: "PayMongo return origin is not configured." }, 503);
     if (!["paymongo", "qrph"].includes(paymentMethod)) {
       return json({ error: "A valid payment method is required." }, 400);
+    }
+
+    if (order.payment_confirmed || order.payment_status === "paid" || payment.status === "paid") {
+      return json({
+        checkout_url: `${returnOrigin}/checkout/paymongo/success?order_id=${encodeURIComponent(order.id)}`,
+        checkout_session_id: payment.provider_checkout_session_id || null,
+        order_id: order.id,
+        paid: true,
+      });
     }
 
     if (payment.provider_checkout_session_id && payment.provider_checkout_url) {
@@ -171,7 +187,7 @@ Deno.serve(async (request) => {
           line_items: [{
             name: `The Coffee Realm order ${String(order.order_number || referenceNumber)}`,
             description: `${itemCount || 1} item${itemCount === 1 ? "" : "s"}`,
-            amount: minorUnits(order.final_total ?? payment.amount_due),
+            amount: checkoutMinorUnits(order.final_total ?? payment.amount_due),
             currency: "PHP",
             quantity: 1,
           }],
@@ -186,14 +202,14 @@ Deno.serve(async (request) => {
           success_url: successUrl,
           cancel_url: cancelUrl,
           reference_number: referenceNumber,
-          description: `Test payment for ${referenceNumber}`,
+          description: `Payment for ${referenceNumber}`,
           send_email_receipt: false,
           show_description: true,
           show_line_items: true,
           metadata: {
             order_id: String(order.id),
             order_number: referenceNumber,
-            environment: "test",
+            environment: paymongoEnvironment,
           },
         },
       },
@@ -205,7 +221,7 @@ Deno.serve(async (request) => {
         Accept: "application/json",
         "Content-Type": "application/json",
         Authorization: basicAuth(paymongoSecretKey),
-        "Idempotency-Key": `tcr-test-order-${order.id}`,
+        "Idempotency-Key": `tcr-${paymongoEnvironment}-order-${order.id}`,
       },
       body: JSON.stringify(payload),
     });

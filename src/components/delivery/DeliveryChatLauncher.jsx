@@ -102,7 +102,7 @@ function OrderDetails({ thread }) {
   if(!thread)return <div className="dc-details-empty"><ShoppingBag size={25}/><span>Order details</span></div>
   const items=thread.items||[]
   const payment=thread.payments?.[0]
-  const methods={gcash:'GCash',bank_transfer:'Bank transfer',cod:'Cash on Delivery',cash:'Cash',qrph:'Xendit',paymongo:'Xendit',xendit:'Xendit'}
+  const methods={gcash:'GCash',bank_transfer:'Bank transfer',cod:'Cash on Delivery',cash:'Cash',qrph:'QrPH',paymongo:'QrPH',xendit:'QrPH'}
   const awaiting=thread.confirmation_deadline&&!thread.closed_at&&thread.status==='Out for Delivery'
   return <><header className="dc-details-title"><ShoppingBag size={16}/><h3>Order details</h3></header><div className="dc-receipt">
     <div className="dc-receipt-heading"><strong>{thread.order_number}</strong><span className="dc-status">{awaiting?'Awaiting confirmation':thread.status==='Ready for Pickup'?'Ready for Delivery':thread.status}</span></div>
